@@ -1,0 +1,25 @@
+apiVersion: zookeeper.stackable.tech/v1alpha1
+kind: ZookeeperCluster
+metadata:
+  name: simple
+spec:
+  version: 3.5.8
+  servers:
+    roleGroups:
+      default:
+        selector:
+          matchExpressions:
+            - operator: In
+              key: kubernetes.io/hostname
+              values:
+                - worker-1.stackable.demo
+                - worker-2.stackable.demo
+                - worker-3.stackable.demo
+        config:
+          adminPort: 12000
+          metricsPort: 9505
+
+
+
+
+
