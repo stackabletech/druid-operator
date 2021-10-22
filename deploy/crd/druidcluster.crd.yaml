@@ -22,7 +22,7 @@ spec:
           properties:
             spec:
               properties:
-                servers:
+                coordinators:
                   properties:
                     cliOverrides:
                       additionalProperties:
@@ -31,6 +31,10 @@ spec:
                       type: object
                     config:
                       nullable: true
+                      properties:
+                        javaHome:
+                          nullable: true
+                          type: string
                       type: object
                     configOverrides:
                       additionalProperties:
@@ -54,6 +58,10 @@ spec:
                             type: object
                           config:
                             nullable: true
+                            properties:
+                              javaHome:
+                                nullable: true
+                                type: string
                             type: object
                           configOverrides:
                             additionalProperties:
@@ -113,7 +121,7 @@ spec:
                     - 0.22.0
                   type: string
               required:
-                - servers
+                - coordinators
                 - version
               type: object
             status:

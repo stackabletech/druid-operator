@@ -1,4 +1,5 @@
 mod error;
+mod config;
 use crate::error::Error;
 use stackable_druid_crd::commands::{Restart, Start, Stop};
 
@@ -43,9 +44,7 @@ use stackable_operator::status::{init_status, ClusterExecutionStatus};
 use stackable_operator::versioning::{finalize_versioning, init_versioning};
 use stackable_druid_crd::{
     DruidCluster, DruidClusterSpec, DruidRole, DruidVersion,  APP_NAME,
-     CONF_FILE_DATA, CONF_FILE_MASTER, CONF_FILE_QUERY, CONF_DIR_BROKER, CONF_DIR_COMMON, CONF_DIR_COORDINATOR_OVERLORD,
-     CONF_DIR_HISTORICAL, CONF_DIR_INDEXER, CONF_DIR_MIDDLEMANAGER, CONF_DIR_ROUTER, FILE_NAME_JVM_CONF, FILE_NAME_RUNTIME_PROPS,
-     CONF_FILE_COMMON_RUNTIME, CONF_FILE_LOG
+    LOG4J2_CONFIG, JVM_CONFIG, RUNTIME_PROPS
 };
 use std::collections::{BTreeMap, HashMap};
 use std::future::Future;
@@ -310,17 +309,23 @@ impl ControllerStrategy for DruidStrategy {
 
         eligible_nodes.insert(
             DruidRole::Coordinator.to_string(),
-            role_utils::find_nodes_that_fit_selectors(&context.client, None, &druid_spec.servers)
+            role_utils::find_nodes_that_fit_selectors(&context.client, None, &druid_spec.coordinators)
                 .await?,
         );
 
         let mut roles = HashMap::new();
+
+        let config_files = vec![
+            PropertyNameKind::File(JVM_CONFIG.to_string()),
+            PropertyNameKind::File(LOG4J2_CONFIG.to_string()),
+            PropertyNameKind::File(RUNTIME_PROPS.to_string()),
+        ];
+
         roles.insert(
             DruidRole::Coordinator.to_string(),
             (
-                vec![
-                ],
-                context.resource.spec.servers.clone().into(),
+                config_files.clone(),
+                context.resource.spec.coordinators.clone().into(),
             ),
         );
 

@@ -29,29 +29,11 @@ use strum_macros::Display;
 use strum_macros::EnumIter;
 
 pub const APP_NAME: &str = "druid";
-pub const MANAGED_BY: &str = "druid-operator";
+pub const CONF_DIR: &str = "conf";
 
-pub const CONFIG_MAP_TYPE_DATA: &str = "data";
-pub const CONFIG_MAP_TYPE_ID: &str = "id";
-
-pub const CONF_DIR_DRUID: &str = "conf/druid";
-pub const CONF_DIR_COMMON: &str = format!("{}/_common", CONF_DIR_DRUID);
-pub const CONF_FILE_LOG: &str = format!("{}/log4j2.xml", CONF_DIR_COMMON);
-pub const CONF_FILE_COMMON_RUNTIME: &str = format!("{}/common.runtime.properties", CONF_DIR_COMMON);
-
-pub const CONF_DIR_BROKER: &str = format!("{}/query/broker", CONF_DIR_DRUID);
-pub const CONF_DIR_ROUTER: &str = format!("{}/query/router", CONF_DIR_DRUID);
-pub const CONF_DIR_COORDINATOR_OVERLORD: &str = format!("{}/master/coordinator-overlord", CONF_DIR_DRUID);
-pub const CONF_DIR_HISTORICAL: &str = format!("{}/data/historical", CONF_DIR_DRUID);
-pub const CONF_DIR_INDEXER: &str = format!("{}/data/indexer", CONF_DIR_DRUID);
-pub const CONF_DIR_MIDDLEMANAGER: &str = format!("{}/data/middleManager", CONF_DIR_DRUID);
-pub const FILE_NAME_JVM_CONF: &str = "jvm.properties";
-pub const FILE_NAME_RUNTIME_PROPS: &str = "runtime.properties";
-
-pub const CONF_DIR_SUPERVISE: &str = "conf/supervise";
-pub const CONF_FILE_MASTER: &str = format!("{}/master.conf", CONF_DIR_SUPERVISE);
-pub const CONF_FILE_QUERY: &str = format!("{}/query.conf", CONF_DIR_SUPERVISE);
-pub const CONF_FILE_DATA: &str = format!("{}/data.conf", CONF_DIR_SUPERVISE);
+pub const JVM_CONFIG: &str = "jvm.config";
+pub const RUNTIME_PROPS: &str = "runtime.properties";
+pub const LOG4J2_CONFIG: &str = "log4j2.xml";
 
 #[derive(Clone, CustomResource, Debug, Deserialize, JsonSchema, PartialEq, Serialize)]
 #[kube(
@@ -65,19 +47,24 @@ pub const CONF_FILE_DATA: &str = format!("{}/data.conf", CONF_DIR_SUPERVISE);
 #[kube(status = "DruidClusterStatus")]
 pub struct DruidClusterSpec {
     pub version: DruidVersion,
-    pub servers: Role<DruidConfig>,
+    pub coordinators: Role<DruidConfig>,
+    // TODO zookeeper reference
 }
 
 #[derive(
     Clone, Debug, Deserialize, Display, EnumIter, Eq, Hash, JsonSchema, PartialEq, Serialize,
 )]
 pub enum DruidRole {
-    #[strum(serialize = "master")]
-    Master,
-    #[strum(serialize = "query")]
-    Query,
-    #[strum(serialize = "data")]
-    Data,
+    #[strum(serialize = "coordinator")]
+    Coordinator,
+    #[strum(serialize = "broker")]
+    Broker,
+    #[strum(serialize = "historical")]
+    Historical,
+    #[strum(serialize = "middleManager")]
+    MiddleManager,
+    #[strum(serialize = "router")]
+    Router,
 }
 
 impl DruidRole {
@@ -86,17 +73,11 @@ impl DruidRole {
         &self,
         version: &DruidVersion,
     ) -> Vec<String> {
-        match self {
-            DruidRole::Master => vec![
-                format!("{}/bin/start-cluster-master-no-zk-server", version.package_name()),
-            ],
-            DruidRole::Query => vec![
-                format!("{}/bin/start-cluster-query-server", version.package_name()),
-            ],
-            DruidRole::Data => vec![
-                format!("{}/bin/start-cluster-data-server", version.package_name()),
-            ],
-        }
+        vec![
+            format!("{}/stackable/run-druid", version.package_name()),
+            self.to_string(),
+            format!("{{configroot}}/{}", CONF_DIR),
+        ]
     }
 }
 
@@ -113,9 +94,7 @@ impl HasRoleRestartOrder for DruidCluster {
     fn get_role_restart_order() -> Vec<String> {
         // TODO verify if this order is correct
         vec![
-            DruidRole::Master.to_string(),
-            DruidRole::Query.to_string(),
-            DruidRole::Data.to_string(),
+            todo!(),
         ]
     }
 }
@@ -154,10 +133,13 @@ impl HasClusterExecutionStatus for DruidCluster {
     }
 }
 
-// TODO: These all should be "Property" Enums that can be either simple or complex where complex allows forcing/ignoring errors and/or warnings
 #[derive(Clone, Debug, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct DruidConfig {}
+pub struct DruidConfig {
+
+    // misc
+    pub java_home: Option<String>,  // needs to be java 8!
+}
 
 impl Configuration for DruidConfig {
     type Configurable = DruidCluster;
@@ -310,18 +292,7 @@ mod tests {
 
     #[test]
     fn test_druid_version_versioning() {
-        assert_eq!(
-            DruidVersion::v3_4_14.versioning_state(&DruidVersion::v3_5_8),
-            VersioningState::ValidUpgrade
-        );
-        assert_eq!(
-            DruidVersion::v3_5_8.versioning_state(&DruidVersion::v3_4_14),
-            VersioningState::ValidDowngrade
-        );
-        assert_eq!(
-            DruidVersion::v3_4_14.versioning_state(&DruidVersion::v3_4_14),
-            VersioningState::NoOp
-        );
+        todo!();
     }
 
     #[test]

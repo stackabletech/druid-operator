@@ -26,9 +26,11 @@ spec:
                 roles:
                   items:
                     enum:
-                      - Master
-                      - Query
-                      - Data
+                      - Coordinator
+                      - Broker
+                      - Historical
+                      - MiddleManager
+                      - Router
                     type: string
                   nullable: true
                   type: array
