@@ -1,25 +1,41 @@
-apiVersion: zookeeper.stackable.tech/v1alpha1
-kind: ZookeeperCluster
+apiVersion: druid.stackable.tech/v1alpha1
+kind: DruidCluster
 metadata:
   name: simple
 spec:
-  version: 3.5.8
-  servers:
+  version: 0.22.0
+  brokers:
     roleGroups:
       default:
         selector:
-          matchExpressions:
-            - operator: In
-              key: kubernetes.io/hostname
-              values:
-                - worker-1.stackable.demo
-                - worker-2.stackable.demo
-                - worker-3.stackable.demo
-        config:
-          adminPort: 12000
-          metricsPort: 9505
-
-
-
-
-
+          matchLabels:
+            kubernetes.io/os: stackable-linux
+        replicas: 1
+  coordinators:
+    roleGroups:
+      default:
+        selector:
+          matchLabels:
+            kubernetes.io/os: stackable-linux
+        replicas: 1
+  historicals:
+    roleGroups:
+      default:
+        selector:
+          matchLabels:
+            kubernetes.io/os: stackable-linux
+        replicas: 1
+  middlemanagers:
+    roleGroups:
+      default:
+        selector:
+          matchLabels:
+            kubernetes.io/os: stackable-linux
+        replicas: 1
+  routers:
+    roleGroups:
+      default:
+        selector:
+          matchLabels:
+            kubernetes.io/os: stackable-linux
+        replicas: 1

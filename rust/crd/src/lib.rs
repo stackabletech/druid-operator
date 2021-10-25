@@ -48,7 +48,11 @@ pub const LOG4J2_CONFIG: &str = "log4j2.xml";
 #[kube(status = "DruidClusterStatus")]
 pub struct DruidClusterSpec {
     pub version: DruidVersion,
+    pub brokers: Role<DruidConfig>,
     pub coordinators: Role<DruidConfig>,
+    pub historicals: Role<DruidConfig>,
+    pub middlemanagers: Role<DruidConfig>,
+    pub routers: Role<DruidConfig>,
     // TODO zookeeper reference
 }
 

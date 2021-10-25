@@ -377,11 +377,43 @@ impl ControllerStrategy for DruidStrategy {
         ];
 
         roles.insert(
+            DruidRole::Broker.to_string(),
+            (
+                config_files.clone(),
+                context.resource.spec.brokers.clone().into(),
+            )
+        );
+
+        roles.insert(
             DruidRole::Coordinator.to_string(),
             (
                 config_files.clone(),
                 context.resource.spec.coordinators.clone().into(),
-            ),
+            )
+        );
+
+        roles.insert(
+            DruidRole::Historical.to_string(),
+            (
+                config_files.clone(),
+                context.resource.spec.historicals.clone().into(),
+            )
+        );
+
+        roles.insert(
+            DruidRole::MiddleManager.to_string(),
+            (
+                config_files.clone(),
+                context.resource.spec.middlemanagers.clone().into(),
+            )
+        );
+
+        roles.insert(
+            DruidRole::Router.to_string(),
+            (
+                config_files.clone(),
+                context.resource.spec.routers.clone().into(),
+            )
         );
 
         let role_config = transform_all_roles_to_config(&context.resource, roles);
