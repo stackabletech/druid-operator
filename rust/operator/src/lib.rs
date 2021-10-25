@@ -1,5 +1,6 @@
-mod error;
 mod config;
+mod error;
+use crate::config::{get_jvm_config, get_runtime_properties};
 use crate::error::Error;
 use stackable_druid_crd::commands::{Restart, Start, Stop};
 
@@ -10,6 +11,10 @@ use kube::Api;
 use kube::CustomResourceExt;
 use product_config::types::PropertyNameKind;
 use product_config::ProductConfigManager;
+use stackable_druid_crd::{
+    DruidCluster, DruidClusterSpec, DruidRole, DruidVersion, APP_NAME, JVM_CONFIG, LOG4J2_CONFIG,
+    RUNTIME_PROPS,
+};
 use stackable_operator::builder::{
     ContainerBuilder, ContainerPortBuilder, ObjectMetaBuilder, PodBuilder,
 };
@@ -42,10 +47,6 @@ use stackable_operator::scheduler::{
 use stackable_operator::status::HasClusterExecutionStatus;
 use stackable_operator::status::{init_status, ClusterExecutionStatus};
 use stackable_operator::versioning::{finalize_versioning, init_versioning};
-use stackable_druid_crd::{
-    DruidCluster, DruidClusterSpec, DruidRole, DruidVersion,  APP_NAME,
-    LOG4J2_CONFIG, JVM_CONFIG, RUNTIME_PROPS
-};
 use std::collections::{BTreeMap, HashMap};
 use std::future::Future;
 use std::pin::Pin;
@@ -55,9 +56,14 @@ use strum::IntoEnumIterator;
 use tracing::error;
 use tracing::{debug, info, trace, warn};
 
+use std::str::FromStr;
+use strum_macros::EnumString;
+
 const FINALIZER_NAME: &str = "druid.stackable.tech/cleanup";
 const ID_LABEL: &str = "druid.stackable.tech/id";
 const SHOULD_BE_SCRAPED: &str = "monitoring.stackable.tech/should_be_scraped";
+
+const CONFIG_MAP_TYPE_CONF: &str = "config";
 
 // TODO: adapt to Druid/.. config files
 // const PROPERTIES_FILE: &str = "zoo.cfg";
@@ -150,7 +156,52 @@ impl DruidState {
         validated_config: &HashMap<PropertyNameKind, BTreeMap<String, String>>,
         id_mapping: &PodToNodeMapping,
     ) -> Result<HashMap<&'static str, ConfigMap>, Error> {
-        todo!()
+        let mut config_maps = HashMap::new();
+        let mut cm_conf_data = BTreeMap::new();
+
+        let role = DruidRole::from_str(pod_id.role()).unwrap();
+        let jvm_config = get_jvm_config(&role);
+        let runtime_properties = get_runtime_properties(&role);
+        cm_conf_data.insert(JVM_CONFIG.to_string(), jvm_config);
+        cm_conf_data.insert(RUNTIME_PROPS.to_string(), runtime_properties);
+
+        // druid config map
+        let mut cm_labels = get_recommended_labels(
+            &self.context.resource,
+            pod_id.app(),
+            &self.context.resource.spec.version.to_string(),
+            pod_id.role(),
+            pod_id.group(),
+        );
+
+        cm_labels.insert(
+            configmap::CONFIGMAP_TYPE_LABEL.to_string(),
+            CONFIG_MAP_TYPE_CONF.to_string(),
+        );
+
+        let cm_conf_name = name_utils::build_resource_name(
+            pod_id.app(),
+            &self.context.name(),
+            pod_id.role(),
+            Some(pod_id.group()),
+            None,
+            Some(CONFIG_MAP_TYPE_CONF),
+        )?;
+
+        let cm_config = configmap::build_config_map(
+            &self.context.resource,
+            &cm_conf_name,
+            &self.context.namespace(),
+            cm_labels.clone(),
+            cm_conf_data,
+        )?;
+
+        config_maps.insert(
+            CONFIG_MAP_TYPE_CONF,
+            configmap::create_config_map(&self.context.client, cm_config).await?,
+        );
+
+        Ok(config_maps)
     }
 
     /// Creates the pod required for the druid instance.
@@ -169,7 +220,7 @@ impl DruidState {
         config_maps: &HashMap<&'static str, ConfigMap>,
         validated_config: &HashMap<PropertyNameKind, BTreeMap<String, String>>,
     ) -> Result<Pod, Error> {
-todo!()
+        todo!()
     }
 
     async fn delete_all_pods(&self) -> OperatorResult<ReconcileFunctionAction> {
@@ -309,8 +360,12 @@ impl ControllerStrategy for DruidStrategy {
 
         eligible_nodes.insert(
             DruidRole::Coordinator.to_string(),
-            role_utils::find_nodes_that_fit_selectors(&context.client, None, &druid_spec.coordinators)
-                .await?,
+            role_utils::find_nodes_that_fit_selectors(
+                &context.client,
+                None,
+                &druid_spec.coordinators,
+            )
+            .await?,
         );
 
         let mut roles = HashMap::new();

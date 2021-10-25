@@ -27,6 +27,7 @@ use std::cmp::Ordering;
 use std::collections::BTreeMap;
 use strum_macros::Display;
 use strum_macros::EnumIter;
+use strum_macros::EnumString;
 
 pub const APP_NAME: &str = "druid";
 pub const CONF_DIR: &str = "conf";
@@ -52,7 +53,7 @@ pub struct DruidClusterSpec {
 }
 
 #[derive(
-    Clone, Debug, Deserialize, Display, EnumIter, Eq, Hash, JsonSchema, PartialEq, Serialize,
+    Clone, Debug, Deserialize, Display, EnumIter, Eq, Hash, JsonSchema, PartialEq, Serialize, EnumString
 )]
 pub enum DruidRole {
     #[strum(serialize = "coordinator")]
