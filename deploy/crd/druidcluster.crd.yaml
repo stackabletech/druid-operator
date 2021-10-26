@@ -35,6 +35,11 @@ spec:
                         javaHome:
                           nullable: true
                           type: string
+                        plaintextPort:
+                          format: uint16
+                          minimum: 0.0
+                          nullable: true
+                          type: integer
                       type: object
                     configOverrides:
                       additionalProperties:
@@ -62,6 +67,11 @@ spec:
                               javaHome:
                                 nullable: true
                                 type: string
+                              plaintextPort:
+                                format: uint16
+                                minimum: 0.0
+                                nullable: true
+                                type: integer
                             type: object
                           configOverrides:
                             additionalProperties:
@@ -129,6 +139,11 @@ spec:
                         javaHome:
                           nullable: true
                           type: string
+                        plaintextPort:
+                          format: uint16
+                          minimum: 0.0
+                          nullable: true
+                          type: integer
                       type: object
                     configOverrides:
                       additionalProperties:
@@ -156,6 +171,11 @@ spec:
                               javaHome:
                                 nullable: true
                                 type: string
+                              plaintextPort:
+                                format: uint16
+                                minimum: 0.0
+                                nullable: true
+                                type: integer
                             type: object
                           configOverrides:
                             additionalProperties:
@@ -223,6 +243,11 @@ spec:
                         javaHome:
                           nullable: true
                           type: string
+                        plaintextPort:
+                          format: uint16
+                          minimum: 0.0
+                          nullable: true
+                          type: integer
                       type: object
                     configOverrides:
                       additionalProperties:
@@ -250,6 +275,11 @@ spec:
                               javaHome:
                                 nullable: true
                                 type: string
+                              plaintextPort:
+                                format: uint16
+                                minimum: 0.0
+                                nullable: true
+                                type: integer
                             type: object
                           configOverrides:
                             additionalProperties:
@@ -317,6 +347,11 @@ spec:
                         javaHome:
                           nullable: true
                           type: string
+                        plaintextPort:
+                          format: uint16
+                          minimum: 0.0
+                          nullable: true
+                          type: integer
                       type: object
                     configOverrides:
                       additionalProperties:
@@ -344,6 +379,11 @@ spec:
                               javaHome:
                                 nullable: true
                                 type: string
+                              plaintextPort:
+                                format: uint16
+                                minimum: 0.0
+                                nullable: true
+                                type: integer
                             type: object
                           configOverrides:
                             additionalProperties:
@@ -411,6 +451,11 @@ spec:
                         javaHome:
                           nullable: true
                           type: string
+                        plaintextPort:
+                          format: uint16
+                          minimum: 0.0
+                          nullable: true
+                          type: integer
                       type: object
                     configOverrides:
                       additionalProperties:
@@ -438,6 +483,11 @@ spec:
                               javaHome:
                                 nullable: true
                                 type: string
+                              plaintextPort:
+                                format: uint16
+                                minimum: 0.0
+                                nullable: true
+                                type: integer
                             type: object
                           configOverrides:
                             additionalProperties:

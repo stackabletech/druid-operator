@@ -13,7 +13,7 @@ use product_config::types::PropertyNameKind;
 use product_config::ProductConfigManager;
 use stackable_druid_crd::{
     DruidCluster, DruidClusterSpec, DruidRole, DruidVersion, APP_NAME, JVM_CONFIG, LOG4J2_CONFIG,
-    RUNTIME_PROPS,
+    RUNTIME_PROPS, PLAINTEXT_PORT, JAVA_HOME, PLAINTEXT, CONF_DIR
 };
 use stackable_operator::builder::{
     ContainerBuilder, ContainerPortBuilder, ObjectMetaBuilder, PodBuilder,
@@ -128,7 +128,125 @@ impl DruidState {
     }
 
     pub async fn create_missing_pods(&mut self) -> DruidReconcileResult {
-        todo!()
+        trace!(target: "create_missing_pods","Starting `create_missing_pods`");
+
+        // The iteration happens in two stages here, to accommodate the way our operators think
+        // about roles and role groups.
+        // The hierarchy is:
+        // - Roles (Master, Worker, History-Server)
+        //   - Role groups (user defined)
+        for role in DruidRole::iter() {
+            let role_str = &role.to_string();
+            if let Some(nodes_for_role) = self.eligible_nodes.get(role_str) {
+                for (role_group, eligible_nodes) in nodes_for_role {
+                    debug!( target: "create_missing_pods",
+                        "Identify missing pods for [{}] role and group [{}]",
+                        role_str, role_group
+                    );
+                    trace!( target: "create_missing_pods",
+                        "candidate_nodes[{}]: [{:?}]",
+                        eligible_nodes.nodes.len(),
+                        eligible_nodes
+                            .nodes
+                            .iter()
+                            .map(|node| node.metadata.name.as_ref().unwrap())
+                            .collect::<Vec<_>>()
+                    );
+                    trace!(target: "create_missing_pods",
+                        "existing_pods[{}]: [{:?}]",
+                        &self.existing_pods.len(),
+                        &self
+                            .existing_pods
+                            .iter()
+                            .map(|pod| pod.metadata.name.as_ref().unwrap())
+                            .collect::<Vec<_>>()
+                    );
+                    trace!(target: "create_missing_pods",
+                        "labels: [{:?}]",
+                        get_role_and_group_labels(role_str, role_group)
+                    );
+                    let mut history = match self
+                        .context
+                        .resource
+                        .status
+                        .as_ref()
+                        .and_then(|status| status.history.as_ref())
+                    {
+                        Some(simple_history) => {
+                            // we clone here because we cannot access mut self because we need it later
+                            // to create config maps and pods. The `status` history will be out of sync
+                            // with the cloned `simple_history` until the next reconcile.
+                            // The `status` history should not be used after this method to avoid side
+                            // effects.
+                            K8SUnboundedHistory::new(&self.context.client, simple_history.clone())
+                        }
+                        None => K8SUnboundedHistory::new(
+                            &self.context.client,
+                            PodToNodeMapping::default(),
+                        ),
+                    };
+
+                    let mut sticky_scheduler =
+                        StickyScheduler::new(&mut history, ScheduleStrategy::GroupAntiAffinity);
+
+                    let pod_id_factory = LabeledPodIdentityFactory::new(
+                        APP_NAME,
+                        &self.context.name(),
+                        &self.eligible_nodes,
+                        ID_LABEL,
+                        1,
+                    );
+
+                    trace!("pod_id_factory: {:?}", pod_id_factory.as_ref());
+
+                    let state = sticky_scheduler.schedule(
+                        &pod_id_factory,
+                        &RoleGroupEligibleNodes::from(&self.eligible_nodes),
+                        &self.existing_pods,
+                    )?;
+
+                    let mapping = state.remaining_mapping().filter(
+                        APP_NAME,
+                        &self.context.name(),
+                        role_str,
+                        role_group,
+                    );
+
+                    if let Some((pod_id, node_id)) = mapping.iter().next() {
+                        // now we have a node that needs a pod -> get validated config
+                        let validated_config = config_for_role_and_group(
+                            pod_id.role(),
+                            pod_id.group(),
+                            &self.validated_role_config,
+                        )?;
+
+                        let config_maps = self
+                            .create_config_maps(pod_id, &role, validated_config)
+                            .await?;
+
+                        self.create_pod(
+                            pod_id,
+                            &role,
+                            &node_id.name,
+                            &config_maps,
+                            validated_config,
+                        )
+                        .await?;
+
+                        history.save(&self.context.resource).await?;
+
+                        return Ok(ReconcileFunctionAction::Requeue(Duration::from_secs(10)));
+                    }
+                }
+            }
+        }
+
+        // If we reach here it means all pods must be running on target_version.
+        // We can now set current_version to target_version (if target_version was set) and
+        // target_version to None
+        finalize_versioning(&self.context.client, &self.context.resource).await?;
+
+        Ok(ReconcileFunctionAction::Continue)
     }
 
     /// Creates the config maps required for a druid instance (or role, role_group combination):
@@ -153,13 +271,12 @@ impl DruidState {
     async fn create_config_maps(
         &self,
         pod_id: &PodIdentity,
-        validated_config: &HashMap<PropertyNameKind, BTreeMap<String, String>>,
-        id_mapping: &PodToNodeMapping,
+        role: &DruidRole,
+        validated_config: &HashMap<PropertyNameKind, BTreeMap<String, String>>
     ) -> Result<HashMap<&'static str, ConfigMap>, Error> {
         let mut config_maps = HashMap::new();
         let mut cm_conf_data = BTreeMap::new();
 
-        let role = DruidRole::from_str(pod_id.role()).unwrap();
         let jvm_config = get_jvm_config(&role);
         let runtime_properties = get_runtime_properties(&role);
         cm_conf_data.insert(JVM_CONFIG.to_string(), jvm_config);
@@ -216,11 +333,89 @@ impl DruidState {
     async fn create_pod(
         &self,
         pod_id: &PodIdentity,
+        role: &DruidRole,
         node_name: &str,
         config_maps: &HashMap<&'static str, ConfigMap>,
         validated_config: &HashMap<PropertyNameKind, BTreeMap<String, String>>,
     ) -> Result<Pod, Error> {
-        todo!()
+        let plaintext_port = validated_config
+            .get(&PropertyNameKind::File(RUNTIME_PROPS.to_string()))
+            .and_then(|props| props.get(PLAINTEXT_PORT));
+
+        let java_home = validated_config
+            .get(&PropertyNameKind::Env)
+            .and_then(|env| env.get(JAVA_HOME));
+
+        let version = &self.context.resource.spec.version;
+
+        let pod_name = name_utils::build_resource_name(
+            pod_id.app(),
+            &self.context.name(),
+            pod_id.role(),
+            Some(pod_id.group()),
+            Some(node_name),
+            None,
+        )?;
+
+        let mut recommended_labels = get_recommended_labels(
+            &self.context.resource,
+            pod_id.app(),
+            &version.to_string(),
+            pod_id.role(),
+            pod_id.group(),
+        );
+        recommended_labels.insert(ID_LABEL.to_string(), pod_id.id().to_string());
+
+        let mut cb = ContainerBuilder::new(APP_NAME);
+        cb.image(format!("stackable/druid:{}", version.to_string()));
+        cb.command(role.get_command(version));
+
+        if let Some(java_home) = java_home {
+            cb.add_env_var(JAVA_HOME, java_home);
+        }
+
+        if let Some(config_map_data) = config_maps.get(CONFIG_MAP_TYPE_CONF) {
+            if let Some(name) = config_map_data.metadata.name.as_ref() {
+                cb.add_configmapvolume(name, CONF_DIR.to_string());
+            } else {
+                return Err(error::Error::MissingConfigMapNameError {
+                    cm_type: CONFIG_MAP_TYPE_CONF,
+                });
+            }
+        } else {
+            return Err(error::Error::MissingConfigMapError {
+                cm_type: CONFIG_MAP_TYPE_CONF,
+                pod_name,
+            });
+        }
+
+        let mut annotations = BTreeMap::new();
+
+        if let Some(plaintext_port) = plaintext_port {
+            cb.add_container_port(
+                ContainerPortBuilder::new(plaintext_port.parse()?)
+                    .name(PLAINTEXT)
+                    .build(),
+            );
+        }
+
+        let pod = PodBuilder::new()
+            .metadata(
+                ObjectMetaBuilder::new()
+                    .generate_name(pod_name)
+                    .namespace(&self.context.client.default_namespace)
+                    .with_labels(recommended_labels)
+                    .with_annotations(annotations)
+                    .ownerreference_from_resource(&self.context.resource, Some(true), Some(true))?
+                    .build()?,
+            )
+            .add_stackable_agent_tolerations()
+            .add_container(cb.build())
+            .node_name(node_name)
+            .build()?;
+
+        trace!("create_pod: {:?}", pod_id);
+        Ok(self.context.client.create(&pod).await?)
     }
 
     async fn delete_all_pods(&self) -> OperatorResult<ReconcileFunctionAction> {

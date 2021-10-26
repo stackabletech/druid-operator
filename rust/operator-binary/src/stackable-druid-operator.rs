@@ -11,7 +11,7 @@ mod built_info {
 
 #[tokio::main]
 async fn main() -> Result<(), error::Error> {
-    logging::initialize_logging("ZOOKEEPER_OPERATOR_LOG");
+    logging::initialize_logging("DRUID_OPERATOR_LOG");
 
     // Handle CLI arguments
     let matches = App::new(built_info::PKG_DESCRIPTION)

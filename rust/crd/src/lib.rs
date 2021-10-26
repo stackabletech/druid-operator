@@ -28,13 +28,26 @@ use std::collections::BTreeMap;
 use strum_macros::Display;
 use strum_macros::EnumIter;
 use strum_macros::EnumString;
+use std::str::FromStr;
+
+use tracing::{warn, info, debug, trace};
 
 pub const APP_NAME: &str = "druid";
 pub const CONF_DIR: &str = "conf";
 
+// config file names
 pub const JVM_CONFIG: &str = "jvm.config";
 pub const RUNTIME_PROPS: &str = "runtime.properties";
 pub const LOG4J2_CONFIG: &str = "log4j2.xml";
+
+// runtime.properties property names
+pub const PLAINTEXT_PORT: &str = "druid.plaintextPort";
+
+// environment variables
+pub const JAVA_HOME: &str = "JAVA_HOME";
+
+// port names
+pub const PLAINTEXT: &str = "plaintext";
 
 #[derive(Clone, CustomResource, Debug, Deserialize, JsonSchema, PartialEq, Serialize)]
 #[kube(
@@ -81,7 +94,7 @@ impl DruidRole {
         vec![
             format!("{}/stackable/run-druid", version.package_name()),
             self.to_string(),
-            format!("{{configroot}}/{}", CONF_DIR),
+            format!("{{{{configroot}}}}/{}", CONF_DIR),
         ]
     }
 }
@@ -141,7 +154,8 @@ impl HasClusterExecutionStatus for DruidCluster {
 #[derive(Clone, Debug, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DruidConfig {
-
+    // port
+    pub plaintext_port: Option<u16>,
     // misc
     pub java_home: Option<String>,  // needs to be java 8!
 }
@@ -174,12 +188,36 @@ impl Configuration for DruidConfig {
     fn compute_files(
         &self,
         _resource: &Self::Configurable,
-        _role_name: &str,
-        _file: &str,
+        role_name: &str,
+        file: &str,
     ) -> Result<BTreeMap<String, Option<String>>, ConfigError> {
-        let mut result = BTreeMap::new();
+        warn!("LALALA");
+        let role = DruidRole::from_str(role_name).unwrap();
 
-        // TODO: Insert configs here
+        let mut result = BTreeMap::new();
+        info!("conf01");
+        match file {
+            JVM_CONFIG => {},
+            RUNTIME_PROPS => {
+                info!("conf02");
+                let plaintext_port = if let Some(port) = self.plaintext_port {
+                    info!("conf03a: {}", port);
+                    port
+                } else {
+                    info!("conf03b");
+                    match role {
+                        DruidRole::Coordinator => 8081,
+                        DruidRole::Broker => 8082,
+                        DruidRole::Historical => 8083,
+                        DruidRole::MiddleManager => 8091,
+                        DruidRole::Router => 8888
+                    }
+                };
+                result.insert(PLAINTEXT_PORT.to_string(), Some(plaintext_port.to_string()));
+            },
+            LOG4J2_CONFIG => {},
+            _ => {},
+        }
 
         Ok(result)
     }
