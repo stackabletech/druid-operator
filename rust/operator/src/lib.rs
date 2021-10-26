@@ -65,10 +65,6 @@ const SHOULD_BE_SCRAPED: &str = "monitoring.stackable.tech/should_be_scraped";
 
 const CONFIG_MAP_TYPE_CONF: &str = "config";
 
-// TODO: adapt to Druid/.. config files
-// const PROPERTIES_FILE: &str = "zoo.cfg";
-// const CONFIG_DIR_NAME: &str = "conf";
-
 type DruidReconcileResult = ReconcileResult<error::Error>;
 
 struct DruidState {
@@ -137,6 +133,7 @@ impl DruidState {
         //   - Role groups (user defined)
         for role in DruidRole::iter() {
             let role_str = &role.to_string();
+            trace!(target: "create_missing_pods", "Checking role '{}'", role_str);
             if let Some(nodes_for_role) = self.eligible_nodes.get(role_str) {
                 for (role_group, eligible_nodes) in nodes_for_role {
                     debug!( target: "create_missing_pods",
@@ -554,13 +551,49 @@ impl ControllerStrategy for DruidStrategy {
         let mut eligible_nodes = HashMap::new();
 
         eligible_nodes.insert(
+            DruidRole::Broker.to_string(),
+            role_utils::find_nodes_that_fit_selectors(
+                &context.client,
+                None,
+                &druid_spec.brokers,
+            )
+                .await?,
+        );
+        eligible_nodes.insert(
             DruidRole::Coordinator.to_string(),
             role_utils::find_nodes_that_fit_selectors(
                 &context.client,
                 None,
                 &druid_spec.coordinators,
             )
-            .await?,
+                .await?,
+        );
+        eligible_nodes.insert(
+            DruidRole::Historical.to_string(),
+            role_utils::find_nodes_that_fit_selectors(
+                &context.client,
+                None,
+                &druid_spec.historicals,
+            )
+                .await?,
+        );
+        eligible_nodes.insert(
+            DruidRole::MiddleManager.to_string(),
+            role_utils::find_nodes_that_fit_selectors(
+                &context.client,
+                None,
+                &druid_spec.middlemanagers,
+            )
+                .await?,
+        );
+        eligible_nodes.insert(
+            DruidRole::Router.to_string(),
+            role_utils::find_nodes_that_fit_selectors(
+                &context.client,
+                None,
+                &druid_spec.routers,
+            )
+                .await?,
         );
 
         let mut roles = HashMap::new();
