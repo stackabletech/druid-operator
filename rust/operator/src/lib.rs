@@ -1,6 +1,6 @@
 mod config;
 mod error;
-use crate::config::{get_jvm_config, get_runtime_properties};
+use crate::config::{get_jvm_config, get_runtime_properties, get_log4j_config};
 use crate::error::Error;
 use stackable_druid_crd::commands::{Restart, Start, Stop};
 
@@ -276,8 +276,10 @@ impl DruidState {
 
         let jvm_config = get_jvm_config(&role);
         let runtime_properties = get_runtime_properties(&role);
+        let log_config = get_log4j_config(&role);
         cm_conf_data.insert(JVM_CONFIG.to_string(), jvm_config);
         cm_conf_data.insert(RUNTIME_PROPS.to_string(), runtime_properties);
+        cm_conf_data.insert(LOG4J2_CONFIG.to_string(), log_config);
 
         // druid config map
         let mut cm_labels = get_recommended_labels(

@@ -167,3 +167,38 @@ pub fn get_runtime_properties(role: &DruidRole) -> String {
         ",
     }
 }
+
+pub fn get_log4j_config(_role: &DruidRole) -> String {
+     "<?xml version=\"1.0\" encoding=\"UTF-8\" ?>
+<Configuration status=\"WARN\">
+  <Appenders>
+    <Console name=\"Console\" target=\"SYSTEM_OUT\">
+      <PatternLayout pattern=\"%d{ISO8601} %p [%t] %c - %m%n\"/>
+    </Console>
+  </Appenders>
+  <Loggers>
+    <Root level=\"info\">
+      <AppenderRef ref=\"Console\"/>
+    </Root>
+    <Logger name=\"org.apache.druid.server.QueryLifecycle\" level=\"info\" additivity=\"false\">
+      <Appender-ref ref=\"Console\"/>
+    </Logger>
+    <Logger name=\"org.apache.druid.server.coordinator\" level=\"info\" additivity=\"false\">
+      <Appender-ref ref=\"Console\"/>
+    </Logger>
+    <Logger name=\"org.apache.druid.segment\" level=\"info\" additivity=\"false\">
+      <Appender-ref ref=\"Console\"/>
+    </Logger>
+    <Logger name=\"org.apache.druid.initialization\" level=\"info\" additivity=\"false\">
+      <Appender-ref ref=\"Console\"/>
+    </Logger>
+    <Logger name=\"org.skife.config\" level=\"warn\" additivity=\"false\">
+      <Appender-ref ref=\"Console\"/>
+    </Logger>
+    <Logger name=\"com.sun.jersey.guice\" level=\"warn\" additivity=\"false\">
+      <Appender-ref ref=\"Console\"/>
+    </Logger>
+  </Loggers>
+</Configuration>
+".to_string()
+}
