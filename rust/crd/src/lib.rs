@@ -40,14 +40,30 @@ pub const JVM_CONFIG: &str = "jvm.config";
 pub const RUNTIME_PROPS: &str = "runtime.properties";
 pub const LOG4J2_CONFIG: &str = "log4j2.xml";
 
-// runtime.properties property names
-pub const PLAINTEXT_PORT: &str = "druid.plaintextPort";
-
 // environment variables
 pub const JAVA_HOME: &str = "JAVA_HOME";
 
 // port names
 pub const PLAINTEXT: &str = "plaintext";
+
+/////////////////////////////
+//    CONFIG PROPERTIES    //
+/////////////////////////////
+pub const DRUID_SERVICE: &str = "druid.service";
+pub const DRUID_PLAINTEXTPORT: &str = "druid.plaintextPort";
+pub const EXTENSIONS_LOADLIST: &str = "druid.extensions.loadList";
+// extension names
+pub const EXT_HDFS_STORAGE: &str = "druid-hdfs-storage";
+pub const EXT_KAFKA_INDEXING: &str = "druid-kafka-indexing-service";
+pub const EXT_DATASKETCHES: &str = "druid-datasketches";
+pub const EXT_PSQL_MD_ST: &str = "postgresql-metadata-storage";
+// metadata storage config properties
+pub const MD_ST_TYPE: &str = "druid.metadata.storage.type";
+pub const MD_ST_CONNECT_URI: &str = "druid.metadata.storage.connector.connectURI";
+pub const MD_ST_HOST: &str = "druid.metadata.storage.connector.host";
+pub const MD_ST_PORT: &str = "druid.metadata.storage.connector.port";
+pub const MD_ST_USER: &str = "druid.metadata.storage.connector.user";
+pub const MD_ST_PASSWORD: &str = "druid.metadata.storage.connector.password";
 
 #[derive(Clone, CustomResource, Debug, Deserialize, JsonSchema, PartialEq, Serialize)]
 #[kube(
@@ -59,13 +75,15 @@ pub const PLAINTEXT: &str = "plaintext";
     namespaced
 )]
 #[kube(status = "DruidClusterStatus")]
+#[serde(rename_all = "camelCase")]
 pub struct DruidClusterSpec {
     pub version: DruidVersion,
     pub brokers: Role<DruidConfig>,
     pub coordinators: Role<DruidConfig>,
     pub historicals: Role<DruidConfig>,
-    pub middlemanagers: Role<DruidConfig>,
+    pub middle_managers: Role<DruidConfig>,
     pub routers: Role<DruidConfig>,
+    pub metadata_storage_database: DatabaseConnectionSpec,
     // TODO zookeeper reference
 }
 
@@ -151,6 +169,56 @@ impl HasClusterExecutionStatus for DruidCluster {
     }
 }
 
+#[derive(Clone, CustomResource, Debug, Deserialize, JsonSchema, Eq, PartialEq, Serialize)]
+#[kube(
+group = "external.stackable.tech",
+version = "v1alpha1",
+kind = "DatabaseConnection",
+plural = "databaseconnections",
+shortname = "dbconn",
+namespaced
+)]
+#[serde(rename_all = "camelCase")]
+pub struct DatabaseConnectionSpec {
+    pub db_type: DbType,
+    pub conn_string: String,
+    pub host: String,
+    pub port: u16,
+    pub user: Option<String>,
+    pub password: Option<String>,
+}
+
+#[derive(
+Clone,
+Debug,
+Deserialize,
+Eq,
+JsonSchema,
+PartialEq,
+Serialize,
+strum_macros::Display,
+strum_macros::EnumString,
+)]
+pub enum DbType {
+    #[serde(rename = "derby")]
+    #[strum(serialize = "derby")]
+    Derby,
+
+    #[serde(rename = "mysql")]
+    #[strum(serialize = "mysql")]
+    Mysql,
+
+    #[serde(rename = "postgresql")]
+    #[strum(serialize = "postgresql")]
+    Postgresql,
+}
+
+impl Default for DbType {
+    fn default() -> Self {
+        Self::Derby
+    }
+}
+
 #[derive(Clone, Debug, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DruidConfig {
@@ -187,24 +255,32 @@ impl Configuration for DruidConfig {
 
     fn compute_files(
         &self,
-        _resource: &Self::Configurable,
+        resource: &Self::Configurable,
         role_name: &str,
         file: &str,
     ) -> Result<BTreeMap<String, Option<String>>, ConfigError> {
-        warn!("LALALA");
         let role = DruidRole::from_str(role_name).unwrap();
 
         let mut result = BTreeMap::new();
-        info!("conf01");
         match file {
             JVM_CONFIG => {},
             RUNTIME_PROPS => {
-                info!("conf02");
+                // metadata storage
+                let mds = &resource.spec.metadata_storage_database;
+                result.insert(MD_ST_TYPE.to_string(), Some(mds.db_type.to_string()));
+                result.insert(MD_ST_CONNECT_URI.to_string(), Some(mds.conn_string.to_string()));
+                result.insert(MD_ST_HOST.to_string(), Some(mds.host.to_string()));
+                result.insert(MD_ST_PORT.to_string(), Some(mds.port.to_string()));
+                if let Some(user) = &mds.user {
+                    result.insert(MD_ST_USER.to_string(), Some(user.to_string()));
+                }
+                if let Some(password) = &mds.password {
+                    result.insert(MD_ST_PASSWORD.to_string(), Some(password.to_string()));
+                }
+                // plaintext port
                 let plaintext_port = if let Some(port) = self.plaintext_port {
-                    info!("conf03a: {}", port);
                     port
                 } else {
-                    info!("conf03b");
                     match role {
                         DruidRole::Coordinator => 8081,
                         DruidRole::Broker => 8082,
@@ -213,7 +289,7 @@ impl Configuration for DruidConfig {
                         DruidRole::Router => 8888
                     }
                 };
-                result.insert(PLAINTEXT_PORT.to_string(), Some(plaintext_port.to_string()));
+                result.insert(DRUID_PLAINTEXTPORT.to_string(), Some(plaintext_port.to_string()));
             },
             LOG4J2_CONFIG => {},
             _ => {},

@@ -1,4 +1,5 @@
 use stackable_druid_crd::DruidRole;
+use std::collections::BTreeMap;
 
 
 pub fn get_jvm_config(role: &DruidRole) -> String {
@@ -11,7 +12,7 @@ pub fn get_jvm_config(role: &DruidRole) -> String {
     -XX:+UseG1GC
     -XX:+ExitOnOutOfMemoryError
     ";
-    
+
     match role {
         DruidRole::Broker => common_props.to_string() + "
             -Xms512m
@@ -40,17 +41,36 @@ pub fn get_jvm_config(role: &DruidRole) -> String {
     }
 }
 
-pub fn get_runtime_properties(role: &DruidRole) -> String {
+fn get_extensions_list(include_postgres: bool) -> String {
+    let mut extensions = vec![
+        // the default ones
+        "druid-hdfs-storage",
+        "druid-kafka-indexing-service",
+        "druid-datasketches",
+    ];
+    if include_postgres {
+        extensions.push("postgresql-metadata-storage");
+    }
+    let extensions: Vec<String> = extensions.iter().map(|e| format!("\"{}\"", e)).collect();
+    let extensions = extensions.join(", ");
+    format!("[{}]", extensions)
+}
+
+// db connection stuff
+// connectURI, host, port, user, password
+// also: storage type
+
+pub fn get_metadata_storage_properties() -> String {
+    todo!()
+}
+
+pub fn get_runtime_properties(role: &DruidRole, other_props: &BTreeMap<String, Option<String>>) -> String {
     let common = "
     druid.host=localhost
     druid.extensions.loadList=[\"druid-hdfs-storage\", \"druid-kafka-indexing-service\", \"druid-datasketches\"]
     druid.startup.logging.logProperties=true
     druid.zk.service.host=localhost
     druid.zk.paths.base=/druid
-    druid.metadata.storage.type=derby
-    druid.metadata.storage.connector.connectURI=jdbc:derby://localhost:1527/var/druid/metadata.db;create=true
-    druid.metadata.storage.connector.host=localhost
-    druid.metadata.storage.connector.port=1527
     druid.storage.type=local
     druid.storage.storageDirectory=var/druid/segments
     druid.indexer.logs.type=file
@@ -66,10 +86,9 @@ pub fn get_runtime_properties(role: &DruidRole) -> String {
     druid.lookup.enableLookupSyncOnStartup=false
     ";
 
-    match role {
-        DruidRole::Broker => common.to_string() + "
+    let role_specifics = match role {
+        DruidRole::Broker => "
         druid.service=druid/broker
-        druid.plaintextPort=8082
 
         # HTTP server settings
         druid.server.http.numThreads=6
@@ -88,9 +107,8 @@ pub fn get_runtime_properties(role: &DruidRole) -> String {
         druid.broker.cache.useCache=false
         druid.broker.cache.populateCache=false
         ",
-        DruidRole::Coordinator => common.to_string() + "
+        DruidRole::Coordinator => "
         druid.service=druid/coordinator
-        druid.plaintextPort=8081
 
         druid.coordinator.startDelay=PT10S
         druid.coordinator.period=PT5S
@@ -104,9 +122,8 @@ pub fn get_runtime_properties(role: &DruidRole) -> String {
         druid.indexer.runner.type=remote
         druid.indexer.storage.type=metadata
         ",
-        DruidRole::Historical => common.to_string() + "
+        DruidRole::Historical => "
         druid.service=druid/historical
-        druid.plaintextPort=8083
 
         # HTTP server threads
         druid.server.http.numThreads=6
@@ -126,9 +143,8 @@ pub fn get_runtime_properties(role: &DruidRole) -> String {
         druid.cache.type=caffeine
         druid.cache.sizeInBytes=50MiB
         ",
-        DruidRole::MiddleManager => common.to_string() + "
+        DruidRole::MiddleManager => "
         druid.service=druid/middleManager
-        druid.plaintextPort=8091
 
         # Number of tasks per middleManager
         druid.worker.capacity=2
@@ -148,9 +164,8 @@ pub fn get_runtime_properties(role: &DruidRole) -> String {
         # Hadoop indexing
         druid.indexer.task.hadoopWorkingPath=var/druid/hadoop-tmp
         ",
-        DruidRole::Router => common.to_string() + "
+        DruidRole::Router => "
         druid.service=druid/router
-        druid.plaintextPort=8888
 
         # HTTP proxy
         druid.router.http.numConnections=25
@@ -165,11 +180,13 @@ pub fn get_runtime_properties(role: &DruidRole) -> String {
         # Management proxy to coordinator / overlord: required for unified web console.
         druid.router.managementProxy.enabled=true
         ",
-    }
+    };
+    let others = product_config::writer::to_java_properties_string(other_props.iter());
+    format!("{}\n{}\n{}", common, role_specifics, others.unwrap())
 }
 
 pub fn get_log4j_config(_role: &DruidRole) -> String {
-     "<?xml version=\"1.0\" encoding=\"UTF-8\" ?>
+    "<?xml version=\"1.0\" encoding=\"UTF-8\" ?>
 <Configuration status=\"WARN\">
   <Appenders>
     <Console name=\"Console\" target=\"SYSTEM_OUT\">

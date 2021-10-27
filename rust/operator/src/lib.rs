@@ -1,5 +1,6 @@
 mod config;
 mod error;
+
 use crate::config::{get_jvm_config, get_runtime_properties, get_log4j_config};
 use crate::error::Error;
 use stackable_druid_crd::commands::{Restart, Start, Stop};
@@ -13,7 +14,7 @@ use product_config::types::PropertyNameKind;
 use product_config::ProductConfigManager;
 use stackable_druid_crd::{
     DruidCluster, DruidClusterSpec, DruidRole, DruidVersion, APP_NAME, JVM_CONFIG, LOG4J2_CONFIG,
-    RUNTIME_PROPS, PLAINTEXT_PORT, JAVA_HOME, PLAINTEXT, CONF_DIR
+    RUNTIME_PROPS, DRUID_PLAINTEXTPORT, JAVA_HOME, PLAINTEXT, CONF_DIR,
 };
 use stackable_operator::builder::{
     ContainerBuilder, ContainerPortBuilder, ObjectMetaBuilder, PodBuilder,
@@ -228,7 +229,7 @@ impl DruidState {
                             &config_maps,
                             validated_config,
                         )
-                        .await?;
+                            .await?;
 
                         history.save(&self.context.resource).await?;
 
@@ -269,17 +270,35 @@ impl DruidState {
         &self,
         pod_id: &PodIdentity,
         role: &DruidRole,
-        validated_config: &HashMap<PropertyNameKind, BTreeMap<String, String>>
+        validated_config: &HashMap<PropertyNameKind, BTreeMap<String, String>>,
     ) -> Result<HashMap<&'static str, ConfigMap>, Error> {
         let mut config_maps = HashMap::new();
         let mut cm_conf_data = BTreeMap::new();
 
-        let jvm_config = get_jvm_config(&role);
-        let runtime_properties = get_runtime_properties(&role);
-        let log_config = get_log4j_config(&role);
-        cm_conf_data.insert(JVM_CONFIG.to_string(), jvm_config);
-        cm_conf_data.insert(RUNTIME_PROPS.to_string(), runtime_properties);
-        cm_conf_data.insert(LOG4J2_CONFIG.to_string(), log_config);
+
+        for (property_name_kind, config) in validated_config {
+            let mut transformed_config: BTreeMap<String, Option<String>> = config
+                .iter()
+                .map(|(k, v)| (k.clone(), Some(v.clone())))
+                .collect();
+
+            match property_name_kind {
+                PropertyNameKind::File(file_name) if file_name == RUNTIME_PROPS => {
+                    let runtime_properties = get_runtime_properties(&role, &transformed_config);
+                    cm_conf_data.insert(RUNTIME_PROPS.to_string(), runtime_properties);
+                },
+                PropertyNameKind::File(file_name) if file_name == JVM_CONFIG => {
+                    let jvm_config = get_jvm_config(&role);
+                    cm_conf_data.insert(JVM_CONFIG.to_string(), jvm_config);
+                },
+                PropertyNameKind::File(file_name) if file_name == LOG4J2_CONFIG => {
+                    let log_config = get_log4j_config(&role);
+                    cm_conf_data.insert(LOG4J2_CONFIG.to_string(), log_config);
+                },
+                _ => {},
+            }
+        }
+
 
         // druid config map
         let mut cm_labels = get_recommended_labels(
@@ -339,7 +358,7 @@ impl DruidState {
     ) -> Result<Pod, Error> {
         let plaintext_port = validated_config
             .get(&PropertyNameKind::File(RUNTIME_PROPS.to_string()))
-            .and_then(|props| props.get(PLAINTEXT_PORT));
+            .and_then(|props| props.get(DRUID_PLAINTEXTPORT));
 
         let java_home = validated_config
             .get(&PropertyNameKind::Env)
@@ -468,7 +487,7 @@ impl ReconciliationState for DruidState {
 
     fn reconcile(
         &mut self,
-    ) -> Pin<Box<dyn Future<Output = Result<ReconcileFunctionAction, Self::Error>> + Send + '_>>
+    ) -> Pin<Box<dyn Future<Output=Result<ReconcileFunctionAction, Self::Error>> + Send + '_>>
     {
         info!("========================= Starting reconciliation =========================");
 
@@ -584,7 +603,7 @@ impl ControllerStrategy for DruidStrategy {
             role_utils::find_nodes_that_fit_selectors(
                 &context.client,
                 None,
-                &druid_spec.middlemanagers,
+                &druid_spec.middle_managers,
             )
                 .await?,
         );
@@ -611,7 +630,7 @@ impl ControllerStrategy for DruidStrategy {
             (
                 config_files.clone(),
                 context.resource.spec.brokers.clone().into(),
-            )
+            ),
         );
 
         roles.insert(
@@ -619,7 +638,7 @@ impl ControllerStrategy for DruidStrategy {
             (
                 config_files.clone(),
                 context.resource.spec.coordinators.clone().into(),
-            )
+            ),
         );
 
         roles.insert(
@@ -627,15 +646,15 @@ impl ControllerStrategy for DruidStrategy {
             (
                 config_files.clone(),
                 context.resource.spec.historicals.clone().into(),
-            )
+            ),
         );
 
         roles.insert(
             DruidRole::MiddleManager.to_string(),
             (
                 config_files.clone(),
-                context.resource.spec.middlemanagers.clone().into(),
-            )
+                context.resource.spec.middle_managers.clone().into(),
+            ),
         );
 
         roles.insert(
@@ -643,7 +662,7 @@ impl ControllerStrategy for DruidStrategy {
             (
                 config_files.clone(),
                 context.resource.spec.routers.clone().into(),
-            )
+            ),
         );
 
         let role_config = transform_all_roles_to_config(&context.resource, roles);
@@ -678,7 +697,7 @@ pub async fn create_controller(client: Client, product_config_path: &str) -> Ope
         ],
         None,
     )
-    .await
+        .await
     {
         error!("Required CRDs missing, aborting: {:?}", error);
         return Err(error);

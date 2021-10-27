@@ -334,7 +334,35 @@ spec:
                   required:
                     - roleGroups
                   type: object
-                middlemanagers:
+                metadataStorageDatabase:
+                  properties:
+                    connString:
+                      type: string
+                    dbType:
+                      enum:
+                        - derby
+                        - mysql
+                        - postgresql
+                      type: string
+                    host:
+                      type: string
+                    password:
+                      nullable: true
+                      type: string
+                    port:
+                      format: uint16
+                      minimum: 0.0
+                      type: integer
+                    user:
+                      nullable: true
+                      type: string
+                  required:
+                    - connString
+                    - dbType
+                    - host
+                    - port
+                  type: object
+                middleManagers:
                   properties:
                     cliOverrides:
                       additionalProperties:
@@ -550,7 +578,8 @@ spec:
                 - brokers
                 - coordinators
                 - historicals
-                - middlemanagers
+                - metadataStorageDatabase
+                - middleManagers
                 - routers
                 - version
               type: object
