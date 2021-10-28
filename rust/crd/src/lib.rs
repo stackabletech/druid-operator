@@ -57,6 +57,7 @@ pub const EXT_HDFS_STORAGE: &str = "druid-hdfs-storage";
 pub const EXT_KAFKA_INDEXING: &str = "druid-kafka-indexing-service";
 pub const EXT_DATASKETCHES: &str = "druid-datasketches";
 pub const EXT_PSQL_MD_ST: &str = "postgresql-metadata-storage";
+pub const EXT_MYSQL_MD_ST: &str = "mysql-metadata-storage";
 // metadata storage config properties
 pub const MD_ST_TYPE: &str = "druid.metadata.storage.type";
 pub const MD_ST_CONNECT_URI: &str = "druid.metadata.storage.connector.connectURI";
@@ -67,12 +68,12 @@ pub const MD_ST_PASSWORD: &str = "druid.metadata.storage.connector.password";
 
 #[derive(Clone, CustomResource, Debug, Deserialize, JsonSchema, PartialEq, Serialize)]
 #[kube(
-    group = "druid.stackable.tech",
-    version = "v1alpha1",
-    kind = "DruidCluster",
-    plural = "druidclusters",
-    shortname = "druid",
-    namespaced
+group = "druid.stackable.tech",
+version = "v1alpha1",
+kind = "DruidCluster",
+plural = "druidclusters",
+shortname = "druid",
+namespaced
 )]
 #[kube(status = "DruidClusterStatus")]
 #[serde(rename_all = "camelCase")]
@@ -88,7 +89,7 @@ pub struct DruidClusterSpec {
 }
 
 #[derive(
-    Clone, Debug, Deserialize, Display, EnumIter, Eq, Hash, JsonSchema, PartialEq, Serialize, EnumString
+Clone, Debug, Deserialize, Display, EnumIter, Eq, Hash, JsonSchema, PartialEq, Serialize, EnumString
 )]
 pub enum DruidRole {
     #[strum(serialize = "coordinator")]
@@ -188,6 +189,28 @@ pub struct DatabaseConnectionSpec {
     pub password: Option<String>,
 }
 
+/*
+#[derive(Clone, CustomResource, Debug, Deserialize, JsonSchema, Eq, PartialEq, Serialize)]
+#[kube(
+group = "external.stackable.tech",
+version = "v1alpha1",
+kind = "JvmConfiguration",
+plural = "jvmconfigs",
+shortname = "jvmconf",
+namespaced
+)]
+#[serde(rename_all = "camelCase")]
+pub struct JvmConfiguration {
+    pub heapSize: String,
+    pub directMemorySize: Option<String>,
+    pub db_type: DbType,
+    pub conn_string: String,
+    pub host: String,
+    pub port: u16,
+    pub user: Option<String>,
+    pub password: Option<String>,
+}
+*/
 #[derive(
 Clone,
 Debug,
@@ -263,10 +286,21 @@ impl Configuration for DruidConfig {
 
         let mut result = BTreeMap::new();
         match file {
-            JVM_CONFIG => {},
+            JVM_CONFIG => {}
             RUNTIME_PROPS => {
+                // extensions
+                let mut extensions = vec![
+                    EXT_HDFS_STORAGE.to_string(),
+                    EXT_KAFKA_INDEXING.to_string(),
+                    EXT_DATASKETCHES.to_string(),
+                ];
                 // metadata storage
                 let mds = &resource.spec.metadata_storage_database;
+                match mds.db_type {
+                    DbType::Derby => {},  // no extention required
+                    DbType::Postgresql => extensions.push(EXT_PSQL_MD_ST.to_string()),
+                    DbType::Mysql => extensions.push(EXT_MYSQL_MD_ST.to_string()),
+                }
                 result.insert(MD_ST_TYPE.to_string(), Some(mds.db_type.to_string()));
                 result.insert(MD_ST_CONNECT_URI.to_string(), Some(mds.conn_string.to_string()));
                 result.insert(MD_ST_HOST.to_string(), Some(mds.host.to_string()));
@@ -290,9 +324,10 @@ impl Configuration for DruidConfig {
                     }
                 };
                 result.insert(DRUID_PLAINTEXTPORT.to_string(), Some(plaintext_port.to_string()));
-            },
-            LOG4J2_CONFIG => {},
-            _ => {},
+                result.insert(EXTENSIONS_LOADLIST.to_string(), Some(build_string_list(&extensions)));
+            }
+            LOG4J2_CONFIG => {}
+            _ => {}
         }
 
         Ok(result)
@@ -301,15 +336,15 @@ impl Configuration for DruidConfig {
 
 #[allow(non_camel_case_types)]
 #[derive(
-    Clone,
-    Debug,
-    Deserialize,
-    Eq,
-    JsonSchema,
-    PartialEq,
-    Serialize,
-    strum_macros::Display,
-    strum_macros::EnumString,
+Clone,
+Debug,
+Deserialize,
+Eq,
+JsonSchema,
+PartialEq,
+Serialize,
+strum_macros::Display,
+strum_macros::EnumString,
 )]
 pub enum DruidVersion {
     #[serde(rename = "0.22.0")]
@@ -332,7 +367,7 @@ impl Versioning for DruidVersion {
                     "Could not parse [{}] to SemVer: {}",
                     self.to_string(),
                     e.to_string()
-                ))
+                ));
             }
         };
 
@@ -343,7 +378,7 @@ impl Versioning for DruidVersion {
                     "Could not parse [{}] to SemVer: {}",
                     other.to_string(),
                     e.to_string()
-                ))
+                ));
             }
         };
 
@@ -401,6 +436,17 @@ impl HasCurrentCommand for DruidClusterStatus {
     fn tracking_location() -> &'static str {
         "/status/currentCommand"
     }
+}
+
+/// Takes a vec of strings and returns them as a formatted json
+/// list.
+fn build_string_list(strings: &Vec<String>) -> String {
+    let quoted_strings: Vec<String> =
+        strings.iter()
+            .map(|s| format!("\"{}\"", s))
+            .collect();
+    let comma_list = quoted_strings.join(", ");
+    format!("[{}]", comma_list).to_string()
 }
 
 #[cfg(test)]

@@ -22,7 +22,7 @@ pub fn get_jvm_config(role: &DruidRole) -> String {
         DruidRole::Coordinator => common_props.to_string() + "
             -Xms256m
             -Xmx256m
-            -Dderby.stream.error.file=var/druid/derby.log
+            -Dderby.stream.error.file=/var/druid/derby.log
         ",
         DruidRole::Historical => common_props.to_string() + "
             -Xms512m
@@ -39,29 +39,6 @@ pub fn get_jvm_config(role: &DruidRole) -> String {
             -XX:MaxDirectMemorySize=128m
         ",
     }
-}
-
-fn get_extensions_list(include_postgres: bool) -> String {
-    let mut extensions = vec![
-        // the default ones
-        "druid-hdfs-storage",
-        "druid-kafka-indexing-service",
-        "druid-datasketches",
-    ];
-    if include_postgres {
-        extensions.push("postgresql-metadata-storage");
-    }
-    let extensions: Vec<String> = extensions.iter().map(|e| format!("\"{}\"", e)).collect();
-    let extensions = extensions.join(", ");
-    format!("[{}]", extensions)
-}
-
-// db connection stuff
-// connectURI, host, port, user, password
-// also: storage type
-
-pub fn get_metadata_storage_properties() -> String {
-    todo!()
 }
 
 pub fn get_runtime_properties(role: &DruidRole, other_props: &BTreeMap<String, Option<String>>) -> String {

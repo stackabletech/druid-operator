@@ -1,0 +1,73 @@
+apiVersion: druid.stackable.tech/v1alpha1
+kind: DruidCluster
+metadata:
+  name: simple
+spec:
+  version: 0.22.0
+  metadataStorageDatabase:
+    dbType: postgresql
+    connString: jdbc:postgresql://localhost/druid
+    host: localhost
+    port: 5432
+    user: druid
+    password: druid
+  brokers:
+    roleGroups:
+      default:
+        selector:
+          matchExpressions:
+            - operator: In
+              key: kubernetes.io/hostname
+              values:
+                - stackable-node-x
+        replicas: 1
+        config:
+          javaHome: test
+  coordinators:
+    roleGroups:
+      default:
+        selector:
+          matchExpressions:
+            - operator: In
+              key: kubernetes.io/hostname
+              values:
+                - stackable-node-x
+        replicas: 1
+        config:
+          javaHome: test
+  historicals:
+    roleGroups:
+      default:
+        selector:
+          matchExpressions:
+            - operator: In
+              key: kubernetes.io/hostname
+              values:
+                - stackable-node-x
+        replicas: 1
+        config:
+          javaHome: test
+  middleManagers:
+    roleGroups:
+      default:
+        selector:
+          matchExpressions:
+            - operator: In
+              key: kubernetes.io/hostname
+              values:
+                - stackable-node-x
+        replicas: 1
+        config:
+          javaHome: test
+  routers:
+    roleGroups:
+      default:
+        selector:
+          matchExpressions:
+            - operator: In
+              key: kubernetes.io/hostname
+              values:
+                - stackable-node-x
+        replicas: 1
+        config:
+          javaHome: test
