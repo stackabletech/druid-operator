@@ -43,8 +43,6 @@ pub fn get_jvm_config(role: &DruidRole) -> String {
 
 pub fn get_runtime_properties(role: &DruidRole, other_props: &BTreeMap<String, Option<String>>) -> String {
     let common = "
-    druid.host=localhost
-    druid.extensions.loadList=[\"druid-hdfs-storage\", \"druid-kafka-indexing-service\", \"druid-datasketches\"]
     druid.startup.logging.logProperties=true
     druid.zk.service.host=localhost
     druid.zk.paths.base=/druid

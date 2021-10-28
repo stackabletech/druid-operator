@@ -284,6 +284,9 @@ impl DruidState {
 
             match property_name_kind {
                 PropertyNameKind::File(file_name) if file_name == RUNTIME_PROPS => {
+                    // NOTE: druid.host can be set manually - if it isn't, the canonical host name of
+                    // the local host is used.  This should work with the agent and k8s host networking
+                    // but might need to be revisited in the future
                     let runtime_properties = get_runtime_properties(&role, &transformed_config);
                     cm_conf_data.insert(RUNTIME_PROPS.to_string(), runtime_properties);
                 },
