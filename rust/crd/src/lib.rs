@@ -3,11 +3,11 @@ pub mod error;
 
 use crate::commands::{Restart, Start, Stop};
 
-use k8s_openapi::apimachinery::pkg::apis::meta::v1::Condition;
-use k8s_openapi::schemars::_serde_json::Value;
-use kube::api::ApiResource;
-use kube::CustomResource;
-use kube::CustomResourceExt;
+use stackable_operator::k8s_openapi::apimachinery::pkg::apis::meta::v1::Condition;
+use stackable_operator::k8s_openapi::schemars::_serde_json::Value;
+use stackable_operator::kube::api::ApiResource;
+use stackable_operator::kube::CustomResource;
+use stackable_operator::kube::CustomResourceExt;
 use schemars::JsonSchema;
 use semver::Version;
 use serde::{Deserialize, Serialize};
@@ -23,6 +23,7 @@ use stackable_operator::status::{
     Versioned,
 };
 use stackable_operator::versioning::{ProductVersion, Versioning, VersioningState};
+use stackable_zookeeper_crd::discovery::ZookeeperReference;
 use std::cmp::Ordering;
 use std::collections::BTreeMap;
 use strum_macros::Display;
