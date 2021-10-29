@@ -59,6 +59,8 @@ pub const EXT_KAFKA_INDEXING: &str = "druid-kafka-indexing-service";
 pub const EXT_DATASKETCHES: &str = "druid-datasketches";
 pub const EXT_PSQL_MD_ST: &str = "postgresql-metadata-storage";
 pub const EXT_MYSQL_MD_ST: &str = "mysql-metadata-storage";
+// zookeeper
+pub const ZOOKEEPER_CONNECTION_STRING: &str = "druid.zk.service.host";
 // metadata storage config properties
 pub const MD_ST_TYPE: &str = "druid.metadata.storage.type";
 pub const MD_ST_CONNECT_URI: &str = "druid.metadata.storage.connector.connectURI";
@@ -89,7 +91,7 @@ pub struct DruidClusterSpec {
     pub middle_managers: Role<DruidConfig>,
     pub routers: Role<DruidConfig>,
     pub metadata_storage_database: DatabaseConnectionSpec,
-    // TODO zookeeper reference
+    pub zookeeper_reference: ZookeeperReference,
 }
 
 #[derive(

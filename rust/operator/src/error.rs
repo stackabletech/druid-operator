@@ -17,7 +17,7 @@ pub enum Error {
     #[error("Kubernetes reported error: {source}")]
     KubeError {
         #[from]
-        source: kube::Error,
+        source: stackable_operator::kube::Error,
     },
 
     #[error("Error from Operator framework: {source}")]
@@ -39,12 +39,12 @@ pub enum Error {
     },
 
     #[error("Error creating properties file")]
-    PropertiesError(#[from] product_config::writer::PropertiesWriterError),
+    PropertiesError(#[from] stackable_operator::product_config::writer::PropertiesWriterError),
 
     #[error("ProductConfig Framework reported error: {source}")]
     ProductConfigError {
         #[from]
-        source: product_config::error::Error,
+        source: stackable_operator::product_config::error::Error,
     },
 
     #[error("Operator Framework reported config error: {source}")]
@@ -52,4 +52,13 @@ pub enum Error {
         #[from]
         source: stackable_operator::product_config_utils::ConfigError,
     },
+
+    #[error("Error from ZooKeeper: {source}")]
+    ZookeeperError {
+        #[from]
+        source: stackable_zookeeper_crd::error::Error,
+    },
+
+    #[error("Error with ZooKeeper connection. Could not retrieve the ZooKeeper connection. This is a bug. Please open a ticket.")]
+    ZookeeperConnectionInformationError,
 }

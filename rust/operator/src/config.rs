@@ -44,7 +44,6 @@ pub fn get_jvm_config(role: &DruidRole) -> String {
 pub fn get_runtime_properties(role: &DruidRole, other_props: &BTreeMap<String, Option<String>>) -> String {
     let common = "
     druid.startup.logging.logProperties=true
-    druid.zk.service.host=localhost
     druid.zk.paths.base=/druid
     druid.storage.type=local
     druid.storage.storageDirectory=var/druid/segments
@@ -156,7 +155,7 @@ pub fn get_runtime_properties(role: &DruidRole, other_props: &BTreeMap<String, O
         druid.router.managementProxy.enabled=true
         ",
     };
-    let others = product_config::writer::to_java_properties_string(other_props.iter());
+    let others = stackable_operator::product_config::writer::to_java_properties_string(other_props.iter());
     format!("{}\n{}\n{}", common, role_specifics, others.unwrap())
 }
 

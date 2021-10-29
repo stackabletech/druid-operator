@@ -6,15 +6,15 @@ use crate::error::Error;
 use stackable_druid_crd::commands::{Restart, Start, Stop};
 
 use async_trait::async_trait;
-use k8s_openapi::api::core::v1::{ConfigMap, EnvVar, Pod};
-use kube::api::{ListParams, ResourceExt};
-use kube::Api;
-use kube::CustomResourceExt;
-use product_config::types::PropertyNameKind;
-use product_config::ProductConfigManager;
+use stackable_operator::k8s_openapi::api::core::v1::{ConfigMap, EnvVar, Pod};
+use stackable_operator::kube::api::{ListParams, ResourceExt};
+use stackable_operator::kube::Api;
+use stackable_operator::kube::CustomResourceExt;
+use stackable_operator::product_config::types::PropertyNameKind;
+use stackable_operator::product_config::ProductConfigManager;
 use stackable_druid_crd::{
     DruidCluster, DruidClusterSpec, DruidRole, DruidVersion, APP_NAME, JVM_CONFIG, LOG4J2_CONFIG,
-    RUNTIME_PROPS, DRUID_PLAINTEXTPORT, JAVA_HOME, PLAINTEXT, CONF_DIR,
+    RUNTIME_PROPS, DRUID_PLAINTEXTPORT, JAVA_HOME, PLAINTEXT, CONF_DIR, ZOOKEEPER_CONNECTION_STRING
 };
 use stackable_operator::builder::{
     ContainerBuilder, ContainerPortBuilder, ObjectMetaBuilder, PodBuilder,
@@ -57,8 +57,7 @@ use strum::IntoEnumIterator;
 use tracing::error;
 use tracing::{debug, info, trace, warn};
 
-use std::str::FromStr;
-use strum_macros::EnumString;
+use stackable_zookeeper_crd::discovery::ZookeeperConnectionInformation;
 
 const FINALIZER_NAME: &str = "druid.stackable.tech/cleanup";
 const ID_LABEL: &str = "druid.stackable.tech/id";
@@ -73,6 +72,7 @@ struct DruidState {
     existing_pods: Vec<Pod>,
     eligible_nodes: EligibleNodesForRoleAndGroup,
     validated_role_config: ValidatedRoleConfigByPropertyKind,
+    zookeeper_info: Option<ZookeeperConnectionInformation>,
 }
 
 impl DruidState {
@@ -95,6 +95,30 @@ impl DruidState {
         mandatory_labels.insert(ID_LABEL.to_string(), None);
 
         mandatory_labels
+    }
+
+    async fn get_zookeeper_connection_information(&mut self) -> DruidReconcileResult {
+        let zk_ref: &stackable_zookeeper_crd::discovery::ZookeeperReference =
+            &self.context.resource.spec.zookeeper_reference;
+
+        if let Some(chroot) = zk_ref.chroot.as_deref() {
+            stackable_zookeeper_crd::discovery::is_valid_zookeeper_path(chroot)?;
+        }
+
+        let zookeeper_info = stackable_zookeeper_crd::discovery::get_zk_connection_info(
+            &self.context.client,
+            zk_ref,
+        )
+            .await?;
+
+        debug!(
+            "Received ZooKeeper connection information: [{}]",
+            &zookeeper_info.connection_string
+        );
+
+        self.zookeeper_info = Some(zookeeper_info);
+
+        Ok(ReconcileFunctionAction::Continue)
     }
 
     /// Will initialize the status object if it's never been set.
@@ -275,7 +299,6 @@ impl DruidState {
         let mut config_maps = HashMap::new();
         let mut cm_conf_data = BTreeMap::new();
 
-
         for (property_name_kind, config) in validated_config {
             let mut transformed_config: BTreeMap<String, Option<String>> = config
                 .iter()
@@ -287,6 +310,16 @@ impl DruidState {
                     // NOTE: druid.host can be set manually - if it isn't, the canonical host name of
                     // the local host is used.  This should work with the agent and k8s host networking
                     // but might need to be revisited in the future
+
+                    if let Some(zk_info) = &self.zookeeper_info {
+                        transformed_config.insert(
+                            ZOOKEEPER_CONNECTION_STRING.to_string(),
+                            Some(zk_info.connection_string.clone()),
+                        );
+                    } else {
+                        return Err(error::Error::ZookeeperConnectionInformationError);
+                    }
+
                     let runtime_properties = get_runtime_properties(&role, &transformed_config);
                     cm_conf_data.insert(RUNTIME_PROPS.to_string(), runtime_properties);
                 },
@@ -410,7 +443,7 @@ impl DruidState {
             });
         }
 
-        let mut annotations = BTreeMap::new();
+        let annotations = BTreeMap::new();
 
         if let Some(plaintext_port) = plaintext_port {
             cb.add_container_port(
@@ -502,6 +535,8 @@ impl ReconciliationState for DruidState {
                     FINALIZER_NAME,
                     true,
                 ))
+                .await?
+                .then(self.get_zookeeper_connection_information())
                 .await?
                 .then(self.context.delete_illegal_pods(
                     self.existing_pods.as_slice(),
@@ -682,6 +717,7 @@ impl ControllerStrategy for DruidStrategy {
             existing_pods,
             eligible_nodes,
             validated_role_config,
+            zookeeper_info: None,
         })
     }
 }

@@ -1522,6 +1522,7 @@ dependencies = [
  "serde_json",
  "stackable-druid-crd",
  "stackable-operator",
+ "stackable-zookeeper-crd",
  "strum 0.21.0",
  "strum_macros 0.21.1",
  "thiserror",
