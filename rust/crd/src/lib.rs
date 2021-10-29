@@ -8,7 +8,7 @@ use stackable_operator::k8s_openapi::schemars::_serde_json::Value;
 use stackable_operator::kube::api::ApiResource;
 use stackable_operator::kube::CustomResource;
 use stackable_operator::kube::CustomResourceExt;
-use schemars::JsonSchema;
+use stackable_operator::schemars::{self, JsonSchema};
 use semver::Version;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -74,6 +74,9 @@ version = "v1alpha1",
 kind = "DruidCluster",
 plural = "druidclusters",
 shortname = "druid",
+kube_core = "stackable_operator::kube::core",
+k8s_openapi = "stackable_operator::k8s_openapi",
+schemars = "stackable_operator::schemars",
 namespaced
 )]
 #[kube(status = "DruidClusterStatus")]
@@ -178,7 +181,10 @@ version = "v1alpha1",
 kind = "DatabaseConnection",
 plural = "databaseconnections",
 shortname = "dbconn",
-namespaced
+namespaced,
+kube_core = "stackable_operator::kube::core",
+k8s_openapi = "stackable_operator::k8s_openapi",
+schemars = "stackable_operator::schemars",
 )]
 #[serde(rename_all = "camelCase")]
 pub struct DatabaseConnectionSpec {
@@ -298,7 +304,7 @@ impl Configuration for DruidConfig {
                 // metadata storage
                 let mds = &resource.spec.metadata_storage_database;
                 match mds.db_type {
-                    DbType::Derby => {},  // no extention required
+                    DbType::Derby => {}  // no extention required
                     DbType::Postgresql => extensions.push(EXT_PSQL_MD_ST.to_string()),
                     DbType::Mysql => extensions.push(EXT_MYSQL_MD_ST.to_string()),
                 }

@@ -1,9 +1,9 @@
 use crate::DruidRole;
 use duplicate::duplicate;
-use k8s_openapi::apimachinery::pkg::apis::meta::v1::Time;
-use k8s_openapi::chrono::Utc;
-use kube::CustomResource;
-use schemars::JsonSchema;
+use stackable_operator::k8s_openapi::apimachinery::pkg::apis::meta::v1::Time;
+use stackable_operator::k8s_openapi::chrono::Utc;
+use stackable_operator::kube::CustomResource;
+use stackable_operator::schemars::{self, JsonSchema};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use serde_json::Value;
@@ -16,7 +16,10 @@ use stackable_operator::command_controller::Command;
     version = "v1alpha1",
     kind = "Restart",
     plural = "restarts",
-    namespaced
+    namespaced,
+    kube_core = "stackable_operator::kube::core",
+    k8s_openapi = "stackable_operator::k8s_openapi",
+    schemars = "stackable_operator::schemars",
 )]
 #[kube(status = "CommandStatus")]
 #[serde(rename_all = "camelCase")]
@@ -32,7 +35,10 @@ pub struct RestartCommandSpec {
     version = "v1alpha1",
     kind = "Start",
     plural = "starts",
-    namespaced
+    namespaced,
+    kube_core = "stackable_operator::kube::core",
+    k8s_openapi = "stackable_operator::k8s_openapi",
+    schemars = "stackable_operator::schemars",
 )]
 #[kube(status = "CommandStatus")]
 #[serde(rename_all = "camelCase")]
@@ -48,7 +54,10 @@ pub struct StartCommandSpec {
     version = "v1alpha1",
     kind = "Stop",
     plural = "stops",
-    namespaced
+    namespaced,
+    kube_core = "stackable_operator::kube::core",
+    k8s_openapi = "stackable_operator::k8s_openapi",
+    schemars = "stackable_operator::schemars",
 )]
 #[kube(status = "CommandStatus")]
 #[serde(rename_all = "camelCase")]
