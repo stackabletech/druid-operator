@@ -314,7 +314,8 @@ impl DruidState {
                     if let Some(zk_info) = &self.zookeeper_info {
                         transformed_config.insert(
                             ZOOKEEPER_CONNECTION_STRING.to_string(),
-                            Some(zk_info.connection_string.clone()),
+                            Some("172.17.0.4:2181".to_string()),
+                            // Some(zk_info.connection_string.clone()),
                         );
                     } else {
                         return Err(error::Error::ZookeeperConnectionInformationError);
@@ -421,16 +422,19 @@ impl DruidState {
         recommended_labels.insert(ID_LABEL.to_string(), pod_id.id().to_string());
 
         let mut cb = ContainerBuilder::new(APP_NAME);
-        cb.image(format!("stackable/druid:{}", version.to_string()));
+        // cb.image(format!("stackable/druid:{}", version.to_string()));
+        cb.image("druid-test:latest".to_string());
         cb.command(role.get_command(version));
 
+        /*
         if let Some(java_home) = java_home {
             cb.add_env_var(JAVA_HOME, java_home);
         }
+        */
 
         if let Some(config_map_data) = config_maps.get(CONFIG_MAP_TYPE_CONF) {
             if let Some(name) = config_map_data.metadata.name.as_ref() {
-                cb.add_configmapvolume(name, CONF_DIR.to_string());
+                cb.add_configmapvolume(name, "/stackable/conf".to_string());
             } else {
                 return Err(error::Error::MissingConfigMapNameError {
                     cm_type: CONFIG_MAP_TYPE_CONF,
@@ -452,6 +456,8 @@ impl DruidState {
                     .build(),
             );
         }
+        let mut container = cb.build();
+        container.image_pull_policy = Some("IfNotPresent".to_string());
 
         let pod = PodBuilder::new()
             .metadata(
@@ -464,7 +470,7 @@ impl DruidState {
                     .build()?,
             )
             .add_stackable_agent_tolerations()
-            .add_container(cb.build())
+            .add_container(container)
             .node_name(node_name)
             .build()?;
 
