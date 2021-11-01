@@ -230,6 +230,27 @@ spec:
                   required:
                     - roleGroups
                   type: object
+                deepStorage:
+                  properties:
+                    baseKey:
+                      nullable: true
+                      type: string
+                    bucket:
+                      nullable: true
+                      type: string
+                    storageDirectory:
+                      nullable: true
+                      type: string
+                    storageType:
+                      enum:
+                        - local
+                        - noop
+                        - s3
+                        - hdfs
+                      type: string
+                  required:
+                    - storageType
+                  type: object
                 historicals:
                   properties:
                     cliOverrides:
@@ -591,6 +612,7 @@ spec:
               required:
                 - brokers
                 - coordinators
+                - deepStorage
                 - historicals
                 - metadataStorageDatabase
                 - middleManagers

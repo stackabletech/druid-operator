@@ -55,12 +55,18 @@ pub const DRUID_PLAINTEXTPORT: &str = "druid.plaintextPort";
 pub const EXTENSIONS_LOADLIST: &str = "druid.extensions.loadList";
 // extension names
 pub const EXT_HDFS_STORAGE: &str = "druid-hdfs-storage";
+pub const EXT_S3: &str = "druid-s3-extensions";
 pub const EXT_KAFKA_INDEXING: &str = "druid-kafka-indexing-service";
 pub const EXT_DATASKETCHES: &str = "druid-datasketches";
 pub const EXT_PSQL_MD_ST: &str = "postgresql-metadata-storage";
 pub const EXT_MYSQL_MD_ST: &str = "mysql-metadata-storage";
 // zookeeper
 pub const ZOOKEEPER_CONNECTION_STRING: &str = "druid.zk.service.host";
+// deep storage
+pub const DS_TYPE: &str = "druid.storage.type";
+pub const DS_DIRECTORY: &str = "druid.storage.storageDirectory";
+pub const DS_BUCKET: &str = "druid.storage.bucket";
+pub const DS_BASE_KEY: &str = "druid.storage.baseKey";
 // metadata storage config properties
 pub const MD_ST_TYPE: &str = "druid.metadata.storage.type";
 pub const MD_ST_CONNECT_URI: &str = "druid.metadata.storage.connector.connectURI";
@@ -91,6 +97,7 @@ pub struct DruidClusterSpec {
     pub middle_managers: Role<DruidConfig>,
     pub routers: Role<DruidConfig>,
     pub metadata_storage_database: DatabaseConnectionSpec,
+    pub deep_storage: DeepStorageSpec,
     pub zookeeper_reference: ZookeeperReference,
 }
 
@@ -251,6 +258,63 @@ impl Default for DbType {
     }
 }
 
+
+#[derive(
+Clone,
+Debug,
+Deserialize,
+Eq,
+JsonSchema,
+PartialEq,
+Serialize,
+strum_macros::Display,
+strum_macros::EnumString,
+)]
+pub enum DeepStorageType {
+    #[serde(rename = "local")]
+    #[strum(serialize = "local")]
+    Local,
+
+    #[serde(rename = "noop")]
+    #[strum(serialize = "noop")]
+    Noop,
+
+    #[serde(rename = "s3")]
+    #[strum(serialize = "s3")]
+    S3,
+
+    #[serde(rename = "hdfs")]
+    #[strum(serialize = "hdfs")]
+    Hdfs,
+}
+
+impl Default for DeepStorageType {
+    fn default() -> Self {
+        Self::Local
+    }
+}
+
+#[derive(Clone, CustomResource, Debug, Deserialize, JsonSchema, Eq, PartialEq, Serialize)]
+#[kube(
+group = "external.stackable.tech",
+version = "v1alpha1",
+kind = "DeepStorage",
+plural = "deepstorages",
+namespaced,
+kube_core = "stackable_operator::kube::core",
+k8s_openapi = "stackable_operator::k8s_openapi",
+schemars = "stackable_operator::schemars",
+)]
+#[serde(rename_all = "camelCase")]
+pub struct DeepStorageSpec {
+    pub storage_type: DeepStorageType,
+    // Local & HDFS
+    pub storage_directory: Option<String>,
+    // S3 only
+    pub bucket: Option<String>,
+    pub base_key: Option<String>,
+}
+
 #[derive(Clone, Debug, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DruidConfig {
@@ -299,7 +363,6 @@ impl Configuration for DruidConfig {
             RUNTIME_PROPS => {
                 // extensions
                 let mut extensions = vec![
-                    EXT_HDFS_STORAGE.to_string(),
                     EXT_KAFKA_INDEXING.to_string(),
                     EXT_DATASKETCHES.to_string(),
                 ];
@@ -319,6 +382,24 @@ impl Configuration for DruidConfig {
                 }
                 if let Some(password) = &mds.password {
                     result.insert(MD_ST_PASSWORD.to_string(), Some(password.to_string()));
+                }
+                // deep storage
+                let ds = &resource.spec.deep_storage;
+                match ds.storage_type {
+                    DeepStorageType::Local => {},
+                    DeepStorageType::Noop => {},
+                    DeepStorageType::S3 => extensions.push(EXT_S3.to_string()),
+                    DeepStorageType::Hdfs => extensions.push(EXT_HDFS_STORAGE.to_string()),
+                }
+                result.insert(DS_TYPE.to_string(), Some(ds.storage_type.to_string()));
+                if let Some(dir) = &ds.storage_directory {
+                    result.insert(DS_DIRECTORY.to_string(), Some(dir.to_string()));
+                }
+                if let Some(bucket) = &ds.bucket {
+                    result.insert(DS_BUCKET.to_string(), Some(bucket.to_string()));
+                }
+                if let Some(key) = &ds.base_key {
+                    result.insert(DS_BASE_KEY.to_string(), Some(key.to_string()));
                 }
                 // plaintext port
                 let plaintext_port = if let Some(port) = self.plaintext_port {

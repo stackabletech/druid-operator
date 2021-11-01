@@ -45,8 +45,6 @@ pub fn get_runtime_properties(role: &DruidRole, other_props: &BTreeMap<String, O
     let common = "
     druid.startup.logging.logProperties=true
     druid.zk.paths.base=/druid
-    druid.storage.type=local
-    druid.storage.storageDirectory=var/druid/segments
     druid.indexer.logs.type=file
     druid.indexer.logs.directory=var/druid/indexing-logs
     druid.selectors.indexing.serviceName=druid/overlord

@@ -14,6 +14,9 @@ spec:
     port: 5432
     user: druid
     password: druid
+  deepStorage:
+    storageType: local
+    storageDirectory: /home/felix/druidDeepStorage
   brokers:
     roleGroups:
       default:
