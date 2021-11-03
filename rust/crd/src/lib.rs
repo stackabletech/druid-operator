@@ -142,9 +142,13 @@ impl Status<DruidClusterStatus> for DruidCluster {
 
 impl HasRoleRestartOrder for DruidCluster {
     fn get_role_restart_order() -> Vec<String> {
-        // TODO verify if this order is correct
+        // the order below is the reverse startup order taken from the sample configurations
         vec![
-            todo!(),
+            DruidRole::MiddleManager.to_string(),
+            DruidRole::Historical.to_string(),
+            DruidRole::Router.to_string(),
+            DruidRole::Broker.to_string(),
+            DruidRole::Coordinator.to_string(),
         ]
     }
 }
