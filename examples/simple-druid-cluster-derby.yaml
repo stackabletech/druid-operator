@@ -12,6 +12,9 @@ spec:
     connString: jdbc:derby://localhost:1527/var/druid/metadata.db;create=true
     host: localhost
     port: 1527
+  deepStorage:
+    storageType: local
+    storageDirectory: /home/felix/druidDeepStorage
   brokers:
     roleGroups:
       default:

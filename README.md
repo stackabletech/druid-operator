@@ -1,8 +1,6 @@
-# operator-skeleton
-A skeleton to bootstrap a new operator
+# Stackable Operator for Apache Druid
+This is a Kubernetes Operator to manage Druid clusters.
 
-## Usage
+It is written by https://www.stackable.de[Stackable] in Rust, and it is supposed to be used with the https://github.com/stackabletech/agent[Stackable Agent] instead of the Kubernetes kubelet.
 
-Clone the repo and run `rename.sh` to perform the necessary replacements.
-The script takes one parameter, which is the _pretty_ name of the component, so for example "ZooKeeper". 
-This will be formated as needed to "zookeeper" and "Zookeeper" to adhere to Rustfmt guidelines.
+The docs can be found in the `docs` subdirectory, and they are published together with docs for all other Stackable products at https://docs.stackable.tech.

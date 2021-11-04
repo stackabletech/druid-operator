@@ -1,0 +1,90 @@
+= Usage
+
+
+== Prerequisites
+
+* Deployed Stackable Apache Zookeeper
+* Deployed SQL Database (MySQL or PostgreSQL; an internal Derby DB is also supported but not recommended for production use)
+* An installation of Java 8.  Druid support for later Versions is experimental
+
+== Installation
+
+In the following we explain or link the required installation steps.
+
+=== Zookeeper operator
+
+Please refer to the https://github.com/stackabletech/zookeeper-operator[Zookeeper] operator and https://docs.stackable.tech/zookeeper/index.html[docs].
+
+=== Druid
+
+With the prerequisites fulfilled, the CRD for this operator must be created:
+
+    kubectl apply -f /etc/stackable/druid-operator/crd/druidcluster.crd.yaml
+
+To create a Druid cluster with the web interface on port 8888 of the router run the command below. Fill in the correct database connection, path for deep storage and path to the Java home directory.
+
+    cat <<EOF | kubectl apply -f -
+apiVersion: druid.stackable.tech/v1alpha1
+kind: DruidCluster
+metadata:
+  name: simple
+spec:
+  version: 0.22.0
+  zookeeperReference:
+    namespace: default
+    name: simple
+  metadataStorageDatabase:
+    dbType: postgresql
+    connString: jdbc:postgresql://<db_hostname>/druid
+    host: <db_hostname>
+    port: 5432
+    user: druid
+    password: druid
+  deepStorage:
+    storageType: local
+    storageDirectory: /path/to/druidDeepStorage
+  brokers:
+    roleGroups:
+      default:
+        selector:
+          matchLabels:
+            kubernetes.io/arch: stackable-linux
+        replicas: 1
+        config:
+          javaHome: /usr/lib/jvm/java-8-openjdk-amd64/
+  coordinators:
+    roleGroups:
+      default:
+        selector:
+          matchLabels:
+            kubernetes.io/arch: stackable-linux
+        replicas: 1
+        config:
+          javaHome: /usr/lib/jvm/java-8-openjdk-amd64/
+  historicals:
+    roleGroups:
+      default:
+        selector:
+          matchLabels:
+            kubernetes.io/arch: stackable-linux
+        replicas: 1
+        config:
+          javaHome: /usr/lib/jvm/java-8-openjdk-amd64/
+  middleManagers:
+    roleGroups:
+      default:
+        selector:
+          matchLabels:
+            kubernetes.io/arch: stackable-linux
+        replicas: 1
+        config:
+          javaHome: /usr/lib/jvm/java-8-openjdk-amd64/
+  routers:
+    roleGroups:
+      default:
+        selector:
+          matchLabels:
+            kubernetes.io/arch: stackable-linux
+        replicas: 1
+        config:
+          javaHome: /usr/lib/jvm/java-8-openjdk-amd64/
