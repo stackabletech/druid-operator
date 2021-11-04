@@ -1,7 +1,7 @@
 apiVersion: command.druid.stackable.tech/v1alpha1
 kind: Stop
 metadata:
-  name: druid-cluster-command-stop
+  generateName: druid-cluster-command-stop-
 spec:
   name: "simple"
   rolling: true
