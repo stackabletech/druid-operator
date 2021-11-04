@@ -7,7 +7,7 @@ pub fn get_jvm_config(role: &DruidRole) -> String {
     -server
     -Duser.timezone=UTC
     -Dfile.encoding=UTF-8
-    -Djava.io.tmpdir=/tmp/druid
+    -Djava.io.tmpdir=/stackable/tmp/druid
     -Djava.util.logging.manager=org.apache.logging.log4j.jul.LogManager
     -XX:+UseG1GC
     -XX:+ExitOnOutOfMemoryError
@@ -22,7 +22,7 @@ pub fn get_jvm_config(role: &DruidRole) -> String {
         DruidRole::Coordinator => common_props.to_string() + "
             -Xms256m
             -Xmx256m
-            -Dderby.stream.error.file=/var/druid/derby.log
+            -Dderby.stream.error.file=/stackable/var/druid/derby.log
         ",
         DruidRole::Historical => common_props.to_string() + "
             -Xms512m
@@ -46,7 +46,7 @@ pub fn get_runtime_properties(role: &DruidRole, other_props: &BTreeMap<String, O
     druid.startup.logging.logProperties=true
     druid.zk.paths.base=/druid
     druid.indexer.logs.type=file
-    druid.indexer.logs.directory=var/druid/indexing-logs
+    druid.indexer.logs.directory=/stackable/var/druid/indexing-logs
     druid.selectors.indexing.serviceName=druid/overlord
     druid.selectors.coordinator.serviceName=druid/coordinator
     druid.monitoring.monitors=[\"org.apache.druid.java.util.metrics.JvmMonitor\"]
@@ -73,7 +73,7 @@ pub fn get_runtime_properties(role: &DruidRole, other_props: &BTreeMap<String, O
         druid.processing.buffer.sizeBytes=50MiB
         druid.processing.numMergeBuffers=2
         druid.processing.numThreads=1
-        druid.processing.tmpDir=var/druid/processing
+        druid.processing.tmpDir=/stackable/var/druid/processing
 
         # Query cache disabled -- push down caching and merging instead
         druid.broker.cache.useCache=false
@@ -104,10 +104,10 @@ pub fn get_runtime_properties(role: &DruidRole, other_props: &BTreeMap<String, O
         druid.processing.buffer.sizeBytes=50MiB
         druid.processing.numMergeBuffers=2
         druid.processing.numThreads=1
-        druid.processing.tmpDir=var/druid/processing
+        druid.processing.tmpDir=/stackable/var/druid/processing
 
         # Segment storage
-        druid.segmentCache.locations=[{\"path\":\"var/druid/segment-cache\",\"maxSize\":\"300g\"}]
+        druid.segmentCache.locations=[{\"path\":\"/stackable/var/druid/segment-cache\",\"maxSize\":\"300g\"}]
 
         # Query cache
         druid.historical.cache.useCache=true
@@ -123,7 +123,7 @@ pub fn get_runtime_properties(role: &DruidRole, other_props: &BTreeMap<String, O
 
         # Task launch parameters
         druid.indexer.runner.javaOpts=-server -Xms256m -Xmx256m -XX:MaxDirectMemorySize=300m -Duser.timezone=UTC -Dfile.encoding=UTF-8 -XX:+ExitOnOutOfMemoryError -Djava.util.logging.manager=org.apache.logging.log4j.jul.LogManager
-        druid.indexer.task.baseTaskDir=var/druid/task
+        druid.indexer.task.baseTaskDir=/stackable/var/druid/task
 
         # HTTP server threads
         druid.server.http.numThreads=6
@@ -134,7 +134,7 @@ pub fn get_runtime_properties(role: &DruidRole, other_props: &BTreeMap<String, O
         druid.indexer.fork.property.druid.processing.numThreads=1
 
         # Hadoop indexing
-        druid.indexer.task.hadoopWorkingPath=var/druid/hadoop-tmp
+        druid.indexer.task.hadoopWorkingPath=/stackable/var/druid/hadoop-tmp
         ",
         DruidRole::Router => "
         druid.service=druid/router
