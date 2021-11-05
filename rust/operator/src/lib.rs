@@ -458,7 +458,6 @@ impl DruidState {
                     .ownerreference_from_resource(&self.context.resource, Some(true), Some(true))?
                     .build()?,
             )
-            .add_stackable_agent_tolerations()
             .host_network(true)
             .add_container(container)
             .node_name(node_name)
