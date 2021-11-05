@@ -1,19 +1,30 @@
 = Usage
 
+Druid requires a Zookeeper to run, as well as a database.
 
-== Prerequisites
 
-* Deployed Stackable Apache Zookeeper
-* Deployed SQL Database (MySQL or PostgreSQL; an internal Derby DB is also supported but not recommended for production use)
-* An installation of Java 8.  Druid support for later Versions is experimental
-
-== Installation
-
-In the following we explain or link the required installation steps.
+== Setup Prerequisites
 
 === Zookeeper operator
 
 Please refer to the https://github.com/stackabletech/zookeeper-operator[Zookeeper] operator and https://docs.stackable.tech/zookeeper/index.html[docs].
+
+=== SQL Database
+
+Druid requires a MySQL or Postgres database.
+
+For testing purposes, you can spin up a PostgreSQL database with the following command:
+
+    helm install superset bitnami/postgresql \
+    --set postgresqlUsername=druid \
+    --set postgresqlPassword=druid \
+    --set postgresqlDatabase=druid
+
+* Deployed SQL Database (MySQL or PostgreSQL; an internal Derby DB is also supported but not recommended for production use)
+
+== Installation
+
+In the following we explain or link the required installation steps.
 
 === Druid
 
@@ -21,7 +32,7 @@ With the prerequisites fulfilled, the CRD for this operator must be created:
 
     kubectl apply -f /etc/stackable/druid-operator/crd/druidcluster.crd.yaml
 
-To create a Druid cluster with the web interface on port 8888 of the router run the command below. Fill in the correct database connection, path for deep storage and path to the Java home directory.
+Then a cluster can be deployed. Fill in the correct database connection and path for deep storage.
 
     cat <<EOF | kubectl apply -f -
 apiVersion: druid.stackable.tech/v1alpha1
@@ -35,8 +46,8 @@ spec:
     name: simple
   metadataStorageDatabase:
     dbType: postgresql
-    connString: jdbc:postgresql://<db_hostname>/druid
-    host: <db_hostname>
+    connString: jdbc:postgresql://druid-postgresql/druid
+    host: druid-postgresql
     port: 5432
     user: druid
     password: druid
@@ -48,43 +59,45 @@ spec:
       default:
         selector:
           matchLabels:
-            kubernetes.io/arch: stackable-linux
+            kubernetes.io/os: linux
         replicas: 1
-        config:
-          javaHome: /usr/lib/jvm/java-8-openjdk-amd64/
   coordinators:
     roleGroups:
       default:
         selector:
           matchLabels:
-            kubernetes.io/arch: stackable-linux
+            kubernetes.io/os: linux
         replicas: 1
-        config:
-          javaHome: /usr/lib/jvm/java-8-openjdk-amd64/
   historicals:
     roleGroups:
       default:
         selector:
           matchLabels:
-            kubernetes.io/arch: stackable-linux
+            kubernetes.io/os: linux
         replicas: 1
-        config:
-          javaHome: /usr/lib/jvm/java-8-openjdk-amd64/
   middleManagers:
     roleGroups:
       default:
         selector:
           matchLabels:
-            kubernetes.io/arch: stackable-linux
+            kubernetes.io/os: linux
         replicas: 1
-        config:
-          javaHome: /usr/lib/jvm/java-8-openjdk-amd64/
   routers:
     roleGroups:
       default:
         selector:
           matchLabels:
-            kubernetes.io/arch: stackable-linux
+            kubernetes.io/os: linux
         replicas: 1
-        config:
-          javaHome: /usr/lib/jvm/java-8-openjdk-amd64/
+
+This will create a cluster with the default port configurations which are:
+
+- Coordinator: 8081
+- Broker: 8082
+- Historical: 8083
+- MiddleManager: 8091
+- Router: 8888
+
+The Router is hosting the web UI, which should now be reachable on the Router host on port 8888.
+
+Druid has been deployed successfully, from here on we refer to the https://druid.apache.org/docs/latest/tutorials/index.html#step-4-load-data[druid documentation] on how to ingest and analyse your first data.

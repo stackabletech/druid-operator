@@ -3,6 +3,13 @@
 == Command Line Parameters
 This operator accepts the following command line parameters:
 
-include::commandline_args.adoc[]
+=== product-config
+
+*Default value*: `/etc/stackable/stackable-trino/config-spec/properties.yaml`
+
+*Required*: false
+
+*Multiple values:* false
 
 
+This file contains property definitions for the Apache Druid configuration.
