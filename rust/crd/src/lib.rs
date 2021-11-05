@@ -324,7 +324,7 @@ pub struct DeepStorageSpec {
 #[serde(rename_all = "camelCase")]
 pub struct DruidConfig {
     // port
-    pub plaintext_port: Option<u16>,
+    pub plaintext_port: u16,
 }
 
 impl Configuration for DruidConfig {
@@ -358,7 +358,7 @@ impl Configuration for DruidConfig {
         role_name: &str,
         file: &str,
     ) -> Result<BTreeMap<String, Option<String>>, ConfigError> {
-        let role = DruidRole::from_str(role_name).unwrap();
+        let _role = DruidRole::from_str(role_name).unwrap();
 
         let mut result = BTreeMap::new();
         match file {
@@ -406,6 +406,7 @@ impl Configuration for DruidConfig {
                     result.insert(DS_BASE_KEY.to_string(), Some(key.to_string()));
                 }
                 // plaintext port
+                /*
                 let plaintext_port = if let Some(port) = self.plaintext_port {
                     port
                 } else {
@@ -417,9 +418,10 @@ impl Configuration for DruidConfig {
                         DruidRole::Router => 8888,
                     }
                 };
+                 */
                 result.insert(
                     DRUID_PLAINTEXTPORT.to_string(),
-                    Some(plaintext_port.to_string()),
+                    Some(self.plaintext_port.to_string()),
                 );
                 result.insert(
                     EXTENSIONS_LOADLIST.to_string(),

@@ -35,8 +35,9 @@ spec:
                         plaintextPort:
                           format: uint16
                           minimum: 0.0
-                          nullable: true
                           type: integer
+                      required:
+                        - plaintextPort
                       type: object
                     configOverrides:
                       additionalProperties:
@@ -64,8 +65,9 @@ spec:
                               plaintextPort:
                                 format: uint16
                                 minimum: 0.0
-                                nullable: true
                                 type: integer
+                            required:
+                              - plaintextPort
                             type: object
                           configOverrides:
                             additionalProperties:
@@ -133,8 +135,9 @@ spec:
                         plaintextPort:
                           format: uint16
                           minimum: 0.0
-                          nullable: true
                           type: integer
+                      required:
+                        - plaintextPort
                       type: object
                     configOverrides:
                       additionalProperties:
@@ -162,8 +165,9 @@ spec:
                               plaintextPort:
                                 format: uint16
                                 minimum: 0.0
-                                nullable: true
                                 type: integer
+                            required:
+                              - plaintextPort
                             type: object
                           configOverrides:
                             additionalProperties:
@@ -252,8 +256,9 @@ spec:
                         plaintextPort:
                           format: uint16
                           minimum: 0.0
-                          nullable: true
                           type: integer
+                      required:
+                        - plaintextPort
                       type: object
                     configOverrides:
                       additionalProperties:
@@ -281,8 +286,9 @@ spec:
                               plaintextPort:
                                 format: uint16
                                 minimum: 0.0
-                                nullable: true
                                 type: integer
+                            required:
+                              - plaintextPort
                             type: object
                           configOverrides:
                             additionalProperties:
@@ -378,8 +384,9 @@ spec:
                         plaintextPort:
                           format: uint16
                           minimum: 0.0
-                          nullable: true
                           type: integer
+                      required:
+                        - plaintextPort
                       type: object
                     configOverrides:
                       additionalProperties:
@@ -407,8 +414,9 @@ spec:
                               plaintextPort:
                                 format: uint16
                                 minimum: 0.0
-                                nullable: true
                                 type: integer
+                            required:
+                              - plaintextPort
                             type: object
                           configOverrides:
                             additionalProperties:
@@ -476,8 +484,9 @@ spec:
                         plaintextPort:
                           format: uint16
                           minimum: 0.0
-                          nullable: true
                           type: integer
+                      required:
+                        - plaintextPort
                       type: object
                     configOverrides:
                       additionalProperties:
@@ -505,8 +514,9 @@ spec:
                               plaintextPort:
                                 format: uint16
                                 minimum: 0.0
-                                nullable: true
                                 type: integer
+                            required:
+                              - plaintextPort
                             type: object
                           configOverrides:
                             additionalProperties:

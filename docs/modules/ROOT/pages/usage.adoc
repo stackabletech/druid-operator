@@ -58,6 +58,8 @@ spec:
         selector:
           matchLabels:
             kubernetes.io/os: linux
+        config:
+          plaintextPort: 8082
         replicas: 1
   coordinators:
     roleGroups:
@@ -65,6 +67,8 @@ spec:
         selector:
           matchLabels:
             kubernetes.io/os: linux
+        config:
+          plaintextPort: 8081
         replicas: 1
   historicals:
     roleGroups:
@@ -72,6 +76,8 @@ spec:
         selector:
           matchLabels:
             kubernetes.io/os: linux
+        config:
+          plaintextPort: 8083
         replicas: 1
   middleManagers:
     roleGroups:
@@ -79,6 +85,8 @@ spec:
         selector:
           matchLabels:
             kubernetes.io/os: linux
+        config:
+          plaintextPort: 8091
         replicas: 1
   routers:
     roleGroups:
@@ -86,15 +94,9 @@ spec:
         selector:
           matchLabels:
             kubernetes.io/os: linux
+        config:
+          plaintextPort: 8888
         replicas: 1
-
-This will create a cluster with the default port configurations which are:
-
-- Coordinator: 8081
-- Broker: 8082
-- Historical: 8083
-- MiddleManager: 8091
-- Router: 8888
 
 The Router is hosting the web UI, which should now be reachable on the Router host on port 8888.
 

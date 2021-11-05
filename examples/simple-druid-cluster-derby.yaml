@@ -21,6 +21,8 @@ spec:
         selector:
           matchLabels:
             kubernetes.io/os: linux
+        config:
+          plaintextPort: 8082
         replicas: 1
   coordinators:
     roleGroups:
@@ -28,6 +30,8 @@ spec:
         selector:
           matchLabels:
             kubernetes.io/os: linux
+        config:
+          plaintextPort: 8081
         replicas: 1
   historicals:
     roleGroups:
@@ -35,6 +39,8 @@ spec:
         selector:
           matchLabels:
             kubernetes.io/os: linux
+        config:
+          plaintextPort: 8083
         replicas: 1
   middleManagers:
     roleGroups:
@@ -42,6 +48,8 @@ spec:
         selector:
           matchLabels:
             kubernetes.io/os: linux
+        config:
+          plaintextPort: 8091
         replicas: 1
   routers:
     roleGroups:
@@ -49,4 +57,6 @@ spec:
         selector:
           matchLabels:
             kubernetes.io/os: linux
+        config:
+          plaintextPort: 8888
         replicas: 1
