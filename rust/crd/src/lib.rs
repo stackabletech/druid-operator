@@ -41,9 +41,6 @@ pub const JVM_CONFIG: &str = "jvm.config";
 pub const RUNTIME_PROPS: &str = "runtime.properties";
 pub const LOG4J2_CONFIG: &str = "log4j2.xml";
 
-// environment variables
-pub const JAVA_HOME: &str = "JAVA_HOME";
-
 // port names
 pub const PLAINTEXT: &str = "plaintext";
 
@@ -332,8 +329,6 @@ pub struct DeepStorageSpec {
 pub struct DruidConfig {
     // port
     pub plaintext_port: Option<u16>,
-    // misc
-    pub java_home: Option<String>,  // needs to be java 8!
 }
 
 impl Configuration for DruidConfig {

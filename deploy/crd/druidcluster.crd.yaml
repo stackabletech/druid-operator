@@ -32,9 +32,6 @@ spec:
                     config:
                       nullable: true
                       properties:
-                        javaHome:
-                          nullable: true
-                          type: string
                         plaintextPort:
                           format: uint16
                           minimum: 0.0
@@ -64,9 +61,6 @@ spec:
                           config:
                             nullable: true
                             properties:
-                              javaHome:
-                                nullable: true
-                                type: string
                               plaintextPort:
                                 format: uint16
                                 minimum: 0.0
@@ -136,9 +130,6 @@ spec:
                     config:
                       nullable: true
                       properties:
-                        javaHome:
-                          nullable: true
-                          type: string
                         plaintextPort:
                           format: uint16
                           minimum: 0.0
@@ -168,9 +159,6 @@ spec:
                           config:
                             nullable: true
                             properties:
-                              javaHome:
-                                nullable: true
-                                type: string
                               plaintextPort:
                                 format: uint16
                                 minimum: 0.0
@@ -261,9 +249,6 @@ spec:
                     config:
                       nullable: true
                       properties:
-                        javaHome:
-                          nullable: true
-                          type: string
                         plaintextPort:
                           format: uint16
                           minimum: 0.0
@@ -293,9 +278,6 @@ spec:
                           config:
                             nullable: true
                             properties:
-                              javaHome:
-                                nullable: true
-                                type: string
                               plaintextPort:
                                 format: uint16
                                 minimum: 0.0
@@ -393,9 +375,6 @@ spec:
                     config:
                       nullable: true
                       properties:
-                        javaHome:
-                          nullable: true
-                          type: string
                         plaintextPort:
                           format: uint16
                           minimum: 0.0
@@ -425,9 +404,6 @@ spec:
                           config:
                             nullable: true
                             properties:
-                              javaHome:
-                                nullable: true
-                                type: string
                               plaintextPort:
                                 format: uint16
                                 minimum: 0.0
@@ -497,9 +473,6 @@ spec:
                     config:
                       nullable: true
                       properties:
-                        javaHome:
-                          nullable: true
-                          type: string
                         plaintextPort:
                           format: uint16
                           minimum: 0.0
@@ -529,9 +502,6 @@ spec:
                           config:
                             nullable: true
                             properties:
-                              javaHome:
-                                nullable: true
-                                type: string
                               plaintextPort:
                                 format: uint16
                                 minimum: 0.0

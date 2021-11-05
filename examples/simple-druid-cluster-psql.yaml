@@ -9,11 +9,11 @@ spec:
     name: simple
   metadataStorageDatabase:
     dbType: postgresql
-    connString: jdbc:postgresql://localhost/druid
-    host: localhost
+    connString: jdbc:postgresql://172.17.0.4/druid
+    host: 172.17.0.4
     port: 5432
     user: druid
-    password: druid
+    password: diurd
   deepStorage:
     storageType: local
     storageDirectory: /home/felix/druidDeepStorage
@@ -24,8 +24,6 @@ spec:
           matchLabels:
             kubernetes.io/os: linux
         replicas: 1
-        config:
-          javaHome: test
   coordinators:
     roleGroups:
       default:
@@ -33,8 +31,6 @@ spec:
           matchLabels:
             kubernetes.io/os: linux
         replicas: 1
-        config:
-          javaHome: test
   historicals:
     roleGroups:
       default:
@@ -42,8 +38,6 @@ spec:
           matchLabels:
             kubernetes.io/os: linux
         replicas: 1
-        config:
-          javaHome: test
   middleManagers:
     roleGroups:
       default:
@@ -51,8 +45,6 @@ spec:
           matchLabels:
             kubernetes.io/os: linux
         replicas: 1
-        config:
-          javaHome: test
   routers:
     roleGroups:
       default:
@@ -60,5 +52,3 @@ spec:
           matchLabels:
             kubernetes.io/os: linux
         replicas: 1
-        config:
-          javaHome: test

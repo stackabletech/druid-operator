@@ -19,59 +19,34 @@ spec:
     roleGroups:
       default:
         selector:
-          matchExpressions:
-            - operator: In
-              key: kubernetes.io/hostname
-              values:
-                - stackable-node-x
+          matchLabels:
+            kubernetes.io/os: linux
         replicas: 1
-        config:
-          javaHome: test
   coordinators:
     roleGroups:
       default:
         selector:
-          matchExpressions:
-            - operator: In
-              key: kubernetes.io/hostname
-              values:
-                - stackable-node-x
+          matchLabels:
+            kubernetes.io/os: linux
         replicas: 1
-        config:
-          javaHome: test
   historicals:
     roleGroups:
       default:
         selector:
-          matchExpressions:
-            - operator: In
-              key: kubernetes.io/hostname
-              values:
-                - stackable-node-x
+          matchLabels:
+            kubernetes.io/os: linux
         replicas: 1
-        config:
-          javaHome: test
   middleManagers:
     roleGroups:
       default:
         selector:
-          matchExpressions:
-            - operator: In
-              key: kubernetes.io/hostname
-              values:
-                - stackable-node-x
+          matchLabels:
+            kubernetes.io/os: linux
         replicas: 1
-        config:
-          javaHome: test
   routers:
     roleGroups:
       default:
         selector:
-          matchExpressions:
-            - operator: In
-              key: kubernetes.io/hostname
-              values:
-                - stackable-node-x
+          matchLabels:
+            kubernetes.io/os: linux
         replicas: 1
-        config:
-          javaHome: test

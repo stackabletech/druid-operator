@@ -14,7 +14,7 @@ use stackable_operator::product_config::types::PropertyNameKind;
 use stackable_operator::product_config::ProductConfigManager;
 use stackable_druid_crd::{
     DruidCluster, DruidClusterSpec, DruidRole, DruidVersion, APP_NAME, JVM_CONFIG, LOG4J2_CONFIG,
-    RUNTIME_PROPS, DRUID_PLAINTEXTPORT, JAVA_HOME, PLAINTEXT, CONF_DIR, ZOOKEEPER_CONNECTION_STRING
+    RUNTIME_PROPS, DRUID_PLAINTEXTPORT, PLAINTEXT, CONF_DIR, ZOOKEEPER_CONNECTION_STRING
 };
 use stackable_operator::builder::{
     ContainerBuilder, ContainerPortBuilder, ObjectMetaBuilder, PodBuilder, VolumeBuilder
@@ -397,10 +397,6 @@ impl DruidState {
             .get(&PropertyNameKind::File(RUNTIME_PROPS.to_string()))
             .and_then(|props| props.get(DRUID_PLAINTEXTPORT));
 
-        let java_home = validated_config
-            .get(&PropertyNameKind::Env)
-            .and_then(|env| env.get(JAVA_HOME));
-
         let version = &self.context.resource.spec.version;
 
         let pod_name = name_utils::build_resource_name(
@@ -427,12 +423,6 @@ impl DruidState {
         // cb.image(format!("stackable/druid:{}", version.to_string()));
         cb.image("druid-test:latest".to_string());
         cb.command(role.get_command(version));
-
-        /*
-        if let Some(java_home) = java_home {
-            cb.add_env_var(JAVA_HOME, java_home);
-        }
-        */
 
         // One mount for the config directory
         if let Some(config_map_data) = config_maps.get(CONFIG_MAP_TYPE_CONF) {
