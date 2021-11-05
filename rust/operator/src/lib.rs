@@ -6,18 +6,18 @@ use crate::error::Error;
 use stackable_druid_crd::commands::{Restart, Start, Stop};
 
 use async_trait::async_trait;
-use stackable_operator::k8s_openapi::api::core::v1::{ConfigMap, EnvVar, Pod};
+use stackable_operator::k8s_openapi::api::core::v1::{ConfigMap, Pod};
 use stackable_operator::kube::api::{ListParams, ResourceExt};
 use stackable_operator::kube::Api;
 use stackable_operator::kube::CustomResourceExt;
 use stackable_operator::product_config::types::PropertyNameKind;
 use stackable_operator::product_config::ProductConfigManager;
 use stackable_druid_crd::{
-    DruidCluster, DruidClusterSpec, DruidRole, DruidVersion, APP_NAME, JVM_CONFIG, LOG4J2_CONFIG,
-    RUNTIME_PROPS, DRUID_PLAINTEXTPORT, PLAINTEXT, CONF_DIR, ZOOKEEPER_CONNECTION_STRING
+    DruidCluster, DruidClusterSpec, DruidRole, APP_NAME, JVM_CONFIG, LOG4J2_CONFIG,
+    RUNTIME_PROPS, DRUID_PLAINTEXTPORT, PLAINTEXT, ZOOKEEPER_CONNECTION_STRING
 };
 use stackable_operator::builder::{
-    ContainerBuilder, ContainerPortBuilder, ObjectMetaBuilder, PodBuilder, VolumeBuilder
+    ContainerBuilder, ObjectMetaBuilder, PodBuilder, VolumeBuilder
 };
 use stackable_operator::client::Client;
 use stackable_operator::command::materialize_command;
@@ -55,13 +55,12 @@ use std::sync::Arc;
 use std::time::Duration;
 use strum::IntoEnumIterator;
 use tracing::error;
-use tracing::{debug, info, trace, warn};
+use tracing::{debug, info, trace};
 
 use stackable_zookeeper_crd::discovery::ZookeeperConnectionInformation;
 
 const FINALIZER_NAME: &str = "druid.stackable.tech/cleanup";
 const ID_LABEL: &str = "druid.stackable.tech/id";
-const SHOULD_BE_SCRAPED: &str = "monitoring.stackable.tech/should_be_scraped";
 
 const CONFIG_MAP_TYPE_CONF: &str = "config";
 
@@ -321,15 +320,15 @@ impl DruidState {
                         return Err(error::Error::ZookeeperConnectionInformationError);
                     }
 
-                    let runtime_properties = get_runtime_properties(&role, &transformed_config);
+                    let runtime_properties = get_runtime_properties(role, &transformed_config);
                     cm_conf_data.insert(RUNTIME_PROPS.to_string(), runtime_properties);
                 },
                 PropertyNameKind::File(file_name) if file_name == JVM_CONFIG => {
-                    let jvm_config = get_jvm_config(&role);
+                    let jvm_config = get_jvm_config(role);
                     cm_conf_data.insert(JVM_CONFIG.to_string(), jvm_config);
                 },
                 PropertyNameKind::File(file_name) if file_name == LOG4J2_CONFIG => {
-                    let log_config = get_log4j_config(&role);
+                    let log_config = get_log4j_config(role);
                     cm_conf_data.insert(LOG4J2_CONFIG.to_string(), log_config);
                 },
                 _ => {},
@@ -695,7 +694,7 @@ impl ControllerStrategy for DruidStrategy {
         roles.insert(
             DruidRole::Router.to_string(),
             (
-                config_files.clone(),
+                config_files,
                 context.resource.spec.routers.clone().into(),
             ),
         );

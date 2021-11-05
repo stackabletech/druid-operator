@@ -31,8 +31,6 @@ use strum_macros::EnumIter;
 use strum_macros::EnumString;
 use std::str::FromStr;
 
-use tracing::{warn, info, debug, trace};
-
 pub const APP_NAME: &str = "druid";
 pub const CONF_DIR: &str = "conf";
 
@@ -118,22 +116,14 @@ impl DruidRole {
     /// Returns the start commands for the different server types.
     pub fn get_command(
         &self,
-        version: &DruidVersion,
+        _version: &DruidVersion,
     ) -> Vec<String> {
 
         vec![
             "./stackable/run-druid".to_string(),
             self.to_string(),
             "/stackable/conf".to_string(),
-            // format!("{{{{configroot}}}}/{}", CONF_DIR),
         ]
-        /*
-        vec![
-            format!("{}/stackable/run-druid", version.package_name()),
-            self.to_string(),
-            format!("{{{{configroot}}}}/{}", CONF_DIR),
-        ]
-        */
     }
 }
 
@@ -339,7 +329,7 @@ impl Configuration for DruidConfig {
         _resource: &Self::Configurable,
         _role_name: &str,
     ) -> Result<BTreeMap<String, Option<String>>, ConfigError> {
-        let mut result = BTreeMap::new();
+        let result = BTreeMap::new();
 
         // TODO: Readd if we want jmx metrics gathered
         //if let Some(metrics_port) = self.metrics_port {
@@ -537,20 +527,18 @@ impl HasCurrentCommand for DruidClusterStatus {
 
 /// Takes a vec of strings and returns them as a formatted json
 /// list.
-fn build_string_list(strings: &Vec<String>) -> String {
+fn build_string_list(strings: &[String]) -> String {
     let quoted_strings: Vec<String> =
         strings.iter()
             .map(|s| format!("\"{}\"", s))
             .collect();
     let comma_list = quoted_strings.join(", ");
-    format!("[{}]", comma_list).to_string()
+    format!("[{}]", comma_list)
 }
 
 #[cfg(test)]
 mod tests {
     use crate::DruidVersion;
-    use stackable_operator::versioning::{Versioning, VersioningState};
-    use std::str::FromStr;
 
     #[test]
     fn test_druid_version_versioning() {
