@@ -454,12 +454,6 @@ pub enum DruidVersion {
     v0_22_0,
 }
 
-impl DruidVersion {
-    pub fn package_name(&self) -> String {
-        format!("apache-druid-{}", self.to_string())
-    }
-}
-
 impl Versioning for DruidVersion {
     fn versioning_state(&self, other: &Self) -> VersioningState {
         let from_version = match Version::parse(&self.to_string()) {
@@ -546,29 +540,4 @@ fn build_string_list(strings: &[String]) -> String {
     let quoted_strings: Vec<String> = strings.iter().map(|s| format!("\"{}\"", s)).collect();
     let comma_list = quoted_strings.join(", ");
     format!("[{}]", comma_list)
-}
-
-#[cfg(test)]
-mod tests {
-    use crate::DruidVersion;
-
-    #[test]
-    fn test_druid_version_versioning() {
-        todo!();
-    }
-
-    #[test]
-    #[test]
-    fn test_version_conversion() {
-        // TODO: Adapt to correct product version
-        // DruidVersion::from_str("3.4.14").unwrap();
-    }
-
-    #[test]
-    fn test_package_name() {
-        assert_eq!(
-            DruidVersion::v0_22_0.package_name(),
-            format!("apache-druid-{}", DruidVersion::v0_22_0.to_string())
-        );
-    }
 }
