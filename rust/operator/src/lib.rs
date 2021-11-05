@@ -416,8 +416,11 @@ impl DruidState {
         let mut pod_builder = PodBuilder::new();
 
         let mut cb = ContainerBuilder::new(APP_NAME);
-        // cb.image(format!("stackable/druid:{}", version.to_string()));
-        cb.image("druid-test:latest".to_string());
+        //TODO better handling of platform version
+        cb.image(format!(
+            "docker.stackable.tech/stackable/druid:{}-0.1",
+            version.to_string()
+        ));
         cb.command(role.get_command(version));
 
         // One mount for the config directory
