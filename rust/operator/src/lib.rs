@@ -17,7 +17,7 @@ use stackable_druid_crd::{
     RUNTIME_PROPS, DRUID_PLAINTEXTPORT, JAVA_HOME, PLAINTEXT, CONF_DIR, ZOOKEEPER_CONNECTION_STRING
 };
 use stackable_operator::builder::{
-    ContainerBuilder, ContainerPortBuilder, ObjectMetaBuilder, PodBuilder,
+    ContainerBuilder, ContainerPortBuilder, ObjectMetaBuilder, PodBuilder, VolumeBuilder
 };
 use stackable_operator::client::Client;
 use stackable_operator::command::materialize_command;
@@ -314,6 +314,7 @@ impl DruidState {
                     if let Some(zk_info) = &self.zookeeper_info {
                         transformed_config.insert(
                             ZOOKEEPER_CONNECTION_STRING.to_string(),
+                            // Some("172.17.0.4:2181".to_string()),
                             Some(zk_info.connection_string.clone()),
                         );
                     } else {
@@ -420,17 +421,24 @@ impl DruidState {
         );
         recommended_labels.insert(ID_LABEL.to_string(), pod_id.id().to_string());
 
+        let mut pod_builder = PodBuilder::new();
+
         let mut cb = ContainerBuilder::new(APP_NAME);
-        cb.image(format!("stackable/druid:{}", version.to_string()));
+        // cb.image(format!("stackable/druid:{}", version.to_string()));
+        cb.image("druid-test:latest".to_string());
         cb.command(role.get_command(version));
 
+        /*
         if let Some(java_home) = java_home {
             cb.add_env_var(JAVA_HOME, java_home);
         }
+        */
 
+        // One mount for the config directory
         if let Some(config_map_data) = config_maps.get(CONFIG_MAP_TYPE_CONF) {
             if let Some(name) = config_map_data.metadata.name.as_ref() {
-                cb.add_configmapvolume(name, CONF_DIR.to_string());
+                cb.add_volume_mount("config", "/stackable/conf");
+                pod_builder.add_volume(VolumeBuilder::new("config").with_config_map(name).build());
             } else {
                 return Err(error::Error::MissingConfigMapNameError {
                     cm_type: CONFIG_MAP_TYPE_CONF,
@@ -446,14 +454,12 @@ impl DruidState {
         let annotations = BTreeMap::new();
 
         if let Some(plaintext_port) = plaintext_port {
-            cb.add_container_port(
-                ContainerPortBuilder::new(plaintext_port.parse()?)
-                    .name(PLAINTEXT)
-                    .build(),
-            );
+            cb.add_container_port(PLAINTEXT, plaintext_port.parse()?);
         }
+        let mut container = cb.build();
+        container.image_pull_policy = Some("IfNotPresent".to_string());
 
-        let pod = PodBuilder::new()
+        let pod = pod_builder
             .metadata(
                 ObjectMetaBuilder::new()
                     .generate_name(pod_name)
@@ -464,7 +470,8 @@ impl DruidState {
                     .build()?,
             )
             .add_stackable_agent_tolerations()
-            .add_container(cb.build())
+            .host_network(true)
+            .add_container(container)
             .node_name(node_name)
             .build()?;
 

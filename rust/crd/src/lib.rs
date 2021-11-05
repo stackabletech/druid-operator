@@ -123,11 +123,20 @@ impl DruidRole {
         &self,
         version: &DruidVersion,
     ) -> Vec<String> {
+
+        vec![
+            "./stackable/run-druid".to_string(),
+            self.to_string(),
+            "/stackable/conf".to_string(),
+            // format!("{{{{configroot}}}}/{}", CONF_DIR),
+        ]
+        /*
         vec![
             format!("{}/stackable/run-druid", version.package_name()),
             self.to_string(),
             format!("{{{{configroot}}}}/{}", CONF_DIR),
         ]
+        */
     }
 }
 
@@ -261,7 +270,6 @@ impl Default for DbType {
         Self::Derby
     }
 }
-
 
 #[derive(
 Clone,
