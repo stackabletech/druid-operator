@@ -1,24 +1,16 @@
 mod config;
 mod error;
 
-use crate::config::{get_jvm_config, get_runtime_properties, get_log4j_config};
+use crate::config::{get_jvm_config, get_log4j_config, get_runtime_properties};
 use crate::error::Error;
 use stackable_druid_crd::commands::{Restart, Start, Stop};
 
 use async_trait::async_trait;
-use stackable_operator::k8s_openapi::api::core::v1::{ConfigMap, Pod};
-use stackable_operator::kube::api::{ListParams, ResourceExt};
-use stackable_operator::kube::Api;
-use stackable_operator::kube::CustomResourceExt;
-use stackable_operator::product_config::types::PropertyNameKind;
-use stackable_operator::product_config::ProductConfigManager;
 use stackable_druid_crd::{
-    DruidCluster, DruidClusterSpec, DruidRole, APP_NAME, JVM_CONFIG, LOG4J2_CONFIG,
-    RUNTIME_PROPS, DRUID_PLAINTEXTPORT, PLAINTEXT, ZOOKEEPER_CONNECTION_STRING
+    DruidCluster, DruidClusterSpec, DruidRole, APP_NAME, DRUID_PLAINTEXTPORT, JVM_CONFIG,
+    LOG4J2_CONFIG, PLAINTEXT, RUNTIME_PROPS, ZOOKEEPER_CONNECTION_STRING,
 };
-use stackable_operator::builder::{
-    ContainerBuilder, ObjectMetaBuilder, PodBuilder, VolumeBuilder
-};
+use stackable_operator::builder::{ContainerBuilder, ObjectMetaBuilder, PodBuilder, VolumeBuilder};
 use stackable_operator::client::Client;
 use stackable_operator::command::materialize_command;
 use stackable_operator::configmap;
@@ -26,11 +18,17 @@ use stackable_operator::controller::Controller;
 use stackable_operator::controller::{ControllerStrategy, ReconciliationState};
 use stackable_operator::error::OperatorResult;
 use stackable_operator::identity::{LabeledPodIdentityFactory, PodIdentity, PodToNodeMapping};
+use stackable_operator::k8s_openapi::api::core::v1::{ConfigMap, Pod};
+use stackable_operator::kube::api::{ListParams, ResourceExt};
+use stackable_operator::kube::Api;
+use stackable_operator::kube::CustomResourceExt;
 use stackable_operator::labels;
 use stackable_operator::labels::{
     build_common_labels_for_all_managed_resources, get_recommended_labels,
 };
 use stackable_operator::name_utils;
+use stackable_operator::product_config::types::PropertyNameKind;
+use stackable_operator::product_config::ProductConfigManager;
 use stackable_operator::product_config_utils::{
     config_for_role_and_group, transform_all_roles_to_config, validate_all_roles_and_groups_config,
     ValidatedRoleConfigByPropertyKind,
@@ -108,7 +106,7 @@ impl DruidState {
             &self.context.client,
             zk_ref,
         )
-            .await?;
+        .await?;
 
         debug!(
             "Received ZooKeeper connection information: [{}]",
@@ -252,7 +250,7 @@ impl DruidState {
                             &config_maps,
                             validated_config,
                         )
-                            .await?;
+                        .await?;
 
                         history.save(&self.context.resource).await?;
 
@@ -322,19 +320,18 @@ impl DruidState {
 
                     let runtime_properties = get_runtime_properties(role, &transformed_config);
                     cm_conf_data.insert(RUNTIME_PROPS.to_string(), runtime_properties);
-                },
+                }
                 PropertyNameKind::File(file_name) if file_name == JVM_CONFIG => {
                     let jvm_config = get_jvm_config(role);
                     cm_conf_data.insert(JVM_CONFIG.to_string(), jvm_config);
-                },
+                }
                 PropertyNameKind::File(file_name) if file_name == LOG4J2_CONFIG => {
                     let log_config = get_log4j_config(role);
                     cm_conf_data.insert(LOG4J2_CONFIG.to_string(), log_config);
-                },
-                _ => {},
+                }
+                _ => {}
             }
         }
-
 
         // druid config map
         let mut cm_labels = get_recommended_labels(
@@ -518,7 +515,7 @@ impl ReconciliationState for DruidState {
 
     fn reconcile(
         &mut self,
-    ) -> Pin<Box<dyn Future<Output=Result<ReconcileFunctionAction, Self::Error>> + Send + '_>>
+    ) -> Pin<Box<dyn Future<Output = Result<ReconcileFunctionAction, Self::Error>> + Send + '_>>
     {
         info!("========================= Starting reconciliation =========================");
 
@@ -606,11 +603,7 @@ impl ControllerStrategy for DruidStrategy {
 
         eligible_nodes.insert(
             DruidRole::Broker.to_string(),
-            role_utils::find_nodes_that_fit_selectors(
-                &context.client,
-                None,
-                &druid_spec.brokers,
-            )
+            role_utils::find_nodes_that_fit_selectors(&context.client, None, &druid_spec.brokers)
                 .await?,
         );
         eligible_nodes.insert(
@@ -620,7 +613,7 @@ impl ControllerStrategy for DruidStrategy {
                 None,
                 &druid_spec.coordinators,
             )
-                .await?,
+            .await?,
         );
         eligible_nodes.insert(
             DruidRole::Historical.to_string(),
@@ -629,7 +622,7 @@ impl ControllerStrategy for DruidStrategy {
                 None,
                 &druid_spec.historicals,
             )
-                .await?,
+            .await?,
         );
         eligible_nodes.insert(
             DruidRole::MiddleManager.to_string(),
@@ -638,15 +631,11 @@ impl ControllerStrategy for DruidStrategy {
                 None,
                 &druid_spec.middle_managers,
             )
-                .await?,
+            .await?,
         );
         eligible_nodes.insert(
             DruidRole::Router.to_string(),
-            role_utils::find_nodes_that_fit_selectors(
-                &context.client,
-                None,
-                &druid_spec.routers,
-            )
+            role_utils::find_nodes_that_fit_selectors(&context.client, None, &druid_spec.routers)
                 .await?,
         );
 
@@ -692,10 +681,7 @@ impl ControllerStrategy for DruidStrategy {
 
         roles.insert(
             DruidRole::Router.to_string(),
-            (
-                config_files,
-                context.resource.spec.routers.clone().into(),
-            ),
+            (config_files, context.resource.spec.routers.clone().into()),
         );
 
         let role_config = transform_all_roles_to_config(&context.resource, roles);
@@ -731,7 +717,7 @@ pub async fn create_controller(client: Client, product_config_path: &str) -> Ope
         ],
         None,
     )
-        .await
+    .await
     {
         error!("Required CRDs missing, aborting: {:?}", error);
         return Err(error);

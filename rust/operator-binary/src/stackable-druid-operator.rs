@@ -1,8 +1,8 @@
 use clap::{crate_version, App, AppSettings, SubCommand};
-use stackable_operator::{cli, logging};
-use stackable_operator::{client, error};
 use stackable_druid_crd::commands::{Restart, Start, Stop};
 use stackable_druid_crd::DruidCluster;
+use stackable_operator::{cli, logging};
+use stackable_operator::{client, error};
 
 mod built_info {
     // The file has been placed there by the build script.
@@ -51,10 +51,9 @@ async fn main() -> Result<(), error::Error> {
 
     tokio::try_join!(
         stackable_druid_operator::create_controller(client.clone(), &product_config_path),
-        stackable_operator::command_controller::create_command_controller::<
-            Restart,
-            DruidCluster,
-        >(client.clone()),
+        stackable_operator::command_controller::create_command_controller::<Restart, DruidCluster>(
+            client.clone()
+        ),
         stackable_operator::command_controller::create_command_controller::<Start, DruidCluster>(
             client.clone()
         ),

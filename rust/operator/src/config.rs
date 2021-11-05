@@ -1,7 +1,6 @@
 use stackable_druid_crd::DruidRole;
 use std::collections::BTreeMap;
 
-
 pub fn get_jvm_config(role: &DruidRole) -> String {
     let common_props = "
     -server
@@ -14,34 +13,52 @@ pub fn get_jvm_config(role: &DruidRole) -> String {
     ";
 
     match role {
-        DruidRole::Broker => common_props.to_string() + "
+        DruidRole::Broker => {
+            common_props.to_string()
+                + "
             -Xms512m
             -Xmx512m
             -XX:MaxDirectMemorySize=400m
-        ",
-        DruidRole::Coordinator => common_props.to_string() + "
+        "
+        }
+        DruidRole::Coordinator => {
+            common_props.to_string()
+                + "
             -Xms256m
             -Xmx256m
             -Dderby.stream.error.file=/stackable/var/druid/derby.log
-        ",
-        DruidRole::Historical => common_props.to_string() + "
+        "
+        }
+        DruidRole::Historical => {
+            common_props.to_string()
+                + "
             -Xms512m
             -Xmx512m
             -XX:MaxDirectMemorySize=400m
-        ",
-        DruidRole::MiddleManager => common_props.to_string() + "
+        "
+        }
+        DruidRole::MiddleManager => {
+            common_props.to_string()
+                + "
             -Xms64m
             -Xmx64m
-        ",
-        DruidRole::Router => common_props.to_string() + "
+        "
+        }
+        DruidRole::Router => {
+            common_props.to_string()
+                + "
             -Xms128m
             -Xmx128m
             -XX:MaxDirectMemorySize=128m
-        ",
+        "
+        }
     }
 }
 
-pub fn get_runtime_properties(role: &DruidRole, other_props: &BTreeMap<String, Option<String>>) -> String {
+pub fn get_runtime_properties(
+    role: &DruidRole,
+    other_props: &BTreeMap<String, Option<String>>,
+) -> String {
     let common = "
     druid.startup.logging.logProperties=true
     druid.zk.paths.base=/druid
@@ -153,7 +170,8 @@ pub fn get_runtime_properties(role: &DruidRole, other_props: &BTreeMap<String, O
         druid.router.managementProxy.enabled=true
         ",
     };
-    let others = stackable_operator::product_config::writer::to_java_properties_string(other_props.iter());
+    let others =
+        stackable_operator::product_config::writer::to_java_properties_string(other_props.iter());
     format!("{}\n{}\n{}", common, role_specifics, others.unwrap())
 }
 
@@ -189,5 +207,6 @@ pub fn get_log4j_config(_role: &DruidRole) -> String {
     </Logger>
   </Loggers>
 </Configuration>
-".to_string()
+"
+    .to_string()
 }

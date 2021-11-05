@@ -1,14 +1,14 @@
 use crate::DruidRole;
 use duplicate::duplicate;
-use stackable_operator::k8s_openapi::apimachinery::pkg::apis::meta::v1::Time;
-use stackable_operator::k8s_openapi::chrono::Utc;
-use stackable_operator::kube::CustomResource;
-use stackable_operator::schemars::{self, JsonSchema};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use serde_json::Value;
 use stackable_operator::command::{CanBeRolling, HasRoles};
 use stackable_operator::command_controller::Command;
+use stackable_operator::k8s_openapi::apimachinery::pkg::apis::meta::v1::Time;
+use stackable_operator::k8s_openapi::chrono::Utc;
+use stackable_operator::kube::CustomResource;
+use stackable_operator::schemars::{self, JsonSchema};
 
 #[derive(Clone, CustomResource, Debug, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
 #[kube(
@@ -19,7 +19,7 @@ use stackable_operator::command_controller::Command;
     namespaced,
     kube_core = "stackable_operator::kube::core",
     k8s_openapi = "stackable_operator::k8s_openapi",
-    schemars = "stackable_operator::schemars",
+    schemars = "stackable_operator::schemars"
 )]
 #[kube(status = "CommandStatus")]
 #[serde(rename_all = "camelCase")]
@@ -38,7 +38,7 @@ pub struct RestartCommandSpec {
     namespaced,
     kube_core = "stackable_operator::kube::core",
     k8s_openapi = "stackable_operator::k8s_openapi",
-    schemars = "stackable_operator::schemars",
+    schemars = "stackable_operator::schemars"
 )]
 #[kube(status = "CommandStatus")]
 #[serde(rename_all = "camelCase")]
@@ -57,7 +57,7 @@ pub struct StartCommandSpec {
     namespaced,
     kube_core = "stackable_operator::kube::core",
     k8s_openapi = "stackable_operator::k8s_openapi",
-    schemars = "stackable_operator::schemars",
+    schemars = "stackable_operator::schemars"
 )]
 #[kube(status = "CommandStatus")]
 #[serde(rename_all = "camelCase")]
