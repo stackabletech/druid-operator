@@ -13,20 +13,18 @@ Please refer to the https://github.com/stackabletech/zookeeper-operator[Zookeepe
 
 Druid requires a MySQL or Postgres database.
 
-For testing purposes, you can spin up a PostgreSQL database with the following command:
+For testing purposes, you can spin up a PostgreSQL database with the bitnami PostgreSQL helm chart.  Add the bitname repository:
 
-    helm install superset bitnami/postgresql \
+    helm repo add bitnami https://charts.bitnami.com/bitnami
+
+And setup the Postgres database:
+
+    helm install druid bitnami/postgresql \
     --set postgresqlUsername=druid \
     --set postgresqlPassword=druid \
     --set postgresqlDatabase=druid
 
-* Deployed SQL Database (MySQL or PostgreSQL; an internal Derby DB is also supported but not recommended for production use)
-
-== Installation
-
-In the following we explain or link the required installation steps.
-
-=== Druid
+=== Creating a Druid Cluster
 
 With the prerequisites fulfilled, the CRD for this operator must be created:
 
