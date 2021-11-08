@@ -28,7 +28,7 @@ And setup the Postgres database:
 
 With the prerequisites fulfilled, the CRD for this operator must be created:
 
-    kubectl apply -f /etc/stackable/druid-operator/crd/druidcluster.crd.yaml
+    kubectl apply -f /etc/stackable/druid-operator/crd
 
 Then a cluster can be deployed. Fill in the correct database connection and path for deep storage.
 
