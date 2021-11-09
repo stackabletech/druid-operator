@@ -467,7 +467,9 @@ impl DruidState {
                         .build(),
                 );
             }
-            _ => {}
+            _ => {
+                unimplemented!("Only local storage supported!")
+            }
         }
 
         let annotations = BTreeMap::new();
