@@ -100,4 +100,8 @@ spec:
 
 The Router is hosting the web UI, which should now be reachable on the Router host on port 8888.
 
-Druid has been deployed successfully, from here on we refer to the https://druid.apache.org/docs/latest/tutorials/index.html#step-4-load-data[druid documentation] on how to ingest and analyse your first data.
+To be able to access the web interface you need to forward port 8888 first:
+
+         kubectl port-forward --namespace default po/<router-pod-name> 8888:8888
+
+Now open `http://localhost:8888` in your browser and follow the https://druid.apache.org/docs/latest/tutorials/index.html#step-4-load-data[druid documentation] on how to load and query sample data.
