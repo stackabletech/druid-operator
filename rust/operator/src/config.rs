@@ -73,6 +73,7 @@ pub fn get_runtime_properties(
     druid.server.hiddenProperties=[\"druid.s3.accessKey\",\"druid.s3.secretKey\",\"druid.metadata.storage.connector.password\"]
     druid.sql.enable=true
     druid.lookup.enableLookupSyncOnStartup=false
+    druid.storage.storageDirectory=/data
     ";
 
     let role_specifics = match role {

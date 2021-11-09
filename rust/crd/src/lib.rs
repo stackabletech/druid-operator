@@ -396,9 +396,9 @@ impl Configuration for DruidConfig {
                     DeepStorageType::Hdfs => extensions.push(EXT_HDFS_STORAGE.to_string()),
                 }
                 result.insert(DS_TYPE.to_string(), Some(ds.storage_type.to_string()));
-                if let Some(dir) = &ds.storage_directory {
-                    result.insert(DS_DIRECTORY.to_string(), Some(dir.to_string()));
-                }
+                // if let Some(dir) = &ds.storage_directory {
+                //     result.insert(DS_DIRECTORY.to_string(), Some(dir.to_string()));
+                // }
                 if let Some(bucket) = &ds.bucket {
                     result.insert(DS_BUCKET.to_string(), Some(bucket.to_string()));
                 }
