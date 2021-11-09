@@ -14,7 +14,7 @@ spec:
     port: 1527
   deepStorage:
     storageType: local
-    storageDirectory: /home/felix/druidDeepStorage
+    storageDirectory: /data
   brokers:
     roleGroups:
       default:

@@ -9,14 +9,14 @@ spec:
     name: simple
   metadataStorageDatabase:
     dbType: postgresql
-    connString: jdbc:postgresql://172.17.0.4/druid
-    host: 172.17.0.4
+    connString: jdbc:postgresql://10.96.224.120/druid
+    host: 10.96.224.120
     port: 5432
     user: druid
     password: druid
   deepStorage:
     storageType: local
-    storageDirectory: /home/felix/druidDeepStorage
+    storageDirectory: /data
   brokers:
     roleGroups:
       default:
