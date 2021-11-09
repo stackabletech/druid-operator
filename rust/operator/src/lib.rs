@@ -7,10 +7,12 @@ use stackable_druid_crd::commands::{Restart, Start, Stop};
 
 use async_trait::async_trait;
 use stackable_druid_crd::{
-    DruidCluster, DruidClusterSpec, DruidRole, APP_NAME, DRUID_PLAINTEXTPORT, JVM_CONFIG,
-    LOG4J2_CONFIG, PLAINTEXT, RUNTIME_PROPS, ZOOKEEPER_CONNECTION_STRING,
+    DeepStorageType, DruidCluster, DruidClusterSpec, DruidRole, APP_NAME, DRUID_PLAINTEXTPORT,
+    JVM_CONFIG, LOG4J2_CONFIG, PLAINTEXT, RUNTIME_PROPS, ZOOKEEPER_CONNECTION_STRING,
 };
-use stackable_operator::builder::{ContainerBuilder, ObjectMetaBuilder, PodBuilder, VolumeBuilder};
+use stackable_operator::builder::{
+    ContainerBuilder, ObjectMetaBuilder, PodBuilder, PodSecurityContextBuilder, VolumeBuilder,
+};
 use stackable_operator::client::Client;
 use stackable_operator::command::materialize_command;
 use stackable_operator::configmap;
@@ -440,6 +442,27 @@ impl DruidState {
             });
         }
 
+        match self.context.resource.spec.deep_storage.storage_type {
+            DeepStorageType::Local => {
+                let data_dir = String::from("/data");
+                let dir = self
+                    .context
+                    .resource
+                    .spec
+                    .deep_storage
+                    .storage_directory
+                    .as_ref()
+                    .unwrap_or(&data_dir);
+                cb.add_volume_mount("data", "/data");
+                pod_builder.add_volume(
+                    VolumeBuilder::new("data")
+                        .with_host_path("/tmp/druid/data", Some("DirectoryOrCreate".to_string()))
+                        .build(),
+                );
+            }
+            _ => {}
+        }
+
         let annotations = BTreeMap::new();
 
         if let Some(plaintext_port) = plaintext_port {
@@ -449,6 +472,7 @@ impl DruidState {
         container.image_pull_policy = Some("IfNotPresent".to_string());
 
         let pod = pod_builder
+            .security_context(PodSecurityContextBuilder::new().run_as_user(1000).build())
             .metadata(
                 ObjectMetaBuilder::new()
                     .generate_name(pod_name)
