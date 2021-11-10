@@ -481,7 +481,6 @@ impl DruidState {
         container.image_pull_policy = Some("IfNotPresent".to_string());
 
         let pod = pod_builder
-            .security_context(PodSecurityContextBuilder::new().run_as_user(1000).build())
             .metadata(
                 ObjectMetaBuilder::new()
                     .generate_name(pod_name)
