@@ -126,7 +126,7 @@ impl DruidRole {
     /// Returns the start commands for the different server types.
     pub fn get_command(&self, _version: &DruidVersion) -> Vec<String> {
         vec![
-            "/stackable/bin/run-druid".to_string(),
+            "/stackable/druid/bin/run-druid".to_string(),
             self.to_string(),
             "/stackable/conf".to_string(),
         ]
