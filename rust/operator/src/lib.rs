@@ -61,6 +61,7 @@ use stackable_zookeeper_crd::discovery::ZookeeperConnectionInformation;
 
 const FINALIZER_NAME: &str = "druid.stackable.tech/cleanup";
 const ID_LABEL: &str = "druid.stackable.tech/id";
+const DEFAULT_IMAGE_VERSION: &str = "0";
 
 const CONFIG_MAP_TYPE_CONF: &str = "config";
 
@@ -418,10 +419,10 @@ impl DruidState {
         let mut pod_builder = PodBuilder::new();
 
         let mut cb = ContainerBuilder::new(APP_NAME);
-        //TODO better handling of platform version
         cb.image(format!(
-            "docker.stackable.tech/stackable/druid:{}-0.1",
-            version.to_string()
+            "docker.stackable.tech/stackable/druid:{}-stackable{}",
+            version.to_string(),
+            DEFAULT_IMAGE_VERSION
         ));
         cb.command(role.get_command(version));
 
