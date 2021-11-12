@@ -29,6 +29,9 @@ systemd-units = { enable = false, unit-name = "stackable-druid-operator" }
 assets = [
     ["../../target/release/stackable-druid-operator", "opt/stackable/druid-operator/", "755"],
     ["../../deploy/crd/druidcluster.crd.yaml", "etc/stackable/druid-operator/crd/", "644"],
+    ["../../deploy/crd/restart.crd.yaml", "etc/stackable/druid-operator/crd/", "644"],
+    ["../../deploy/crd/start.crd.yaml", "etc/stackable/druid-operator/crd/", "644"],
+    ["../../deploy/crd/stop.crd.yaml", "etc/stackable/druid-operator/crd/", "644"],
     ["../../deploy/config-spec/properties.yaml", "etc/stackable/druid-operator/config-spec/", "644"],
 ]
 
