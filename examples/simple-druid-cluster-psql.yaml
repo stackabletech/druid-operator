@@ -1,0 +1,66 @@
+apiVersion: druid.stackable.tech/v1alpha1
+kind: DruidCluster
+metadata:
+  name: simple
+spec:
+  version: 0.22.0
+  zookeeperReference:
+    namespace: default
+    name: simple
+  metadataStorageDatabase:
+    dbType: postgresql
+    connString: jdbc:postgresql://10.96.224.120/druid
+    host: 10.96.224.120
+    port: 5432
+    user: druid
+    password: druid
+  deepStorage:
+    storageType: local
+    dataNodeSelector:
+      nodeType: druid-data
+    storageDirectory: /data
+  brokers:
+    roleGroups:
+      default:
+        selector:
+          matchLabels:
+            kubernetes.io/os: linux
+        config:
+          plaintextPort: 8082
+        replicas: 1
+  coordinators:
+    roleGroups:
+      default:
+        selector:
+          matchLabels:
+            kubernetes.io/os: linux
+        config:
+          plaintextPort: 8081
+        replicas: 1
+  historicals:
+    roleGroups:
+      default:
+        selector:
+          matchLabels:
+            kubernetes.io/os: linux
+        config:
+          plaintextPort: 8083
+        replicas: 1
+  middleManagers:
+    roleGroups:
+      default:
+        selector:
+          matchLabels:
+            kubernetes.io/os: linux
+        config:
+          plaintextPort: 8091
+        replicas: 1
+  routers:
+    roleGroups:
+      default:
+        selector:
+          matchLabels:
+            kubernetes.io/os: linux
+        config:
+          plaintextPort: 8888
+        replicas: 1

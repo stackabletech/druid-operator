@@ -1,0 +1,198 @@
+version: 0.1.0
+spec:
+  units:
+    - unit: &unitDirectory
+        name: "directory"
+        regex: "^/|(/[\\w-]+)+$"
+        examples:
+          - "/tmp/xyz"
+
+###################################################################################################
+# runtime.properties
+###################################################################################################
+
+properties:
+  - property: &plaintextPort
+      propertyNames:
+        - name: "druid.plaintextPort"
+          kind:
+            type: "file"
+            file: "runtime.properties"
+      datatype:
+        type: "integer"
+        min: "1024"
+        max: "65535"
+      # defaultValues:                          # The default value is different for each role
+      #   - fromVersion: "0.0.0"                # this is not supported yet
+      #     value: "8080"                       # See product-config issue #38
+      roles:
+        - name: "broker"
+          required: true
+        - name: "coordinator"
+          required: true
+        - name: "historical"
+          required: true
+        - name: "middleManager"
+          required: true
+        - name: "router"
+          required: true
+      asOfVersion: "0.0.0"
+
+  - property: &metadataStorageType
+      propertyNames:
+        - name: "druid.metadata.storage.type"
+          kind:
+            type: "file"
+            file: "runtime.properties"
+      datatype:
+        type: "string"
+      roles:
+        - name: "broker"
+          required: true
+        - name: "coordinator"
+          required: true
+        - name: "historical"
+          required: true
+        - name: "middleManager"
+          required: true
+        - name: "router"
+          required: true
+      asOfVersion: "0.0.0"
+
+  - property: &metadataStorageConnectURI
+      propertyNames:
+        - name: "druid.metadata.storage.connector.connectURI"
+          kind:
+            type: "file"
+            file: "runtime.properties"
+      datatype:
+        type: "string"
+      roles:
+        - name: "broker"
+          required: true
+        - name: "coordinator"
+          required: true
+        - name: "historical"
+          required: true
+        - name: "middleManager"
+          required: true
+        - name: "router"
+          required: true
+      asOfVersion: "0.0.0"
+
+  - property: &metadataStorageHost
+      propertyNames:
+        - name: "druid.metadata.storage.connector.host"
+          kind:
+            type: "file"
+            file: "runtime.properties"
+      datatype:
+        type: "string"
+      roles:
+        - name: "broker"
+          required: true
+        - name: "coordinator"
+          required: true
+        - name: "historical"
+          required: true
+        - name: "middleManager"
+          required: true
+        - name: "router"
+          required: true
+      asOfVersion: "0.0.0"
+
+  - property: &metadataStoragePort
+      propertyNames:
+        - name: "druid.metadata.storage.connector.port"
+          kind:
+            type: "file"
+            file: "runtime.properties"
+      datatype:
+        type: "integer"
+        min: "1024"
+        max: "65535"
+      roles:
+        - name: "broker"
+          required: true
+        - name: "coordinator"
+          required: true
+        - name: "historical"
+          required: true
+        - name: "middleManager"
+          required: true
+        - name: "router"
+          required: true
+      asOfVersion: "0.0.0"
+
+  - property: &metadataStorageUser
+      propertyNames:
+        - name: "druid.metadata.storage.connector.user"
+          kind:
+            type: "file"
+            file: "runtime.properties"
+      datatype:
+        type: "string"
+      roles:
+        - name: "broker"
+          required: false
+        - name: "coordinator"
+          required: false
+        - name: "historical"
+          required: false
+        - name: "middleManager"
+          required: false
+        - name: "router"
+          required: false
+      asOfVersion: "0.0.0"
+
+  - property: &metadataStoragePassword
+      propertyNames:
+        - name: "druid.metadata.storage.connector.password"
+          kind:
+            type: "file"
+            file: "runtime.properties"
+      datatype:
+        type: "string"
+      roles:
+        - name: "broker"
+          required: false
+        - name: "coordinator"
+          required: false
+        - name: "historical"
+          required: false
+        - name: "middleManager"
+          required: false
+        - name: "router"
+          required: false
+      asOfVersion: "0.0.0"
+
+###################################################################################################
+# jvm.config
+###################################################################################################
+
+###################################################################################################
+# log.properties
+###################################################################################################
+
+  - property: &ioTrino
+      propertyNames:
+        - name: "io.trino"
+          kind:
+            type: "file"
+            file: "log.properties"
+      datatype:
+        type: "string"
+      defaultValues:
+        - fromVersion: "0.0.0"
+          value: "INFO"
+      allowedValues:
+        - "INFO"
+        - "DEBUG"
+        - "WARN"
+        - "ERROR"          
+      roles:
+        - name: "coordinator"
+          required: true
+        - name: "worker"
+          required: true
+      asOfVersion: "0.0.0"

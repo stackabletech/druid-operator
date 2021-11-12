@@ -1,0 +1,93 @@
+= Usage
+
+Druid requires a Zookeeper to run, as well as a database.
+
+
+== Setup Prerequisites
+
+=== Zookeeper operator
+
+Please refer to the https://github.com/stackabletech/zookeeper-operator[Zookeeper] operator and https://docs.stackable.tech/zookeeper/index.html[docs].
+
+=== SQL Database
+
+Druid requires a MySQL or Postgres database.
+
+For testing purposes, you can spin up a PostgreSQL database with the bitnami PostgreSQL helm chart.  Add the bitname repository:
+
+    helm repo add bitnami https://charts.bitnami.com/bitnami
+
+And setup the Postgres database:
+
+    helm install druid bitnami/postgresql \
+    --set postgresqlUsername=druid \
+    --set postgresqlPassword=druid \
+    --set postgresqlDatabase=druid
+
+=== Creating a Druid Cluster
+
+With the prerequisites fulfilled, the CRD for this operator must be created:
+
+    kubectl apply -f /etc/stackable/druid-operator/crd
+
+Then a cluster can be deployed using the example below. Replace `<cluster-ip-of-postgres-svc>` with the actual ip address and make sure you have *exactly one node* labeled with `nodeType=druid-data` as used in the deep storage selector. Having more than one data node is not supported when using local storage.
+
+
+    cat <<EOF | kubectl apply -f -
+apiVersion: druid.stackable.tech/v1alpha1
+kind: DruidCluster
+metadata:
+  name: simple
+spec:
+  version: 0.22.0
+  zookeeperReference:
+    namespace: default
+    name: simple
+  metadataStorageDatabase:
+    dbType: postgresql
+    connString: jdbc:postgresql://<cluster-ip-of-postgres-svc>/druid
+    host: <cluster-ip-of-postgres-svc>
+    port: 5432
+    user: druid
+    password: druid
+  deepStorage:
+    storageType: local
+    dataNodeSelector:
+      nodeType: druid-data
+    storageDirectory: /path/to/druidDeepStorage
+  brokers:
+    roleGroups:
+      default:
+        config:
+          plaintextPort: 8082
+        replicas: 1
+  coordinators:
+    roleGroups:
+      default:
+        config:
+          plaintextPort: 8081
+        replicas: 1
+  historicals:
+    roleGroups:
+      default:
+        config:
+          plaintextPort: 8083
+        replicas: 1
+  middleManagers:
+    roleGroups:
+      default:
+        config:
+          plaintextPort: 8091
+        replicas: 1
+  routers:
+    roleGroups:
+      default:
+        config:
+          plaintextPort: 8888
+        replicas: 1
+
+The Router is hosting the web UI, to be able to access the web interface you need to forward port 8888 first:
+
+         kubectl port-forward --namespace default po/<router-pod-name> 8888:8888
+
+Now open `http://localhost:8888` in your browser and follow the https://druid.apache.org/docs/latest/tutorials/index.html#step-4-load-data[druid documentation] on how to load and query sample data.

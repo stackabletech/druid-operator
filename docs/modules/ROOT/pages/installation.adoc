@@ -1,0 +1,23 @@
+= Installation
+
+There are three ways to run the Apache Druid Operator:
+
+1. Build from source. This is documented in xref:building.adoc[Building the Operator].
+
+2. As a Docker container
+
+
+== Docker
+
+This Operator is published as a Docker image:
+
+[source]
+----
+docker.stackable.tech/stackable/druid-operator
+----
+
+To run it straight from Docker you can use this command:
+[source,bash]
+----
+docker run -e DRUID_OPERATOR_LOG=trace -e KUBECONFIG=/root/.kube/k3s.yaml --mount type=bind,source="$HOME/.kube/k3s.yaml",target="/root/.kube/k3s.yaml" -it docker.stackable.tech/stackable/druid-operator:latest
+----

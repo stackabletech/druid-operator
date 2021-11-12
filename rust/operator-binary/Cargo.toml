@@ -1,0 +1,37 @@
+[package]
+authors = ["Lars Francke <lars.francke@stackable.de>"]
+description = "Stackable Operator for druid"
+edition = "2018"
+license = "OSL-3.0"
+name = "stackable-druid-operator-binary"
+repository = "https://github.com/stackabletech/druid-operator"
+version = "0.1.0"
+build = "build.rs"
+
+[dependencies]
+stackable-operator = { git = "https://github.com/stackabletech/operator-rs.git", tag = "0.4.0" }
+stackable-druid-crd = { path = "../crd" }
+stackable-druid-operator = { path = "../operator" }
+
+clap = "2.33"
+tokio = { version = "1.10", features = ["macros", "rt-multi-thread"] }
+tracing = "0.1"
+
+[build-dependencies]
+built = { version =  "0.5", features = ["chrono", "git2"] }
+stackable-operator = { git = "https://github.com/stackabletech/operator-rs.git", tag = "0.4.0" }
+stackable-druid-crd = { path = "../crd" }
+
+[package.metadata.deb]
+name = "stackable-druid-operator"
+maintainer-scripts = "../../packaging/debian/"
+systemd-units = { enable = false, unit-name = "stackable-druid-operator" }
+assets = [
+    ["../../target/release/stackable-druid-operator", "opt/stackable/druid-operator/", "755"],
+    ["../../deploy/crd/druidcluster.crd.yaml", "etc/stackable/druid-operator/crd/", "644"],
+    ["../../deploy/config-spec/properties.yaml", "etc/stackable/druid-operator/config-spec/", "644"],
+]
+
+[[bin]]
+name = "stackable-druid-operator"
+path = "src/stackable-druid-operator.rs"
