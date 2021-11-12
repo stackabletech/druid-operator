@@ -6,6 +6,7 @@ use crate::error::Error;
 use stackable_druid_crd::commands::{Restart, Start, Stop};
 
 use async_trait::async_trait;
+use serde::Serialize;
 use stackable_druid_crd::{
     DeepStorageType, DruidCluster, DruidClusterSpec, DruidRole, APP_NAME, DRUID_PLAINTEXTPORT,
     JVM_CONFIG, LOG4J2_CONFIG, PLAINTEXT, RUNTIME_PROPS, ZOOKEEPER_CONNECTION_STRING,
@@ -40,7 +41,8 @@ use stackable_operator::reconcile::{
 };
 use stackable_operator::role_utils;
 use stackable_operator::role_utils::{
-    get_role_and_group_labels, list_eligible_nodes_for_role_and_group, EligibleNodesForRoleAndGroup,
+    get_role_and_group_labels, list_eligible_nodes_for_role_and_group, EligibleNodesAndReplicas,
+    EligibleNodesForRoleAndGroup, Role,
 };
 use stackable_operator::scheduler::{
     K8SUnboundedHistory, RoleGroupEligibleNodes, ScheduleStrategy, Scheduler, StickyScheduler,
@@ -608,6 +610,47 @@ impl DruidStrategy {
     }
 }
 
+/// Return a map where the key corresponds to the role_group (e.g. "default", "10core10Gb") and
+/// a tuple of a vector of nodes that fit the role_groups selector description, and the role_groups
+/// "replicas" field for scheduling missing pods or removing excess pods.
+pub async fn find_nodes_that_fit_selectors<T>(
+    client: &Client,
+    namespace: Option<String>,
+    role: &Role<T>,
+    extra_match_labels: &Option<BTreeMap<String, String>>,
+) -> OperatorResult<HashMap<String, EligibleNodesAndReplicas>>
+where
+    T: Serialize,
+{
+    let mut found_nodes = HashMap::new();
+    for (group_name, role_group) in &role.role_groups {
+        let mut selector = role_group.selector.to_owned().unwrap_or_default();
+        // if extra match labels were provided, add them to the label selector
+        if let Some(eml) = extra_match_labels {
+            let mut match_labels = selector.match_labels.unwrap_or(BTreeMap::new());
+            match_labels.extend(eml.into_iter().map(|(k, v)| (k.clone(), v.clone())));
+            selector.match_labels = Some(match_labels);
+        }
+        let nodes = client
+            .list_with_label_selector(namespace.as_deref(), &selector)
+            .await?;
+        debug!(
+            "Found [{}] nodes for role group [{}]: [{:?}]",
+            nodes.len(),
+            group_name,
+            nodes
+        );
+        found_nodes.insert(
+            group_name.clone(),
+            EligibleNodesAndReplicas {
+                nodes,
+                replicas: role_group.replicas,
+            },
+        );
+    }
+    Ok(found_nodes)
+}
+
 #[async_trait]
 impl ControllerStrategy for DruidStrategy {
     type Item = DruidCluster;
@@ -637,41 +680,48 @@ impl ControllerStrategy for DruidStrategy {
 
         let mut eligible_nodes = HashMap::new();
 
+        let extra_labels = if druid_spec.deep_storage.storage_type == DeepStorageType::Local {
+            druid_spec.deep_storage.data_node_selector
+        } else {
+            None
+        };
+
+        //extra_labels.insert(String::from("nodeType"), String::from("druid-data"));
+        //let extra_labels = Some(extra_labels);
+
         eligible_nodes.insert(
             DruidRole::Broker.to_string(),
-            role_utils::find_nodes_that_fit_selectors(&context.client, None, &druid_spec.brokers)
+            find_nodes_that_fit_selectors(&context.client, None, &druid_spec.brokers, &None)
                 .await?,
         );
         eligible_nodes.insert(
             DruidRole::Coordinator.to_string(),
-            role_utils::find_nodes_that_fit_selectors(
-                &context.client,
-                None,
-                &druid_spec.coordinators,
-            )
-            .await?,
+            find_nodes_that_fit_selectors(&context.client, None, &druid_spec.coordinators, &None)
+                .await?,
         );
         eligible_nodes.insert(
             DruidRole::Historical.to_string(),
-            role_utils::find_nodes_that_fit_selectors(
+            find_nodes_that_fit_selectors(
                 &context.client,
                 None,
                 &druid_spec.historicals,
+                &extra_labels,
             )
             .await?,
         );
         eligible_nodes.insert(
             DruidRole::MiddleManager.to_string(),
-            role_utils::find_nodes_that_fit_selectors(
+            find_nodes_that_fit_selectors(
                 &context.client,
                 None,
                 &druid_spec.middle_managers,
+                &extra_labels,
             )
             .await?,
         );
         eligible_nodes.insert(
             DruidRole::Router.to_string(),
-            role_utils::find_nodes_that_fit_selectors(&context.client, None, &druid_spec.routers)
+            find_nodes_that_fit_selectors(&context.client, None, &druid_spec.routers, &None)
                 .await?,
         );
 

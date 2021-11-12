@@ -230,6 +230,11 @@ spec:
                     bucket:
                       nullable: true
                       type: string
+                    dataNodeSelector:
+                      additionalProperties:
+                        type: string
+                      nullable: true
+                      type: object
                     storageDirectory:
                       nullable: true
                       type: string

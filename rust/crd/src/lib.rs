@@ -313,6 +313,8 @@ impl Default for DeepStorageType {
 #[serde(rename_all = "camelCase")]
 pub struct DeepStorageSpec {
     pub storage_type: DeepStorageType,
+    // local only
+    pub data_node_selector: Option<BTreeMap<String, String>>,
     // Local & HDFS
     pub storage_directory: Option<String>,
     // S3 only
