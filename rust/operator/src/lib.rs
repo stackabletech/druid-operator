@@ -679,9 +679,14 @@ impl ControllerStrategy for DruidStrategy {
 
         let mut eligible_nodes = HashMap::new();
 
-        let mut extra_labels = BTreeMap::new();
-        extra_labels.insert(String::from("nodeType"), String::from("druid-data"));
-        let extra_labels = Some(extra_labels);
+        let extra_labels = if druid_spec.deep_storage.storage_type == DeepStorageType::Local {
+            druid_spec.deep_storage.data_node_selector
+        } else {
+            None
+        };
+
+        //extra_labels.insert(String::from("nodeType"), String::from("druid-data"));
+        //let extra_labels = Some(extra_labels);
 
         eligible_nodes.insert(
             DruidRole::Broker.to_string(),

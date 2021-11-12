@@ -16,6 +16,8 @@ spec:
     password: druid
   deepStorage:
     storageType: local
+    dataNodeSelector:
+      nodeType: druid-data
     storageDirectory: /data
   brokers:
     roleGroups:
