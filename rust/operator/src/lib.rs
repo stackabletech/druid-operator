@@ -39,7 +39,6 @@ use stackable_operator::product_config_utils::{
 use stackable_operator::reconcile::{
     ContinuationStrategy, ReconcileFunctionAction, ReconcileResult, ReconciliationContext,
 };
-use stackable_operator::role_utils;
 use stackable_operator::role_utils::{
     get_role_and_group_labels, list_eligible_nodes_for_role_and_group, EligibleNodesAndReplicas,
     EligibleNodesForRoleAndGroup, Role,
@@ -627,8 +626,8 @@ where
         let mut selector = role_group.selector.to_owned().unwrap_or_default();
         // if extra match labels were provided, add them to the label selector
         if let Some(eml) = extra_match_labels {
-            let mut match_labels = selector.match_labels.unwrap_or(BTreeMap::new());
-            match_labels.extend(eml.into_iter().map(|(k, v)| (k.clone(), v.clone())));
+            let mut match_labels = selector.match_labels.unwrap_or_default();
+            match_labels.extend(eml.iter().map(|(k, v)| (k.clone(), v.clone())));
             selector.match_labels = Some(match_labels);
         }
         let nodes = client
@@ -685,9 +684,6 @@ impl ControllerStrategy for DruidStrategy {
         } else {
             None
         };
-
-        //extra_labels.insert(String::from("nodeType"), String::from("druid-data"));
-        //let extra_labels = Some(extra_labels);
 
         eligible_nodes.insert(
             DruidRole::Broker.to_string(),
