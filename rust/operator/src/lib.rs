@@ -315,7 +315,6 @@ impl DruidState {
                     if let Some(zk_info) = &self.zookeeper_info {
                         transformed_config.insert(
                             ZOOKEEPER_CONNECTION_STRING.to_string(),
-                            // Some("172.17.0.4:2181".to_string()),
                             Some(zk_info.connection_string.clone()),
                         );
                     } else {

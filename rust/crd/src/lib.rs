@@ -211,28 +211,6 @@ pub struct DatabaseConnectionSpec {
     pub password: Option<String>,
 }
 
-/*
-#[derive(Clone, CustomResource, Debug, Deserialize, JsonSchema, Eq, PartialEq, Serialize)]
-#[kube(
-group = "external.stackable.tech",
-version = "v1alpha1",
-kind = "JvmConfiguration",
-plural = "jvmconfigs",
-shortname = "jvmconf",
-namespaced
-)]
-#[serde(rename_all = "camelCase")]
-pub struct JvmConfiguration {
-    pub heapSize: String,
-    pub directMemorySize: Option<String>,
-    pub db_type: DbType,
-    pub conn_string: String,
-    pub host: String,
-    pub port: u16,
-    pub user: Option<String>,
-    pub password: Option<String>,
-}
-*/
 #[derive(
     Clone,
     Debug,
@@ -338,11 +316,6 @@ impl Configuration for DruidConfig {
         _role_name: &str,
     ) -> Result<BTreeMap<String, Option<String>>, ConfigError> {
         let result = BTreeMap::new();
-
-        // TODO: Readd if we want jmx metrics gathered
-        //if let Some(metrics_port) = self.metrics_port {
-        //    result.insert(METRICS_PORT.to_string(), Some(metrics_port.to_string()));
-        // }
         Ok(result)
     }
 
@@ -398,29 +371,12 @@ impl Configuration for DruidConfig {
                     DeepStorageType::Hdfs => extensions.push(EXT_HDFS_STORAGE.to_string()),
                 }
                 result.insert(DS_TYPE.to_string(), Some(ds.storage_type.to_string()));
-                // if let Some(dir) = &ds.storage_directory {
-                //     result.insert(DS_DIRECTORY.to_string(), Some(dir.to_string()));
-                // }
                 if let Some(bucket) = &ds.bucket {
                     result.insert(DS_BUCKET.to_string(), Some(bucket.to_string()));
                 }
                 if let Some(key) = &ds.base_key {
                     result.insert(DS_BASE_KEY.to_string(), Some(key.to_string()));
                 }
-                // plaintext port
-                /*
-                let plaintext_port = if let Some(port) = self.plaintext_port {
-                    port
-                } else {
-                    match role {
-                        DruidRole::Coordinator => 8081,
-                        DruidRole::Broker => 8082,
-                        DruidRole::Historical => 8083,
-                        DruidRole::MiddleManager => 8091,
-                        DruidRole::Router => 8888,
-                    }
-                };
-                 */
                 result.insert(
                     DRUID_PLAINTEXTPORT.to_string(),
                     Some(self.plaintext_port.to_string()),
