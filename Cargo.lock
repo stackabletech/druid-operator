@@ -1577,8 +1577,8 @@ dependencies = [
 
 [[package]]
 name = "stackable-zookeeper-crd"
-version = "0.5.0-nightly"
-source = "git+https://github.com/stackabletech/zookeeper-operator.git?branch=adapt_to_use_docker_image#72afaef97f5941d40788b1289cdba7c6c2630036"
+version = "0.5.0"
+source = "git+https://github.com/stackabletech/zookeeper-operator.git?tag=0.5.0#45ebcca59ee128af363d0266b83cd3c05a6659a9"
 dependencies = [
  "duplicate",
  "semver",
