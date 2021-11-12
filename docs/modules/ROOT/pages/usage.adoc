@@ -30,7 +30,8 @@ With the prerequisites fulfilled, the CRD for this operator must be created:
 
     kubectl apply -f /etc/stackable/druid-operator/crd
 
-Then a cluster can be deployed. Fill in the correct database connection and deep storage configuration.  For the deep storage configuration using local storage, a node should be labeled and selected in the configuration, here the label `nodeType=druid-data` is used. On this node at the path given in `storageDirectory` the data will be stored.
+Then a cluster can be deployed using the example below. Replace `<cluster-ip-of-postgres-svc>` with the actual ip address and make sure you have *exactly one node* labeled with `nodeType=druid-data` as used in the deep storage selector. Having more than one data node is not supported when using local storage.
+
 
     cat <<EOF | kubectl apply -f -
 apiVersion: druid.stackable.tech/v1alpha1
@@ -44,8 +45,8 @@ spec:
     name: simple
   metadataStorageDatabase:
     dbType: postgresql
-    connString: jdbc:postgresql://druid-postgresql/druid
-    host: druid-postgresql
+    connString: jdbc:postgresql://<cluster-ip-of-postgres-svc>/druid
+    host: <cluster-ip-of-postgres-svc>
     port: 5432
     user: druid
     password: druid
