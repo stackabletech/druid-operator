@@ -30,7 +30,7 @@ With the prerequisites fulfilled, the CRD for this operator must be created:
 
     kubectl apply -f /etc/stackable/druid-operator/crd
 
-Then a cluster can be deployed. Fill in the correct database connection and path for deep storage.
+Then a cluster can be deployed. Fill in the correct database connection and deep storage configuration.  For the deep storage configuration using local storage, a node should be labeled and selected in the configuration, here the label `nodeType=druid-data` is used. On this node at the path given in `storageDirectory` the data will be stored.
 
     cat <<EOF | kubectl apply -f -
 apiVersion: druid.stackable.tech/v1alpha1
@@ -51,56 +51,41 @@ spec:
     password: druid
   deepStorage:
     storageType: local
+    dataNodeSelector:
+      nodeType: druid-data
     storageDirectory: /path/to/druidDeepStorage
   brokers:
     roleGroups:
       default:
-        selector:
-          matchLabels:
-            kubernetes.io/os: linux
         config:
           plaintextPort: 8082
         replicas: 1
   coordinators:
     roleGroups:
       default:
-        selector:
-          matchLabels:
-            kubernetes.io/os: linux
         config:
           plaintextPort: 8081
         replicas: 1
   historicals:
     roleGroups:
       default:
-        selector:
-          matchLabels:
-            kubernetes.io/os: linux
         config:
           plaintextPort: 8083
         replicas: 1
   middleManagers:
     roleGroups:
       default:
-        selector:
-          matchLabels:
-            kubernetes.io/os: linux
         config:
           plaintextPort: 8091
         replicas: 1
   routers:
     roleGroups:
       default:
-        selector:
-          matchLabels:
-            kubernetes.io/os: linux
         config:
           plaintextPort: 8888
         replicas: 1
 
-The Router is hosting the web UI, which should now be reachable on the Router host on port 8888.
-
-To be able to access the web interface you need to forward port 8888 first:
+The Router is hosting the web UI, to be able to access the web interface you need to forward port 8888 first:
 
          kubectl port-forward --namespace default po/<router-pod-name> 8888:8888
 
