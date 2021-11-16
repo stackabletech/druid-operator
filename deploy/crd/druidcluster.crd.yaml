@@ -32,11 +32,16 @@ spec:
                     config:
                       nullable: true
                       properties:
+                        metricsPort:
+                          format: uint16
+                          minimum: 0.0
+                          type: integer
                         plaintextPort:
                           format: uint16
                           minimum: 0.0
                           type: integer
                       required:
+                        - metricsPort
                         - plaintextPort
                       type: object
                     configOverrides:
@@ -62,11 +67,16 @@ spec:
                           config:
                             nullable: true
                             properties:
+                              metricsPort:
+                                format: uint16
+                                minimum: 0.0
+                                type: integer
                               plaintextPort:
                                 format: uint16
                                 minimum: 0.0
                                 type: integer
                             required:
+                              - metricsPort
                               - plaintextPort
                             type: object
                           configOverrides:
@@ -132,11 +142,16 @@ spec:
                     config:
                       nullable: true
                       properties:
+                        metricsPort:
+                          format: uint16
+                          minimum: 0.0
+                          type: integer
                         plaintextPort:
                           format: uint16
                           minimum: 0.0
                           type: integer
                       required:
+                        - metricsPort
                         - plaintextPort
                       type: object
                     configOverrides:
@@ -162,11 +177,16 @@ spec:
                           config:
                             nullable: true
                             properties:
+                              metricsPort:
+                                format: uint16
+                                minimum: 0.0
+                                type: integer
                               plaintextPort:
                                 format: uint16
                                 minimum: 0.0
                                 type: integer
                             required:
+                              - metricsPort
                               - plaintextPort
                             type: object
                           configOverrides:
@@ -258,11 +278,16 @@ spec:
                     config:
                       nullable: true
                       properties:
+                        metricsPort:
+                          format: uint16
+                          minimum: 0.0
+                          type: integer
                         plaintextPort:
                           format: uint16
                           minimum: 0.0
                           type: integer
                       required:
+                        - metricsPort
                         - plaintextPort
                       type: object
                     configOverrides:
@@ -288,11 +313,16 @@ spec:
                           config:
                             nullable: true
                             properties:
+                              metricsPort:
+                                format: uint16
+                                minimum: 0.0
+                                type: integer
                               plaintextPort:
                                 format: uint16
                                 minimum: 0.0
                                 type: integer
                             required:
+                              - metricsPort
                               - plaintextPort
                             type: object
                           configOverrides:
@@ -386,11 +416,16 @@ spec:
                     config:
                       nullable: true
                       properties:
+                        metricsPort:
+                          format: uint16
+                          minimum: 0.0
+                          type: integer
                         plaintextPort:
                           format: uint16
                           minimum: 0.0
                           type: integer
                       required:
+                        - metricsPort
                         - plaintextPort
                       type: object
                     configOverrides:
@@ -416,11 +451,16 @@ spec:
                           config:
                             nullable: true
                             properties:
+                              metricsPort:
+                                format: uint16
+                                minimum: 0.0
+                                type: integer
                               plaintextPort:
                                 format: uint16
                                 minimum: 0.0
                                 type: integer
                             required:
+                              - metricsPort
                               - plaintextPort
                             type: object
                           configOverrides:
@@ -486,11 +526,16 @@ spec:
                     config:
                       nullable: true
                       properties:
+                        metricsPort:
+                          format: uint16
+                          minimum: 0.0
+                          type: integer
                         plaintextPort:
                           format: uint16
                           minimum: 0.0
                           type: integer
                       required:
+                        - metricsPort
                         - plaintextPort
                       type: object
                     configOverrides:
@@ -516,11 +561,16 @@ spec:
                           config:
                             nullable: true
                             properties:
+                              metricsPort:
+                                format: uint16
+                                minimum: 0.0
+                                type: integer
                               plaintextPort:
                                 format: uint16
                                 minimum: 0.0
                                 type: integer
                             required:
+                              - metricsPort
                               - plaintextPort
                             type: object
                           configOverrides:

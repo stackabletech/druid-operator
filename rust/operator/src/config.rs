@@ -72,9 +72,9 @@ pub fn get_runtime_properties(
     druid.sql.enable=true
     druid.lookup.enableLookupSyncOnStartup=false
     druid.storage.storageDirectory=/data
+    # The prometheus port is configured later
     druid.emitter=prometheus
     druid.emitter.prometheus.strategy=exporter
-    druid.emitter.prometheus.port=9090
     druid.emitter.prometheus.namespace=druid
     ";
 
