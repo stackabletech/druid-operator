@@ -9,8 +9,8 @@ spec:
     name: simple
   metadataStorageDatabase:
     dbType: postgresql
-    connString: jdbc:postgresql://10.96.191.17/druid
-    host: 10.96.191.17
+    connString: jdbc:postgresql://10.96.62.135/druid
+    host: 10.96.62.135
     port: 5432
     user: druid
     password: druid
@@ -27,7 +27,7 @@ spec:
             kubernetes.io/os: linux
         config:
           plaintextPort: 8082
-          metricsPort: 9090
+          metricsPort: 9095
         replicas: 1
   coordinators:
     roleGroups:
@@ -57,7 +57,7 @@ spec:
             kubernetes.io/os: linux
         config:
           plaintextPort: 8091
-          metricsPort: 9090
+          metricsPort: 9095
         replicas: 1
   routers:
     roleGroups:
@@ -67,5 +67,5 @@ spec:
             kubernetes.io/os: linux
         config:
           plaintextPort: 8888
-          metricsPort: 9090
+          metricsPort: 9195
         replicas: 1

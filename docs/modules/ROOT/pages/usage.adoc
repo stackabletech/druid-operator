@@ -81,14 +81,14 @@ spec:
       default:
         config:
           plaintextPort: 8091
-          metricsPort: 9090
+          metricsPort: 9095
         replicas: 1
   routers:
     roleGroups:
       default:
         config:
           plaintextPort: 8888
-          metricsPort: 9090
+          metricsPort: 9195
         replicas: 1
 
 The Router is hosting the web UI, to be able to access the web interface you need to forward port 8888 first:
@@ -97,4 +97,4 @@ The Router is hosting the web UI, to be able to access the web interface you nee
 
 Now open `http://localhost:8888` in your browser and follow the https://druid.apache.org/docs/latest/tutorials/index.html#step-4-load-data[druid documentation] on how to load and query sample data.
 
-For monitoring purposes, Prometheus metrics are exposed on port `9090`. Similarly to the web UI above, you need to expose that port first.
+For monitoring purposes, Prometheus metrics are exposed on `metricsPort`. Similarly to the web UI above, you need to expose the corresponding port for the group you want to monitor.
