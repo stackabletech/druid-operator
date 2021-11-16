@@ -53,6 +53,7 @@ pub const EXT_HDFS_STORAGE: &str = "druid-hdfs-storage";
 pub const EXT_S3: &str = "druid-s3-extensions";
 pub const EXT_KAFKA_INDEXING: &str = "druid-kafka-indexing-service";
 pub const EXT_DATASKETCHES: &str = "druid-datasketches";
+pub const PROMETHEUS_EMITTER: &str = "prometheus-emitter";
 pub const EXT_PSQL_MD_ST: &str = "postgresql-metadata-storage";
 pub const EXT_MYSQL_MD_ST: &str = "mysql-metadata-storage";
 // zookeeper
@@ -340,8 +341,11 @@ impl Configuration for DruidConfig {
             JVM_CONFIG => {}
             RUNTIME_PROPS => {
                 // extensions
-                let mut extensions =
-                    vec![EXT_KAFKA_INDEXING.to_string(), EXT_DATASKETCHES.to_string()];
+                let mut extensions = vec![
+                    String::from(EXT_KAFKA_INDEXING),
+                    String::from(EXT_DATASKETCHES),
+                    String::from(PROMETHEUS_EMITTER),
+                ];
                 // metadata storage
                 let mds = &resource.spec.metadata_storage_database;
                 match mds.db_type {

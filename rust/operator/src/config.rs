@@ -67,13 +67,15 @@ pub fn get_runtime_properties(
     druid.selectors.indexing.serviceName=druid/overlord
     druid.selectors.coordinator.serviceName=druid/coordinator
     druid.monitoring.monitors=[\"org.apache.druid.java.util.metrics.JvmMonitor\"]
-    druid.emitter=noop
-    druid.emitter.logging.logLevel=info
     druid.indexing.doubleStorage=double
     druid.server.hiddenProperties=[\"druid.s3.accessKey\",\"druid.s3.secretKey\",\"druid.metadata.storage.connector.password\"]
     druid.sql.enable=true
     druid.lookup.enableLookupSyncOnStartup=false
     druid.storage.storageDirectory=/data
+    druid.emitter=prometheus
+    druid.emitter.prometheus.strategy=exporter
+    druid.emitter.prometheus.port=9090
+    druid.emitter.prometheus.namespace=druid
     ";
 
     let role_specifics = match role {

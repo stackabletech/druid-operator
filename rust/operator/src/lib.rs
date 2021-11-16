@@ -62,7 +62,7 @@ use stackable_zookeeper_crd::discovery::ZookeeperConnectionInformation;
 
 const FINALIZER_NAME: &str = "druid.stackable.tech/cleanup";
 const ID_LABEL: &str = "druid.stackable.tech/id";
-const DEFAULT_IMAGE_VERSION: &str = "0";
+const DEFAULT_IMAGE_VERSION: &str = "0.0.2";
 
 const CONFIG_MAP_TYPE_CONF: &str = "config";
 
