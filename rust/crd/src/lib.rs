@@ -40,19 +40,22 @@ pub const RUNTIME_PROPS: &str = "runtime.properties";
 pub const LOG4J2_CONFIG: &str = "log4j2.xml";
 
 // port names
-pub const PLAINTEXT: &str = "plaintext";
+pub const CONTAINER_PLAINTEXT_PORT: &str = "plaintext";
+pub const CONTAINER_METRICS_PORT: &str = "metrics";
 
 /////////////////////////////
 //    CONFIG PROPERTIES    //
 /////////////////////////////
 pub const DRUID_SERVICE: &str = "druid.service";
 pub const DRUID_PLAINTEXTPORT: &str = "druid.plaintextPort";
+pub const DRUID_METRICS_PORT: &str = "druid.emitter.prometheus.port";
 pub const EXTENSIONS_LOADLIST: &str = "druid.extensions.loadList";
 // extension names
 pub const EXT_HDFS_STORAGE: &str = "druid-hdfs-storage";
 pub const EXT_S3: &str = "druid-s3-extensions";
 pub const EXT_KAFKA_INDEXING: &str = "druid-kafka-indexing-service";
 pub const EXT_DATASKETCHES: &str = "druid-datasketches";
+pub const PROMETHEUS_EMITTER: &str = "prometheus-emitter";
 pub const EXT_PSQL_MD_ST: &str = "postgresql-metadata-storage";
 pub const EXT_MYSQL_MD_ST: &str = "mysql-metadata-storage";
 // zookeeper
@@ -305,6 +308,7 @@ pub struct DeepStorageSpec {
 pub struct DruidConfig {
     // port
     pub plaintext_port: u16,
+    pub metrics_port: u16,
 }
 
 impl Configuration for DruidConfig {
@@ -340,12 +344,15 @@ impl Configuration for DruidConfig {
             JVM_CONFIG => {}
             RUNTIME_PROPS => {
                 // extensions
-                let mut extensions =
-                    vec![EXT_KAFKA_INDEXING.to_string(), EXT_DATASKETCHES.to_string()];
+                let mut extensions = vec![
+                    String::from(EXT_KAFKA_INDEXING),
+                    String::from(EXT_DATASKETCHES),
+                    String::from(PROMETHEUS_EMITTER),
+                ];
                 // metadata storage
                 let mds = &resource.spec.metadata_storage_database;
                 match mds.db_type {
-                    DbType::Derby => {} // no extention required
+                    DbType::Derby => {} // no additional extensions required
                     DbType::Postgresql => extensions.push(EXT_PSQL_MD_ST.to_string()),
                     DbType::Mysql => extensions.push(EXT_MYSQL_MD_ST.to_string()),
                 }
@@ -380,6 +387,10 @@ impl Configuration for DruidConfig {
                 result.insert(
                     DRUID_PLAINTEXTPORT.to_string(),
                     Some(self.plaintext_port.to_string()),
+                );
+                result.insert(
+                    DRUID_METRICS_PORT.to_string(),
+                    Some(self.metrics_port.to_string()),
                 );
                 result.insert(
                     EXTENSIONS_LOADLIST.to_string(),

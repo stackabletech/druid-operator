@@ -8,8 +8,9 @@ use stackable_druid_crd::commands::{Restart, Start, Stop};
 use async_trait::async_trait;
 use serde::Serialize;
 use stackable_druid_crd::{
-    DeepStorageType, DruidCluster, DruidClusterSpec, DruidRole, APP_NAME, DRUID_PLAINTEXTPORT,
-    JVM_CONFIG, LOG4J2_CONFIG, PLAINTEXT, RUNTIME_PROPS, ZOOKEEPER_CONNECTION_STRING,
+    DeepStorageType, DruidCluster, DruidClusterSpec, DruidRole, APP_NAME, CONTAINER_METRICS_PORT,
+    CONTAINER_PLAINTEXT_PORT, DRUID_METRICS_PORT, DRUID_PLAINTEXTPORT, JVM_CONFIG, LOG4J2_CONFIG,
+    RUNTIME_PROPS, ZOOKEEPER_CONNECTION_STRING,
 };
 use stackable_operator::builder::{
     ContainerBuilder, ObjectMetaBuilder, PodBuilder, PodSecurityContextBuilder, VolumeBuilder,
@@ -392,10 +393,6 @@ impl DruidState {
         config_maps: &HashMap<&'static str, ConfigMap>,
         validated_config: &HashMap<PropertyNameKind, BTreeMap<String, String>>,
     ) -> Result<Pod, Error> {
-        let plaintext_port = validated_config
-            .get(&PropertyNameKind::File(RUNTIME_PROPS.to_string()))
-            .and_then(|props| props.get(DRUID_PLAINTEXTPORT));
-
         let version = &self.context.resource.spec.version;
 
         let pod_name = name_utils::build_resource_name(
@@ -475,9 +472,22 @@ impl DruidState {
 
         let annotations = BTreeMap::new();
 
-        if let Some(plaintext_port) = plaintext_port {
-            cb.add_container_port(PLAINTEXT, plaintext_port.parse()?);
+        if let Some(plaintext_port) = validated_config
+            .get(&PropertyNameKind::File(RUNTIME_PROPS.to_string()))
+            .and_then(|props| props.get(DRUID_PLAINTEXTPORT))
+            .map(|port| port.parse::<i32>().unwrap())
+        {
+            cb.add_container_port(CONTAINER_PLAINTEXT_PORT, plaintext_port);
         }
+
+        if let Some(metrics_port) = validated_config
+            .get(&PropertyNameKind::File(RUNTIME_PROPS.to_string()))
+            .and_then(|props| props.get(DRUID_METRICS_PORT))
+            .map(|port| port.parse::<i32>().unwrap())
+        {
+            cb.add_container_port(CONTAINER_METRICS_PORT, metrics_port);
+        }
+
         let mut container = cb.build();
         container.image_pull_policy = Some("IfNotPresent".to_string());
 
