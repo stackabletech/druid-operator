@@ -68,6 +68,7 @@ pub const DS_BUCKET: &str = "druid.storage.bucket";
 pub const DS_BASE_KEY: &str = "druid.storage.baseKey";
 pub const S3_ACCESS_KEY: &str = "druid.s3.accessKey";
 pub const S3_SECRET_KEY: &str = "druid.s3.secretKey";
+pub const S3_ENDPOINT_URL: &str = "druid.s3.endpoint.url";
 // metadata storage config properties
 pub const MD_ST_TYPE: &str = "druid.metadata.storage.type";
 pub const MD_ST_CONNECT_URI: &str = "druid.metadata.storage.connector.connectURI";
@@ -305,6 +306,7 @@ pub struct DeepStorageSpec {
     pub base_key: Option<String>,
     pub access_key: Option<String>,
     pub secret_key: Option<String>,
+    pub endpoint: Option<String>,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
@@ -393,6 +395,9 @@ impl Configuration for DruidConfig {
                 }
                 if let Some(key) = &ds.secret_key {
                     result.insert(S3_SECRET_KEY.to_string(), Some(key.to_string()));
+                }
+                if let Some(endpoint) = &ds.endpoint {
+                    result.insert(S3_ENDPOINT_URL.to_string(), Some(endpoint.to_string()));
                 }
                 // other
                 result.insert(

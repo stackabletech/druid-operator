@@ -16,6 +16,7 @@ spec:
     password: druid
   deepStorage:
     storageType: s3
+    endpoint: s3-de-central.profitbricks.com
     bucket: druid-deepstorage
     baseKey: storage
     accessKey: YOUR_KEY_HERE

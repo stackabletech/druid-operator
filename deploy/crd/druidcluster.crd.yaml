@@ -258,6 +258,9 @@ spec:
                         type: string
                       nullable: true
                       type: object
+                    endpoint:
+                      nullable: true
+                      type: string
                     secretKey:
                       nullable: true
                       type: string

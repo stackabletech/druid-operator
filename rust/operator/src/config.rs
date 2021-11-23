@@ -76,8 +76,6 @@ pub fn get_runtime_properties(
     druid.emitter=prometheus
     druid.emitter.prometheus.strategy=exporter
     druid.emitter.prometheus.namespace=druid
-    druid.s3.endpoint.url=s3-de-central.profitbricks.com
-    druid.s3.endpoint.signingRegion=s3-de-central
     ";
 
     let role_specifics = match role {
