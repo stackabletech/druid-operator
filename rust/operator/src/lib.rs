@@ -465,6 +465,7 @@ impl DruidState {
                         .build(),
                 );
             }
+            DeepStorageType::S3 => {}
             _ => {
                 unimplemented!("Only local storage supported!")
             }

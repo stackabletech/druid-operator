@@ -63,8 +63,11 @@ pub const ZOOKEEPER_CONNECTION_STRING: &str = "druid.zk.service.host";
 // deep storage
 pub const DS_TYPE: &str = "druid.storage.type";
 pub const DS_DIRECTORY: &str = "druid.storage.storageDirectory";
+// S3
 pub const DS_BUCKET: &str = "druid.storage.bucket";
 pub const DS_BASE_KEY: &str = "druid.storage.baseKey";
+pub const S3_ACCESS_KEY: &str = "druid.s3.accessKey";
+pub const S3_SECRET_KEY: &str = "druid.s3.secretKey";
 // metadata storage config properties
 pub const MD_ST_TYPE: &str = "druid.metadata.storage.type";
 pub const MD_ST_CONNECT_URI: &str = "druid.metadata.storage.connector.connectURI";
@@ -296,11 +299,12 @@ pub struct DeepStorageSpec {
     pub storage_type: DeepStorageType,
     // local only
     pub data_node_selector: Option<BTreeMap<String, String>>,
-    // Local & HDFS
     pub storage_directory: Option<String>,
     // S3 only
     pub bucket: Option<String>,
     pub base_key: Option<String>,
+    pub access_key: Option<String>,
+    pub secret_key: Option<String>,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
@@ -371,19 +375,26 @@ impl Configuration for DruidConfig {
                 }
                 // deep storage
                 let ds = &resource.spec.deep_storage;
+                result.insert(DS_TYPE.to_string(), Some(ds.storage_type.to_string()));
                 match ds.storage_type {
                     DeepStorageType::Local => {}
                     DeepStorageType::Noop => {}
                     DeepStorageType::S3 => extensions.push(EXT_S3.to_string()),
                     DeepStorageType::Hdfs => extensions.push(EXT_HDFS_STORAGE.to_string()),
                 }
-                result.insert(DS_TYPE.to_string(), Some(ds.storage_type.to_string()));
                 if let Some(bucket) = &ds.bucket {
                     result.insert(DS_BUCKET.to_string(), Some(bucket.to_string()));
                 }
                 if let Some(key) = &ds.base_key {
                     result.insert(DS_BASE_KEY.to_string(), Some(key.to_string()));
                 }
+                if let Some(key) = &ds.access_key {
+                    result.insert(S3_ACCESS_KEY.to_string(), Some(key.to_string()));
+                }
+                if let Some(key) = &ds.secret_key {
+                    result.insert(S3_SECRET_KEY.to_string(), Some(key.to_string()));
+                }
+                // other
                 result.insert(
                     DRUID_PLAINTEXTPORT.to_string(),
                     Some(self.plaintext_port.to_string()),

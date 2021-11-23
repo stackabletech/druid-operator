@@ -244,6 +244,9 @@ spec:
                   type: object
                 deepStorage:
                   properties:
+                    accessKey:
+                      nullable: true
+                      type: string
                     baseKey:
                       nullable: true
                       type: string
@@ -255,6 +258,9 @@ spec:
                         type: string
                       nullable: true
                       type: object
+                    secretKey:
+                      nullable: true
+                      type: string
                     storageDirectory:
                       nullable: true
                       type: string

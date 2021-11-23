@@ -76,6 +76,8 @@ pub fn get_runtime_properties(
     druid.emitter=prometheus
     druid.emitter.prometheus.strategy=exporter
     druid.emitter.prometheus.namespace=druid
+    druid.s3.endpoint.url=s3-de-central.profitbricks.com
+    druid.s3.endpoint.signingRegion=s3-de-central
     ";
 
     let role_specifics = match role {
@@ -187,19 +189,19 @@ pub fn get_log4j_config(_role: &DruidRole) -> String {
     </Console>
   </Appenders>
   <Loggers>
-    <Root level=\"info\">
+    <Root level=\"debug\">
       <AppenderRef ref=\"Console\"/>
     </Root>
-    <Logger name=\"org.apache.druid.server.QueryLifecycle\" level=\"info\" additivity=\"false\">
+    <Logger name=\"org.apache.druid.server.QueryLifecycle\" level=\"debug\" additivity=\"false\">
       <Appender-ref ref=\"Console\"/>
     </Logger>
-    <Logger name=\"org.apache.druid.server.coordinator\" level=\"info\" additivity=\"false\">
+    <Logger name=\"org.apache.druid.server.coordinator\" level=\"debug\" additivity=\"false\">
       <Appender-ref ref=\"Console\"/>
     </Logger>
-    <Logger name=\"org.apache.druid.segment\" level=\"info\" additivity=\"false\">
+    <Logger name=\"org.apache.druid.segment\" level=\"debug\" additivity=\"false\">
       <Appender-ref ref=\"Console\"/>
     </Logger>
-    <Logger name=\"org.apache.druid.initialization\" level=\"info\" additivity=\"false\">
+    <Logger name=\"org.apache.druid.initialization\" level=\"debug\" additivity=\"false\">
       <Appender-ref ref=\"Console\"/>
     </Logger>
     <Logger name=\"org.skife.config\" level=\"warn\" additivity=\"false\">
