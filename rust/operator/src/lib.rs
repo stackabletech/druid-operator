@@ -24,7 +24,7 @@ use stackable_operator::controller::{ControllerStrategy, ReconciliationState};
 use stackable_operator::error::OperatorResult;
 use stackable_operator::identity::{LabeledPodIdentityFactory, PodIdentity, PodToNodeMapping};
 use stackable_operator::k8s_openapi::api::core::v1::{
-    ConfigMap, Container, ContainerPort, EnvVar, EnvVarSource, Pod, SecretKeySelector,
+    ConfigMap, EnvVar, EnvVarSource, Pod, SecretKeySelector,
 };
 use stackable_operator::kube::api::{ListParams, ResourceExt};
 use stackable_operator::kube::Api;
@@ -423,7 +423,6 @@ impl DruidState {
             .and_then(|m| m.get(CREDENTIALS_SECRET_PROPERTY));
 
         let env = if let Some(s) = secret {
-            info!("SECRET ENVS ADDED!!!!!!!!!!!!!!!!!!!!!!!!");
             Some(vec![
                 env_var_from_secret("AWS_ACCESS_KEY_ID", s, "access_key_id"),
                 env_var_from_secret("AWS_SECRET_ACCESS_KEY", s, "secret_access_key"),

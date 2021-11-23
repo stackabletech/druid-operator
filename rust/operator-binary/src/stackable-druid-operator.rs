@@ -1,6 +1,6 @@
 use clap::{crate_version, App, AppSettings, SubCommand};
 use stackable_druid_crd::commands::{Restart, Start, Stop};
-use stackable_druid_crd::DruidCluster;
+use stackable_druid_crd::{DruidCluster, S3Credentials};
 use stackable_operator::{cli, logging};
 use stackable_operator::{client, error};
 
@@ -23,6 +23,7 @@ async fn main() -> Result<(), error::Error> {
             SubCommand::with_name("crd")
                 .setting(AppSettings::ArgRequiredElseHelp)
                 .subcommand(cli::generate_crd_subcommand::<DruidCluster>())
+                .subcommand(cli::generate_crd_subcommand::<S3Credentials>())
                 .subcommand(cli::generate_crd_subcommand::<Restart>())
                 .subcommand(cli::generate_crd_subcommand::<Start>())
                 .subcommand(cli::generate_crd_subcommand::<Stop>()),
@@ -31,6 +32,9 @@ async fn main() -> Result<(), error::Error> {
 
     if let ("crd", Some(subcommand)) = matches.subcommand() {
         if cli::handle_crd_subcommand::<DruidCluster>(subcommand)? {
+            return Ok(());
+        };
+        if cli::handle_crd_subcommand::<S3Credentials>(subcommand)? {
             return Ok(());
         };
         if cli::handle_crd_subcommand::<Start>(subcommand)? {
