@@ -30,6 +30,7 @@ use std::str::FromStr;
 use strum_macros::Display;
 use strum_macros::EnumIter;
 use strum_macros::EnumString;
+use tracing::info;
 
 pub const APP_NAME: &str = "druid";
 pub const CONF_DIR: &str = "conf";
@@ -76,6 +77,8 @@ pub const MD_ST_HOST: &str = "druid.metadata.storage.connector.host";
 pub const MD_ST_PORT: &str = "druid.metadata.storage.connector.port";
 pub const MD_ST_USER: &str = "druid.metadata.storage.connector.user";
 pub const MD_ST_PASSWORD: &str = "druid.metadata.storage.connector.password";
+// extra
+pub const CREDENTIALS_SECRET_PROPERTY: &str = "credentialsSecret";
 
 #[derive(Clone, CustomResource, Debug, Deserialize, JsonSchema, PartialEq, Serialize)]
 #[kube(
@@ -100,6 +103,7 @@ pub struct DruidClusterSpec {
     pub routers: Role<DruidConfig>,
     pub metadata_storage_database: DatabaseConnectionSpec,
     pub deep_storage: DeepStorageSpec,
+    pub s3: Option<S3Spec>,
     pub zookeeper_reference: ZookeeperReference,
 }
 
@@ -304,8 +308,22 @@ pub struct DeepStorageSpec {
     // S3 only
     pub bucket: Option<String>,
     pub base_key: Option<String>,
-    pub access_key: Option<String>,
-    pub secret_key: Option<String>,
+}
+
+#[derive(Clone, CustomResource, Debug, Deserialize, JsonSchema, Eq, PartialEq, Serialize)]
+#[kube(
+    group = "external.stackable.tech",
+    version = "v1alpha1",
+    kind = "S3",
+    plural = "S3s",
+    namespaced,
+    kube_core = "stackable_operator::kube::core",
+    k8s_openapi = "stackable_operator::k8s_openapi",
+    schemars = "stackable_operator::schemars"
+)]
+#[serde(rename_all = "camelCase")]
+pub struct S3Spec {
+    pub credentials_secret: String,
     pub endpoint: Option<String>,
 }
 
@@ -322,10 +340,18 @@ impl Configuration for DruidConfig {
 
     fn compute_env(
         &self,
-        _resource: &Self::Configurable,
+        resource: &Self::Configurable,
         _role_name: &str,
     ) -> Result<BTreeMap<String, Option<String>>, ConfigError> {
-        let result = BTreeMap::new();
+        let mut result = BTreeMap::new();
+        // s3
+        if let Some(s3) = &resource.spec.s3 {
+            info!("LLLLLLLLLLLAAAAAAAAAAAAAAAAAAAAAAAA");
+            result.insert(
+                CREDENTIALS_SECRET_PROPERTY.to_string(),
+                Some(s3.credentials_secret.clone()),
+            );
+        }
         Ok(result)
     }
 
@@ -375,6 +401,12 @@ impl Configuration for DruidConfig {
                 if let Some(password) = &mds.password {
                     result.insert(MD_ST_PASSWORD.to_string(), Some(password.to_string()));
                 }
+                // s3
+                if let Some(s3) = &resource.spec.s3 {
+                    if let Some(endpoint) = &s3.endpoint {
+                        result.insert(S3_ENDPOINT_URL.to_string(), Some(endpoint.to_string()));
+                    }
+                }
                 // deep storage
                 let ds = &resource.spec.deep_storage;
                 result.insert(DS_TYPE.to_string(), Some(ds.storage_type.to_string()));
@@ -389,15 +421,6 @@ impl Configuration for DruidConfig {
                 }
                 if let Some(key) = &ds.base_key {
                     result.insert(DS_BASE_KEY.to_string(), Some(key.to_string()));
-                }
-                if let Some(key) = &ds.access_key {
-                    result.insert(S3_ACCESS_KEY.to_string(), Some(key.to_string()));
-                }
-                if let Some(key) = &ds.secret_key {
-                    result.insert(S3_SECRET_KEY.to_string(), Some(key.to_string()));
-                }
-                if let Some(endpoint) = &ds.endpoint {
-                    result.insert(S3_ENDPOINT_URL.to_string(), Some(endpoint.to_string()));
                 }
                 // other
                 result.insert(

@@ -244,9 +244,6 @@ spec:
                   type: object
                 deepStorage:
                   properties:
-                    accessKey:
-                      nullable: true
-                      type: string
                     baseKey:
                       nullable: true
                       type: string
@@ -258,12 +255,6 @@ spec:
                         type: string
                       nullable: true
                       type: object
-                    endpoint:
-                      nullable: true
-                      type: string
-                    secretKey:
-                      nullable: true
-                      type: string
                     storageDirectory:
                       nullable: true
                       type: string
@@ -634,6 +625,17 @@ spec:
                       type: object
                   required:
                     - roleGroups
+                  type: object
+                s3:
+                  nullable: true
+                  properties:
+                    credentialsSecret:
+                      type: string
+                    endpoint:
+                      nullable: true
+                      type: string
+                  required:
+                    - credentialsSecret
                   type: object
                 version:
                   enum:
