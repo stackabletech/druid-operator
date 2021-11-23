@@ -422,14 +422,12 @@ impl DruidState {
             .get(&PropertyNameKind::Env)
             .and_then(|m| m.get(CREDENTIALS_SECRET_PROPERTY));
 
-        let env = if let Some(s) = secret {
-            Some(vec![
+        let env = secret.map(|s| {
+            vec![
                 env_var_from_secret("AWS_ACCESS_KEY_ID", s, "access_key_id"),
                 env_var_from_secret("AWS_SECRET_ACCESS_KEY", s, "secret_access_key"),
-            ])
-        } else {
-            None
-        };
+            ]
+        });
 
         let mut cb = ContainerBuilder::new(APP_NAME);
         cb.image(container_image(version));
