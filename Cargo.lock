@@ -1407,9 +1407,9 @@ dependencies = [
 
 [[package]]
 name = "serde_json"
-version = "1.0.68"
+version = "1.0.71"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0f690853975602e1bfe1ccbf50504d67174e3bcf340f23b5ea9992e0587a52d8"
+checksum = "063bf466a64011ac24040a49009724ee60a57da1b437617ceb32e53ad61bfb19"
 dependencies = [
  "indexmap",
  "itoa",
@@ -1494,7 +1494,7 @@ dependencies = [
 
 [[package]]
 name = "stackable-druid-crd"
-version = "0.1.0"
+version = "0.1.0-nightly"
 dependencies = [
  "duplicate",
  "indoc",
@@ -1513,7 +1513,7 @@ dependencies = [
 
 [[package]]
 name = "stackable-druid-operator"
-version = "0.1.0"
+version = "0.1.0-nightly"
 dependencies = [
  "async-trait",
  "futures",
@@ -1531,7 +1531,7 @@ dependencies = [
 
 [[package]]
 name = "stackable-druid-operator-binary"
-version = "0.1.0"
+version = "0.1.0-nightly"
 dependencies = [
  "built",
  "clap",
