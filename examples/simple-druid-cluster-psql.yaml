@@ -27,7 +27,7 @@ spec:
             kubernetes.io/os: linux
         config:
           plaintextPort: 8082
-          metricsPort: 9095
+          metricsPort: 9092
         replicas: 1
   coordinators:
     roleGroups:
@@ -37,7 +37,7 @@ spec:
             kubernetes.io/os: linux
         config:
           plaintextPort: 8081
-          metricsPort: 9090
+          metricsPort: 9091
         replicas: 1
   historicals:
     roleGroups:
@@ -47,7 +47,7 @@ spec:
             kubernetes.io/os: linux
         config:
           plaintextPort: 8083
-          metricsPort: 9090
+          metricsPort: 9093
         replicas: 1
   middleManagers:
     roleGroups:
@@ -57,7 +57,7 @@ spec:
             kubernetes.io/os: linux
         config:
           plaintextPort: 8091
-          metricsPort: 9095
+          metricsPort: 9090
         replicas: 1
   routers:
     roleGroups:

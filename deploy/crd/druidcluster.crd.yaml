@@ -261,9 +261,7 @@ spec:
                     storageType:
                       enum:
                         - local
-                        - noop
                         - s3
-                        - hdfs
                       type: string
                   required:
                     - storageType
