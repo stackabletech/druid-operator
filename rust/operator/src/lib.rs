@@ -450,35 +450,29 @@ impl DruidState {
             });
         }
 
-        match &self.context.resource.spec.deep_storage.storage_type {
-            DeepStorageType::Local => {
-                let data_dir = String::from("/data");
-                let dir = self
-                    .context
-                    .resource
-                    .spec
-                    .deep_storage
-                    .storage_directory
-                    .as_ref()
-                    .unwrap_or(&data_dir);
-                cb.add_volume_mount("data", "/data");
-                pod_builder.add_volume(
-                    VolumeBuilder::new("data")
-                        .with_host_path(dir, Some("DirectoryOrCreate".to_string()))
-                        .build(),
-                );
-                pod_builder.security_context(
-                    PodSecurityContextBuilder::new()
-                        .run_as_user(0)
-                        .fs_group(0)
-                        .run_as_group(0)
-                        .build(),
-                );
-            }
-            DeepStorageType::S3 => {}
-            _ => {
-                unimplemented!("Only local or S3 storage supported!")
-            }
+        if self.context.resource.spec.deep_storage.storage_type == DeepStorageType::Local {
+            let data_dir = String::from("/data");
+            let dir = self
+                .context
+                .resource
+                .spec
+                .deep_storage
+                .storage_directory
+                .as_ref()
+                .unwrap_or(&data_dir);
+            cb.add_volume_mount("data", "/data");
+            pod_builder.add_volume(
+                VolumeBuilder::new("data")
+                    .with_host_path(dir, Some("DirectoryOrCreate".to_string()))
+                    .build(),
+            );
+            pod_builder.security_context(
+                PodSecurityContextBuilder::new()
+                    .run_as_user(0)
+                    .fs_group(0)
+                    .run_as_group(0)
+                    .build(),
+            );
         }
 
         let annotations = BTreeMap::new();

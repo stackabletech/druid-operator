@@ -268,17 +268,9 @@ pub enum DeepStorageType {
     #[strum(serialize = "local")]
     Local,
 
-    #[serde(rename = "noop")]
-    #[strum(serialize = "noop")]
-    Noop,
-
     #[serde(rename = "s3")]
     #[strum(serialize = "s3")]
     S3,
-
-    #[serde(rename = "hdfs")]
-    #[strum(serialize = "hdfs")]
-    Hdfs,
 }
 
 impl Default for DeepStorageType {
