@@ -424,8 +424,8 @@ impl DruidState {
 
         let env = secret.map(|s| {
             vec![
-                env_var_from_secret("AWS_ACCESS_KEY_ID", s, "access_key_id"),
-                env_var_from_secret("AWS_SECRET_ACCESS_KEY", s, "secret_access_key"),
+                env_var_from_secret("AWS_ACCESS_KEY_ID", s, "accessKeyId"),
+                env_var_from_secret("AWS_SECRET_ACCESS_KEY", s, "secretAccessKey"),
             ]
         });
 

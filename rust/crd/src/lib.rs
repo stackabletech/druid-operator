@@ -326,24 +326,6 @@ pub struct S3Spec {
     pub endpoint: Option<String>,
 }
 
-#[derive(Clone, CustomResource, Debug, Deserialize, JsonSchema, PartialEq, Serialize)]
-#[kube(
-    group = "druid.stackable.tech",
-    version = "v1alpha1",
-    kind = "S3Credentials",
-    plural = "s3credentials",
-    shortname = "s3creds",
-    namespaced,
-    kube_core = "stackable_operator::kube::core",
-    k8s_openapi = "stackable_operator::k8s_openapi",
-    schemars = "stackable_operator::schemars"
-)]
-#[serde(rename_all = "camelCase")]
-pub struct S3CredentialsSpec {
-    pub access_key_id: String,
-    pub secret_access_key: String,
-}
-
 #[derive(Clone, Debug, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DruidConfig {
