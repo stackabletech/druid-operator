@@ -9,16 +9,18 @@ spec:
     name: simple
   metadataStorageDatabase:
     dbType: postgresql
-    connString: jdbc:postgresql://10.96.62.135/druid
-    host: 10.96.62.135
+    connString: jdbc:postgresql://10.244.4.3/druid
+    host: 10.244.4.3
     port: 5432
     user: druid
     password: druid
+  s3:
+    endpoint: s3-de-central.profitbricks.com
+    credentialsSecret: s3-credentials    # this needs to be deployed additionally
   deepStorage:
-    storageType: local
-    dataNodeSelector:
-      nodeType: druid-data
-    storageDirectory: /data
+    storageType: s3
+    bucket: druid-deepstorage
+    baseKey: storage               # this is optional; deep storage can also be at the root of the bucket
   brokers:
     roleGroups:
       default:

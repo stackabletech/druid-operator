@@ -261,9 +261,7 @@ spec:
                     storageType:
                       enum:
                         - local
-                        - noop
                         - s3
-                        - hdfs
                       type: string
                   required:
                     - storageType
@@ -625,6 +623,17 @@ spec:
                       type: object
                   required:
                     - roleGroups
+                  type: object
+                s3:
+                  nullable: true
+                  properties:
+                    credentialsSecret:
+                      type: string
+                    endpoint:
+                      nullable: true
+                      type: string
+                  required:
+                    - credentialsSecret
                   type: object
                 version:
                   enum:

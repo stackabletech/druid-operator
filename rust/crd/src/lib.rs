@@ -63,8 +63,12 @@ pub const ZOOKEEPER_CONNECTION_STRING: &str = "druid.zk.service.host";
 // deep storage
 pub const DS_TYPE: &str = "druid.storage.type";
 pub const DS_DIRECTORY: &str = "druid.storage.storageDirectory";
+// S3
 pub const DS_BUCKET: &str = "druid.storage.bucket";
 pub const DS_BASE_KEY: &str = "druid.storage.baseKey";
+pub const S3_ACCESS_KEY: &str = "druid.s3.accessKey";
+pub const S3_SECRET_KEY: &str = "druid.s3.secretKey";
+pub const S3_ENDPOINT_URL: &str = "druid.s3.endpoint.url";
 // metadata storage config properties
 pub const MD_ST_TYPE: &str = "druid.metadata.storage.type";
 pub const MD_ST_CONNECT_URI: &str = "druid.metadata.storage.connector.connectURI";
@@ -72,6 +76,8 @@ pub const MD_ST_HOST: &str = "druid.metadata.storage.connector.host";
 pub const MD_ST_PORT: &str = "druid.metadata.storage.connector.port";
 pub const MD_ST_USER: &str = "druid.metadata.storage.connector.user";
 pub const MD_ST_PASSWORD: &str = "druid.metadata.storage.connector.password";
+// extra
+pub const CREDENTIALS_SECRET_PROPERTY: &str = "credentialsSecret";
 
 #[derive(Clone, CustomResource, Debug, Deserialize, JsonSchema, PartialEq, Serialize)]
 #[kube(
@@ -96,6 +102,7 @@ pub struct DruidClusterSpec {
     pub routers: Role<DruidConfig>,
     pub metadata_storage_database: DatabaseConnectionSpec,
     pub deep_storage: DeepStorageSpec,
+    pub s3: Option<S3Spec>,
     pub zookeeper_reference: ZookeeperReference,
 }
 
@@ -194,7 +201,7 @@ impl HasClusterExecutionStatus for DruidCluster {
 
 #[derive(Clone, CustomResource, Debug, Deserialize, JsonSchema, Eq, PartialEq, Serialize)]
 #[kube(
-    group = "external.stackable.tech",
+    group = "druid.stackable.tech",
     version = "v1alpha1",
     kind = "DatabaseConnection",
     plural = "databaseconnections",
@@ -261,17 +268,9 @@ pub enum DeepStorageType {
     #[strum(serialize = "local")]
     Local,
 
-    #[serde(rename = "noop")]
-    #[strum(serialize = "noop")]
-    Noop,
-
     #[serde(rename = "s3")]
     #[strum(serialize = "s3")]
     S3,
-
-    #[serde(rename = "hdfs")]
-    #[strum(serialize = "hdfs")]
-    Hdfs,
 }
 
 impl Default for DeepStorageType {
@@ -282,7 +281,7 @@ impl Default for DeepStorageType {
 
 #[derive(Clone, CustomResource, Debug, Deserialize, JsonSchema, Eq, PartialEq, Serialize)]
 #[kube(
-    group = "external.stackable.tech",
+    group = "druid.stackable.tech",
     version = "v1alpha1",
     kind = "DeepStorage",
     plural = "deepstorages",
@@ -296,11 +295,27 @@ pub struct DeepStorageSpec {
     pub storage_type: DeepStorageType,
     // local only
     pub data_node_selector: Option<BTreeMap<String, String>>,
-    // Local & HDFS
     pub storage_directory: Option<String>,
     // S3 only
     pub bucket: Option<String>,
     pub base_key: Option<String>,
+}
+
+#[derive(Clone, CustomResource, Debug, Deserialize, JsonSchema, Eq, PartialEq, Serialize)]
+#[kube(
+    group = "druid.stackable.tech",
+    version = "v1alpha1",
+    kind = "S3",
+    plural = "S3s",
+    namespaced,
+    kube_core = "stackable_operator::kube::core",
+    k8s_openapi = "stackable_operator::k8s_openapi",
+    schemars = "stackable_operator::schemars"
+)]
+#[serde(rename_all = "camelCase")]
+pub struct S3Spec {
+    pub credentials_secret: String,
+    pub endpoint: Option<String>,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
@@ -316,10 +331,17 @@ impl Configuration for DruidConfig {
 
     fn compute_env(
         &self,
-        _resource: &Self::Configurable,
+        resource: &Self::Configurable,
         _role_name: &str,
     ) -> Result<BTreeMap<String, Option<String>>, ConfigError> {
-        let result = BTreeMap::new();
+        let mut result = BTreeMap::new();
+        // s3
+        if let Some(s3) = &resource.spec.s3 {
+            result.insert(
+                CREDENTIALS_SECRET_PROPERTY.to_string(),
+                Some(s3.credentials_secret.clone()),
+            );
+        }
         Ok(result)
     }
 
@@ -348,6 +370,7 @@ impl Configuration for DruidConfig {
                     String::from(EXT_KAFKA_INDEXING),
                     String::from(EXT_DATASKETCHES),
                     String::from(PROMETHEUS_EMITTER),
+                    String::from(EXT_S3),
                 ];
                 // metadata storage
                 let mds = &resource.spec.metadata_storage_database;
@@ -369,14 +392,14 @@ impl Configuration for DruidConfig {
                 if let Some(password) = &mds.password {
                     result.insert(MD_ST_PASSWORD.to_string(), Some(password.to_string()));
                 }
+                // s3
+                if let Some(s3) = &resource.spec.s3 {
+                    if let Some(endpoint) = &s3.endpoint {
+                        result.insert(S3_ENDPOINT_URL.to_string(), Some(endpoint.to_string()));
+                    }
+                }
                 // deep storage
                 let ds = &resource.spec.deep_storage;
-                match ds.storage_type {
-                    DeepStorageType::Local => {}
-                    DeepStorageType::Noop => {}
-                    DeepStorageType::S3 => extensions.push(EXT_S3.to_string()),
-                    DeepStorageType::Hdfs => extensions.push(EXT_HDFS_STORAGE.to_string()),
-                }
                 result.insert(DS_TYPE.to_string(), Some(ds.storage_type.to_string()));
                 if let Some(bucket) = &ds.bucket {
                     result.insert(DS_BUCKET.to_string(), Some(bucket.to_string()));
@@ -384,6 +407,7 @@ impl Configuration for DruidConfig {
                 if let Some(key) = &ds.base_key {
                     result.insert(DS_BASE_KEY.to_string(), Some(key.to_string()));
                 }
+                // other
                 result.insert(
                     DRUID_PLAINTEXTPORT.to_string(),
                     Some(self.plaintext_port.to_string()),

@@ -8,9 +8,10 @@ use stackable_druid_crd::commands::{Restart, Start, Stop};
 use async_trait::async_trait;
 use serde::Serialize;
 use stackable_druid_crd::{
-    DeepStorageType, DruidCluster, DruidClusterSpec, DruidRole, APP_NAME, CONTAINER_METRICS_PORT,
-    CONTAINER_PLAINTEXT_PORT, DRUID_METRICS_PORT, DRUID_PLAINTEXTPORT, JVM_CONFIG, LOG4J2_CONFIG,
-    RUNTIME_PROPS, ZOOKEEPER_CONNECTION_STRING,
+    DeepStorageType, DruidCluster, DruidClusterSpec, DruidRole, DruidVersion, APP_NAME,
+    CONTAINER_METRICS_PORT, CONTAINER_PLAINTEXT_PORT, CREDENTIALS_SECRET_PROPERTY,
+    DRUID_METRICS_PORT, DRUID_PLAINTEXTPORT, JVM_CONFIG, LOG4J2_CONFIG, RUNTIME_PROPS,
+    ZOOKEEPER_CONNECTION_STRING,
 };
 use stackable_operator::builder::{
     ContainerBuilder, ObjectMetaBuilder, PodBuilder, PodSecurityContextBuilder, VolumeBuilder,
@@ -22,7 +23,9 @@ use stackable_operator::controller::Controller;
 use stackable_operator::controller::{ControllerStrategy, ReconciliationState};
 use stackable_operator::error::OperatorResult;
 use stackable_operator::identity::{LabeledPodIdentityFactory, PodIdentity, PodToNodeMapping};
-use stackable_operator::k8s_openapi::api::core::v1::{ConfigMap, Pod};
+use stackable_operator::k8s_openapi::api::core::v1::{
+    ConfigMap, EnvVar, EnvVarSource, Pod, SecretKeySelector,
+};
 use stackable_operator::kube::api::{ListParams, ResourceExt};
 use stackable_operator::kube::Api;
 use stackable_operator::kube::CustomResourceExt;
@@ -415,12 +418,19 @@ impl DruidState {
 
         let mut pod_builder = PodBuilder::new();
 
+        let secret = validated_config
+            .get(&PropertyNameKind::Env)
+            .and_then(|m| m.get(CREDENTIALS_SECRET_PROPERTY));
+
+        let env = secret.map(|s| {
+            vec![
+                env_var_from_secret("AWS_ACCESS_KEY_ID", s, "accessKeyId"),
+                env_var_from_secret("AWS_SECRET_ACCESS_KEY", s, "secretAccessKey"),
+            ]
+        });
+
         let mut cb = ContainerBuilder::new(APP_NAME);
-        cb.image(format!(
-            "docker.stackable.tech/stackable/druid:{}-stackable{}",
-            version.to_string(),
-            DEFAULT_IMAGE_VERSION
-        ));
+        cb.image(container_image(version));
         cb.command(role.get_command(version));
 
         // One mount for the config directory
@@ -440,34 +450,29 @@ impl DruidState {
             });
         }
 
-        match &self.context.resource.spec.deep_storage.storage_type {
-            DeepStorageType::Local => {
-                let data_dir = String::from("/data");
-                let dir = self
-                    .context
-                    .resource
-                    .spec
-                    .deep_storage
-                    .storage_directory
-                    .as_ref()
-                    .unwrap_or(&data_dir);
-                cb.add_volume_mount("data", "/data");
-                pod_builder.add_volume(
-                    VolumeBuilder::new("data")
-                        .with_host_path(dir, Some("DirectoryOrCreate".to_string()))
-                        .build(),
-                );
-                pod_builder.security_context(
-                    PodSecurityContextBuilder::new()
-                        .run_as_user(0)
-                        .fs_group(0)
-                        .run_as_group(0)
-                        .build(),
-                );
-            }
-            _ => {
-                unimplemented!("Only local storage supported!")
-            }
+        if self.context.resource.spec.deep_storage.storage_type == DeepStorageType::Local {
+            let data_dir = String::from("/data");
+            let dir = self
+                .context
+                .resource
+                .spec
+                .deep_storage
+                .storage_directory
+                .as_ref()
+                .unwrap_or(&data_dir);
+            cb.add_volume_mount("data", "/data");
+            pod_builder.add_volume(
+                VolumeBuilder::new("data")
+                    .with_host_path(dir, Some("DirectoryOrCreate".to_string()))
+                    .build(),
+            );
+            pod_builder.security_context(
+                PodSecurityContextBuilder::new()
+                    .run_as_user(0)
+                    .fs_group(0)
+                    .run_as_group(0)
+                    .build(),
+            );
         }
 
         let annotations = BTreeMap::new();
@@ -490,6 +495,7 @@ impl DruidState {
 
         let mut container = cb.build();
         container.image_pull_policy = Some("IfNotPresent".to_string());
+        container.env = env;
 
         let pod = pod_builder
             .metadata(
@@ -553,6 +559,35 @@ impl DruidState {
                 }
             },
         }
+    }
+}
+
+fn container_image(version: &DruidVersion) -> String {
+    format!(
+        // For now we hardcode the stackable image version via DEFAULT_IMAGE_VERSION
+        // which represents the major image version and will fallback to the newest
+        // available image e.g. if DEFAULT_IMAGE_VERSION = 0 and versions 0.0.1 and
+        // 0.0.2 are available, the latter one will be selected. This may change the
+        // image during restarts depending on the imagePullPolicy.
+        // TODO: should be made configurable
+        "docker.stackable.tech/stackable/druid:{}-stackable{}",
+        version.to_string(),
+        DEFAULT_IMAGE_VERSION
+    )
+}
+
+fn env_var_from_secret(var_name: &str, secret: &str, secret_key: &str) -> EnvVar {
+    EnvVar {
+        name: String::from(var_name),
+        value_from: Some(EnvVarSource {
+            secret_key_ref: Some(SecretKeySelector {
+                name: Some(String::from(secret)),
+                key: String::from(secret_key),
+                ..Default::default()
+            }),
+            ..Default::default()
+        }),
+        ..Default::default()
     }
 }
 
@@ -733,6 +768,7 @@ impl ControllerStrategy for DruidStrategy {
         let mut roles = HashMap::new();
 
         let config_files = vec![
+            PropertyNameKind::Env,
             PropertyNameKind::File(JVM_CONFIG.to_string()),
             PropertyNameKind::File(LOG4J2_CONFIG.to_string()),
             PropertyNameKind::File(RUNTIME_PROPS.to_string()),

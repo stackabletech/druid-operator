@@ -1,10 +1,10 @@
 = Installation
 
-There are three ways to run the Apache Druid Operator:
+There are two ways to run the Apache Druid Operator:
 
-1. Build from source. This is documented in xref:building.adoc[Building the Operator].
+1. As a Docker container
 
-2. As a Docker container
+2. Build from source. This is documented in xref:building.adoc[Building the Operator].
 
 
 == Docker
