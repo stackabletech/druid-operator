@@ -24,7 +24,7 @@ And setup the Postgres database:
     --set postgresqlPassword=druid \
     --set postgresqlDatabase=druid
 
-=== Creating a Druid Cluster
+== Creating a Druid Cluster
 
 With the prerequisites fulfilled, the CRD for this operator must be created:
 
@@ -98,3 +98,30 @@ The Router is hosting the web UI, to be able to access the web interface you nee
 Now open `http://localhost:8888` in your browser and follow the https://druid.apache.org/docs/latest/tutorials/index.html#step-4-load-data[druid documentation] on how to load and query sample data.
 
 For monitoring purposes, Prometheus metrics are exposed on `metricsPort`. Similarly to the web UI above, you need to expose the corresponding port for the group you want to monitor.
+
+== Using S3
+
+Druid can use S3 as a backend for deep storage, as well as a data source to ingest data from.
+
+To use S3, add a section like this to you cluster `spec`:
+
+  s3:
+    endpoint: s3-de-central.profitbricks.com
+    credentialsSecret: s3-credentials
+
+the secret `s3-credentials` should contain your access key ID and the secret access key:
+
+  apiVersion: v1
+  kind: Secret
+  metadata:
+    name: s3-credentials
+  stringData:
+    accessKeyId: YOURACCESSKEYIDHERE
+    secretAccessKey: YOURSECRETACCESSKEYHERE
+
+This allows to ingest data from accessible buckets already. To configure a bucket and prefix to be used as a deep storage, change the deep storage configuration like so:
+
+  deepStorage:
+    storageType: s3
+    bucket: druid-deepstorage
+    baseKey: storage           # the base key is the prefix to be used; optional
