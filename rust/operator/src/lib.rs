@@ -477,7 +477,7 @@ impl DruidState {
             }
             DeepStorageType::S3 => {}
             _ => {
-                unimplemented!("Only local storage supported!")
+                unimplemented!("Only local or S3 storage supported!")
             }
         }
 
