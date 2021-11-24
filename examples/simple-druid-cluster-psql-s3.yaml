@@ -14,13 +14,13 @@ spec:
     port: 5432
     user: druid
     password: druid
+  s3:
+    endpoint: s3-de-central.profitbricks.com
+    credentialsSecret: s3-credentials    # this needs to be deployed additionally
   deepStorage:
     storageType: s3
-    endpoint: s3-de-central.profitbricks.com
     bucket: druid-deepstorage
-    baseKey: storage
-    accessKey: YOUR_KEY_HERE
-    secretKey: YOUR_SECRET_HERE
+    baseKey: storage               # this is optional; deep storage can also be at the root of the bucket
   brokers:
     roleGroups:
       default:
