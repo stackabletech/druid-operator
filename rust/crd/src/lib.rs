@@ -13,6 +13,7 @@ use stackable_operator::identity::PodToNodeMapping;
 use stackable_operator::k8s_openapi::apimachinery::pkg::apis::meta::v1::Condition;
 use stackable_operator::k8s_openapi::schemars::_serde_json::Value;
 use stackable_operator::kube::api::ApiResource;
+use stackable_operator::kube::runtime::reflector::ObjectRef;
 use stackable_operator::kube::CustomResource;
 use stackable_operator::kube::CustomResourceExt;
 use stackable_operator::product_config_utils::{ConfigError, Configuration};
@@ -26,6 +27,7 @@ use stackable_operator::versioning::{ProductVersion, Versioning, VersioningState
 use stackable_zookeeper_crd::discovery::ZookeeperReference;
 use std::cmp::Ordering;
 use std::collections::BTreeMap;
+use std::fmt::Display;
 use std::str::FromStr;
 use strum_macros::Display;
 use strum_macros::EnumIter;
@@ -426,6 +428,28 @@ impl Configuration for DruidConfig {
         }
 
         Ok(result)
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct RoleGroupRef {
+    pub cluster: ObjectRef<DruidCluster>,
+    pub role: String,
+    pub role_group: String,
+}
+
+impl RoleGroupRef {
+    pub fn object_name(&self) -> String {
+        format!("{}-{}-{}", self.cluster.name, self.role, self.role_group)
+    }
+}
+
+impl Display for RoleGroupRef {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_fmt(format_args!(
+            "rolegroup {}.{} of {}",
+            self.role, self.role_group, self.cluster
+        ))
     }
 }
 

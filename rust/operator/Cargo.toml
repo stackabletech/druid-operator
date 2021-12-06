@@ -3,7 +3,7 @@ authors = ["Lars Francke <lars.francke@stackable.de>"]
 description = "Stackable Operator for druid - The Operator Library"
 edition = "2018"
 license = "OSL-3.0"
-name = "stackable-druid-operator"
+name = "stackable-druid-operator-old"
 repository = "https://github.com/stackabletech/druid-operator"
 version = "0.1.0-nightly"
 
