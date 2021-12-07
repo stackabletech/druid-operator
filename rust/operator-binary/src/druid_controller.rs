@@ -20,7 +20,10 @@ use stackable_druid_crd::{
     LOG4J2_CONFIG, RUNTIME_PROPS, ZOOKEEPER_CONNECTION_STRING,
 };
 use stackable_operator::{
-    builder::{ConfigMapBuilder, ContainerBuilder, ObjectMetaBuilder, PodBuilder},
+    builder::{
+        ConfigMapBuilder, ContainerBuilder, ObjectMetaBuilder, PodBuilder,
+        PodSecurityContextBuilder, VolumeBuilder,
+    },
     k8s_openapi::{
         api::{
             apps::v1::{StatefulSet, StatefulSetSpec},
@@ -48,6 +51,7 @@ use stackable_operator::{
 };
 
 const FIELD_MANAGER: &str = "druid.stackable.tech/druidcluster";
+const DEFAULT_IMAGE_VERSION: &str = "0";
 
 pub struct Ctx {
     pub kube: kube::Client,
@@ -276,7 +280,7 @@ fn build_rolegroup_config_map(
             .build(),
     );
     for (filename, file_content) in cm_conf_data.iter() {
-        config_map_builder = config_map_builder.add_data(filename, file_content);
+        config_map_builder.add_data(filename, file_content);
     }
     config_map_builder
         .build()
@@ -293,12 +297,9 @@ fn build_rolegroup_statefulset(
     druid: &DruidCluster,
     rolegroup_config: &HashMap<PropertyNameKind, BTreeMap<String, String>>,
 ) -> Result<StatefulSet> {
+    // setup
+    let role = DruidRole::from_str(&rolegroup_ref.role).unwrap();
     let druid_version = druid_version(druid)?;
-    let image = format!(
-        "docker.stackable.tech/stackable/zookeeper:{}-stackable0",
-        druid_version
-    );
-
     let rolegroup = druid
         .spec
         .get_role(&DruidRole::from_str(&rolegroup_ref.role).unwrap())
@@ -308,6 +309,28 @@ fn build_rolegroup_statefulset(
         })?
         .role_groups
         .get(&rolegroup_ref.role_group);
+
+    // init container builder
+    let mut cb = ContainerBuilder::new("druid");
+    // init pod builder
+    let mut pb = PodBuilder::new();
+    pb.metadata_builder(|m| {
+        m.with_recommended_labels(
+            druid,
+            APP_NAME,
+            druid_version,
+            &rolegroup_ref.role,
+            &rolegroup_ref.role_group,
+        )
+    });
+
+    // add image
+    cb.image(container_image(druid_version));
+
+    // add command
+    cb.command(role.get_command(druid_version));
+
+    // add env
     let env = server_config
         .get(&PropertyNameKind::Env)
         .iter()
@@ -318,61 +341,93 @@ fn build_rolegroup_statefulset(
             ..EnvVar::default()
         })
         .collect::<Vec<_>>();
-    let container_decide_myid = ContainerBuilder::new("decide-myid")
-        .image(&image)
-        .args(vec![
-            "sh".to_string(),
-            "-c".to_string(),
-            "expr $MYID_OFFSET + $(echo $POD_NAME | sed 's/.*-//') > /stackable/data/myid"
-                .to_string(),
-        ])
-        .add_env_vars(env.clone())
-        .add_env_vars(vec![EnvVar {
-            name: "POD_NAME".to_string(),
-            value_from: Some(EnvVarSource {
-                field_ref: Some(ObjectFieldSelector {
-                    api_version: Some("v1".to_string()),
-                    field_path: "metadata.name".to_string(),
+    cb.add_env_vars(env);
+    let secret = validated_config
+        .get(&PropertyNameKind::Env)
+        .and_then(|m| m.get(CREDENTIALS_SECRET_PROPERTY));
+    let secret_env = secret.map(|s| {
+        vec![
+            env_var_from_secret("AWS_ACCESS_KEY_ID", s, "accessKeyId"),
+            env_var_from_secret("AWS_SECRET_ACCESS_KEY", s, "secretAccessKey"),
+        ]
+    });
+    cb.add_env_vars(secret_env);
+
+    // add ports
+    if let Some(plaintext_port) = validated_config
+        .get(&PropertyNameKind::File(RUNTIME_PROPS.to_string()))
+        .and_then(|props| props.get(DRUID_PLAINTEXTPORT))
+        .map(|port| port.parse::<i32>().unwrap())
+    {
+        cb.add_container_port(CONTAINER_PLAINTEXT_PORT, plaintext_port);
+    }
+    if let Some(metrics_port) = validated_config
+        .get(&PropertyNameKind::File(RUNTIME_PROPS.to_string()))
+        .and_then(|props| props.get(DRUID_METRICS_PORT))
+        .map(|port| port.parse::<i32>().unwrap())
+    {
+        cb.add_container_port(CONTAINER_METRICS_PORT, metrics_port);
+    }
+
+    // add local deep storage setup
+    if druid.spec.deep_storage.storage_type == DeepStorageType::Local {
+        let data_dir = String::from("/data");
+        let dir = druid
+            .spec
+            .deep_storage
+            .storage_directory
+            .as_ref()
+            .unwrap_or(&data_dir);
+        cb.add_volume_mount("data", "/data");
+        pb.add_volume(
+            VolumeBuilder::new("data")
+                .with_host_path(dir, Some("DirectoryOrCreate".to_string()))
+                .build(),
+        );
+        pod_builder.security_context(
+            PodSecurityContextBuilder::new()
+                .run_as_user(0)
+                .fs_group(0)
+                .run_as_group(0)
+                .build(),
+        );
+    }
+
+    // config mount (TODO)
+    /*
+    .add_volume(Volume {
+        name: "config".to_string(),
+        config_map: Some(ConfigMapVolumeSource {
+            name: Some(rolegroup_ref.object_name()),
+            ..ConfigMapVolumeSource::default()
+        }),
+        ..Volume::default()
+    })*/
+
+    let pvcs = vec![PersistentVolumeClaim {
+        metadata: ObjectMeta {
+            name: Some("data".to_string()),
+            ..ObjectMeta::default()
+        },
+        spec: Some(PersistentVolumeClaimSpec {
+            access_modes: Some(vec!["ReadWriteOnce".to_string()]),
+            resources: Some(ResourceRequirements {
+                requests: Some({
+                    let mut map = BTreeMap::new();
+                    map.insert("storage".to_string(), Quantity("1Gi".to_string()));
+                    map
                 }),
-                ..EnvVarSource::default()
+                ..ResourceRequirements::default()
             }),
-            ..EnvVar::default()
-        }])
-        .add_volume_mount("data", "/stackable/data")
-        .build();
-    let container_druid = ContainerBuilder::new("zookeeper")
-        .image(image)
-        .args(vec![
-            "bin/druidServer.sh".to_string(),
-            "start-foreground".to_string(),
-            "/stackable/config/zoo.cfg".to_string(),
-        ])
-        .add_env_vars(env)
-        // Only allow the global load balancing service to send traffic to pods that are members of the quorum
-        // This also acts as a hint to the StatefulSet controller to wait for each pod to enter quorum before taking down the next
-        .readiness_probe(Probe {
-            exec: Some(ExecAction {
-                command: Some(vec![
-                    "bash".to_string(),
-                    "-c".to_string(),
-                    // We don't have telnet or netcat in the container images, but
-                    // we can use Bash's virtual /dev/tcp filesystem to accomplish the same thing
-                    format!(
-                        "exec 3<>/dev/tcp/localhost/{} && echo srvr >&3 && grep '^Mode: ' <&3",
-                        APP_PORT
-                    ),
-                ]),
-            }),
-            period_seconds: Some(1),
-            ..Probe::default()
-        })
-        .add_container_port("druid", APP_PORT.into())
-        .add_container_port("druid-leader", 2888)
-        .add_container_port("druid-election", 3888)
-        .add_container_port("metrics", 9505)
-        .add_volume_mount("data", "/stackable/data")
-        .add_volume_mount("config", "/stackable/config")
-        .build();
+            ..PersistentVolumeClaimSpec::default()
+        }),
+        ..PersistentVolumeClaim::default()
+    }];
+
+    let mut container = cb.build();
+    container.image_pull_policy = Some("IfNotPresent".to_string());
+    pb.add_container(container);
+
     Ok(StatefulSet {
         metadata: ObjectMetaBuilder::new()
             .name_and_namespace(druid)
@@ -406,50 +461,26 @@ fn build_rolegroup_statefulset(
                 ..LabelSelector::default()
             },
             service_name: rolegroup_ref.object_name(),
-            template: PodBuilder::new()
-                .metadata_builder(|m| {
-                    m.with_recommended_labels(
-                        druid,
-                        APP_NAME,
-                        druid_version,
-                        &rolegroup_ref.role,
-                        &rolegroup_ref.role_group,
-                    )
-                })
-                .add_init_container(container_decide_myid)
-                .add_container(container_druid)
-                .add_volume(Volume {
-                    name: "config".to_string(),
-                    config_map: Some(ConfigMapVolumeSource {
-                        name: Some(rolegroup_ref.object_name()),
-                        ..ConfigMapVolumeSource::default()
-                    }),
-                    ..Volume::default()
-                })
-                .build_template(),
-            volume_claim_templates: Some(vec![PersistentVolumeClaim {
-                metadata: ObjectMeta {
-                    name: Some("data".to_string()),
-                    ..ObjectMeta::default()
-                },
-                spec: Some(PersistentVolumeClaimSpec {
-                    access_modes: Some(vec!["ReadWriteOnce".to_string()]),
-                    resources: Some(ResourceRequirements {
-                        requests: Some({
-                            let mut map = BTreeMap::new();
-                            map.insert("storage".to_string(), Quantity("1Gi".to_string()));
-                            map
-                        }),
-                        ..ResourceRequirements::default()
-                    }),
-                    ..PersistentVolumeClaimSpec::default()
-                }),
-                ..PersistentVolumeClaim::default()
-            }]),
+            template: pb.build_template(),
+            volume_claim_templates: Some(pvcs),
             ..StatefulSetSpec::default()
         }),
         status: None,
     })
+}
+
+fn container_image(version: &str) -> String {
+    format!(
+        // For now we hardcode the stackable image version via DEFAULT_IMAGE_VERSION
+        // which represents the major image version and will fallback to the newest
+        // available image e.g. if DEFAULT_IMAGE_VERSION = 0 and versions 0.0.1 and
+        // 0.0.2 are available, the latter one will be selected. This may change the
+        // image during restarts depending on the imagePullPolicy.
+        // TODO: should be made configurable
+        "docker.stackable.tech/stackable/druid:{}-stackable{}",
+        version.to_string(),
+        DEFAULT_IMAGE_VERSION
+    )
 }
 
 pub fn druid_version(druid: &DruidCluster) -> Result<&str> {

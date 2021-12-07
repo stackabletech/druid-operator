@@ -422,7 +422,7 @@ impl DruidState {
             .get(&PropertyNameKind::Env)
             .and_then(|m| m.get(CREDENTIALS_SECRET_PROPERTY));
 
-        let env = secret.map(|s| {
+        let secret_env = secret.map(|s| {
             vec![
                 env_var_from_secret("AWS_ACCESS_KEY_ID", s, "accessKeyId"),
                 env_var_from_secret("AWS_SECRET_ACCESS_KEY", s, "secretAccessKey"),
@@ -475,8 +475,6 @@ impl DruidState {
             );
         }
 
-        let annotations = BTreeMap::new();
-
         if let Some(plaintext_port) = validated_config
             .get(&PropertyNameKind::File(RUNTIME_PROPS.to_string()))
             .and_then(|props| props.get(DRUID_PLAINTEXTPORT))
@@ -503,7 +501,6 @@ impl DruidState {
                     .generate_name(pod_name)
                     .namespace(&self.context.client.default_namespace)
                     .with_labels(recommended_labels)
-                    .with_annotations(annotations)
                     .ownerreference_from_resource(&self.context.resource, Some(true), Some(true))?
                     .build()?,
             )

@@ -136,7 +136,7 @@ pub enum DruidRole {
 
 impl DruidRole {
     /// Returns the start commands for the different server types.
-    pub fn get_command(&self, _version: &DruidVersion) -> Vec<String> {
+    pub fn get_command(&self, _version: &str) -> Vec<String> {
         vec![
             "/stackable/druid/bin/run-druid".to_string(),
             self.to_string(),
