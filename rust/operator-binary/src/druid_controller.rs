@@ -4,10 +4,12 @@ use std::{
     borrow::Cow,
     collections::{BTreeMap, HashMap},
     hash::Hasher,
+    str::FromStr,
     time::Duration,
 };
 
 use crate::{
+    config::{get_jvm_config, get_log4j_config, get_runtime_properties},
     utils::{apply_owned, apply_status},
     APP_PORT,
 };
@@ -30,7 +32,7 @@ use stackable_operator::{
             core::v1::{
                 ConfigMap, ConfigMapVolumeSource, EnvVar, EnvVarSource, ExecAction,
                 ObjectFieldSelector, PersistentVolumeClaim, PersistentVolumeClaimSpec, Probe,
-                ResourceRequirements, Service, ServicePort, ServiceSpec, Volume,
+                ResourceRequirements, SecretKeySelector, Service, ServicePort, ServiceSpec, Volume,
             },
         },
         apimachinery::pkg::{api::resource::Quantity, apis::meta::v1::LabelSelector},
@@ -186,7 +188,7 @@ pub async fn reconcile_druid(druid: DruidCluster, ctx: Context<Ctx>) -> Result<R
     for (role_name, role_config) in validated_role_config.iter() {
         for (rolegroup_name, rolegroup_config) in role_config.iter() {
             let rolegroup = RoleGroupRef {
-                cluster: ObjectRef::from_obj(druid),
+                cluster: ObjectRef::from_obj(&druid),
                 role: role_name.into(),
                 role_group: rolegroup_name.into(),
             };
@@ -223,6 +225,7 @@ fn build_rolegroup_config_map(
     druid: &DruidCluster,
     rolegroup_config: &HashMap<PropertyNameKind, BTreeMap<String, String>>,
 ) -> Result<ConfigMap> {
+    let role = DruidRole::from_str(&rolegroup.role).unwrap();
     let mut config_maps = HashMap::new();
     let mut cm_conf_data = BTreeMap::new(); // filename -> filecontent
 
@@ -238,7 +241,7 @@ fn build_rolegroup_config_map(
                 // the local host is used.  This should work with the agent and k8s host networking
                 // but might need to be revisited in the future
 
-                if let Some(zk_info) = &druid.zookeeper_info {
+                if let Some(zk_info) = &druid.spec.zookeeper_info {
                     transformed_config.insert(
                         ZOOKEEPER_CONNECTION_STRING.to_string(),
                         Some(zk_info.connection_string.clone()),
@@ -247,15 +250,15 @@ fn build_rolegroup_config_map(
                     return Err(error::Error::ZookeeperConnectionInformationError);
                 }
 
-                let runtime_properties = get_runtime_properties(role, &transformed_config);
+                let runtime_properties = get_runtime_properties(&role, &transformed_config);
                 cm_conf_data.insert(RUNTIME_PROPS.to_string(), runtime_properties);
             }
             PropertyNameKind::File(file_name) if file_name == JVM_CONFIG => {
-                let jvm_config = get_jvm_config(role);
+                let jvm_config = get_jvm_config(&role);
                 cm_conf_data.insert(JVM_CONFIG.to_string(), jvm_config);
             }
             PropertyNameKind::File(file_name) if file_name == LOG4J2_CONFIG => {
-                let log_config = get_log4j_config(role);
+                let log_config = get_log4j_config(&role);
                 cm_conf_data.insert(LOG4J2_CONFIG.to_string(), log_config);
             }
             _ => {}
@@ -301,17 +304,12 @@ fn build_rolegroup_statefulset(
     let role = DruidRole::from_str(&rolegroup_ref.role).unwrap();
     let druid_version = druid_version(druid)?;
     let rolegroup = druid
-        .spec
         .get_role(&DruidRole::from_str(&rolegroup_ref.role).unwrap())
-        .as_ref()
-        .with_context(|| NoServerRole {
-            obj_ref: ObjectRef::from_obj(druid),
-        })?
         .role_groups
         .get(&rolegroup_ref.role_group);
 
     // init container builder
-    let mut cb = ContainerBuilder::new("druid");
+    let mut cb = ContainerBuilder::new(APP_NAME);
     // init pod builder
     let mut pb = PodBuilder::new();
     pb.metadata_builder(|m| {
@@ -331,18 +329,7 @@ fn build_rolegroup_statefulset(
     cb.command(role.get_command(druid_version));
 
     // add env
-    let env = server_config
-        .get(&PropertyNameKind::Env)
-        .iter()
-        .flat_map(|env_vars| env_vars.iter())
-        .map(|(k, v)| EnvVar {
-            name: k.clone(),
-            value: Some(v.clone()),
-            ..EnvVar::default()
-        })
-        .collect::<Vec<_>>();
-    cb.add_env_vars(env);
-    let secret = validated_config
+    let secret = rolegroup_config
         .get(&PropertyNameKind::Env)
         .and_then(|m| m.get(CREDENTIALS_SECRET_PROPERTY));
     let secret_env = secret.map(|s| {
@@ -351,17 +338,19 @@ fn build_rolegroup_statefulset(
             env_var_from_secret("AWS_SECRET_ACCESS_KEY", s, "secretAccessKey"),
         ]
     });
-    cb.add_env_vars(secret_env);
+    if let Some(e) = secret_env {
+        cb.add_env_vars(e);
+    }
 
     // add ports
-    if let Some(plaintext_port) = validated_config
+    if let Some(plaintext_port) = rolegroup_config
         .get(&PropertyNameKind::File(RUNTIME_PROPS.to_string()))
         .and_then(|props| props.get(DRUID_PLAINTEXTPORT))
         .map(|port| port.parse::<i32>().unwrap())
     {
         cb.add_container_port(CONTAINER_PLAINTEXT_PORT, plaintext_port);
     }
-    if let Some(metrics_port) = validated_config
+    if let Some(metrics_port) = rolegroup_config
         .get(&PropertyNameKind::File(RUNTIME_PROPS.to_string()))
         .and_then(|props| props.get(DRUID_METRICS_PORT))
         .map(|port| port.parse::<i32>().unwrap())
@@ -369,7 +358,16 @@ fn build_rolegroup_statefulset(
         cb.add_container_port(CONTAINER_METRICS_PORT, metrics_port);
     }
 
+    // config mount
+    cb.add_volume_mount("config", "/stackable/conf");
+    pb.add_volume(
+        VolumeBuilder::new("config")
+            .with_config_map(rolegroup_ref.object_name())
+            .build(),
+    );
+
     // add local deep storage setup
+    let mut pvcs = vec![];
     if druid.spec.deep_storage.storage_type == DeepStorageType::Local {
         let data_dir = String::from("/data");
         let dir = druid
@@ -384,7 +382,26 @@ fn build_rolegroup_statefulset(
                 .with_host_path(dir, Some("DirectoryOrCreate".to_string()))
                 .build(),
         );
-        pod_builder.security_context(
+        pvcs.push(PersistentVolumeClaim {
+            metadata: ObjectMeta {
+                name: Some("data".to_string()),
+                ..ObjectMeta::default()
+            },
+            spec: Some(PersistentVolumeClaimSpec {
+                access_modes: Some(vec!["ReadWriteOnce".to_string()]),
+                resources: Some(ResourceRequirements {
+                    requests: Some({
+                        let mut map = BTreeMap::new();
+                        map.insert("storage".to_string(), Quantity("1Gi".to_string()));
+                        map
+                    }),
+                    ..ResourceRequirements::default()
+                }),
+                ..PersistentVolumeClaimSpec::default()
+            }),
+            ..PersistentVolumeClaim::default()
+        });
+        pb.security_context(
             PodSecurityContextBuilder::new()
                 .run_as_user(0)
                 .fs_group(0)
@@ -392,37 +409,6 @@ fn build_rolegroup_statefulset(
                 .build(),
         );
     }
-
-    // config mount (TODO)
-    /*
-    .add_volume(Volume {
-        name: "config".to_string(),
-        config_map: Some(ConfigMapVolumeSource {
-            name: Some(rolegroup_ref.object_name()),
-            ..ConfigMapVolumeSource::default()
-        }),
-        ..Volume::default()
-    })*/
-
-    let pvcs = vec![PersistentVolumeClaim {
-        metadata: ObjectMeta {
-            name: Some("data".to_string()),
-            ..ObjectMeta::default()
-        },
-        spec: Some(PersistentVolumeClaimSpec {
-            access_modes: Some(vec!["ReadWriteOnce".to_string()]),
-            resources: Some(ResourceRequirements {
-                requests: Some({
-                    let mut map = BTreeMap::new();
-                    map.insert("storage".to_string(), Quantity("1Gi".to_string()));
-                    map
-                }),
-                ..ResourceRequirements::default()
-            }),
-            ..PersistentVolumeClaimSpec::default()
-        }),
-        ..PersistentVolumeClaim::default()
-    }];
 
     let mut container = cb.build();
     container.image_pull_policy = Some("IfNotPresent".to_string());
@@ -467,6 +453,21 @@ fn build_rolegroup_statefulset(
         }),
         status: None,
     })
+}
+
+fn env_var_from_secret(var_name: &str, secret: &str, secret_key: &str) -> EnvVar {
+    EnvVar {
+        name: String::from(var_name),
+        value_from: Some(EnvVarSource {
+            secret_key_ref: Some(SecretKeySelector {
+                name: Some(String::from(secret)),
+                key: String::from(secret_key),
+                ..Default::default()
+            }),
+            ..Default::default()
+        }),
+        ..Default::default()
+    }
 }
 
 fn container_image(version: &str) -> String {

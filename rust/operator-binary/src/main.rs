@@ -1,3 +1,4 @@
+mod config;
 mod druid_controller;
 mod utils;
 

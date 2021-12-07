@@ -422,16 +422,7 @@ impl DruidState {
             .get(&PropertyNameKind::Env)
             .and_then(|m| m.get(CREDENTIALS_SECRET_PROPERTY));
 
-        let secret_env = secret.map(|s| {
-            vec![
-                env_var_from_secret("AWS_ACCESS_KEY_ID", s, "accessKeyId"),
-                env_var_from_secret("AWS_SECRET_ACCESS_KEY", s, "secretAccessKey"),
-            ]
-        });
-
         let mut cb = ContainerBuilder::new(APP_NAME);
-        cb.image(container_image(version));
-        cb.command(role.get_command(version));
 
         // One mount for the config directory
         if let Some(config_map_data) = config_maps.get(CONFIG_MAP_TYPE_CONF) {
