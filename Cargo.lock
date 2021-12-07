@@ -1901,7 +1901,7 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_yaml",
- "stackable-operator 0.4.0",
+ "stackable-operator 0.5.0-nightly",
  "stackable-zookeeper-crd",
  "strum",
  "strum_macros",
@@ -1934,24 +1934,6 @@ dependencies = [
  "tokio 1.14.0",
  "tokio-executor",
  "tokio-zookeeper",
- "tracing",
-]
-
-[[package]]
-name = "stackable-druid-operator-old"
-version = "0.1.0-nightly"
-dependencies = [
- "async-trait",
- "futures 0.3.17",
- "rstest",
- "serde",
- "serde_json",
- "stackable-druid-crd",
- "stackable-operator 0.4.0",
- "stackable-zookeeper-crd",
- "strum",
- "strum_macros",
- "thiserror",
  "tracing",
 ]
 

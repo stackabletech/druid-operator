@@ -144,13 +144,26 @@ impl DruidRole {
         ]
     }
 }
-
+/*
 impl Status<DruidClusterStatus> for DruidCluster {
     fn status(&self) -> &Option<DruidClusterStatus> {
         &self.status
     }
     fn status_mut(&mut self) -> &mut Option<DruidClusterStatus> {
         &mut self.status
+    }
+}
+*/
+
+impl DruidCluster {
+    pub fn get_role(&self, role: &DruidRole) -> &Role<DruidConfig> {
+        match role {
+            DruidRole::Coordinator => &self.spec.coordinators,
+            DruidRole::Broker => &self.spec.brokers,
+            DruidRole::MiddleManager => &self.spec.middle_managers,
+            DruidRole::Historical => &self.spec.historicals,
+            DruidRole::Router => &self.spec.routers,
+        }
     }
 }
 
@@ -518,14 +531,14 @@ pub struct DruidClusterStatus {
     pub cluster_execution_status: Option<ClusterExecutionStatus>,
 }
 
-impl Versioned<DruidVersion> for DruidClusterStatus {
+/*impl Versioned<DruidVersion> for DruidClusterStatus {
     fn version(&self) -> &Option<ProductVersion<DruidVersion>> {
         &self.version
     }
     fn version_mut(&mut self) -> &mut Option<ProductVersion<DruidVersion>> {
         &mut self.version
     }
-}
+}*/
 
 impl Conditions for DruidClusterStatus {
     fn conditions(&self) -> &[Condition] {

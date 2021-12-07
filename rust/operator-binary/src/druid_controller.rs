@@ -9,12 +9,15 @@ use std::{
 
 use crate::{
     utils::{apply_owned, apply_status},
-    APP_NAME, APP_PORT,
+    APP_PORT,
 };
 use fnv::FnvHasher;
 use snafu::{OptionExt, ResultExt, Snafu};
 use stackable_druid_crd::{
-    DruidCluster, DruidClusterSpec, DruidClusterStatus, DruidRole, RoleGroupRef,
+    DeepStorageType, DruidCluster, DruidClusterSpec, DruidClusterStatus, DruidRole, DruidVersion,
+    RoleGroupRef, APP_NAME, CONTAINER_METRICS_PORT, CONTAINER_PLAINTEXT_PORT,
+    CREDENTIALS_SECRET_PROPERTY, DRUID_METRICS_PORT, DRUID_PLAINTEXTPORT, JVM_CONFIG,
+    LOG4J2_CONFIG, RUNTIME_PROPS, ZOOKEEPER_CONNECTION_STRING,
 };
 use stackable_operator::{
     builder::{ConfigMapBuilder, ContainerBuilder, ObjectMetaBuilder, PodBuilder},
@@ -126,24 +129,48 @@ pub async fn reconcile_druid(druid: DruidCluster, ctx: Context<Ctx>) -> Result<R
         .with_context(|| ObjectHasNoVersion {
             obj_ref: druid_ref.clone(),
         })?;
-    let validated_config = validate_all_roles_and_groups_config(
-        druid_version,
-        &transform_all_roles_to_config(
-            &druid,
-            [(
-                DruidRole::Server.to_string(),
-                (
-                    vec![
-                        PropertyNameKind::Env,
-                        PropertyNameKind::File(PROPERTIES_FILE.to_string()),
-                    ],
-                    druid.spec.servers.clone().with_context(|| NoServerRole {
-                        obj_ref: druid_ref.clone(),
-                    })?,
-                ),
-            )]
-            .into(),
+
+    let mut roles = HashMap::new();
+
+    let config_files = vec![
+        PropertyNameKind::Env,
+        PropertyNameKind::File(JVM_CONFIG.to_string()),
+        PropertyNameKind::File(LOG4J2_CONFIG.to_string()),
+        PropertyNameKind::File(RUNTIME_PROPS.to_string()),
+    ];
+
+    roles.insert(
+        DruidRole::Broker.to_string(),
+        (config_files.clone(), druid.spec.brokers.clone().into()),
+    );
+
+    roles.insert(
+        DruidRole::Coordinator.to_string(),
+        (config_files.clone(), druid.spec.coordinators.clone().into()),
+    );
+
+    roles.insert(
+        DruidRole::Historical.to_string(),
+        (config_files.clone(), druid.spec.historicals.clone().into()),
+    );
+
+    roles.insert(
+        DruidRole::MiddleManager.to_string(),
+        (
+            config_files.clone(),
+            druid.spec.middle_managers.clone().into(),
         ),
+    );
+
+    roles.insert(
+        DruidRole::Router.to_string(),
+        (config_files, druid.spec.routers.clone().into()),
+    );
+
+    let role_config = transform_all_roles_to_config(&druid, roles);
+    let validated_role_config = validate_all_roles_and_groups_config(
+        &druid.spec.version.to_string(),
+        &role_config,
         &ctx.get_ref().product_config,
         false,
         false,
@@ -151,47 +178,34 @@ pub async fn reconcile_druid(druid: DruidCluster, ctx: Context<Ctx>) -> Result<R
     .with_context(|| InvalidProductConfig {
         druid: druid_ref.clone(),
     })?;
-    let role_server_config = validated_config
-        .get(&DruidRole::Server.to_string())
-        .map(Cow::Borrowed)
-        .unwrap_or_default();
 
-    let server_role_service =
-        apply_owned(&kube, FIELD_MANAGER, &build_server_role_service(&druid)?)
+    for (role_name, role_config) in validated_role_config.iter() {
+        for (rolegroup_name, rolegroup_config) in role_config.iter() {
+            let rolegroup = RoleGroupRef {
+                cluster: ObjectRef::from_obj(druid),
+                role: role_name.into(),
+                role_group: rolegroup_name.into(),
+            };
+
+            apply_owned(
+                &kube,
+                FIELD_MANAGER,
+                &build_rolegroup_config_map(&rolegroup, &druid, rolegroup_config)?,
+            )
             .await
-            .with_context(|| ApplyRoleService {
-                druid: druid_ref.clone(),
+            .with_context(|| ApplyRoleGroupConfig {
+                rolegroup: rolegroup.clone(),
             })?;
-    for (rolegroup_name, rolegroup_config) in role_server_config.iter() {
-        let rolegroup = druid.server_rolegroup_ref(rolegroup_name);
-
-        apply_owned(
-            &kube,
-            FIELD_MANAGER,
-            &build_server_rolegroup_service(&rolegroup, &druid)?,
-        )
-        .await
-        .with_context(|| ApplyRoleGroupService {
-            rolegroup: rolegroup.clone(),
-        })?;
-        apply_owned(
-            &kube,
-            FIELD_MANAGER,
-            &build_server_rolegroup_config_map(&rolegroup, &druid, rolegroup_config)?,
-        )
-        .await
-        .with_context(|| ApplyRoleGroupConfig {
-            rolegroup: rolegroup.clone(),
-        })?;
-        apply_owned(
-            &kube,
-            FIELD_MANAGER,
-            &build_server_rolegroup_statefulset(&rolegroup, &druid, rolegroup_config)?,
-        )
-        .await
-        .with_context(|| ApplyRoleGroupStatefulSet {
-            rolegroup: rolegroup.clone(),
-        })?;
+            apply_owned(
+                &kube,
+                FIELD_MANAGER,
+                &build_rolegroup_statefulset(&rolegroup, &druid, rolegroup_config)?,
+            )
+            .await
+            .with_context(|| ApplyRoleGroupStatefulSet {
+                rolegroup: rolegroup.clone(),
+            })?;
+        }
     }
 
     Ok(ReconcilerAction {
@@ -199,107 +213,55 @@ pub async fn reconcile_druid(druid: DruidCluster, ctx: Context<Ctx>) -> Result<R
     })
 }
 
-/// The server-role service is the primary endpoint that should be used by clients that do not perform internal load balancing,
-/// including targets outside of the cluster.
-///
-/// Note that you should generally *not* hard-code clients to use these services; instead, create a [`ZookeeperZnode`](`stackable_zookeeper_crd::ZookeeperZnode`)
-/// and use the connection string that it gives you.
-pub fn build_server_role_service(druid: &DruidCluster) -> Result<Service> {
-    let role_name = DruidRole::Server.to_string();
-    let role_svc_name =
-        druid
-            .server_role_service_name()
-            .with_context(|| GlobalServiceNameNotFound {
-                obj_ref: ObjectRef::from_obj(druid),
-            })?;
-    Ok(Service {
-        metadata: ObjectMetaBuilder::new()
-            .name_and_namespace(druid)
-            .name(&role_svc_name)
-            .ownerreference_from_resource(druid, None, Some(true))
-            .with_context(|| ObjectMissingMetadataForOwnerRef {
-                druid: ObjectRef::from_obj(druid),
-            })?
-            .with_recommended_labels(druid, APP_NAME, druid_version(druid)?, &role_name, "global")
-            .build(),
-        spec: Some(ServiceSpec {
-            ports: Some(vec![ServicePort {
-                name: Some("druid".to_string()),
-                port: APP_PORT.into(),
-                protocol: Some("TCP".to_string()),
-                ..ServicePort::default()
-            }]),
-            selector: Some(role_selector_labels(druid, APP_NAME, &role_name)),
-            type_: Some("NodePort".to_string()),
-            ..ServiceSpec::default()
-        }),
-        status: None,
-    })
-}
-
 /// The rolegroup [`ConfigMap`] configures the rolegroup based on the configuration given by the administrator
-fn build_server_rolegroup_config_map(
+fn build_rolegroup_config_map(
     rolegroup: &RoleGroupRef,
     druid: &DruidCluster,
-    server_config: &HashMap<PropertyNameKind, BTreeMap<String, String>>,
+    rolegroup_config: &HashMap<PropertyNameKind, BTreeMap<String, String>>,
 ) -> Result<ConfigMap> {
-    let mut zoo_cfg = server_config
-        .get(&PropertyNameKind::File(PROPERTIES_FILE.to_string()))
-        .cloned()
-        .unwrap_or_default();
-    zoo_cfg.extend(druid.pods().into_iter().flatten().map(|pod| {
-        (
-            format!("server.{}", pod.zookeeper_myid),
-            format!("{}:2888:3888;{}", pod.fqdn(), APP_PORT),
-        )
-    }));
-    let zoo_cfg = zoo_cfg
-        .into_iter()
-        .map(|(k, v)| (k, Some(v)))
-        .collect::<Vec<_>>();
-    ConfigMapBuilder::new()
-        .metadata(
-            ObjectMetaBuilder::new()
-                .name_and_namespace(druid)
-                .name(rolegroup.object_name())
-                .ownerreference_from_resource(druid, None, Some(true))
-                .with_context(|| ObjectMissingMetadataForOwnerRef {
-                    druid: ObjectRef::from_obj(druid),
-                })?
-                .with_recommended_labels(
-                    druid,
-                    APP_NAME,
-                    druid_version(druid)?,
-                    &rolegroup.role,
-                    &rolegroup.role_group,
-                )
-                .build(),
-        )
-        .add_data(
-            "zoo.cfg",
-            to_java_properties_string(zoo_cfg.iter().map(|(k, v)| (k, v))).with_context(|| {
-                SerializeZooCfg {
-                    rolegroup: rolegroup.clone(),
-                }
-            })?,
-        )
-        .build()
-        .with_context(|| BuildRoleGroupConfig {
-            rolegroup: rolegroup.clone(),
-        })
-}
+    let mut config_maps = HashMap::new();
+    let mut cm_conf_data = BTreeMap::new(); // filename -> filecontent
 
-/// The rolegroup [`Service`] is a headless service that allows direct access to the instances of a certain rolegroup
-///
-/// This is mostly useful for internal communication between peers, or for clients that perform client-side load balancing.
-fn build_server_rolegroup_service(
-    rolegroup: &RoleGroupRef,
-    druid: &DruidCluster,
-) -> Result<Service> {
-    Ok(Service {
-        metadata: ObjectMetaBuilder::new()
+    for (property_name_kind, config) in rolegroup_config {
+        let mut transformed_config: BTreeMap<String, Option<String>> = config
+            .iter()
+            .map(|(k, v)| (k.clone(), Some(v.clone())))
+            .collect();
+
+        match property_name_kind {
+            PropertyNameKind::File(file_name) if file_name == RUNTIME_PROPS => {
+                // NOTE: druid.host can be set manually - if it isn't, the canonical host name of
+                // the local host is used.  This should work with the agent and k8s host networking
+                // but might need to be revisited in the future
+
+                if let Some(zk_info) = &druid.zookeeper_info {
+                    transformed_config.insert(
+                        ZOOKEEPER_CONNECTION_STRING.to_string(),
+                        Some(zk_info.connection_string.clone()),
+                    );
+                } else {
+                    return Err(error::Error::ZookeeperConnectionInformationError);
+                }
+
+                let runtime_properties = get_runtime_properties(role, &transformed_config);
+                cm_conf_data.insert(RUNTIME_PROPS.to_string(), runtime_properties);
+            }
+            PropertyNameKind::File(file_name) if file_name == JVM_CONFIG => {
+                let jvm_config = get_jvm_config(role);
+                cm_conf_data.insert(JVM_CONFIG.to_string(), jvm_config);
+            }
+            PropertyNameKind::File(file_name) if file_name == LOG4J2_CONFIG => {
+                let log_config = get_log4j_config(role);
+                cm_conf_data.insert(LOG4J2_CONFIG.to_string(), log_config);
+            }
+            _ => {}
+        }
+    }
+
+    let mut config_map_builder = ConfigMapBuilder::new().metadata(
+        ObjectMetaBuilder::new()
             .name_and_namespace(druid)
-            .name(&rolegroup.object_name())
+            .name(rolegroup.object_name())
             .ownerreference_from_resource(druid, None, Some(true))
             .with_context(|| ObjectMissingMetadataForOwnerRef {
                 druid: ObjectRef::from_obj(druid),
@@ -312,57 +274,40 @@ fn build_server_rolegroup_service(
                 &rolegroup.role_group,
             )
             .build(),
-        spec: Some(ServiceSpec {
-            cluster_ip: Some("None".to_string()),
-            ports: Some(vec![
-                ServicePort {
-                    name: Some("druid".to_string()),
-                    port: APP_PORT.into(),
-                    protocol: Some("TCP".to_string()),
-                    ..ServicePort::default()
-                },
-                ServicePort {
-                    name: Some("metrics".to_string()),
-                    port: 9505,
-                    protocol: Some("TCP".to_string()),
-                    ..ServicePort::default()
-                },
-            ]),
-            selector: Some(role_group_selector_labels(
-                druid,
-                APP_NAME,
-                &rolegroup.role,
-                &rolegroup.role_group,
-            )),
-            publish_not_ready_addresses: Some(true),
-            ..ServiceSpec::default()
-        }),
-        status: None,
-    })
+    );
+    for (filename, file_content) in cm_conf_data.iter() {
+        config_map_builder = config_map_builder.add_data(filename, file_content);
+    }
+    config_map_builder
+        .build()
+        .with_context(|| BuildRoleGroupConfig {
+            rolegroup: rolegroup.clone(),
+        })
 }
 
 /// The rolegroup [`StatefulSet`] runs the rolegroup, as configured by the administrator.
 ///
 /// The [`Pod`](`stackable_operator::k8s_openapi::api::core::v1::Pod`)s are accessible through the corresponding [`Service`] (from [`build_rolegroup_service`]).
-fn build_server_rolegroup_statefulset(
+fn build_rolegroup_statefulset(
     rolegroup_ref: &RoleGroupRef,
     druid: &DruidCluster,
-    server_config: &HashMap<PropertyNameKind, BTreeMap<String, String>>,
+    rolegroup_config: &HashMap<PropertyNameKind, BTreeMap<String, String>>,
 ) -> Result<StatefulSet> {
+    let druid_version = druid_version(druid)?;
+    let image = format!(
+        "docker.stackable.tech/stackable/zookeeper:{}-stackable0",
+        druid_version
+    );
+
     let rolegroup = druid
         .spec
-        .servers
+        .get_role(&DruidRole::from_str(&rolegroup_ref.role).unwrap())
         .as_ref()
         .with_context(|| NoServerRole {
             obj_ref: ObjectRef::from_obj(druid),
         })?
         .role_groups
         .get(&rolegroup_ref.role_group);
-    let druid_version = druid_version(druid)?;
-    let image = format!(
-        "docker.stackable.tech/stackable/zookeeper:{}-stackable0",
-        druid_version
-    );
     let env = server_config
         .get(&PropertyNameKind::Env)
         .iter()
