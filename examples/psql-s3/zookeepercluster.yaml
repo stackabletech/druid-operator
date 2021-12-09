@@ -1,0 +1,18 @@
+apiVersion: zookeeper.stackable.tech/v1alpha1
+kind: ZookeeperCluster
+metadata:
+  name: simple
+spec:
+  version: 3.5.8
+  servers:
+    roleGroups:
+      default:
+        selector:
+          matchLabels:
+            kubernetes.io/os: linux
+        replicas: 1
+        # Here you can set the Stackable supported configuration parameters
+        # See the documentation for a full list of the available configuration parameters
+        config:
+          metricsPort: 9505
+          dataDir: /stackable/data

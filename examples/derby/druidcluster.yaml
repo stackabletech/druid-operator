@@ -4,9 +4,7 @@ metadata:
   name: simple
 spec:
   version: 0.22.0
-  zookeeperReference:
-    namespace: default
-    name: simple
+  zookeeperReference: simple-zk
   metadataStorageDatabase:
     dbType: derby
     connString: jdbc:derby://localhost:1527/var/druid/metadata.db;create=true

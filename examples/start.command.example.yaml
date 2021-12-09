@@ -1,7 +1,0 @@
-apiVersion: command.druid.stackable.tech/v1alpha1
-kind: Start
-metadata:
-  generateName: druid-cluster-command-start-
-spec:
-  name: "simple"
-  rolling: true
