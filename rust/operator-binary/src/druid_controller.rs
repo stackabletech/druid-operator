@@ -128,13 +128,7 @@ pub async fn reconcile_druid(druid: DruidCluster, ctx: Context<Ctx>) -> Result<R
     let druid_ref = ObjectRef::from_obj(&druid);
     let kube = ctx.get_ref().kube.clone();
 
-    let druid_version = druid
-        .spec
-        .version
-        .as_deref()
-        .with_context(|| ObjectHasNoVersion {
-            obj_ref: druid_ref.clone(),
-        })?;
+    let druid_version = druid.spec.version.to_string(); // TODO
 
     let mut roles = HashMap::new();
 
@@ -226,7 +220,6 @@ fn build_rolegroup_config_map(
     rolegroup_config: &HashMap<PropertyNameKind, BTreeMap<String, String>>,
 ) -> Result<ConfigMap> {
     let role = DruidRole::from_str(&rolegroup.role).unwrap();
-    let mut config_maps = HashMap::new();
     let mut cm_conf_data = BTreeMap::new(); // filename -> filecontent
 
     for (property_name_kind, config) in rolegroup_config {
@@ -240,16 +233,16 @@ fn build_rolegroup_config_map(
                 // NOTE: druid.host can be set manually - if it isn't, the canonical host name of
                 // the local host is used.  This should work with the agent and k8s host networking
                 // but might need to be revisited in the future
-
-                if let Some(zk_info) = &druid.spec.zookeeper_info {
-                    transformed_config.insert(
-                        ZOOKEEPER_CONNECTION_STRING.to_string(),
-                        Some(zk_info.connection_string.clone()),
-                    );
-                } else {
-                    return Err(error::Error::ZookeeperConnectionInformationError);
-                }
-
+                /*
+                                if let Some(zk_info) = &druid.spec.zookeeper_info {
+                                    transformed_config.insert(
+                                        ZOOKEEPER_CONNECTION_STRING.to_string(),
+                                        Some(zk_info.connection_string.clone()),
+                                    );
+                                } else {
+                                    return Err(error::Error::ZookeeperConnectionInformationError);
+                                }
+                */
                 let runtime_properties = get_runtime_properties(&role, &transformed_config);
                 cm_conf_data.insert(RUNTIME_PROPS.to_string(), runtime_properties);
             }
@@ -265,7 +258,8 @@ fn build_rolegroup_config_map(
         }
     }
 
-    let mut config_map_builder = ConfigMapBuilder::new().metadata(
+    let mut config_map_builder = ConfigMapBuilder::new();
+    config_map_builder.metadata(
         ObjectMetaBuilder::new()
             .name_and_namespace(druid)
             .name(rolegroup.object_name())
@@ -485,13 +479,8 @@ fn container_image(version: &str) -> String {
 }
 
 pub fn druid_version(druid: &DruidCluster) -> Result<&str> {
-    druid
-        .spec
-        .version
-        .as_deref()
-        .with_context(|| Error::ObjectHasNoVersion {
-            obj_ref: ObjectRef::from_obj(druid),
-        })
+    Ok("0.22.0")
+    //Ok(&druid.spec.version.to_string()) // TODO
 }
 
 pub fn error_policy(_error: &Error, _ctx: Context<Ctx>) -> ReconcilerAction {

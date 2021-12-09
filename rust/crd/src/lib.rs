@@ -24,7 +24,6 @@ use stackable_operator::status::{
     Versioned,
 };
 use stackable_operator::versioning::{ProductVersion, Versioning, VersioningState};
-use stackable_zookeeper_crd::discovery::ZookeeperReference;
 use std::cmp::Ordering;
 use std::collections::BTreeMap;
 use std::fmt::Display;
@@ -108,7 +107,7 @@ pub struct DruidClusterSpec {
     pub metadata_storage_database: DatabaseConnectionSpec,
     pub deep_storage: DeepStorageSpec,
     pub s3: Option<S3Spec>,
-    pub zookeeper_reference: ZookeeperReference,
+    pub zookeeper_reference: String,
 }
 
 #[derive(
@@ -131,18 +130,29 @@ pub enum DruidRole {
     Broker,
     #[strum(serialize = "historical")]
     Historical,
-    #[strum(serialize = "middleManager")]
+    #[strum(serialize = "middlemanager")]
     MiddleManager,
     #[strum(serialize = "router")]
     Router,
 }
 
 impl DruidRole {
+    /// Returns the name of the internal druid process name associated with the role
+    fn get_process_name(&self) -> &str {
+        match &self {
+            DruidRole::Coordinator => "coordinator",
+            DruidRole::Broker => "broker",
+            DruidRole::Historical => "historical",
+            DruidRole::MiddleManager => "middleManager",
+            DruidRole::Router => "router",
+        }
+    }
+
     /// Returns the start commands for the different server types.
     pub fn get_command(&self, _version: &str) -> Vec<String> {
         vec![
             "/stackable/druid/bin/run-druid".to_string(),
-            self.to_string(),
+            self.get_process_name().to_string(),
             "/stackable/conf".to_string(),
         ]
     }
