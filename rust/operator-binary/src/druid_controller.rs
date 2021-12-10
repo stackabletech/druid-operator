@@ -128,6 +128,17 @@ pub async fn reconcile_druid(druid: DruidCluster, ctx: Context<Ctx>) -> Result<R
     let druid_ref = ObjectRef::from_obj(&druid);
     let kube = ctx.get_ref().kube.clone();
 
+    let api = kube::Api::<ConfigMap>::namespaced(kube, "default");
+    let zk_connstr = api
+        .get("simple")
+        .await
+        .unwrap_or_default()
+        .data
+        .unwrap_or_default()
+        .remove("ZOOKEEPER")
+        .unwrap();
+    let kube = api.into_client();
+
     let druid_version = druid.spec.version.to_string(); // TODO
 
     let mut roles = HashMap::new();
@@ -190,7 +201,12 @@ pub async fn reconcile_druid(druid: DruidCluster, ctx: Context<Ctx>) -> Result<R
             apply_owned(
                 &kube,
                 FIELD_MANAGER,
-                &build_rolegroup_config_map(&rolegroup, &druid, rolegroup_config)?,
+                &build_rolegroup_config_map(
+                    &rolegroup,
+                    &druid,
+                    rolegroup_config,
+                    zk_connstr.clone(),
+                )?,
             )
             .await
             .with_context(|| ApplyRoleGroupConfig {
@@ -218,6 +234,7 @@ fn build_rolegroup_config_map(
     rolegroup: &RoleGroupRef,
     druid: &DruidCluster,
     rolegroup_config: &HashMap<PropertyNameKind, BTreeMap<String, String>>,
+    zk_connstr: String,
 ) -> Result<ConfigMap> {
     let role = DruidRole::from_str(&rolegroup.role).unwrap();
     let mut cm_conf_data = BTreeMap::new(); // filename -> filecontent
@@ -233,6 +250,10 @@ fn build_rolegroup_config_map(
                 // NOTE: druid.host can be set manually - if it isn't, the canonical host name of
                 // the local host is used.  This should work with the agent and k8s host networking
                 // but might need to be revisited in the future
+                transformed_config.insert(
+                    ZOOKEEPER_CONNECTION_STRING.to_string(),
+                    Some(zk_connstr.clone()),
+                );
                 /*
                                 if let Some(zk_info) = &druid.spec.zookeeper_info {
                                     transformed_config.insert(
