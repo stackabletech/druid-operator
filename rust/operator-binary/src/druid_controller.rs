@@ -52,11 +52,11 @@ use stackable_operator::{
     product_config_utils::{transform_all_roles_to_config, validate_all_roles_and_groups_config},
 };
 
-const FIELD_MANAGER: &str = "druid.stackable.tech/druidcluster";
+const FIELD_MANAGER_SCOPE: &str = "druidcluster";
 const DEFAULT_IMAGE_VERSION: &str = "0";
 
 pub struct Ctx {
-    pub kube: kube::Client,
+    pub client: stackable_operator::client::Client,
     pub product_config: ProductConfigManager,
 }
 
@@ -126,18 +126,16 @@ const PROPERTIES_FILE: &str = "zoo.cfg";
 pub async fn reconcile_druid(druid: DruidCluster, ctx: Context<Ctx>) -> Result<ReconcilerAction> {
     tracing::info!("Starting reconcile");
     let druid_ref = ObjectRef::from_obj(&druid);
-    let kube = ctx.get_ref().kube.clone();
+    let client = &ctx.get_ref().client;
 
-    let api = kube::Api::<ConfigMap>::namespaced(kube, "default");
-    let zk_connstr = api
-        .get("simple")
+    let zk_connstr = client
+        .get::<ConfigMap>("simple", Some("default"))
         .await
         .unwrap_or_default()
         .data
         .unwrap_or_default()
         .remove("ZOOKEEPER")
         .unwrap();
-    let kube = api.into_client();
 
     let druid_version = druid.spec.version.to_string(); // TODO
 
@@ -198,29 +196,23 @@ pub async fn reconcile_druid(druid: DruidCluster, ctx: Context<Ctx>) -> Result<R
                 role_group: rolegroup_name.into(),
             };
 
-            apply_owned(
-                &kube,
-                FIELD_MANAGER,
-                &build_rolegroup_config_map(
-                    &rolegroup,
-                    &druid,
-                    rolegroup_config,
-                    zk_connstr.clone(),
-                )?,
-            )
-            .await
-            .with_context(|| ApplyRoleGroupConfig {
-                rolegroup: rolegroup.clone(),
-            })?;
-            apply_owned(
-                &kube,
-                FIELD_MANAGER,
-                &build_rolegroup_statefulset(&rolegroup, &druid, rolegroup_config)?,
-            )
-            .await
-            .with_context(|| ApplyRoleGroupStatefulSet {
-                rolegroup: rolegroup.clone(),
-            })?;
+            let rg_service = build_rolegroup_services(&rolegroup, &druid, rolegroup_config)?;
+            let rg_configmap = build_rolegroup_config_map(
+                &rolegroup,
+                &druid,
+                rolegroup_config,
+                zk_connstr.clone(),
+            )?;
+            let rg_statefulset = build_rolegroup_statefulset(&rolegroup, &druid, rolegroup_config)?;
+            client
+                .apply_patch(FIELD_MANAGER_SCOPE, &rg_service, &rg_service)
+                .await;
+            client
+                .apply_patch(FIELD_MANAGER_SCOPE, &rg_configmap, &rg_configmap)
+                .await;
+            client
+                .apply_patch(FIELD_MANAGER_SCOPE, &rg_statefulset, &rg_statefulset)
+                .await;
         }
     }
 
@@ -305,6 +297,71 @@ fn build_rolegroup_config_map(
         .with_context(|| BuildRoleGroupConfig {
             rolegroup: rolegroup.clone(),
         })
+}
+
+/// The rolegroup [`Service`] is a headless service that allows direct access to the instances of a certain rolegroup
+///
+/// This is mostly useful for internal communication between peers, or for clients that perform client-side load balancing.
+fn build_rolegroup_services(
+    rolegroup: &RoleGroupRef,
+    druid: &DruidCluster,
+    rolegroup_config: &HashMap<PropertyNameKind, BTreeMap<String, String>>,
+) -> Result<Service> {
+    let mut ports = vec![];
+    if let Some(plaintext_port) = rolegroup_config
+        .get(&PropertyNameKind::File(RUNTIME_PROPS.to_string()))
+        .and_then(|props| props.get(DRUID_PLAINTEXTPORT))
+        .map(|port| port.parse::<i32>().unwrap())
+    {
+        ports.push(ServicePort {
+            name: Some(CONTAINER_PLAINTEXT_PORT.to_string()),
+            port: plaintext_port,
+            protocol: Some("TCP".to_string()),
+            ..ServicePort::default()
+        });
+    }
+    if let Some(metrics_port) = rolegroup_config
+        .get(&PropertyNameKind::File(RUNTIME_PROPS.to_string()))
+        .and_then(|props| props.get(DRUID_METRICS_PORT))
+        .map(|port| port.parse::<i32>().unwrap())
+    {
+        ports.push(ServicePort {
+            name: Some(CONTAINER_METRICS_PORT.to_string()),
+            port: metrics_port,
+            protocol: Some("TCP".to_string()),
+            ..ServicePort::default()
+        });
+    }
+    Ok(Service {
+        metadata: ObjectMetaBuilder::new()
+            .name_and_namespace(druid)
+            .name(&rolegroup.object_name())
+            .ownerreference_from_resource(druid, None, Some(true))
+            .with_context(|| ObjectMissingMetadataForOwnerRef {
+                druid: ObjectRef::from_obj(druid),
+            })?
+            .with_recommended_labels(
+                druid,
+                APP_NAME,
+                druid_version(druid)?,
+                &rolegroup.role,
+                &rolegroup.role_group,
+            )
+            .build(),
+        spec: Some(ServiceSpec {
+            cluster_ip: Some("None".to_string()),
+            ports: Some(ports),
+            selector: Some(role_group_selector_labels(
+                druid,
+                APP_NAME,
+                &rolegroup.role,
+                &rolegroup.role_group,
+            )),
+            publish_not_ready_addresses: Some(true),
+            ..ServiceSpec::default()
+        }),
+        status: None,
+    })
 }
 
 /// The rolegroup [`StatefulSet`] runs the rolegroup, as configured by the administrator.

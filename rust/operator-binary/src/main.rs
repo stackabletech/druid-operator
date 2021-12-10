@@ -88,17 +88,17 @@ async fn main() -> anyhow::Result<()> {
                     "../../../deploy/config-spec/properties.yaml"
                 ))?
             };
-            let kube = kube::Client::try_default().await?;
-            let druids = kube::Api::<DruidCluster>::all(kube.clone());
-            let druids_controller_builder = Controller::new(druids.clone(), ListParams::default());
-            let druid_store = druids_controller_builder.store();
-            let druid_controller = druids_controller_builder
-                .owns(
-                    kube::Api::<Service>::all(kube.clone()),
-                    ListParams::default(),
-                )
+            let client = stackable_operator::client::create_client(Some(
+                "zookeeper.stackable.tech".to_string(),
+            ))
+            .await?;
+            let druid_controller_builder =
+                Controller::new(client.get_all_api::<DruidCluster>(), ListParams::default());
+            let druid_store = druid_controller_builder.store();
+            let druid_controller = druid_controller_builder
+                .owns(client.get_all_api::<Service>(), ListParams::default())
                 .watches(
-                    kube::Api::<Endpoints>::all(kube.clone()),
+                    client.get_all_api::<Endpoints>(),
                     ListParams::default(),
                     move |endpoints| {
                         druid_store
@@ -107,19 +107,13 @@ async fn main() -> anyhow::Result<()> {
                             .map(|druid| ObjectRef::from_obj(&druid))
                     },
                 )
-                .owns(
-                    kube::Api::<StatefulSet>::all(kube.clone()),
-                    ListParams::default(),
-                )
-                .owns(
-                    kube::Api::<ConfigMap>::all(kube.clone()),
-                    ListParams::default(),
-                )
+                .owns(client.get_all_api::<StatefulSet>(), ListParams::default())
+                .owns(client.get_all_api::<ConfigMap>(), ListParams::default())
                 .run(
                     druid_controller::reconcile_druid,
                     druid_controller::error_policy,
                     Context::new(druid_controller::Ctx {
-                        kube: kube.clone(),
+                        client: client.clone(),
                         product_config,
                     }),
                 );
