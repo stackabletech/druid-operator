@@ -4,13 +4,11 @@ metadata:
   name: simple
 spec:
   version: 0.22.0
-  zookeeperReference:
-    namespace: default
-    name: simple
+  zookeeperReference: simple-zk
   metadataStorageDatabase:
     dbType: postgresql
-    connString: jdbc:postgresql://10.244.4.3/druid
-    host: 10.244.4.3
+    connString: jdbc:postgresql://10.244.2.12/druid
+    host: 10.244.2.12
     port: 5432
     user: druid
     password: druid
@@ -19,7 +17,7 @@ spec:
     credentialsSecret: s3-credentials    # this needs to be deployed additionally
   deepStorage:
     storageType: s3
-    bucket: druid-deepstorage
+    bucket: druid-deepstorage2
     baseKey: storage               # this is optional; deep storage can also be at the root of the bucket
   brokers:
     roleGroups:
