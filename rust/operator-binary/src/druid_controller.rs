@@ -1,22 +1,18 @@
 //! Ensures that `Pod`s are configured and running for each [`DruidCluster`]
 
 use std::{
-    borrow::Cow,
     collections::{BTreeMap, HashMap},
-    hash::Hasher,
     str::FromStr,
     time::Duration,
 };
 
 use crate::{
     config::{get_jvm_config, get_log4j_config, get_runtime_properties},
-    utils::{apply_owned, apply_status},
     APP_PORT,
 };
-use fnv::FnvHasher;
-use snafu::{OptionExt, ResultExt, Snafu};
+use snafu::{ResultExt, Snafu};
 use stackable_druid_crd::{
-    DeepStorageType, DruidCluster, DruidClusterSpec, DruidClusterStatus, DruidRole, DruidVersion,
+    DeepStorageType, DruidCluster, DruidRole,
     RoleGroupRef, APP_NAME, CONTAINER_METRICS_PORT, CONTAINER_PLAINTEXT_PORT,
     CREDENTIALS_SECRET_PROPERTY, DRUID_METRICS_PORT, DRUID_PLAINTEXTPORT, JVM_CONFIG,
     LOG4J2_CONFIG, RUNTIME_PROPS, ZOOKEEPER_CONNECTION_STRING,
@@ -30,9 +26,9 @@ use stackable_operator::{
         api::{
             apps::v1::{StatefulSet, StatefulSetSpec},
             core::v1::{
-                ConfigMap, ConfigMapVolumeSource, EnvVar, EnvVarSource, ExecAction,
-                ObjectFieldSelector, PersistentVolumeClaim, PersistentVolumeClaimSpec, Probe,
-                ResourceRequirements, SecretKeySelector, Service, ServicePort, ServiceSpec, Volume,
+                ConfigMap, EnvVar, EnvVarSource,
+                PersistentVolumeClaim, PersistentVolumeClaimSpec,
+                ResourceRequirements, SecretKeySelector, Service, ServicePort, ServiceSpec,
             },
         },
         apimachinery::pkg::{api::resource::Quantity, apis::meta::v1::LabelSelector},
@@ -47,7 +43,7 @@ use stackable_operator::{
     },
     labels::{role_group_selector_labels, role_selector_labels},
     product_config::{
-        types::PropertyNameKind, writer::to_java_properties_string, ProductConfigManager,
+        types::PropertyNameKind, ProductConfigManager,
     },
     product_config_utils::{transform_all_roles_to_config, validate_all_roles_and_groups_config},
 };
@@ -121,8 +117,6 @@ pub enum Error {
 }
 type Result<T, E = Error> = std::result::Result<T, E>;
 
-const PROPERTIES_FILE: &str = "zoo.cfg";
-
 pub async fn reconcile_druid(druid: DruidCluster, ctx: Context<Ctx>) -> Result<ReconcilerAction> {
     tracing::info!("Starting reconcile");
     let druid_ref = ObjectRef::from_obj(&druid);
@@ -136,8 +130,6 @@ pub async fn reconcile_druid(druid: DruidCluster, ctx: Context<Ctx>) -> Result<R
         .unwrap_or_default()
         .remove("ZOOKEEPER")
         .unwrap();
-
-    let druid_version = druid.spec.version.to_string(); // TODO
 
     let mut roles = HashMap::new();
 
@@ -189,6 +181,10 @@ pub async fn reconcile_druid(druid: DruidCluster, ctx: Context<Ctx>) -> Result<R
     })?;
 
     for (role_name, role_config) in validated_role_config.iter() {
+        let role_service = build_role_service(role_name, &druid)?;
+        client
+            .apply_patch(FIELD_MANAGER_SCOPE, &role_service, &role_service)
+            .await;
         for (rolegroup_name, rolegroup_config) in role_config.iter() {
             let rolegroup = RoleGroupRef {
                 cluster: ObjectRef::from_obj(&druid),
@@ -218,6 +214,39 @@ pub async fn reconcile_druid(druid: DruidCluster, ctx: Context<Ctx>) -> Result<R
 
     Ok(ReconcilerAction {
         requeue_after: None,
+    })
+}
+
+/// The server-role service is the primary endpoint that should be used by clients that do not perform internal load balancing,
+/// including targets outside of the cluster.
+pub fn build_role_service(role_name: &String, druid: &DruidCluster) -> Result<Service> {
+    let role_svc_name = format!(
+        "{}-{}",
+        druid.metadata.name.as_ref().unwrap_or(&"druid".to_string()),
+        role_name
+    );
+    Ok(Service {
+        metadata: ObjectMetaBuilder::new()
+            .name_and_namespace(druid)
+            .name(&role_svc_name)
+            .ownerreference_from_resource(druid, None, Some(true))
+            .with_context(|| ObjectMissingMetadataForOwnerRef {
+                druid: ObjectRef::from_obj(druid),
+            })?
+            .with_recommended_labels(druid, APP_NAME, druid_version(druid)?, &role_name, "global")
+            .build(),
+        spec: Some(ServiceSpec {
+            ports: Some(vec![ServicePort {
+                name: Some("dd".to_string()),
+                port: APP_PORT.into(),
+                protocol: Some("TCP".to_string()),
+                ..ServicePort::default()
+            }]),
+            selector: Some(role_selector_labels(druid, APP_NAME, &role_name)),
+            type_: Some("NodePort".to_string()),
+            ..ServiceSpec::default()
+        }),
+        status: None,
     })
 }
 
@@ -557,6 +586,7 @@ fn container_image(version: &str) -> String {
 }
 
 pub fn druid_version(druid: &DruidCluster) -> Result<&str> {
+    Ok(&druid.spec.version.to_string());
     Ok("0.22.0")
     //Ok(&druid.spec.version.to_string()) // TODO
 }

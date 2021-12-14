@@ -4,16 +4,14 @@ mod utils;
 
 use std::str::FromStr;
 
-use crate::utils::Tokio01ExecutorExt;
 use futures::{compat::Future01CompatExt, StreamExt};
-use stackable_druid_crd::{DruidCluster, DruidClusterSpec};
+use stackable_druid_crd::{DruidCluster};
 use stackable_operator::{
     k8s_openapi::api::{
         apps::v1::StatefulSet,
         core::v1::{ConfigMap, Endpoints, Service},
     },
     kube::{
-        self,
         api::{DynamicObject, ListParams},
         runtime::{
             controller::{Context, ReconcilerAction},
