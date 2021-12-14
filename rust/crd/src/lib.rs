@@ -1,4 +1,3 @@
-pub mod commands;
 pub mod error;
 
 use serde::{Deserialize, Serialize};
@@ -70,10 +69,12 @@ pub const CREDENTIALS_SECRET_PROPERTY: &str = "credentialsSecret";
     kind = "DruidCluster",
     plural = "druidclusters",
     shortname = "druid",
-    kube_core = "stackable_operator::kube::core",
-    k8s_openapi = "stackable_operator::k8s_openapi",
-    schemars = "stackable_operator::schemars",
-    namespaced
+    namespaced,
+    crates(
+        kube_core = "stackable_operator::kube::core",
+        k8s_openapi = "stackable_operator::k8s_openapi",
+        schemars = "stackable_operator::schemars"
+    )
 )]
 #[kube(status = "DruidClusterStatus")]
 #[serde(rename_all = "camelCase")]
@@ -172,9 +173,11 @@ impl DruidCluster {
     plural = "databaseconnections",
     shortname = "dbconn",
     namespaced,
-    kube_core = "stackable_operator::kube::core",
-    k8s_openapi = "stackable_operator::k8s_openapi",
-    schemars = "stackable_operator::schemars"
+    crates(
+        kube_core = "stackable_operator::kube::core",
+        k8s_openapi = "stackable_operator::k8s_openapi",
+        schemars = "stackable_operator::schemars"
+    )
 )]
 #[serde(rename_all = "camelCase")]
 pub struct DatabaseConnectionSpec {
@@ -251,9 +254,11 @@ impl Default for DeepStorageType {
     kind = "DeepStorage",
     plural = "deepstorages",
     namespaced,
-    kube_core = "stackable_operator::kube::core",
-    k8s_openapi = "stackable_operator::k8s_openapi",
-    schemars = "stackable_operator::schemars"
+    crates(
+        kube_core = "stackable_operator::kube::core",
+        k8s_openapi = "stackable_operator::k8s_openapi",
+        schemars = "stackable_operator::schemars"
+    )
 )]
 #[serde(rename_all = "camelCase")]
 pub struct DeepStorageSpec {
@@ -273,9 +278,11 @@ pub struct DeepStorageSpec {
     kind = "S3",
     plural = "S3s",
     namespaced,
-    kube_core = "stackable_operator::kube::core",
-    k8s_openapi = "stackable_operator::k8s_openapi",
-    schemars = "stackable_operator::schemars"
+    crates(
+        kube_core = "stackable_operator::kube::core",
+        k8s_openapi = "stackable_operator::k8s_openapi",
+        schemars = "stackable_operator::schemars"
+    )
 )]
 #[serde(rename_all = "camelCase")]
 pub struct S3Spec {
