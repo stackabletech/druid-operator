@@ -9,8 +9,8 @@ spec:
     name: simple
   metadataStorageDatabase:
     dbType: postgresql
-    connString: jdbc:postgresql://10.96.62.135/druid
-    host: 10.96.62.135
+    connString: jdbc:postgresql://druid-postgresql/druid
+    host: druid-postgresql
     port: 5432
     user: druid
     password: druid

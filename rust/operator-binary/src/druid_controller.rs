@@ -6,10 +6,7 @@ use std::{
     time::Duration,
 };
 
-use crate::{
-    config::{get_jvm_config, get_log4j_config, get_runtime_properties},
-    APP_PORT,
-};
+use crate::config::{get_jvm_config, get_log4j_config, get_runtime_properties};
 use snafu::{ResultExt, Snafu};
 use stackable_druid_crd::{
     DeepStorageType, DruidCluster, DruidRole, RoleGroupRef, APP_NAME, CONTAINER_METRICS_PORT,
@@ -34,7 +31,6 @@ use stackable_operator::{
         },
     },
     kube::{
-        self,
         api::ObjectMeta,
         runtime::{
             controller::{Context, ReconcilerAction},
@@ -69,12 +65,12 @@ pub enum Error {
     RoleGroupServiceNameNotFound { rolegroup: RoleGroupRef },
     #[snafu(display("failed to apply global Service for {}", druid))]
     ApplyRoleService {
-        source: kube::Error,
+        source: stackable_operator::error::Error,
         druid: ObjectRef<DruidCluster>,
     },
     #[snafu(display("failed to apply Service for {}", rolegroup))]
     ApplyRoleGroupService {
-        source: kube::Error,
+        source: stackable_operator::error::Error,
         rolegroup: RoleGroupRef,
     },
     #[snafu(display("failed to build ConfigMap for {}", rolegroup))]
@@ -84,12 +80,12 @@ pub enum Error {
     },
     #[snafu(display("failed to apply ConfigMap for {}", rolegroup))]
     ApplyRoleGroupConfig {
-        source: kube::Error,
+        source: stackable_operator::error::Error,
         rolegroup: RoleGroupRef,
     },
     #[snafu(display("failed to apply StatefulSet for {}", rolegroup))]
     ApplyRoleGroupStatefulSet {
-        source: kube::Error,
+        source: stackable_operator::error::Error,
         rolegroup: RoleGroupRef,
     },
     #[snafu(display("invalid product config for {}", druid))]
@@ -109,7 +105,7 @@ pub enum Error {
     },
     #[snafu(display("failed to update status of {}", druid))]
     ApplyStatus {
-        source: kube::Error,
+        source: stackable_operator::error::Error,
         druid: ObjectRef<DruidCluster>,
     },
 }
@@ -182,7 +178,10 @@ pub async fn reconcile_druid(druid: DruidCluster, ctx: Context<Ctx>) -> Result<R
         let role_service = build_role_service(role_name, &druid)?;
         client
             .apply_patch(FIELD_MANAGER_SCOPE, &role_service, &role_service)
-            .await;
+            .await
+            .with_context(|| ApplyRoleService {
+                druid: druid_ref.clone(),
+            })?;
         for (rolegroup_name, rolegroup_config) in role_config.iter() {
             let rolegroup = RoleGroupRef {
                 cluster: ObjectRef::from_obj(&druid),
@@ -200,13 +199,22 @@ pub async fn reconcile_druid(druid: DruidCluster, ctx: Context<Ctx>) -> Result<R
             let rg_statefulset = build_rolegroup_statefulset(&rolegroup, &druid, rolegroup_config)?;
             client
                 .apply_patch(FIELD_MANAGER_SCOPE, &rg_service, &rg_service)
-                .await;
+                .await
+                .with_context(|| ApplyRoleGroupService {
+                    rolegroup: rolegroup.clone(),
+                })?;
             client
                 .apply_patch(FIELD_MANAGER_SCOPE, &rg_configmap, &rg_configmap)
-                .await;
+                .await
+                .with_context(|| ApplyRoleGroupConfig {
+                    rolegroup: rolegroup.clone(),
+                })?;
             client
                 .apply_patch(FIELD_MANAGER_SCOPE, &rg_statefulset, &rg_statefulset)
-                .await;
+                .await
+                .with_context(|| ApplyRoleGroupStatefulSet {
+                    rolegroup: rolegroup.clone(),
+                })?;
         }
     }
 

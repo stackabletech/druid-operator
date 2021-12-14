@@ -5,7 +5,7 @@ mod utils;
 use std::str::FromStr;
 
 use futures::{compat::Future01CompatExt, StreamExt};
-use stackable_druid_crd::{DruidCluster};
+use stackable_druid_crd::DruidCluster;
 use stackable_operator::{
     k8s_openapi::api::{
         apps::v1::StatefulSet,
@@ -98,7 +98,7 @@ async fn main() -> anyhow::Result<()> {
                 .watches(
                     client.get_all_api::<Endpoints>(),
                     ListParams::default(),
-                    move |endpoints| {
+                    move |_endpoints| {
                         druid_store
                             .state()
                             .into_iter()

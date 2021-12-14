@@ -7,8 +7,8 @@ spec:
   zookeeperReference: simple-zk
   metadataStorageDatabase:
     dbType: postgresql
-    connString: jdbc:postgresql://10.244.2.12/druid
-    host: 10.244.2.12
+    connString: jdbc:postgresql://druid-postgresql/druid
+    host: druid-postgresql
     port: 5432
     user: druid
     password: druid
