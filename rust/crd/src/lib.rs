@@ -98,7 +98,8 @@ pub struct DruidClusterSpec {
     /// Emergency stop button, if `true` then all pods are stopped without affecting configuration (as setting `replicas` to `0` would)
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub stopped: Option<bool>,
-    pub version: DruidVersion,
+    /// Desired Druid version
+    pub version: String,
     pub brokers: Role<DruidConfig>,
     pub coordinators: Role<DruidConfig>,
     pub historicals: Role<DruidConfig>,
@@ -206,24 +207,6 @@ impl HasCommands for DruidCluster {
 impl HasOwned for DruidCluster {
     fn owned_objects() -> Vec<&'static str> {
         vec![Restart::crd_name(), Start::crd_name(), Stop::crd_name()]
-    }
-}
-
-impl HasApplication for DruidCluster {
-    fn get_application_name() -> &'static str {
-        APP_NAME
-    }
-}
-
-impl HasClusterExecutionStatus for DruidCluster {
-    fn cluster_execution_status(&self) -> Option<ClusterExecutionStatus> {
-        self.status
-            .as_ref()
-            .and_then(|status| status.cluster_execution_status.clone())
-    }
-
-    fn cluster_execution_status_patch(&self, execution_status: &ClusterExecutionStatus) -> Value {
-        json!({ "clusterExecutionStatus": execution_status })
     }
 }
 
@@ -479,102 +462,11 @@ impl Display for RoleGroupRef {
     }
 }
 
-#[allow(non_camel_case_types)]
-#[derive(
-    Clone,
-    Debug,
-    Deserialize,
-    Eq,
-    JsonSchema,
-    PartialEq,
-    Serialize,
-    strum_macros::Display,
-    strum_macros::EnumString,
-)]
-pub enum DruidVersion {
-    #[serde(rename = "0.22.0")]
-    #[strum(serialize = "0.22.0")]
-    v0_22_0,
-}
-
-impl Versioning for DruidVersion {
-    fn versioning_state(&self, other: &Self) -> VersioningState {
-        let from_version = match Version::parse(&self.to_string()) {
-            Ok(v) => v,
-            Err(e) => {
-                return VersioningState::Invalid(format!(
-                    "Could not parse [{}] to SemVer: {}",
-                    self.to_string(),
-                    e.to_string()
-                ));
-            }
-        };
-
-        let to_version = match Version::parse(&other.to_string()) {
-            Ok(v) => v,
-            Err(e) => {
-                return VersioningState::Invalid(format!(
-                    "Could not parse [{}] to SemVer: {}",
-                    other.to_string(),
-                    e.to_string()
-                ));
-            }
-        };
-
-        match to_version.cmp(&from_version) {
-            Ordering::Greater => VersioningState::ValidUpgrade,
-            Ordering::Less => VersioningState::ValidDowngrade,
-            Ordering::Equal => VersioningState::NoOp,
-        }
-    }
-}
-
 #[derive(Clone, Debug, Default, Deserialize, JsonSchema, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DruidClusterStatus {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub conditions: Vec<Condition>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub version: Option<ProductVersion<DruidVersion>>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub history: Option<PodToNodeMapping>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub current_command: Option<CommandRef>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub cluster_execution_status: Option<ClusterExecutionStatus>,
-}
-
-/*impl Versioned<DruidVersion> for DruidClusterStatus {
-    fn version(&self) -> &Option<ProductVersion<DruidVersion>> {
-        &self.version
-    }
-    fn version_mut(&mut self) -> &mut Option<ProductVersion<DruidVersion>> {
-        &mut self.version
-    }
-}*/
-
-impl Conditions for DruidClusterStatus {
-    fn conditions(&self) -> &[Condition] {
-        self.conditions.as_slice()
-    }
-    fn conditions_mut(&mut self) -> &mut Vec<Condition> {
-        &mut self.conditions
-    }
-}
-
-impl HasCurrentCommand for DruidClusterStatus {
-    fn current_command(&self) -> Option<CommandRef> {
-        self.current_command.clone()
-    }
-    fn set_current_command(&mut self, command: CommandRef) {
-        self.current_command = Some(command);
-    }
-    fn clear_current_command(&mut self) {
-        self.current_command = None
-    }
-    fn tracking_location() -> &'static str {
-        "/status/currentCommand"
-    }
 }
 
 /// Takes a vec of strings and returns them as a formatted json

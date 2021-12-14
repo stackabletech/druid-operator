@@ -3,8 +3,6 @@ use duplicate::duplicate;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use serde_json::Value;
-use stackable_operator::command::{CanBeRolling, HasRoles};
-use stackable_operator::command_controller::Command;
 use stackable_operator::k8s_openapi::apimachinery::pkg::apis::meta::v1::Time;
 use stackable_operator::k8s_openapi::chrono::Utc;
 use stackable_operator::kube::CustomResource;
@@ -74,72 +72,4 @@ pub struct CommandStatus {
     pub started_at: Option<Time>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub finished_at: Option<Time>,
-}
-
-#[duplicate(Name; [Restart]; [Start]; [Stop])]
-impl Command for Name {
-    fn owner_name(&self) -> String {
-        self.spec.name.clone()
-    }
-
-    fn start_patch(&mut self) -> Value {
-        let time = Time(Utc::now());
-        match &mut self.status {
-            Some(status) => {
-                status.started_at = Some(time.clone());
-            }
-            None => {
-                self.status = Some(CommandStatus {
-                    started_at: Some(time.clone()),
-                    finished_at: None,
-                })
-            }
-        }
-        json!({ "startedAt": time })
-    }
-
-    fn start_time(&self) -> Option<&Time> {
-        self.status
-            .as_ref()
-            .and_then(|status| status.started_at.as_ref())
-    }
-
-    fn finish_patch(&mut self) -> Value {
-        let time = Time(Utc::now());
-        match &mut self.status {
-            Some(status) => {
-                status.finished_at = Some(time.clone());
-            }
-            None => {
-                self.status = Some(CommandStatus {
-                    started_at: None,
-                    finished_at: Some(time.clone()),
-                })
-            }
-        }
-        json!({ "finishedAt": time })
-    }
-
-    fn finish_time(&self) -> Option<&Time> {
-        self.status
-            .as_ref()
-            .and_then(|status| status.finished_at.as_ref())
-    }
-}
-
-#[duplicate(Name; [Restart]; [Start]; [Stop])]
-impl CanBeRolling for Name {
-    fn is_rolling(&self) -> bool {
-        self.spec.rolling
-    }
-}
-
-#[duplicate(Name; [Restart]; [Start]; [Stop])]
-impl HasRoles for Name {
-    fn get_role_order(&self) -> Option<Vec<String>> {
-        self.spec
-            .roles
-            .clone()
-            .map(|roles| roles.into_iter().map(|role| role.to_string()).collect())
-    }
 }

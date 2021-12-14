@@ -640,8 +640,7 @@ spec:
                   nullable: true
                   type: boolean
                 version:
-                  enum:
-                    - 0.22.0
+                  description: Desired Druid version
                   type: string
                 zookeeperReference:
                   type: string
@@ -659,13 +658,6 @@ spec:
             status:
               nullable: true
               properties:
-                clusterExecutionStatus:
-                  description: Signals the current status of the cluster
-                  enum:
-                    - Stopped
-                    - Running
-                  nullable: true
-                  type: string
                 conditions:
                   items:
                     description: Condition contains details for one aspect of the current state of this API Resource.
@@ -698,53 +690,6 @@ spec:
                       - type
                     type: object
                   type: array
-                currentCommand:
-                  nullable: true
-                  properties:
-                    kind:
-                      type: string
-                    name:
-                      type: string
-                    namespace:
-                      type: string
-                    uid:
-                      type: string
-                  required:
-                    - kind
-                    - name
-                    - namespace
-                    - uid
-                  type: object
-                history:
-                  nullable: true
-                  properties:
-                    mapping:
-                      additionalProperties:
-                        properties:
-                          name:
-                            type: string
-                        required:
-                          - name
-                        type: object
-                      type: object
-                  required:
-                    - mapping
-                  type: object
-                version:
-                  description: The version of the product provided by the operator. Split into current and target version in order track upgrading and downgrading progress.
-                  nullable: true
-                  properties:
-                    current:
-                      enum:
-                        - 0.22.0
-                      nullable: true
-                      type: string
-                    target:
-                      enum:
-                        - 0.22.0
-                      nullable: true
-                      type: string
-                  type: object
               type: object
           required:
             - spec

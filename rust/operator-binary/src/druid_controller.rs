@@ -12,10 +12,9 @@ use crate::{
 };
 use snafu::{ResultExt, Snafu};
 use stackable_druid_crd::{
-    DeepStorageType, DruidCluster, DruidRole,
-    RoleGroupRef, APP_NAME, CONTAINER_METRICS_PORT, CONTAINER_PLAINTEXT_PORT,
-    CREDENTIALS_SECRET_PROPERTY, DRUID_METRICS_PORT, DRUID_PLAINTEXTPORT, JVM_CONFIG,
-    LOG4J2_CONFIG, RUNTIME_PROPS, ZOOKEEPER_CONNECTION_STRING,
+    DeepStorageType, DruidCluster, DruidRole, RoleGroupRef, APP_NAME, CONTAINER_METRICS_PORT,
+    CONTAINER_PLAINTEXT_PORT, CREDENTIALS_SECRET_PROPERTY, DRUID_METRICS_PORT, DRUID_PLAINTEXTPORT,
+    JVM_CONFIG, LOG4J2_CONFIG, RUNTIME_PROPS, ZOOKEEPER_CONNECTION_STRING,
 };
 use stackable_operator::{
     builder::{
@@ -26,12 +25,13 @@ use stackable_operator::{
         api::{
             apps::v1::{StatefulSet, StatefulSetSpec},
             core::v1::{
-                ConfigMap, EnvVar, EnvVarSource,
-                PersistentVolumeClaim, PersistentVolumeClaimSpec,
+                ConfigMap, EnvVar, EnvVarSource, PersistentVolumeClaim, PersistentVolumeClaimSpec,
                 ResourceRequirements, SecretKeySelector, Service, ServicePort, ServiceSpec,
             },
         },
-        apimachinery::pkg::{api::resource::Quantity, apis::meta::v1::LabelSelector},
+        apimachinery::pkg::{
+            api::resource::Quantity, apis::meta::v1::LabelSelector, util::intstr::IntOrString,
+        },
     },
     kube::{
         self,
@@ -42,9 +42,7 @@ use stackable_operator::{
         },
     },
     labels::{role_group_selector_labels, role_selector_labels},
-    product_config::{
-        types::PropertyNameKind, ProductConfigManager,
-    },
+    product_config::{types::PropertyNameKind, ProductConfigManager},
     product_config_utils::{transform_all_roles_to_config, validate_all_roles_and_groups_config},
 };
 
@@ -237,8 +235,9 @@ pub fn build_role_service(role_name: &String, druid: &DruidCluster) -> Result<Se
             .build(),
         spec: Some(ServiceSpec {
             ports: Some(vec![ServicePort {
-                name: Some("dd".to_string()),
-                port: APP_PORT.into(),
+                name: Some("plaintext".to_string()),
+                port: 80.into(),
+                target_port: Some(IntOrString::String("plaintext".to_string())),
                 protocol: Some("TCP".to_string()),
                 ..ServicePort::default()
             }]),
@@ -586,8 +585,8 @@ fn container_image(version: &str) -> String {
 }
 
 pub fn druid_version(druid: &DruidCluster) -> Result<&str> {
-    Ok(&druid.spec.version.to_string());
-    Ok("0.22.0")
+    Ok(&druid.spec.version)
+    //(Ok("0.22.0")
     //Ok(&druid.spec.version.to_string()) // TODO
 }
 
