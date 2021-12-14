@@ -1,30 +1,13 @@
 pub mod commands;
 pub mod error;
 
-use crate::commands::{Restart, Start, Stop};
-
-use semver::Version;
 use serde::{Deserialize, Serialize};
-use serde_json::json;
-use stackable_operator::command::{CommandRef, HasCommands, HasRoleRestartOrder};
-use stackable_operator::controller::HasOwned;
-use stackable_operator::crd::HasApplication;
-use stackable_operator::identity::PodToNodeMapping;
 use stackable_operator::k8s_openapi::apimachinery::pkg::apis::meta::v1::Condition;
-use stackable_operator::k8s_openapi::schemars::_serde_json::Value;
-use stackable_operator::kube::api::ApiResource;
 use stackable_operator::kube::runtime::reflector::ObjectRef;
 use stackable_operator::kube::CustomResource;
-use stackable_operator::kube::CustomResourceExt;
 use stackable_operator::product_config_utils::{ConfigError, Configuration};
 use stackable_operator::role_utils::Role;
 use stackable_operator::schemars::{self, JsonSchema};
-use stackable_operator::status::{
-    ClusterExecutionStatus, Conditions, HasClusterExecutionStatus, HasCurrentCommand, Status,
-    Versioned,
-};
-use stackable_operator::versioning::{ProductVersion, Versioning, VersioningState};
-use std::cmp::Ordering;
 use std::collections::BTreeMap;
 use std::fmt::Display;
 use std::str::FromStr;
@@ -178,35 +161,6 @@ impl DruidCluster {
             DruidRole::Historical => &self.spec.historicals,
             DruidRole::Router => &self.spec.routers,
         }
-    }
-}
-
-impl HasRoleRestartOrder for DruidCluster {
-    fn get_role_restart_order() -> Vec<String> {
-        // the order below is the reverse startup order taken from the sample configurations
-        vec![
-            DruidRole::MiddleManager.to_string(),
-            DruidRole::Historical.to_string(),
-            DruidRole::Router.to_string(),
-            DruidRole::Broker.to_string(),
-            DruidRole::Coordinator.to_string(),
-        ]
-    }
-}
-
-impl HasCommands for DruidCluster {
-    fn get_command_types() -> Vec<ApiResource> {
-        vec![
-            Start::api_resource(),
-            Stop::api_resource(),
-            Restart::api_resource(),
-        ]
-    }
-}
-
-impl HasOwned for DruidCluster {
-    fn owned_objects() -> Vec<&'static str> {
-        vec![Restart::crd_name(), Start::crd_name(), Stop::crd_name()]
     }
 }
 

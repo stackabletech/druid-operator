@@ -1,10 +1,6 @@
 use crate::DruidRole;
-use duplicate::duplicate;
 use serde::{Deserialize, Serialize};
-use serde_json::json;
-use serde_json::Value;
 use stackable_operator::k8s_openapi::apimachinery::pkg::apis::meta::v1::Time;
-use stackable_operator::k8s_openapi::chrono::Utc;
 use stackable_operator::kube::CustomResource;
 use stackable_operator::schemars::{self, JsonSchema};
 
