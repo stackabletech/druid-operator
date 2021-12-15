@@ -1,7 +1,6 @@
 pub mod error;
 
 use serde::{Deserialize, Serialize};
-use stackable_operator::k8s_openapi::apimachinery::pkg::apis::meta::v1::Condition;
 use stackable_operator::kube::runtime::reflector::ObjectRef;
 use stackable_operator::kube::CustomResource;
 use stackable_operator::product_config_utils::{ConfigError, Configuration};
@@ -62,7 +61,7 @@ pub const MD_ST_PASSWORD: &str = "druid.metadata.storage.connector.password";
 // extra
 pub const CREDENTIALS_SECRET_PROPERTY: &str = "credentialsSecret";
 
-#[derive(Clone, CustomResource, Debug, Deserialize, JsonSchema, PartialEq, Serialize)]
+#[derive(Clone, CustomResource, Debug, Deserialize, JsonSchema, Serialize)]
 #[kube(
     group = "druid.stackable.tech",
     version = "v1alpha1",
@@ -142,16 +141,6 @@ impl DruidRole {
         ]
     }
 }
-/*
-impl Status<DruidClusterStatus> for DruidCluster {
-    fn status(&self) -> &Option<DruidClusterStatus> {
-        &self.status
-    }
-    fn status_mut(&mut self) -> &mut Option<DruidClusterStatus> {
-        &mut self.status
-    }
-}
-*/
 
 impl DruidCluster {
     pub fn get_role(&self, role: &DruidRole) -> &Role<DruidConfig> {
@@ -165,20 +154,7 @@ impl DruidCluster {
     }
 }
 
-#[derive(Clone, CustomResource, Debug, Deserialize, JsonSchema, Eq, PartialEq, Serialize)]
-#[kube(
-    group = "druid.stackable.tech",
-    version = "v1alpha1",
-    kind = "DatabaseConnection",
-    plural = "databaseconnections",
-    shortname = "dbconn",
-    namespaced,
-    crates(
-        kube_core = "stackable_operator::kube::core",
-        k8s_openapi = "stackable_operator::k8s_openapi",
-        schemars = "stackable_operator::schemars"
-    )
-)]
+#[derive(Clone, Debug, Default, Deserialize, JsonSchema, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DatabaseConnectionSpec {
     pub db_type: DbType,
@@ -247,19 +223,7 @@ impl Default for DeepStorageType {
     }
 }
 
-#[derive(Clone, CustomResource, Debug, Deserialize, JsonSchema, Eq, PartialEq, Serialize)]
-#[kube(
-    group = "druid.stackable.tech",
-    version = "v1alpha1",
-    kind = "DeepStorage",
-    plural = "deepstorages",
-    namespaced,
-    crates(
-        kube_core = "stackable_operator::kube::core",
-        k8s_openapi = "stackable_operator::k8s_openapi",
-        schemars = "stackable_operator::schemars"
-    )
-)]
+#[derive(Clone, Debug, Default, Deserialize, JsonSchema, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DeepStorageSpec {
     pub storage_type: DeepStorageType,
@@ -271,19 +235,7 @@ pub struct DeepStorageSpec {
     pub base_key: Option<String>,
 }
 
-#[derive(Clone, CustomResource, Debug, Deserialize, JsonSchema, Eq, PartialEq, Serialize)]
-#[kube(
-    group = "druid.stackable.tech",
-    version = "v1alpha1",
-    kind = "S3",
-    plural = "S3s",
-    namespaced,
-    crates(
-        kube_core = "stackable_operator::kube::core",
-        k8s_openapi = "stackable_operator::k8s_openapi",
-        schemars = "stackable_operator::schemars"
-    )
-)]
+#[derive(Clone, Debug, Default, Deserialize, JsonSchema, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct S3Spec {
     pub credentials_secret: String,
@@ -425,10 +377,7 @@ impl Display for RoleGroupRef {
 
 #[derive(Clone, Debug, Default, Deserialize, JsonSchema, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct DruidClusterStatus {
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub conditions: Vec<Condition>,
-}
+pub struct DruidClusterStatus {}
 
 /// Takes a vec of strings and returns them as a formatted json
 /// list.

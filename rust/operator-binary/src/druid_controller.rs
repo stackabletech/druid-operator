@@ -7,7 +7,7 @@ use std::{
 };
 
 use crate::config::{get_jvm_config, get_log4j_config, get_runtime_properties};
-use snafu::{ResultExt, Snafu};
+use snafu::{OptionExt, ResultExt, Snafu};
 use stackable_druid_crd::{
     DeepStorageType, DruidCluster, DruidRole, RoleGroupRef, APP_NAME, CONTAINER_METRICS_PORT,
     CONTAINER_PLAINTEXT_PORT, CREDENTIALS_SECRET_PROPERTY, DRUID_METRICS_PORT, DRUID_PLAINTEXTPORT,
@@ -108,6 +108,22 @@ pub enum Error {
         source: stackable_operator::error::Error,
         druid: ObjectRef<DruidCluster>,
     },
+    #[snafu(display(
+        "Failed to get ZooKeeper connection string from config map {} in namespace {}",
+        cm_name,
+        namespace
+    ))]
+    GetZookeeperConnStringConfigMap {
+        source: stackable_operator::error::Error,
+        cm_name: String,
+        namespace: String,
+    },
+    #[snafu(display(
+        "Failed to get ZooKeeper connection string from config map {} in namespace {}",
+        cm_name,
+        namespace
+    ))]
+    MissingZookeeperConnString { cm_name: String, namespace: String },
 }
 type Result<T, E = Error> = std::result::Result<T, E>;
 
@@ -117,13 +133,18 @@ pub async fn reconcile_druid(druid: DruidCluster, ctx: Context<Ctx>) -> Result<R
     let client = &ctx.get_ref().client;
 
     let zk_connstr = client
-        .get::<ConfigMap>("simple", Some("default"))
+        .get::<ConfigMap>("simple", Some("default")) // TODO
         .await
-        .unwrap_or_default()
+        .with_context(|| GetZookeeperConnStringConfigMap {
+            cm_name: "simple",    // TODO
+            namespace: "default", // TODO
+        })?
         .data
-        .unwrap_or_default()
-        .remove("ZOOKEEPER")
-        .unwrap();
+        .and_then(|mut data| data.remove("ZOOKEEPER"))
+        .with_context(|| MissingZookeeperConnString {
+            cm_name: "simple",    // TODO
+            namespace: "default", // TODO
+        })?;
 
     let mut roles = HashMap::new();
 
