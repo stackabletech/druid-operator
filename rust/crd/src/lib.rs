@@ -91,7 +91,7 @@ pub struct DruidClusterSpec {
     pub metadata_storage_database: DatabaseConnectionSpec,
     pub deep_storage: DeepStorageSpec,
     pub s3: Option<S3Spec>,
-    pub zookeeper_reference: String,
+    pub zookeeper_reference: ZookeeperReference,
 }
 
 #[derive(
@@ -163,6 +163,13 @@ pub struct DatabaseConnectionSpec {
     pub port: u16,
     pub user: Option<String>,
     pub password: Option<String>,
+}
+
+#[derive(Clone, Debug, Default, Deserialize, JsonSchema, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ZookeeperReference {
+    pub config_map_name: String,
+    pub namespace: String,
 }
 
 #[derive(

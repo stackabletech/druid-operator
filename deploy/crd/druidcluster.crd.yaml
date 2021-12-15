@@ -643,7 +643,15 @@ spec:
                   description: Desired Druid version
                   type: string
                 zookeeperReference:
-                  type: string
+                  properties:
+                    configMapName:
+                      type: string
+                    namespace:
+                      type: string
+                  required:
+                    - configMapName
+                    - namespace
+                  type: object
               required:
                 - brokers
                 - coordinators
