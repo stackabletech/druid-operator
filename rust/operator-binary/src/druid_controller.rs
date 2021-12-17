@@ -267,7 +267,15 @@ pub fn build_role_service(role_name: &String, druid: &DruidCluster) -> Result<Se
         spec: Some(ServiceSpec {
             ports: Some(vec![ServicePort {
                 name: Some("plaintext".to_string()),
-                port: 80.into(),
+                port: match DruidRole::from_str(role_name).unwrap() {
+                    // the default ports for the roles
+                    DruidRole::Coordinator => 8081,
+                    DruidRole::Broker => 8082,
+                    DruidRole::Historical => 8083,
+                    DruidRole::MiddleManager => 8091,
+                    DruidRole::Router => 8888,
+                }
+                .into(),
                 target_port: Some(IntOrString::String("plaintext".to_string())),
                 protocol: Some("TCP".to_string()),
                 ..ServicePort::default()
