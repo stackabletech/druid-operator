@@ -2,10 +2,27 @@
 
 There are two ways to run the Apache Druid Operator:
 
-1. As a Docker container
+1. Using Helm
 
-2. Build from source. This is documented in xref:building.adoc[Building the Operator].
+2. As a Docker container
 
+3. Build from source. This is documented in xref:building.adoc[Building the Operator].
+
+== Helm
+
+Helm allows you to download and deploy Stackable operators on Kubernetes and is by far the easiest installation method. First ensure that you have installed the Stackable Operators Helm repository:
+[source,bash]
+----
+$ helm repo add stackable https://repo.stackable.tech/repository/helm-stable/
+----
+
+Then install the Stackable Operator for Apache Superset
+[source,bash]
+----
+$ helm install druid-operator stackable/druid-operator
+----
+
+Helm will deploy the operator in a Kubernetes container and apply the CRDs for the Apache Druid service. You are now ready to deploy Apache Druid in Kubernetes.
 
 == Docker
 
