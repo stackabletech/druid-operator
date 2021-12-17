@@ -1,13 +1,11 @@
 pub mod error;
 
 use serde::{Deserialize, Serialize};
-use stackable_operator::kube::runtime::reflector::ObjectRef;
 use stackable_operator::kube::CustomResource;
 use stackable_operator::product_config_utils::{ConfigError, Configuration};
 use stackable_operator::role_utils::Role;
 use stackable_operator::schemars::{self, JsonSchema};
 use std::collections::BTreeMap;
-use std::fmt::Display;
 use std::str::FromStr;
 use strum_macros::Display;
 use strum_macros::EnumIter;
@@ -68,6 +66,7 @@ pub const CREDENTIALS_SECRET_PROPERTY: &str = "credentialsSecret";
     kind = "DruidCluster",
     plural = "druidclusters",
     shortname = "druid",
+    status = "DruidClusterStatus",
     namespaced,
     crates(
         kube_core = "stackable_operator::kube::core",
@@ -75,7 +74,6 @@ pub const CREDENTIALS_SECRET_PROPERTY: &str = "credentialsSecret";
         schemars = "stackable_operator::schemars"
     )
 )]
-#[kube(status = "DruidClusterStatus")]
 #[serde(rename_all = "camelCase")]
 pub struct DruidClusterSpec {
     /// Emergency stop button, if `true` then all pods are stopped without affecting configuration (as setting `replicas` to `0` would)
@@ -357,28 +355,6 @@ impl Configuration for DruidConfig {
         }
 
         Ok(result)
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct RoleGroupRef {
-    pub cluster: ObjectRef<DruidCluster>,
-    pub role: String,
-    pub role_group: String,
-}
-
-impl RoleGroupRef {
-    pub fn object_name(&self) -> String {
-        format!("{}-{}-{}", self.cluster.name, self.role, self.role_group)
-    }
-}
-
-impl Display for RoleGroupRef {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_fmt(format_args!(
-            "rolegroup {}.{} of {}",
-            self.role, self.role_group, self.cluster
-        ))
     }
 }
 

@@ -9,7 +9,7 @@ use std::{
 use crate::config::{get_jvm_config, get_log4j_config, get_runtime_properties};
 use snafu::{OptionExt, ResultExt, Snafu};
 use stackable_druid_crd::{
-    DeepStorageType, DruidCluster, DruidRole, RoleGroupRef, APP_NAME, CONTAINER_METRICS_PORT,
+    DeepStorageType, DruidCluster, DruidRole, APP_NAME, CONTAINER_METRICS_PORT,
     CONTAINER_PLAINTEXT_PORT, CREDENTIALS_SECRET_PROPERTY, DRUID_METRICS_PORT, DRUID_PLAINTEXTPORT,
     JVM_CONFIG, LOG4J2_CONFIG, RUNTIME_PROPS, ZOOKEEPER_CONNECTION_STRING,
 };
@@ -40,6 +40,7 @@ use stackable_operator::{
     labels::{role_group_selector_labels, role_selector_labels},
     product_config::{types::PropertyNameKind, ProductConfigManager},
     product_config_utils::{transform_all_roles_to_config, validate_all_roles_and_groups_config},
+    role_utils::RoleGroupRef,
 };
 
 const FIELD_MANAGER_SCOPE: &str = "druidcluster";
@@ -62,7 +63,9 @@ pub enum Error {
     #[snafu(display("failed to calculate global service name for {}", obj_ref))]
     GlobalServiceNameNotFound { obj_ref: ObjectRef<DruidCluster> },
     #[snafu(display("failed to calculate service name for role {}", rolegroup))]
-    RoleGroupServiceNameNotFound { rolegroup: RoleGroupRef },
+    RoleGroupServiceNameNotFound {
+        rolegroup: RoleGroupRef<DruidCluster>,
+    },
     #[snafu(display("failed to apply global Service for {}", druid))]
     ApplyRoleService {
         source: stackable_operator::error::Error,
@@ -71,22 +74,22 @@ pub enum Error {
     #[snafu(display("failed to apply Service for {}", rolegroup))]
     ApplyRoleGroupService {
         source: stackable_operator::error::Error,
-        rolegroup: RoleGroupRef,
+        rolegroup: RoleGroupRef<DruidCluster>,
     },
     #[snafu(display("failed to build ConfigMap for {}", rolegroup))]
     BuildRoleGroupConfig {
         source: stackable_operator::error::Error,
-        rolegroup: RoleGroupRef,
+        rolegroup: RoleGroupRef<DruidCluster>,
     },
     #[snafu(display("failed to apply ConfigMap for {}", rolegroup))]
     ApplyRoleGroupConfig {
         source: stackable_operator::error::Error,
-        rolegroup: RoleGroupRef,
+        rolegroup: RoleGroupRef<DruidCluster>,
     },
     #[snafu(display("failed to apply StatefulSet for {}", rolegroup))]
     ApplyRoleGroupStatefulSet {
         source: stackable_operator::error::Error,
-        rolegroup: RoleGroupRef,
+        rolegroup: RoleGroupRef<DruidCluster>,
     },
     #[snafu(display("invalid product config for {}", druid))]
     InvalidProductConfig {
@@ -96,7 +99,7 @@ pub enum Error {
     #[snafu(display("failed to serialize zoo.cfg for {}", rolegroup))]
     SerializeZooCfg {
         source: stackable_operator::product_config::writer::PropertiesWriterError,
-        rolegroup: RoleGroupRef,
+        rolegroup: RoleGroupRef<DruidCluster>,
     },
     #[snafu(display("object {} is missing metadata to build owner reference", druid))]
     ObjectMissingMetadataForOwnerRef {
@@ -286,7 +289,7 @@ pub fn build_role_service(role_name: &str, druid: &DruidCluster) -> Result<Servi
 
 /// The rolegroup [`ConfigMap`] configures the rolegroup based on the configuration given by the administrator
 fn build_rolegroup_config_map(
-    rolegroup: &RoleGroupRef,
+    rolegroup: &RoleGroupRef<DruidCluster>,
     druid: &DruidCluster,
     rolegroup_config: &HashMap<PropertyNameKind, BTreeMap<String, String>>,
     zk_connstr: String,
@@ -366,7 +369,7 @@ fn build_rolegroup_config_map(
 ///
 /// This is mostly useful for internal communication between peers, or for clients that perform client-side load balancing.
 fn build_rolegroup_services(
-    rolegroup: &RoleGroupRef,
+    rolegroup: &RoleGroupRef<DruidCluster>,
     druid: &DruidCluster,
     rolegroup_config: &HashMap<PropertyNameKind, BTreeMap<String, String>>,
 ) -> Result<Service> {
@@ -431,7 +434,7 @@ fn build_rolegroup_services(
 ///
 /// The [`Pod`](`stackable_operator::k8s_openapi::api::core::v1::Pod`)s are accessible through the corresponding [`Service`] (from [`build_rolegroup_service`]).
 fn build_rolegroup_statefulset(
-    rolegroup_ref: &RoleGroupRef,
+    rolegroup_ref: &RoleGroupRef<DruidCluster>,
     druid: &DruidCluster,
     rolegroup_config: &HashMap<PropertyNameKind, BTreeMap<String, String>>,
 ) -> Result<StatefulSet> {
