@@ -1,5 +1,3 @@
-pub mod error;
-
 use serde::{Deserialize, Serialize};
 use stackable_operator::kube::CustomResource;
 use stackable_operator::product_config_utils::{ConfigError, Configuration};
@@ -12,7 +10,6 @@ use strum_macros::EnumIter;
 use strum_macros::EnumString;
 
 pub const APP_NAME: &str = "druid";
-pub const CONF_DIR: &str = "conf";
 
 // config file names
 pub const JVM_CONFIG: &str = "jvm.config";
@@ -26,12 +23,10 @@ pub const CONTAINER_METRICS_PORT: &str = "metrics";
 /////////////////////////////
 //    CONFIG PROPERTIES    //
 /////////////////////////////
-pub const DRUID_SERVICE: &str = "druid.service";
 pub const DRUID_PLAINTEXTPORT: &str = "druid.plaintextPort";
 pub const DRUID_METRICS_PORT: &str = "druid.emitter.prometheus.port";
 pub const EXTENSIONS_LOADLIST: &str = "druid.extensions.loadList";
 // extension names
-pub const EXT_HDFS_STORAGE: &str = "druid-hdfs-storage";
 pub const EXT_S3: &str = "druid-s3-extensions";
 pub const EXT_KAFKA_INDEXING: &str = "druid-kafka-indexing-service";
 pub const EXT_DATASKETCHES: &str = "druid-datasketches";
@@ -42,12 +37,9 @@ pub const EXT_MYSQL_MD_ST: &str = "mysql-metadata-storage";
 pub const ZOOKEEPER_CONNECTION_STRING: &str = "druid.zk.service.host";
 // deep storage
 pub const DS_TYPE: &str = "druid.storage.type";
-pub const DS_DIRECTORY: &str = "druid.storage.storageDirectory";
 // S3
 pub const DS_BUCKET: &str = "druid.storage.bucket";
 pub const DS_BASE_KEY: &str = "druid.storage.baseKey";
-pub const S3_ACCESS_KEY: &str = "druid.s3.accessKey";
-pub const S3_SECRET_KEY: &str = "druid.s3.secretKey";
 pub const S3_ENDPOINT_URL: &str = "druid.s3.endpoint.url";
 // metadata storage config properties
 pub const MD_ST_TYPE: &str = "druid.metadata.storage.type";
