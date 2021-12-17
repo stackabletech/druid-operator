@@ -42,6 +42,7 @@ use stackable_operator::{
     product_config_utils::{transform_all_roles_to_config, validate_all_roles_and_groups_config},
     role_utils::RoleGroupRef,
 };
+use strum::IntoEnumIterator;
 
 const FIELD_MANAGER_SCOPE: &str = "druidcluster";
 const DEFAULT_IMAGE_VERSION: &str = "0";
@@ -138,34 +139,16 @@ pub async fn reconcile_druid(druid: DruidCluster, ctx: Context<Ctx>) -> Result<R
         PropertyNameKind::File(RUNTIME_PROPS.to_string()),
     ];
 
-    roles.insert(
-        DruidRole::Broker.to_string(),
-        (config_files.clone(), druid.spec.brokers.clone()),
-    );
-
-    roles.insert(
-        DruidRole::Coordinator.to_string(),
-        (config_files.clone(), druid.spec.coordinators.clone()),
-    );
-
-    roles.insert(
-        DruidRole::Historical.to_string(),
-        (config_files.clone(), druid.spec.historicals.clone()),
-    );
-
-    roles.insert(
-        DruidRole::MiddleManager.to_string(),
-        (config_files.clone(), druid.spec.middle_managers.clone()),
-    );
-
-    roles.insert(
-        DruidRole::Router.to_string(),
-        (config_files, druid.spec.routers.clone()),
-    );
+    for role in DruidRole::iter() {
+        roles.insert(
+            role.to_string(),
+            (config_files.clone(), druid.get_role(&role).clone()),
+        );
+    }
 
     let role_config = transform_all_roles_to_config(&druid, roles);
     let validated_role_config = validate_all_roles_and_groups_config(
-        druid_version(druid)?,
+        druid_version(&druid)?,
         &role_config,
         &ctx.get_ref().product_config,
         false,
