@@ -187,7 +187,7 @@ pub async fn reconcile_druid(druid: DruidCluster, ctx: Context<Ctx>) -> Result<R
 
     let role_config = transform_all_roles_to_config(&druid, roles);
     let validated_role_config = validate_all_roles_and_groups_config(
-        &druid.spec.version.to_string(),
+        druid_version(druid)?,
         &role_config,
         &ctx.get_ref().product_config,
         false,
@@ -614,8 +614,6 @@ fn container_image(version: &str) -> String {
 
 pub fn druid_version(druid: &DruidCluster) -> Result<&str> {
     Ok(&druid.spec.version)
-    //(Ok("0.22.0")
-    //Ok(&druid.spec.version.to_string()) // TODO
 }
 
 pub fn error_policy(_error: &Error, _ctx: Context<Ctx>) -> ReconcilerAction {
