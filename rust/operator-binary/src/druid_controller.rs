@@ -159,30 +159,27 @@ pub async fn reconcile_druid(druid: DruidCluster, ctx: Context<Ctx>) -> Result<R
 
     roles.insert(
         DruidRole::Broker.to_string(),
-        (config_files.clone(), druid.spec.brokers.clone().into()),
+        (config_files.clone(), druid.spec.brokers.clone()),
     );
 
     roles.insert(
         DruidRole::Coordinator.to_string(),
-        (config_files.clone(), druid.spec.coordinators.clone().into()),
+        (config_files.clone(), druid.spec.coordinators.clone()),
     );
 
     roles.insert(
         DruidRole::Historical.to_string(),
-        (config_files.clone(), druid.spec.historicals.clone().into()),
+        (config_files.clone(), druid.spec.historicals.clone()),
     );
 
     roles.insert(
         DruidRole::MiddleManager.to_string(),
-        (
-            config_files.clone(),
-            druid.spec.middle_managers.clone().into(),
-        ),
+        (config_files.clone(), druid.spec.middle_managers.clone()),
     );
 
     roles.insert(
         DruidRole::Router.to_string(),
-        (config_files, druid.spec.routers.clone().into()),
+        (config_files, druid.spec.routers.clone()),
     );
 
     let role_config = transform_all_roles_to_config(&druid, roles);
@@ -248,7 +245,7 @@ pub async fn reconcile_druid(druid: DruidCluster, ctx: Context<Ctx>) -> Result<R
 
 /// The server-role service is the primary endpoint that should be used by clients that do not perform internal load balancing,
 /// including targets outside of the cluster.
-pub fn build_role_service(role_name: &String, druid: &DruidCluster) -> Result<Service> {
+pub fn build_role_service(role_name: &str, druid: &DruidCluster) -> Result<Service> {
     let role_svc_name = format!(
         "{}-{}",
         druid.metadata.name.as_ref().unwrap_or(&"druid".to_string()),
@@ -262,7 +259,7 @@ pub fn build_role_service(role_name: &String, druid: &DruidCluster) -> Result<Se
             .with_context(|| ObjectMissingMetadataForOwnerRef {
                 druid: ObjectRef::from_obj(druid),
             })?
-            .with_recommended_labels(druid, APP_NAME, druid_version(druid)?, &role_name, "global")
+            .with_recommended_labels(druid, APP_NAME, druid_version(druid)?, role_name, "global")
             .build(),
         spec: Some(ServiceSpec {
             ports: Some(vec![ServicePort {
@@ -274,13 +271,12 @@ pub fn build_role_service(role_name: &String, druid: &DruidCluster) -> Result<Se
                     DruidRole::Historical => 8083,
                     DruidRole::MiddleManager => 8091,
                     DruidRole::Router => 8888,
-                }
-                .into(),
+                },
                 target_port: Some(IntOrString::String("plaintext".to_string())),
                 protocol: Some("TCP".to_string()),
                 ..ServicePort::default()
             }]),
-            selector: Some(role_selector_labels(druid, APP_NAME, &role_name)),
+            selector: Some(role_selector_labels(druid, APP_NAME, role_name)),
             type_: Some("NodePort".to_string()),
             ..ServiceSpec::default()
         }),
