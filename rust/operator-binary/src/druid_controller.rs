@@ -138,17 +138,17 @@ pub async fn reconcile_druid(druid: DruidCluster, ctx: Context<Ctx>) -> Result<R
     let zk_confmap = druid.spec.zookeeper_reference.config_map_name.clone();
     let zk_cm_ns = druid.spec.zookeeper_reference.namespace.clone();
     let zk_connstr = client
-        .get::<ConfigMap>(&zk_confmap, Some(&zk_cm_ns)) // TODO
+        .get::<ConfigMap>(&zk_confmap, Some(&zk_cm_ns))
         .await
         .with_context(|| GetZookeeperConnStringConfigMap {
-            cm_name: zk_confmap.clone(), // TODO
-            namespace: zk_cm_ns.clone(), // TODO
+            cm_name: zk_confmap.clone(),
+            namespace: zk_cm_ns.clone(),
         })?
         .data
         .and_then(|mut data| data.remove("ZOOKEEPER"))
         .with_context(|| MissingZookeeperConnString {
-            cm_name: zk_confmap.clone(), // TODO
-            namespace: zk_cm_ns.clone(), // TODO
+            cm_name: zk_confmap.clone(),
+            namespace: zk_cm_ns.clone(),
         })?;
 
     let mut roles = HashMap::new();
