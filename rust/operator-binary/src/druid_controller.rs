@@ -54,18 +54,6 @@ pub struct Ctx {
 #[derive(Snafu, Debug)]
 #[allow(clippy::enum_variant_names)]
 pub enum Error {
-    #[snafu(display("object {} has no namespace", obj_ref))]
-    ObjectHasNoNamespace { obj_ref: ObjectRef<DruidCluster> },
-    #[snafu(display("object {} defines no version", obj_ref))]
-    ObjectHasNoVersion { obj_ref: ObjectRef<DruidCluster> },
-    #[snafu(display("{} has no server role", obj_ref))]
-    NoServerRole { obj_ref: ObjectRef<DruidCluster> },
-    #[snafu(display("failed to calculate global service name for {}", obj_ref))]
-    GlobalServiceNameNotFound { obj_ref: ObjectRef<DruidCluster> },
-    #[snafu(display("failed to calculate service name for role {}", rolegroup))]
-    RoleGroupServiceNameNotFound {
-        rolegroup: RoleGroupRef<DruidCluster>,
-    },
     #[snafu(display("failed to apply global Service for {}", druid))]
     ApplyRoleService {
         source: stackable_operator::error::Error,
@@ -96,18 +84,8 @@ pub enum Error {
         source: stackable_operator::error::Error,
         druid: ObjectRef<DruidCluster>,
     },
-    #[snafu(display("failed to serialize zoo.cfg for {}", rolegroup))]
-    SerializeZooCfg {
-        source: stackable_operator::product_config::writer::PropertiesWriterError,
-        rolegroup: RoleGroupRef<DruidCluster>,
-    },
     #[snafu(display("object {} is missing metadata to build owner reference", druid))]
     ObjectMissingMetadataForOwnerRef {
-        source: stackable_operator::error::Error,
-        druid: ObjectRef<DruidCluster>,
-    },
-    #[snafu(display("failed to update status of {}", druid))]
-    ApplyStatus {
         source: stackable_operator::error::Error,
         druid: ObjectRef<DruidCluster>,
     },
