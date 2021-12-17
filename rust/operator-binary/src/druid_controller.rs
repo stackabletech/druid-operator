@@ -312,16 +312,6 @@ fn build_rolegroup_config_map(
                     ZOOKEEPER_CONNECTION_STRING.to_string(),
                     Some(zk_connstr.clone()),
                 );
-                /*
-                                if let Some(zk_info) = &druid.spec.zookeeper_info {
-                                    transformed_config.insert(
-                                        ZOOKEEPER_CONNECTION_STRING.to_string(),
-                                        Some(zk_info.connection_string.clone()),
-                                    );
-                                } else {
-                                    return Err(error::Error::ZookeeperConnectionInformationError);
-                                }
-                */
                 let runtime_properties = get_runtime_properties(&role, &transformed_config);
                 cm_conf_data.insert(RUNTIME_PROPS.to_string(), runtime_properties);
             }

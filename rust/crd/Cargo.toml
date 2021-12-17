@@ -1,5 +1,5 @@
 [package]
-authors = ["Lars Francke <lars.francke@stackable.de>"]
+authors = ["Stackable GmbH <info@stackable.de>"]
 description = "Contains the druid CRD structs and utilities"
 edition = "2021"
 license = "OSL-3.0"

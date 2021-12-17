@@ -2,11 +2,10 @@ mod config;
 mod druid_controller;
 mod utils;
 
-use std::str::FromStr;
-
 use futures::{compat::Future01CompatExt, StreamExt};
 use stackable_druid_crd::DruidCluster;
 use stackable_operator::{
+    cli::Command,
     k8s_openapi::api::{
         apps::v1::StatefulSet,
         core::v1::{ConfigMap, Endpoints, Service},
@@ -20,7 +19,6 @@ use stackable_operator::{
         },
         CustomResourceExt, Resource,
     },
-    product_config::ProductConfigManager,
 };
 use structopt::StructOpt;
 
@@ -32,22 +30,10 @@ pub const APP_NAME: &str = "druid";
 pub const APP_PORT: u16 = 2181;
 
 #[derive(StructOpt)]
-#[structopt(about = built_info::PKG_DESCRIPTION, author = "Stackable GmbH - info@stackable.de")]
+#[structopt(about = built_info::PKG_DESCRIPTION, author = stackable_operator::cli::AUTHOR)]
 struct Opts {
     #[structopt(subcommand)]
-    cmd: Cmd,
-}
-
-#[derive(StructOpt)]
-enum Cmd {
-    /// Print CRD objects
-    Crd,
-    /// Run operator
-    Run {
-        /// Provides the path to a product-config file
-        #[structopt(long, short = "p", value_name = "FILE")]
-        product_config: Option<String>,
-    },
+    cmd: Command,
 }
 
 /// Erases the concrete types of the controller result, so that we can merge the streams of multiple controllers for different resources.
@@ -69,8 +55,8 @@ async fn main() -> anyhow::Result<()> {
 
     let opts = Opts::from_args();
     match opts.cmd {
-        Cmd::Crd => println!("{}", serde_yaml::to_string(&DruidCluster::crd())?),
-        Cmd::Run { product_config } => {
+        Command::Crd => println!("{}", serde_yaml::to_string(&DruidCluster::crd())?),
+        Command::Run { product_config } => {
             stackable_operator::utils::print_startup_string(
                 built_info::PKG_DESCRIPTION,
                 built_info::PKG_VERSION,
@@ -79,17 +65,13 @@ async fn main() -> anyhow::Result<()> {
                 built_info::BUILT_TIME_UTC,
                 built_info::RUSTC_VERSION,
             );
-            let product_config = if let Some(product_config_path) = product_config {
-                ProductConfigManager::from_yaml_file(&product_config_path)?
-            } else {
-                ProductConfigManager::from_str(include_str!(
-                    "../../../deploy/config-spec/properties.yaml"
-                ))?
-            };
-            let client = stackable_operator::client::create_client(Some(
-                "zookeeper.stackable.tech".to_string(),
-            ))
-            .await?;
+            let product_config = product_config.load(&[
+                "deploy/config-spec/properties.yaml",
+                "/etc/stackable/superset-operator/config-spec/properties.yaml",
+            ])?;
+            let client =
+                stackable_operator::client::create_client(Some("druid.stackable.tech".to_string()))
+                    .await?;
             let druid_controller_builder =
                 Controller::new(client.get_all_api::<DruidCluster>(), ListParams::default());
             let druid_store = druid_controller_builder.store();
