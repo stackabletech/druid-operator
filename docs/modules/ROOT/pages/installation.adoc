@@ -24,6 +24,7 @@ $ helm install druid-operator stackable/druid-operator
 
 Helm will deploy the operator in a Kubernetes container and apply the CRDs for the Apache Druid service. You are now ready to deploy Apache Druid in Kubernetes.
 
+
 == Docker
 
 This Operator is published as a Docker image:
@@ -33,8 +34,19 @@ This Operator is published as a Docker image:
 docker.stackable.tech/stackable/druid-operator
 ----
 
+When installing manually with Docker you will need to install the Stackable CRDs for Apache Druid in your Kubernetes environment. These are available on the https://github.com/stackabletech/druid-operator/tree/main/deploy/crd[Stackable GitHub repository]
+for this operator.
+[source]
+----
+$ kubectl apply -f druidcluster.crd.yaml
+----
+
 To run it straight from Docker you can use this command:
 [source,bash]
 ----
-docker run -e DRUID_OPERATOR_LOG=trace -e KUBECONFIG=/root/.kube/k3s.yaml --mount type=bind,source="$HOME/.kube/k3s.yaml",target="/root/.kube/k3s.yaml" -it docker.stackable.tech/stackable/druid-operator:latest
+docker run \
+    --name druid-operator \
+    --env KUBECONFIG=/home/stackable/.kube/config \
+    --mount type=bind,source="$HOME/.kube/config",target="/home/stackable/.kube/config" \
+    docker.stackable.tech/stackable/druid-operator:latest
 ----
