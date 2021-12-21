@@ -8,7 +8,7 @@ use stackable_operator::{
     cli::Command,
     k8s_openapi::api::{
         apps::v1::StatefulSet,
-        core::v1::{ConfigMap, Endpoints, Service},
+        core::v1::{ConfigMap, Service},
     },
     kube::{
         api::{DynamicObject, ListParams},
@@ -74,7 +74,6 @@ async fn main() -> anyhow::Result<()> {
                     .await?;
             let druid_controller_builder =
                 Controller::new(client.get_all_api::<DruidCluster>(), ListParams::default());
-            let druid_store = druid_controller_builder.store();
             let druid_controller = druid_controller_builder
                 .owns(client.get_all_api::<Service>(), ListParams::default())
                 .owns(client.get_all_api::<StatefulSet>(), ListParams::default())
