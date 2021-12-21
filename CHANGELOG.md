@@ -4,8 +4,13 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
-## [0.1.0] - 2021-12-06
+### Changed
 
+- Migrated to StatefulSet rather than direct Pod management ([#59]).
+
+[#59]: https://github.com/stackabletech/druid-operator/pull/59
+
+## [0.1.0] - 2021-12-06
 
 ### Changed
 

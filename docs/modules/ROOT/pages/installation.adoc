@@ -2,9 +2,27 @@
 
 There are two ways to run the Apache Druid Operator:
 
-1. As a Docker container
+1. Using Helm
 
-2. Build from source. This is documented in xref:building.adoc[Building the Operator].
+2. As a Docker container
+
+3. Build from source. This is documented in xref:building.adoc[Building the Operator].
+
+== Helm
+
+Helm allows you to download and deploy Stackable operators on Kubernetes and is by far the easiest installation method. First ensure that you have installed the Stackable Operators Helm repository:
+[source,bash]
+----
+$ helm repo add stackable https://repo.stackable.tech/repository/helm-stable/
+----
+
+Then install the Stackable Operator for Apache Superset
+[source,bash]
+----
+$ helm install druid-operator stackable/druid-operator
+----
+
+Helm will deploy the operator in a Kubernetes container and apply the CRDs for the Apache Druid service. You are now ready to deploy Apache Druid in Kubernetes.
 
 
 == Docker
@@ -16,8 +34,20 @@ This Operator is published as a Docker image:
 docker.stackable.tech/stackable/druid-operator
 ----
 
+When installing manually with Docker you will need to install the Stackable CRDs for Apache Druid in your Kubernetes environment. These are available on the https://github.com/stackabletech/druid-operator/tree/main/deploy/crd[Stackable GitHub repository]
+for this operator.
+[source]
+----
+$ kubectl apply -f druidcluster.crd.yaml
+----
+
 To run it straight from Docker you can use this command:
 [source,bash]
 ----
-docker run -e DRUID_OPERATOR_LOG=trace -e KUBECONFIG=/root/.kube/k3s.yaml --mount type=bind,source="$HOME/.kube/k3s.yaml",target="/root/.kube/k3s.yaml" -it docker.stackable.tech/stackable/druid-operator:latest
+docker run \
+    --name druid-operator \
+    --network host \
+    --env KUBECONFIG=/home/stackable/.kube/config \
+    --mount type=bind,source="$HOME/.kube/config",target="/home/stackable/.kube/config" \
+    docker.stackable.tech/stackable/druid-operator:latest
 ----

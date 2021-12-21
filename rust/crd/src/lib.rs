@@ -1,30 +1,8 @@
-pub mod commands;
-pub mod error;
-
-use crate::commands::{Restart, Start, Stop};
-
-use semver::Version;
 use serde::{Deserialize, Serialize};
-use serde_json::json;
-use stackable_operator::command::{CommandRef, HasCommands, HasRoleRestartOrder};
-use stackable_operator::controller::HasOwned;
-use stackable_operator::crd::HasApplication;
-use stackable_operator::identity::PodToNodeMapping;
-use stackable_operator::k8s_openapi::apimachinery::pkg::apis::meta::v1::Condition;
-use stackable_operator::k8s_openapi::schemars::_serde_json::Value;
-use stackable_operator::kube::api::ApiResource;
 use stackable_operator::kube::CustomResource;
-use stackable_operator::kube::CustomResourceExt;
 use stackable_operator::product_config_utils::{ConfigError, Configuration};
 use stackable_operator::role_utils::Role;
 use stackable_operator::schemars::{self, JsonSchema};
-use stackable_operator::status::{
-    ClusterExecutionStatus, Conditions, HasClusterExecutionStatus, HasCurrentCommand, Status,
-    Versioned,
-};
-use stackable_operator::versioning::{ProductVersion, Versioning, VersioningState};
-use stackable_zookeeper_crd::discovery::ZookeeperReference;
-use std::cmp::Ordering;
 use std::collections::BTreeMap;
 use std::str::FromStr;
 use strum_macros::Display;
@@ -32,7 +10,6 @@ use strum_macros::EnumIter;
 use strum_macros::EnumString;
 
 pub const APP_NAME: &str = "druid";
-pub const CONF_DIR: &str = "conf";
 
 // config file names
 pub const JVM_CONFIG: &str = "jvm.config";
@@ -46,12 +23,10 @@ pub const CONTAINER_METRICS_PORT: &str = "metrics";
 /////////////////////////////
 //    CONFIG PROPERTIES    //
 /////////////////////////////
-pub const DRUID_SERVICE: &str = "druid.service";
 pub const DRUID_PLAINTEXTPORT: &str = "druid.plaintextPort";
 pub const DRUID_METRICS_PORT: &str = "druid.emitter.prometheus.port";
 pub const EXTENSIONS_LOADLIST: &str = "druid.extensions.loadList";
 // extension names
-pub const EXT_HDFS_STORAGE: &str = "druid-hdfs-storage";
 pub const EXT_S3: &str = "druid-s3-extensions";
 pub const EXT_KAFKA_INDEXING: &str = "druid-kafka-indexing-service";
 pub const EXT_DATASKETCHES: &str = "druid-datasketches";
@@ -62,12 +37,9 @@ pub const EXT_MYSQL_MD_ST: &str = "mysql-metadata-storage";
 pub const ZOOKEEPER_CONNECTION_STRING: &str = "druid.zk.service.host";
 // deep storage
 pub const DS_TYPE: &str = "druid.storage.type";
-pub const DS_DIRECTORY: &str = "druid.storage.storageDirectory";
 // S3
 pub const DS_BUCKET: &str = "druid.storage.bucket";
 pub const DS_BASE_KEY: &str = "druid.storage.baseKey";
-pub const S3_ACCESS_KEY: &str = "druid.s3.accessKey";
-pub const S3_SECRET_KEY: &str = "druid.s3.secretKey";
 pub const S3_ENDPOINT_URL: &str = "druid.s3.endpoint.url";
 // metadata storage config properties
 pub const MD_ST_TYPE: &str = "druid.metadata.storage.type";
@@ -79,22 +51,28 @@ pub const MD_ST_PASSWORD: &str = "druid.metadata.storage.connector.password";
 // extra
 pub const CREDENTIALS_SECRET_PROPERTY: &str = "credentialsSecret";
 
-#[derive(Clone, CustomResource, Debug, Deserialize, JsonSchema, PartialEq, Serialize)]
+#[derive(Clone, CustomResource, Debug, Deserialize, JsonSchema, Serialize)]
 #[kube(
     group = "druid.stackable.tech",
     version = "v1alpha1",
     kind = "DruidCluster",
     plural = "druidclusters",
     shortname = "druid",
-    kube_core = "stackable_operator::kube::core",
-    k8s_openapi = "stackable_operator::k8s_openapi",
-    schemars = "stackable_operator::schemars",
-    namespaced
+    status = "DruidClusterStatus",
+    namespaced,
+    crates(
+        kube_core = "stackable_operator::kube::core",
+        k8s_openapi = "stackable_operator::k8s_openapi",
+        schemars = "stackable_operator::schemars"
+    )
 )]
-#[kube(status = "DruidClusterStatus")]
 #[serde(rename_all = "camelCase")]
 pub struct DruidClusterSpec {
-    pub version: DruidVersion,
+    /// Emergency stop button, if `true` then all pods are stopped without affecting configuration (as setting `replicas` to `0` would)
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub stopped: Option<bool>,
+    /// Desired Druid version
+    pub version: String,
     pub brokers: Role<DruidConfig>,
     pub coordinators: Role<DruidConfig>,
     pub historicals: Role<DruidConfig>,
@@ -126,91 +104,47 @@ pub enum DruidRole {
     Broker,
     #[strum(serialize = "historical")]
     Historical,
-    #[strum(serialize = "middleManager")]
+    #[strum(serialize = "middlemanager")]
     MiddleManager,
     #[strum(serialize = "router")]
     Router,
 }
 
 impl DruidRole {
+    /// Returns the name of the internal druid process name associated with the role
+    fn get_process_name(&self) -> &str {
+        match &self {
+            DruidRole::Coordinator => "coordinator",
+            DruidRole::Broker => "broker",
+            DruidRole::Historical => "historical",
+            DruidRole::MiddleManager => "middleManager",
+            DruidRole::Router => "router",
+        }
+    }
+
     /// Returns the start commands for the different server types.
-    pub fn get_command(&self, _version: &DruidVersion) -> Vec<String> {
+    pub fn get_command(&self, _version: &str) -> Vec<String> {
         vec![
             "/stackable/druid/bin/run-druid".to_string(),
-            self.to_string(),
+            self.get_process_name().to_string(),
             "/stackable/conf".to_string(),
         ]
     }
 }
 
-impl Status<DruidClusterStatus> for DruidCluster {
-    fn status(&self) -> &Option<DruidClusterStatus> {
-        &self.status
-    }
-    fn status_mut(&mut self) -> &mut Option<DruidClusterStatus> {
-        &mut self.status
-    }
-}
-
-impl HasRoleRestartOrder for DruidCluster {
-    fn get_role_restart_order() -> Vec<String> {
-        // the order below is the reverse startup order taken from the sample configurations
-        vec![
-            DruidRole::MiddleManager.to_string(),
-            DruidRole::Historical.to_string(),
-            DruidRole::Router.to_string(),
-            DruidRole::Broker.to_string(),
-            DruidRole::Coordinator.to_string(),
-        ]
+impl DruidCluster {
+    pub fn get_role(&self, role: &DruidRole) -> &Role<DruidConfig> {
+        match role {
+            DruidRole::Coordinator => &self.spec.coordinators,
+            DruidRole::Broker => &self.spec.brokers,
+            DruidRole::MiddleManager => &self.spec.middle_managers,
+            DruidRole::Historical => &self.spec.historicals,
+            DruidRole::Router => &self.spec.routers,
+        }
     }
 }
 
-impl HasCommands for DruidCluster {
-    fn get_command_types() -> Vec<ApiResource> {
-        vec![
-            Start::api_resource(),
-            Stop::api_resource(),
-            Restart::api_resource(),
-        ]
-    }
-}
-
-impl HasOwned for DruidCluster {
-    fn owned_objects() -> Vec<&'static str> {
-        vec![Restart::crd_name(), Start::crd_name(), Stop::crd_name()]
-    }
-}
-
-impl HasApplication for DruidCluster {
-    fn get_application_name() -> &'static str {
-        APP_NAME
-    }
-}
-
-impl HasClusterExecutionStatus for DruidCluster {
-    fn cluster_execution_status(&self) -> Option<ClusterExecutionStatus> {
-        self.status
-            .as_ref()
-            .and_then(|status| status.cluster_execution_status.clone())
-    }
-
-    fn cluster_execution_status_patch(&self, execution_status: &ClusterExecutionStatus) -> Value {
-        json!({ "clusterExecutionStatus": execution_status })
-    }
-}
-
-#[derive(Clone, CustomResource, Debug, Deserialize, JsonSchema, Eq, PartialEq, Serialize)]
-#[kube(
-    group = "druid.stackable.tech",
-    version = "v1alpha1",
-    kind = "DatabaseConnection",
-    plural = "databaseconnections",
-    shortname = "dbconn",
-    namespaced,
-    kube_core = "stackable_operator::kube::core",
-    k8s_openapi = "stackable_operator::k8s_openapi",
-    schemars = "stackable_operator::schemars"
-)]
+#[derive(Clone, Debug, Default, Deserialize, JsonSchema, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DatabaseConnectionSpec {
     pub db_type: DbType,
@@ -219,6 +153,13 @@ pub struct DatabaseConnectionSpec {
     pub port: u16,
     pub user: Option<String>,
     pub password: Option<String>,
+}
+
+#[derive(Clone, Debug, Default, Deserialize, JsonSchema, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ZookeeperReference {
+    pub config_map_name: String,
+    pub namespace: String,
 }
 
 #[derive(
@@ -279,17 +220,7 @@ impl Default for DeepStorageType {
     }
 }
 
-#[derive(Clone, CustomResource, Debug, Deserialize, JsonSchema, Eq, PartialEq, Serialize)]
-#[kube(
-    group = "druid.stackable.tech",
-    version = "v1alpha1",
-    kind = "DeepStorage",
-    plural = "deepstorages",
-    namespaced,
-    kube_core = "stackable_operator::kube::core",
-    k8s_openapi = "stackable_operator::k8s_openapi",
-    schemars = "stackable_operator::schemars"
-)]
+#[derive(Clone, Debug, Default, Deserialize, JsonSchema, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DeepStorageSpec {
     pub storage_type: DeepStorageType,
@@ -301,17 +232,7 @@ pub struct DeepStorageSpec {
     pub base_key: Option<String>,
 }
 
-#[derive(Clone, CustomResource, Debug, Deserialize, JsonSchema, Eq, PartialEq, Serialize)]
-#[kube(
-    group = "druid.stackable.tech",
-    version = "v1alpha1",
-    kind = "S3",
-    plural = "S3s",
-    namespaced,
-    kube_core = "stackable_operator::kube::core",
-    k8s_openapi = "stackable_operator::k8s_openapi",
-    schemars = "stackable_operator::schemars"
-)]
+#[derive(Clone, Debug, Default, Deserialize, JsonSchema, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct S3Spec {
     pub credentials_secret: String,
@@ -429,103 +350,9 @@ impl Configuration for DruidConfig {
     }
 }
 
-#[allow(non_camel_case_types)]
-#[derive(
-    Clone,
-    Debug,
-    Deserialize,
-    Eq,
-    JsonSchema,
-    PartialEq,
-    Serialize,
-    strum_macros::Display,
-    strum_macros::EnumString,
-)]
-pub enum DruidVersion {
-    #[serde(rename = "0.22.0")]
-    #[strum(serialize = "0.22.0")]
-    v0_22_0,
-}
-
-impl Versioning for DruidVersion {
-    fn versioning_state(&self, other: &Self) -> VersioningState {
-        let from_version = match Version::parse(&self.to_string()) {
-            Ok(v) => v,
-            Err(e) => {
-                return VersioningState::Invalid(format!(
-                    "Could not parse [{}] to SemVer: {}",
-                    self.to_string(),
-                    e.to_string()
-                ));
-            }
-        };
-
-        let to_version = match Version::parse(&other.to_string()) {
-            Ok(v) => v,
-            Err(e) => {
-                return VersioningState::Invalid(format!(
-                    "Could not parse [{}] to SemVer: {}",
-                    other.to_string(),
-                    e.to_string()
-                ));
-            }
-        };
-
-        match to_version.cmp(&from_version) {
-            Ordering::Greater => VersioningState::ValidUpgrade,
-            Ordering::Less => VersioningState::ValidDowngrade,
-            Ordering::Equal => VersioningState::NoOp,
-        }
-    }
-}
-
 #[derive(Clone, Debug, Default, Deserialize, JsonSchema, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct DruidClusterStatus {
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub conditions: Vec<Condition>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub version: Option<ProductVersion<DruidVersion>>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub history: Option<PodToNodeMapping>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub current_command: Option<CommandRef>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub cluster_execution_status: Option<ClusterExecutionStatus>,
-}
-
-impl Versioned<DruidVersion> for DruidClusterStatus {
-    fn version(&self) -> &Option<ProductVersion<DruidVersion>> {
-        &self.version
-    }
-    fn version_mut(&mut self) -> &mut Option<ProductVersion<DruidVersion>> {
-        &mut self.version
-    }
-}
-
-impl Conditions for DruidClusterStatus {
-    fn conditions(&self) -> &[Condition] {
-        self.conditions.as_slice()
-    }
-    fn conditions_mut(&mut self) -> &mut Vec<Condition> {
-        &mut self.conditions
-    }
-}
-
-impl HasCurrentCommand for DruidClusterStatus {
-    fn current_command(&self) -> Option<CommandRef> {
-        self.current_command.clone()
-    }
-    fn set_current_command(&mut self, command: CommandRef) {
-        self.current_command = Some(command);
-    }
-    fn clear_current_command(&mut self) {
-        self.current_command = None
-    }
-    fn tracking_location() -> &'static str {
-        "/status/currentCommand"
-    }
-}
+pub struct DruidClusterStatus {}
 
 /// Takes a vec of strings and returns them as a formatted json
 /// list.

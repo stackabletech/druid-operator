@@ -5,22 +5,16 @@ metadata:
 spec:
   version: 0.22.0
   zookeeperReference:
+    configMapName: simple
     namespace: default
-    name: simple
   metadataStorageDatabase:
-    dbType: postgresql
-    connString: jdbc:postgresql://10.244.4.3/druid
-    host: 10.244.4.3
-    port: 5432
-    user: druid
-    password: druid
-  s3:
-    endpoint: s3-de-central.profitbricks.com
-    credentialsSecret: s3-credentials    # this needs to be deployed additionally
+    dbType: derby
+    connString: jdbc:derby://localhost:1527/var/druid/metadata.db;create=true
+    host: localhost
+    port: 1527
   deepStorage:
-    storageType: s3
-    bucket: druid-deepstorage
-    baseKey: storage               # this is optional; deep storage can also be at the root of the bucket
+    storageType: local
+    storageDirectory: /data
   brokers:
     roleGroups:
       default:
@@ -29,7 +23,7 @@ spec:
             kubernetes.io/os: linux
         config:
           plaintextPort: 8082
-          metricsPort: 9092
+          metricsPort: 9095
         replicas: 1
   coordinators:
     roleGroups:
@@ -39,7 +33,7 @@ spec:
             kubernetes.io/os: linux
         config:
           plaintextPort: 8081
-          metricsPort: 9091
+          metricsPort: 9090
         replicas: 1
   historicals:
     roleGroups:
@@ -49,7 +43,7 @@ spec:
             kubernetes.io/os: linux
         config:
           plaintextPort: 8083
-          metricsPort: 9093
+          metricsPort: 9090
         replicas: 1
   middleManagers:
     roleGroups:
@@ -59,7 +53,7 @@ spec:
             kubernetes.io/os: linux
         config:
           plaintextPort: 8091
-          metricsPort: 9090
+          metricsPort: 9095
         replicas: 1
   routers:
     roleGroups:

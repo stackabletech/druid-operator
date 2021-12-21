@@ -1,40 +1,35 @@
 [package]
-authors = ["Lars Francke <lars.francke@stackable.de>"]
+authors = ["Stackable GmbH <info@stackable.de>"]
 description = "Stackable Operator for druid"
-edition = "2018"
+edition = "2021"
 license = "OSL-3.0"
-name = "stackable-druid-operator-binary"
+name = "stackable-druid-operator"
 repository = "https://github.com/stackabletech/druid-operator"
 version = "0.2.0-nightly"
-build = "build.rs"
 
 [dependencies]
-stackable-operator = { git = "https://github.com/stackabletech/operator-rs.git", tag = "0.4.0" }
+stackable-operator = { git = "https://github.com/stackabletech/operator-rs.git", tag = "0.6.0" }
 stackable-druid-crd = { path = "../crd" }
-stackable-druid-operator = { path = "../operator" }
-
 clap = "2.33"
-tokio = { version = "1.10", features = ["macros", "rt-multi-thread"] }
+failure = "0.1"
+futures = { version = "0.3", features = ["compat"] }
+semver = "1.0"
+serde = "1.0"
+serde_json = "1.0"
+serde_yaml = "0.8"
+snafu = "0.6"
+structopt = "0.3"
+strum = "0.22"
+strum_macros = "0.22"
+tokio = { version = "1.12", features = ["full"] }
+tokio01 = { version = "0.1", package = "tokio" }
+tokio-executor = "0.1"
 tracing = "0.1"
+pin-project = "1.0"
+anyhow = "1.0"
+fnv = "1.0"
 
 [build-dependencies]
 built = { version =  "0.5", features = ["chrono", "git2"] }
-stackable-operator = { git = "https://github.com/stackabletech/operator-rs.git", tag = "0.4.0" }
+stackable-operator = { git = "https://github.com/stackabletech/operator-rs.git", tag = "0.6.0" }
 stackable-druid-crd = { path = "../crd" }
-
-[package.metadata.deb]
-name = "stackable-druid-operator"
-maintainer-scripts = "../../packaging/debian/"
-systemd-units = { enable = false, unit-name = "stackable-druid-operator" }
-assets = [
-    ["../../target/release/stackable-druid-operator", "opt/stackable/druid-operator/", "755"],
-    ["../../deploy/crd/druidcluster.crd.yaml", "etc/stackable/druid-operator/crd/", "644"],
-    ["../../deploy/crd/restart.crd.yaml", "etc/stackable/druid-operator/crd/", "644"],
-    ["../../deploy/crd/start.crd.yaml", "etc/stackable/druid-operator/crd/", "644"],
-    ["../../deploy/crd/stop.crd.yaml", "etc/stackable/druid-operator/crd/", "644"],
-    ["../../deploy/config-spec/properties.yaml", "etc/stackable/druid-operator/config-spec/", "644"],
-]
-
-[[bin]]
-name = "stackable-druid-operator"
-path = "src/stackable-druid-operator.rs"

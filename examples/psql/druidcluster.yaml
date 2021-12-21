@@ -5,15 +5,19 @@ metadata:
 spec:
   version: 0.22.0
   zookeeperReference:
+    configMapName: simple
     namespace: default
-    name: simple
   metadataStorageDatabase:
-    dbType: derby
-    connString: jdbc:derby://localhost:1527/var/druid/metadata.db;create=true
-    host: localhost
-    port: 1527
+    dbType: postgresql
+    connString: jdbc:postgresql://druid-postgresql/druid
+    host: druid-postgresql
+    port: 5432
+    user: druid
+    password: druid
   deepStorage:
     storageType: local
+    dataNodeSelector:
+      nodeType: druid-data
     storageDirectory: /data
   brokers:
     roleGroups:
@@ -23,7 +27,7 @@ spec:
             kubernetes.io/os: linux
         config:
           plaintextPort: 8082
-          metricsPort: 9095
+          metricsPort: 9092
         replicas: 1
   coordinators:
     roleGroups:
@@ -33,7 +37,7 @@ spec:
             kubernetes.io/os: linux
         config:
           plaintextPort: 8081
-          metricsPort: 9090
+          metricsPort: 9091
         replicas: 1
   historicals:
     roleGroups:
@@ -43,7 +47,7 @@ spec:
             kubernetes.io/os: linux
         config:
           plaintextPort: 8083
-          metricsPort: 9090
+          metricsPort: 9093
         replicas: 1
   middleManagers:
     roleGroups:
@@ -53,7 +57,7 @@ spec:
             kubernetes.io/os: linux
         config:
           plaintextPort: 8091
-          metricsPort: 9095
+          metricsPort: 9090
         replicas: 1
   routers:
     roleGroups:

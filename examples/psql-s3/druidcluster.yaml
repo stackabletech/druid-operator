@@ -5,20 +5,22 @@ metadata:
 spec:
   version: 0.22.0
   zookeeperReference:
+    configMapName: simple
     namespace: default
-    name: simple
   metadataStorageDatabase:
     dbType: postgresql
-    connString: jdbc:postgresql://10.96.62.135/druid
-    host: 10.96.62.135
+    connString: jdbc:postgresql://druid-postgresql/druid
+    host: druid-postgresql
     port: 5432
     user: druid
     password: druid
+  s3:
+    endpoint: s3-de-central.profitbricks.com
+    credentialsSecret: s3-credentials    # this needs to be deployed additionally
   deepStorage:
-    storageType: local
-    dataNodeSelector:
-      nodeType: druid-data
-    storageDirectory: /data
+    storageType: s3
+    bucket: druid-deepstorage2
+    baseKey: storage               # this is optional; deep storage can also be at the root of the bucket
   brokers:
     roleGroups:
       default:
