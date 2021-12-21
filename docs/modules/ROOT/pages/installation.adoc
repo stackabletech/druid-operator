@@ -46,6 +46,7 @@ To run it straight from Docker you can use this command:
 ----
 docker run \
     --name druid-operator \
+    --network host \
     --env KUBECONFIG=/home/stackable/.kube/config \
     --mount type=bind,source="$HOME/.kube/config",target="/home/stackable/.kube/config" \
     docker.stackable.tech/stackable/druid-operator:latest
