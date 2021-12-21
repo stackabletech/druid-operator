@@ -77,16 +77,6 @@ async fn main() -> anyhow::Result<()> {
             let druid_store = druid_controller_builder.store();
             let druid_controller = druid_controller_builder
                 .owns(client.get_all_api::<Service>(), ListParams::default())
-                .watches(
-                    client.get_all_api::<Endpoints>(),
-                    ListParams::default(),
-                    move |_endpoints| {
-                        druid_store
-                            .state()
-                            .into_iter()
-                            .map(|druid| ObjectRef::from_obj(&druid))
-                    },
-                )
                 .owns(client.get_all_api::<StatefulSet>(), ListParams::default())
                 .owns(client.get_all_api::<ConfigMap>(), ListParams::default())
                 .run(
