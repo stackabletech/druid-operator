@@ -9,9 +9,9 @@ use std::{
 use crate::config::{get_jvm_config, get_log4j_config, get_runtime_properties};
 use snafu::{OptionExt, ResultExt, Snafu};
 use stackable_druid_crd::{
-    DeepStorageType, DruidCluster, DruidRole, APP_NAME, CONTAINER_METRICS_PORT,
-    CONTAINER_PLAINTEXT_PORT, CREDENTIALS_SECRET_PROPERTY, DRUID_METRICS_PORT, DRUID_PLAINTEXTPORT,
-    JVM_CONFIG, LOG4J2_CONFIG, RUNTIME_PROPS, ZOOKEEPER_CONNECTION_STRING,
+    DeepStorageType, DruidCluster, DruidRole, APP_NAME, CONTAINER_HTTP_PORT,
+    CONTAINER_METRICS_PORT, CREDENTIALS_SECRET_PROPERTY, DRUID_METRICS_PORT, JVM_CONFIG,
+    LOG4J2_CONFIG, RUNTIME_PROPS, ZOOKEEPER_CONNECTION_STRING,
 };
 use stackable_operator::{
     builder::{
@@ -106,6 +106,10 @@ pub enum Error {
         namespace
     ))]
     MissingZookeeperConnString { cm_name: String, namespace: String },
+
+    ProductConfigTransform {
+        source: stackable_operator::product_config_utils::ConfigError,
+    },
 }
 type Result<T, E = Error> = std::result::Result<T, E>;
 
@@ -149,7 +153,7 @@ pub async fn reconcile_druid(druid: DruidCluster, ctx: Context<Ctx>) -> Result<R
     let role_config = transform_all_roles_to_config(&druid, roles);
     let validated_role_config = validate_all_roles_and_groups_config(
         druid_version(&druid)?,
-        &role_config,
+        &role_config.with_context(|| ProductConfigTransform)?,
         &ctx.get_ref().product_config,
         false,
         false,
@@ -228,14 +232,10 @@ pub fn build_role_service(role_name: &str, druid: &DruidCluster) -> Result<Servi
         spec: Some(ServiceSpec {
             ports: Some(vec![ServicePort {
                 name: Some("plaintext".to_string()),
-                port: match DruidRole::from_str(role_name).unwrap() {
-                    // the default ports for the roles
-                    DruidRole::Coordinator => 8081,
-                    DruidRole::Broker => 8082,
-                    DruidRole::Historical => 8083,
-                    DruidRole::MiddleManager => 8091,
-                    DruidRole::Router => 8888,
-                },
+                port: DruidRole::from_str(role_name)
+                    .unwrap()
+                    .get_http_port()
+                    .into(),
                 target_port: Some(IntOrString::String("plaintext".to_string())),
                 protocol: Some("TCP".to_string()),
                 ..ServicePort::default()
@@ -322,33 +322,24 @@ fn build_rolegroup_config_map(
 fn build_rolegroup_services(
     rolegroup: &RoleGroupRef<DruidCluster>,
     druid: &DruidCluster,
-    rolegroup_config: &HashMap<PropertyNameKind, BTreeMap<String, String>>,
+    _rolegroup_config: &HashMap<PropertyNameKind, BTreeMap<String, String>>,
 ) -> Result<Service> {
+    let role = DruidRole::from_str(&rolegroup.role).unwrap();
     let mut ports = vec![];
-    if let Some(plaintext_port) = rolegroup_config
-        .get(&PropertyNameKind::File(RUNTIME_PROPS.to_string()))
-        .and_then(|props| props.get(DRUID_PLAINTEXTPORT))
-        .map(|port| port.parse::<i32>().unwrap())
-    {
-        ports.push(ServicePort {
-            name: Some(CONTAINER_PLAINTEXT_PORT.to_string()),
-            port: plaintext_port,
-            protocol: Some("TCP".to_string()),
-            ..ServicePort::default()
-        });
-    }
-    if let Some(metrics_port) = rolegroup_config
-        .get(&PropertyNameKind::File(RUNTIME_PROPS.to_string()))
-        .and_then(|props| props.get(DRUID_METRICS_PORT))
-        .map(|port| port.parse::<i32>().unwrap())
-    {
-        ports.push(ServicePort {
-            name: Some(CONTAINER_METRICS_PORT.to_string()),
-            port: metrics_port,
-            protocol: Some("TCP".to_string()),
-            ..ServicePort::default()
-        });
-    }
+
+    ports.push(ServicePort {
+        name: Some(CONTAINER_HTTP_PORT.to_string()),
+        port: role.get_http_port().into(),
+        protocol: Some("TCP".to_string()),
+        ..ServicePort::default()
+    });
+
+    ports.push(ServicePort {
+        name: Some(CONTAINER_METRICS_PORT.to_string()),
+        port: DRUID_METRICS_PORT.into(),
+        protocol: Some("TCP".to_string()),
+        ..ServicePort::default()
+    });
     Ok(Service {
         metadata: ObjectMetaBuilder::new()
             .name_and_namespace(druid)
@@ -432,20 +423,8 @@ fn build_rolegroup_statefulset(
     }
 
     // add ports
-    if let Some(plaintext_port) = rolegroup_config
-        .get(&PropertyNameKind::File(RUNTIME_PROPS.to_string()))
-        .and_then(|props| props.get(DRUID_PLAINTEXTPORT))
-        .map(|port| port.parse::<i32>().unwrap())
-    {
-        cb.add_container_port(CONTAINER_PLAINTEXT_PORT, plaintext_port);
-    }
-    if let Some(metrics_port) = rolegroup_config
-        .get(&PropertyNameKind::File(RUNTIME_PROPS.to_string()))
-        .and_then(|props| props.get(DRUID_METRICS_PORT))
-        .map(|port| port.parse::<i32>().unwrap())
-    {
-        cb.add_container_port(CONTAINER_METRICS_PORT, metrics_port);
-    }
+    cb.add_container_port(CONTAINER_HTTP_PORT, role.get_http_port().into());
+    cb.add_container_port(CONTAINER_METRICS_PORT, DRUID_METRICS_PORT.into());
 
     // config mount
     cb.add_volume_mount("config", "/stackable/conf");

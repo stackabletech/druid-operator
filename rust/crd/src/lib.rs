@@ -17,14 +17,12 @@ pub const RUNTIME_PROPS: &str = "runtime.properties";
 pub const LOG4J2_CONFIG: &str = "log4j2.xml";
 
 // port names
-pub const CONTAINER_PLAINTEXT_PORT: &str = "plaintext";
+pub const CONTAINER_HTTP_PORT: &str = "http";
 pub const CONTAINER_METRICS_PORT: &str = "metrics";
 
 /////////////////////////////
 //    CONFIG PROPERTIES    //
 /////////////////////////////
-pub const DRUID_PLAINTEXTPORT: &str = "druid.plaintextPort";
-pub const DRUID_METRICS_PORT: &str = "druid.emitter.prometheus.port";
 pub const EXTENSIONS_LOADLIST: &str = "druid.extensions.loadList";
 // extension names
 pub const EXT_S3: &str = "druid-s3-extensions";
@@ -50,6 +48,8 @@ pub const MD_ST_USER: &str = "druid.metadata.storage.connector.user";
 pub const MD_ST_PASSWORD: &str = "druid.metadata.storage.connector.password";
 // extra
 pub const CREDENTIALS_SECRET_PROPERTY: &str = "credentialsSecret";
+
+pub const DRUID_METRICS_PORT: u16 = 9090;
 
 #[derive(Clone, CustomResource, Debug, Deserialize, JsonSchema, Serialize)]
 #[kube(
@@ -111,7 +111,8 @@ pub enum DruidRole {
 }
 
 impl DruidRole {
-    /// Returns the name of the internal druid process name associated with the role
+    /// Returns the name of the internal druid process name associated with the role.
+    /// These strings are used by druid internally to identify processes.
     fn get_process_name(&self) -> &str {
         match &self {
             DruidRole::Coordinator => "coordinator",
@@ -119,6 +120,17 @@ impl DruidRole {
             DruidRole::Historical => "historical",
             DruidRole::MiddleManager => "middleManager",
             DruidRole::Router => "router",
+        }
+    }
+
+    /// Returns the default port for every role, as taken from the sample configs.
+    pub fn get_http_port(&self) -> u16 {
+        match &self {
+            DruidRole::Coordinator => 8081,
+            DruidRole::Broker => 8082,
+            DruidRole::Historical => 8083,
+            DruidRole::MiddleManager => 8091,
+            DruidRole::Router => 8888,
         }
     }
 
@@ -239,13 +251,9 @@ pub struct S3Spec {
     pub endpoint: Option<String>,
 }
 
-#[derive(Clone, Debug, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
+#[derive(Clone, Debug, Deserialize, Eq, JsonSchema, PartialEq, Serialize, Default)]
 #[serde(rename_all = "camelCase")]
-pub struct DruidConfig {
-    // port
-    pub plaintext_port: u16,
-    pub metrics_port: u16,
-}
+pub struct DruidConfig {}
 
 impl Configuration for DruidConfig {
     type Configurable = DruidCluster;
@@ -329,14 +337,6 @@ impl Configuration for DruidConfig {
                     result.insert(DS_BASE_KEY.to_string(), Some(key.to_string()));
                 }
                 // other
-                result.insert(
-                    DRUID_PLAINTEXTPORT.to_string(),
-                    Some(self.plaintext_port.to_string()),
-                );
-                result.insert(
-                    DRUID_METRICS_PORT.to_string(),
-                    Some(self.metrics_port.to_string()),
-                );
                 result.insert(
                     EXTENSIONS_LOADLIST.to_string(),
                     Some(build_string_list(&extensions)),
