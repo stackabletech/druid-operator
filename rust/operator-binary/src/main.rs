@@ -1,8 +1,7 @@
 mod config;
 mod druid_controller;
-mod utils;
 
-use futures::{compat::Future01CompatExt, StreamExt};
+use futures::StreamExt;
 use stackable_druid_crd::DruidCluster;
 use stackable_operator::{
     cli::Command,
@@ -26,9 +25,6 @@ mod built_info {
     include!(concat!(env!("OUT_DIR"), "/built.rs"));
 }
 
-pub const APP_NAME: &str = "druid";
-pub const APP_PORT: u16 = 2181;
-
 #[derive(StructOpt)]
 #[structopt(about = built_info::PKG_DESCRIPTION, author = stackable_operator::cli::AUTHOR)]
 struct Opts {
@@ -50,8 +46,6 @@ fn erase_controller_result_type<K: Resource, E: std::error::Error + Send + Sync 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     stackable_operator::logging::initialize_logging("DRUID_OPERATOR_LOG");
-    // tokio-zookeeper depends on Tokio 0.1
-    let tokio01_runtime = tokio01::runtime::Runtime::new()?;
 
     let opts = Opts::from_args();
     match opts.cmd {
@@ -103,6 +97,5 @@ async fn main() -> anyhow::Result<()> {
         }
     }
 
-    tokio01_runtime.shutdown_now().compat().await.unwrap();
     Ok(())
 }
