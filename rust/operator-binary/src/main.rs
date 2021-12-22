@@ -67,7 +67,7 @@ async fn main() -> anyhow::Result<()> {
             );
             let product_config = product_config.load(&[
                 "deploy/config-spec/properties.yaml",
-                "/etc/stackable/superset-operator/config-spec/properties.yaml",
+                "/etc/stackable/druid-operator/config-spec/properties.yaml",
             ])?;
             let client =
                 stackable_operator::client::create_client(Some("druid.stackable.tech".to_string()))
