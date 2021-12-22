@@ -7,8 +7,10 @@ All notable changes to this project will be documented in this file.
 ### Changed
 
 - Migrated to StatefulSet rather than direct Pod management ([#59]).
+- Ports are not configurable anymore ([#76]).
 
 [#59]: https://github.com/stackabletech/druid-operator/pull/59
+[#76]: https://github.com/stackabletech/druid-operator/pull/76
 
 ## [0.1.0] - 2021-12-06
 
