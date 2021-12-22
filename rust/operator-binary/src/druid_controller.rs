@@ -325,21 +325,7 @@ fn build_rolegroup_services(
     _rolegroup_config: &HashMap<PropertyNameKind, BTreeMap<String, String>>,
 ) -> Result<Service> {
     let role = DruidRole::from_str(&rolegroup.role).unwrap();
-    let mut ports = vec![];
 
-    ports.push(ServicePort {
-        name: Some(CONTAINER_HTTP_PORT.to_string()),
-        port: role.get_http_port().into(),
-        protocol: Some("TCP".to_string()),
-        ..ServicePort::default()
-    });
-
-    ports.push(ServicePort {
-        name: Some(CONTAINER_METRICS_PORT.to_string()),
-        port: DRUID_METRICS_PORT.into(),
-        protocol: Some("TCP".to_string()),
-        ..ServicePort::default()
-    });
     Ok(Service {
         metadata: ObjectMetaBuilder::new()
             .name_and_namespace(druid)
@@ -358,7 +344,20 @@ fn build_rolegroup_services(
             .build(),
         spec: Some(ServiceSpec {
             cluster_ip: Some("None".to_string()),
-            ports: Some(ports),
+            ports: Some(vec![
+                ServicePort {
+                    name: Some(CONTAINER_HTTP_PORT.to_string()),
+                    port: role.get_http_port().into(),
+                    protocol: Some("TCP".to_string()),
+                    ..ServicePort::default()
+                },
+                ServicePort {
+                    name: Some(CONTAINER_METRICS_PORT.to_string()),
+                    port: DRUID_METRICS_PORT.into(),
+                    protocol: Some("TCP".to_string()),
+                    ..ServicePort::default()
+                },
+            ]),
             selector: Some(role_group_selector_labels(
                 druid,
                 APP_NAME,
