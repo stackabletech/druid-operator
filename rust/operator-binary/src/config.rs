@@ -1,4 +1,6 @@
 use stackable_druid_crd::DruidRole;
+use stackable_druid_crd::DRUID_METRICS_PORT;
+use stackable_operator::product_config::writer::PropertiesWriterError;
 use std::collections::BTreeMap;
 
 pub fn get_jvm_config(role: &DruidRole) -> String {
@@ -58,7 +60,7 @@ pub fn get_jvm_config(role: &DruidRole) -> String {
 pub fn get_runtime_properties(
     role: &DruidRole,
     other_props: &BTreeMap<String, Option<String>>,
-) -> String {
+) -> Result<String, PropertiesWriterError> {
     let common = "
     druid.startup.logging.logProperties=true
     druid.zk.paths.base=/druid
@@ -77,6 +79,13 @@ pub fn get_runtime_properties(
     druid.emitter.prometheus.strategy=exporter
     druid.emitter.prometheus.namespace=druid
     ";
+
+    let ports = format!(
+        "druid.plaintext={}\n\
+         druid.emitter.prometheus.port={}\n",
+        role.get_http_port(),
+        DRUID_METRICS_PORT
+    );
 
     let role_specifics = match role {
         DruidRole::Broker => "
@@ -174,8 +183,8 @@ pub fn get_runtime_properties(
         ",
     };
     let others =
-        stackable_operator::product_config::writer::to_java_properties_string(other_props.iter());
-    format!("{}\n{}\n{}", common, role_specifics, others.unwrap())
+        stackable_operator::product_config::writer::to_java_properties_string(other_props.iter())?;
+    Ok(format!("{}{}{}{}", ports, common, role_specifics, others))
 }
 
 pub fn get_log4j_config(_role: &DruidRole) -> String {

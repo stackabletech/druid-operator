@@ -57,41 +57,29 @@ spec:
     roleGroups:
       default:
         config:
-          plaintextPort: 8082
-          metricsPort: 9090
         replicas: 1
   coordinators:
     roleGroups:
       default:
         config:
-          plaintextPort: 8081
-          metricsPort: 9090
         replicas: 1
   historicals:
     roleGroups:
       default:
         config:
-          plaintextPort: 8083
-          metricsPort: 9090
         replicas: 1
   middleManagers:
     roleGroups:
       default:
         config:
-          plaintextPort: 8091
-          metricsPort: 9095
         replicas: 1
   routers:
     roleGroups:
       default:
         config:
-          plaintextPort: 8888
-          metricsPort: 9195
         replicas: 1
 
 The Router is hosting the web UI, a `NodePort` service is created by the operator to access the web UI. Connect to the `simple-router` `NodePort` service and follow the https://druid.apache.org/docs/latest/tutorials/index.html#step-4-load-data[druid documentation] on how to load and query sample data.
-
-For monitoring purposes, Prometheus metrics are exposed on `metricsPort`. Similarly to the web UI above, you need to expose the corresponding port for the group you want to monitor.
 
 == Using S3
 
