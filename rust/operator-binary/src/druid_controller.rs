@@ -106,9 +106,13 @@ pub enum Error {
         namespace
     ))]
     MissingZookeeperConnString { cm_name: String, namespace: String },
-
+    #[snafu(display("Failed to transform configs"))]
     ProductConfigTransform {
         source: stackable_operator::product_config_utils::ConfigError,
+    },
+    #[snafu(display("Failed to format runtime properties"))]
+    PropertiesWriteError {
+        source: stackable_operator::product_config::writer::PropertiesWriterError,
     },
 }
 type Result<T, E = Error> = std::result::Result<T, E>;
@@ -273,7 +277,8 @@ fn build_rolegroup_config_map(
                     ZOOKEEPER_CONNECTION_STRING.to_string(),
                     Some(zk_connstr.clone()),
                 );
-                let runtime_properties = get_runtime_properties(&role, &transformed_config);
+                let runtime_properties = get_runtime_properties(&role, &transformed_config)
+                    .with_context(|| PropertiesWriteError)?;
                 cm_conf_data.insert(RUNTIME_PROPS.to_string(), runtime_properties);
             }
             PropertyNameKind::File(file_name) if file_name == JVM_CONFIG => {

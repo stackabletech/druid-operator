@@ -1,5 +1,6 @@
 use stackable_druid_crd::DruidRole;
 use stackable_druid_crd::DRUID_METRICS_PORT;
+use stackable_operator::product_config::writer::PropertiesWriterError;
 use std::collections::BTreeMap;
 
 pub fn get_jvm_config(role: &DruidRole) -> String {
@@ -59,7 +60,7 @@ pub fn get_jvm_config(role: &DruidRole) -> String {
 pub fn get_runtime_properties(
     role: &DruidRole,
     other_props: &BTreeMap<String, Option<String>>,
-) -> String {
+) -> Result<String, PropertiesWriterError> {
     let common = "
     druid.startup.logging.logProperties=true
     druid.zk.paths.base=/druid
@@ -182,8 +183,8 @@ pub fn get_runtime_properties(
         ",
     };
     let others =
-        stackable_operator::product_config::writer::to_java_properties_string(other_props.iter());
-    format!("{}{}{}{}", ports, common, role_specifics, others.unwrap())
+        stackable_operator::product_config::writer::to_java_properties_string(other_props.iter())?;
+    Ok(format!("{}{}{}{}", ports, common, role_specifics, others))
 }
 
 pub fn get_log4j_config(_role: &DruidRole) -> String {
