@@ -56,27 +56,27 @@ spec:
   brokers:
     roleGroups:
       default:
-        config:
+        config: {}
         replicas: 1
   coordinators:
     roleGroups:
       default:
-        config:
+        config: {}
         replicas: 1
   historicals:
     roleGroups:
       default:
-        config:
+        config: {}
         replicas: 1
   middleManagers:
     roleGroups:
       default:
-        config:
+        config: {}
         replicas: 1
   routers:
     roleGroups:
       default:
-        config:
+        config: {}
         replicas: 1
 
 The Router is hosting the web UI, a `NodePort` service is created by the operator to access the web UI. Connect to the `simple-router` `NodePort` service and follow the https://druid.apache.org/docs/latest/tutorials/index.html#step-4-load-data[druid documentation] on how to load and query sample data.

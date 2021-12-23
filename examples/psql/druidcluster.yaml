@@ -25,7 +25,7 @@ spec:
         selector:
           matchLabels:
             kubernetes.io/os: linux
-        config:
+        config: {}
         replicas: 1
   coordinators:
     roleGroups:
@@ -33,7 +33,7 @@ spec:
         selector:
           matchLabels:
             kubernetes.io/os: linux
-        config:
+        config: {}
         replicas: 1
   historicals:
     roleGroups:
@@ -41,7 +41,7 @@ spec:
         selector:
           matchLabels:
             kubernetes.io/os: linux
-        config:
+        config: {}
         replicas: 1
   middleManagers:
     roleGroups:
@@ -49,7 +49,7 @@ spec:
         selector:
           matchLabels:
             kubernetes.io/os: linux
-        config:
+        config: {}
         replicas: 1
   routers:
     roleGroups:
@@ -57,5 +57,5 @@ spec:
         selector:
           matchLabels:
             kubernetes.io/os: linux
-        config:
+        config: {}
         replicas: 1
