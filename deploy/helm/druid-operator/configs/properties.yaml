@@ -12,58 +12,6 @@ spec:
 ###################################################################################################
 
 properties:
-  - property: &metricsPort
-      propertyNames:
-        - name: "metricsPort"
-          kind:
-            type: "file"
-            file: "runtime.properties"
-      datatype:
-        type: "integer"
-        min: "1024"
-        max: "65535"
-      defaultValues:
-        - fromVersion: "0.22.0"
-          value: "9090"
-      roles:
-        - name: "broker"
-          required: true
-        - name: "coordinator"
-          required: true
-        - name: "historical"
-          required: true
-        - name: "middleManager"
-          required: true
-        - name: "router"
-          required: true
-      asOfVersion: "0.22.0"
-      description: "The port where Prometheus metrics are exposed."
-
-  - property: &plaintextPort
-      propertyNames:
-        - name: "druid.plaintextPort"
-          kind:
-            type: "file"
-            file: "runtime.properties"
-      datatype:
-        type: "integer"
-        min: "1024"
-        max: "65535"
-      # defaultValues:                          # The default value is different for each role
-      #   - fromVersion: "0.0.0"                # this is not supported yet
-      #     value: "8080"                       # See product-config issue #38
-      roles:
-        - name: "broker"
-          required: true
-        - name: "coordinator"
-          required: true
-        - name: "historical"
-          required: true
-        - name: "middleManager"
-          required: true
-        - name: "router"
-          required: true
-      asOfVersion: "0.0.0"
 
   - property: &metadataStorageType
       propertyNames:
