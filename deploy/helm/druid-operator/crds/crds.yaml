@@ -29,34 +29,22 @@ spec:
                     cliOverrides:
                       additionalProperties:
                         type: string
-                      nullable: true
+                      default: {}
                       type: object
                     config:
-                      nullable: true
-                      properties:
-                        metricsPort:
-                          format: uint16
-                          minimum: 0.0
-                          type: integer
-                        plaintextPort:
-                          format: uint16
-                          minimum: 0.0
-                          type: integer
-                      required:
-                        - metricsPort
-                        - plaintextPort
+                      default: {}
                       type: object
                     configOverrides:
                       additionalProperties:
                         additionalProperties:
                           type: string
                         type: object
-                      nullable: true
+                      default: {}
                       type: object
                     envOverrides:
                       additionalProperties:
                         type: string
-                      nullable: true
+                      default: {}
                       type: object
                     roleGroups:
                       additionalProperties:
@@ -64,34 +52,22 @@ spec:
                           cliOverrides:
                             additionalProperties:
                               type: string
-                            nullable: true
+                            default: {}
                             type: object
                           config:
-                            nullable: true
-                            properties:
-                              metricsPort:
-                                format: uint16
-                                minimum: 0.0
-                                type: integer
-                              plaintextPort:
-                                format: uint16
-                                minimum: 0.0
-                                type: integer
-                            required:
-                              - metricsPort
-                              - plaintextPort
+                            default: {}
                             type: object
                           configOverrides:
                             additionalProperties:
                               additionalProperties:
                                 type: string
                               type: object
-                            nullable: true
+                            default: {}
                             type: object
                           envOverrides:
                             additionalProperties:
                               type: string
-                            nullable: true
+                            default: {}
                             type: object
                           replicas:
                             format: uint16
@@ -139,34 +115,22 @@ spec:
                     cliOverrides:
                       additionalProperties:
                         type: string
-                      nullable: true
+                      default: {}
                       type: object
                     config:
-                      nullable: true
-                      properties:
-                        metricsPort:
-                          format: uint16
-                          minimum: 0.0
-                          type: integer
-                        plaintextPort:
-                          format: uint16
-                          minimum: 0.0
-                          type: integer
-                      required:
-                        - metricsPort
-                        - plaintextPort
+                      default: {}
                       type: object
                     configOverrides:
                       additionalProperties:
                         additionalProperties:
                           type: string
                         type: object
-                      nullable: true
+                      default: {}
                       type: object
                     envOverrides:
                       additionalProperties:
                         type: string
-                      nullable: true
+                      default: {}
                       type: object
                     roleGroups:
                       additionalProperties:
@@ -174,34 +138,22 @@ spec:
                           cliOverrides:
                             additionalProperties:
                               type: string
-                            nullable: true
+                            default: {}
                             type: object
                           config:
-                            nullable: true
-                            properties:
-                              metricsPort:
-                                format: uint16
-                                minimum: 0.0
-                                type: integer
-                              plaintextPort:
-                                format: uint16
-                                minimum: 0.0
-                                type: integer
-                            required:
-                              - metricsPort
-                              - plaintextPort
+                            default: {}
                             type: object
                           configOverrides:
                             additionalProperties:
                               additionalProperties:
                                 type: string
                               type: object
-                            nullable: true
+                            default: {}
                             type: object
                           envOverrides:
                             additionalProperties:
                               type: string
-                            nullable: true
+                            default: {}
                             type: object
                           replicas:
                             format: uint16
@@ -273,34 +225,22 @@ spec:
                     cliOverrides:
                       additionalProperties:
                         type: string
-                      nullable: true
+                      default: {}
                       type: object
                     config:
-                      nullable: true
-                      properties:
-                        metricsPort:
-                          format: uint16
-                          minimum: 0.0
-                          type: integer
-                        plaintextPort:
-                          format: uint16
-                          minimum: 0.0
-                          type: integer
-                      required:
-                        - metricsPort
-                        - plaintextPort
+                      default: {}
                       type: object
                     configOverrides:
                       additionalProperties:
                         additionalProperties:
                           type: string
                         type: object
-                      nullable: true
+                      default: {}
                       type: object
                     envOverrides:
                       additionalProperties:
                         type: string
-                      nullable: true
+                      default: {}
                       type: object
                     roleGroups:
                       additionalProperties:
@@ -308,34 +248,22 @@ spec:
                           cliOverrides:
                             additionalProperties:
                               type: string
-                            nullable: true
+                            default: {}
                             type: object
                           config:
-                            nullable: true
-                            properties:
-                              metricsPort:
-                                format: uint16
-                                minimum: 0.0
-                                type: integer
-                              plaintextPort:
-                                format: uint16
-                                minimum: 0.0
-                                type: integer
-                            required:
-                              - metricsPort
-                              - plaintextPort
+                            default: {}
                             type: object
                           configOverrides:
                             additionalProperties:
                               additionalProperties:
                                 type: string
                               type: object
-                            nullable: true
+                            default: {}
                             type: object
                           envOverrides:
                             additionalProperties:
                               type: string
-                            nullable: true
+                            default: {}
                             type: object
                           replicas:
                             format: uint16
@@ -411,34 +339,22 @@ spec:
                     cliOverrides:
                       additionalProperties:
                         type: string
-                      nullable: true
+                      default: {}
                       type: object
                     config:
-                      nullable: true
-                      properties:
-                        metricsPort:
-                          format: uint16
-                          minimum: 0.0
-                          type: integer
-                        plaintextPort:
-                          format: uint16
-                          minimum: 0.0
-                          type: integer
-                      required:
-                        - metricsPort
-                        - plaintextPort
+                      default: {}
                       type: object
                     configOverrides:
                       additionalProperties:
                         additionalProperties:
                           type: string
                         type: object
-                      nullable: true
+                      default: {}
                       type: object
                     envOverrides:
                       additionalProperties:
                         type: string
-                      nullable: true
+                      default: {}
                       type: object
                     roleGroups:
                       additionalProperties:
@@ -446,34 +362,22 @@ spec:
                           cliOverrides:
                             additionalProperties:
                               type: string
-                            nullable: true
+                            default: {}
                             type: object
                           config:
-                            nullable: true
-                            properties:
-                              metricsPort:
-                                format: uint16
-                                minimum: 0.0
-                                type: integer
-                              plaintextPort:
-                                format: uint16
-                                minimum: 0.0
-                                type: integer
-                            required:
-                              - metricsPort
-                              - plaintextPort
+                            default: {}
                             type: object
                           configOverrides:
                             additionalProperties:
                               additionalProperties:
                                 type: string
                               type: object
-                            nullable: true
+                            default: {}
                             type: object
                           envOverrides:
                             additionalProperties:
                               type: string
-                            nullable: true
+                            default: {}
                             type: object
                           replicas:
                             format: uint16
@@ -521,34 +425,22 @@ spec:
                     cliOverrides:
                       additionalProperties:
                         type: string
-                      nullable: true
+                      default: {}
                       type: object
                     config:
-                      nullable: true
-                      properties:
-                        metricsPort:
-                          format: uint16
-                          minimum: 0.0
-                          type: integer
-                        plaintextPort:
-                          format: uint16
-                          minimum: 0.0
-                          type: integer
-                      required:
-                        - metricsPort
-                        - plaintextPort
+                      default: {}
                       type: object
                     configOverrides:
                       additionalProperties:
                         additionalProperties:
                           type: string
                         type: object
-                      nullable: true
+                      default: {}
                       type: object
                     envOverrides:
                       additionalProperties:
                         type: string
-                      nullable: true
+                      default: {}
                       type: object
                     roleGroups:
                       additionalProperties:
@@ -556,34 +448,22 @@ spec:
                           cliOverrides:
                             additionalProperties:
                               type: string
-                            nullable: true
+                            default: {}
                             type: object
                           config:
-                            nullable: true
-                            properties:
-                              metricsPort:
-                                format: uint16
-                                minimum: 0.0
-                                type: integer
-                              plaintextPort:
-                                format: uint16
-                                minimum: 0.0
-                                type: integer
-                            required:
-                              - metricsPort
-                              - plaintextPort
+                            default: {}
                             type: object
                           configOverrides:
                             additionalProperties:
                               additionalProperties:
                                 type: string
                               type: object
-                            nullable: true
+                            default: {}
                             type: object
                           envOverrides:
                             additionalProperties:
                               type: string
-                            nullable: true
+                            default: {}
                             type: object
                           replicas:
                             format: uint16
