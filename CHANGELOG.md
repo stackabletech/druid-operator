@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Changed
+
+- Shut down gracefully ([#XXX]).
+
+[#XXX]: https://github.com/stackabletech/druid-operator/pull/XXX
+
 ## [0.2.0] - 2021-12-23
 
 
