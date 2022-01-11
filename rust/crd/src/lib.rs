@@ -1,8 +1,12 @@
 use serde::{Deserialize, Serialize};
-use stackable_operator::kube::CustomResource;
-use stackable_operator::product_config_utils::{ConfigError, Configuration};
-use stackable_operator::role_utils::Role;
-use stackable_operator::schemars::{self, JsonSchema};
+use snafu::{OptionExt, Snafu};
+use stackable_operator::{
+    kube::{runtime::reflector::ObjectRef, CustomResource},
+    product_config_utils::{ConfigError, Configuration},
+    role_utils::{Role, RoleGroupRef},
+    schemars::{self, JsonSchema},
+};
+use std::borrow::Borrow;
 use std::collections::BTreeMap;
 use std::str::FromStr;
 use strum_macros::Display;
@@ -144,7 +148,30 @@ impl DruidRole {
     }
 }
 
+#[derive(Debug, Snafu)]
+#[snafu(display("object has no namespace associated"))]
+pub struct NoNamespaceError;
+
+/// Reference to a single `Pod` that is a component of a [`DruidCluster`]
+///
+/// Used for service discovery.
+pub struct DruidPodRef {
+    pub namespace: String,
+    pub role_group_service_name: String,
+    pub pod_name: String,
+}
+
+impl DruidPodRef {
+    pub fn fqdn(&self) -> String {
+        format!(
+            "{}.{}.{}.svc.cluster.local",
+            self.pod_name, self.role_group_service_name, self.namespace
+        )
+    }
+}
+
 impl DruidCluster {
+    /// The spec for the given Role
     pub fn get_role(&self, role: &DruidRole) -> &Role<DruidConfig> {
         match role {
             DruidRole::Coordinator => &self.spec.coordinators,
@@ -153,6 +180,71 @@ impl DruidCluster {
             DruidRole::Historical => &self.spec.historicals,
             DruidRole::Router => &self.spec.routers,
         }
+    }
+
+    /// The name of the role-level load-balanced Kubernetes `Service`
+    pub fn role_service_name(&self, role: &DruidRole) -> Option<String> {
+        Some(format!(
+            "{}-{}",
+            self.metadata.name.clone()?,
+            role.to_string()
+        ))
+    }
+
+    /// The fully-qualified domain name of the role-level load-balanced Kubernetes `Service`
+    pub fn role_service_fqdn(&self, role: &DruidRole) -> Option<String> {
+        Some(format!(
+            "{}.{}.svc.cluster.local",
+            self.role_service_name(role)?,
+            self.metadata.namespace.as_ref()?
+        ))
+    }
+
+    /// Metadata about a rolegroup
+    pub fn rolegroup_ref(
+        &self,
+        role: &DruidRole,
+        group_name: impl Into<String>,
+    ) -> RoleGroupRef<DruidCluster> {
+        RoleGroupRef {
+            cluster: ObjectRef::from_obj(self),
+            role: role.to_string(),
+            role_group: group_name.into(),
+        }
+    }
+
+    /// List all pods expected to form the cluster
+    ///
+    /// We try to predict the pods here rather than looking at the current cluster state in order to
+    /// avoid instance churn. For example, regenerating zoo.cfg based on the cluster state would lead to
+    /// a lot of spurious restarts, as well as opening us up to dangerous split-brain conditions because
+    /// the pods have inconsistent snapshots of which servers they should expect to be in quorum.
+    pub fn pods(&self, role: &DruidRole) -> Result<Vec<DruidPodRef>, NoNamespaceError> {
+        let ns = self
+            .metadata
+            .namespace
+            .clone()
+            .context(NoNamespaceContext)?;
+        // Order rolegroups consistently, to avoid spurious downstream rewrites
+        let sorted_rolegroups = self
+            .get_role(role)
+            .role_groups
+            .borrow()
+            .into_iter()
+            .collect::<BTreeMap<_, _>>();
+        let pods = sorted_rolegroups
+            .into_iter()
+            .flat_map(move |(rolegroup_name, rolegroup)| {
+                let rolegroup_ref = self.rolegroup_ref(role, rolegroup_name);
+                let ns = ns.clone();
+                (0..rolegroup.replicas.unwrap_or(0)).map(move |i| DruidPodRef {
+                    namespace: ns.clone(),
+                    role_group_service_name: rolegroup_ref.object_name(),
+                    pod_name: format!("{}-{}", rolegroup_ref.object_name(), i),
+                })
+            })
+            .collect();
+        Ok(pods)
     }
 }
 
@@ -360,4 +452,70 @@ fn build_string_list(strings: &[String]) -> String {
     let quoted_strings: Vec<String> = strings.iter().map(|s| format!("\"{}\"", s)).collect();
     let comma_list = quoted_strings.join(", ");
     format!("[{}]", comma_list)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use stackable_operator::role_utils::CommonConfiguration;
+
+    #[test]
+    fn test1() {
+        let cluster = DruidCluster::new(
+            "testcluster",
+            DruidClusterSpec {
+                stopped: None,
+                version: "".to_string(),
+                brokers: Role {
+                    config: CommonConfiguration {
+                        config: DruidConfig,
+                        config_overrides: Default::default(),
+                        env_overrides: Default::default(),
+                        cli_overrides: Default::default(),
+                    },
+                    role_groups: Default::default(),
+                },
+                coordinators: Role {
+                    config: CommonConfiguration {
+                        config: DruidConfig,
+                        config_overrides: Default::default(),
+                        env_overrides: Default::default(),
+                        cli_overrides: Default::default(),
+                    },
+                    role_groups: Default::default(),
+                },
+                historicals: Role {
+                    config: CommonConfiguration {
+                        config: DruidConfig,
+                        config_overrides: Default::default(),
+                        env_overrides: Default::default(),
+                        cli_overrides: Default::default(),
+                    },
+                    role_groups: Default::default(),
+                },
+                middle_managers: Role {
+                    config: CommonConfiguration {
+                        config: DruidConfig,
+                        config_overrides: Default::default(),
+                        env_overrides: Default::default(),
+                        cli_overrides: Default::default(),
+                    },
+                    role_groups: Default::default(),
+                },
+                routers: Role {
+                    config: CommonConfiguration {
+                        config: DruidConfig,
+                        config_overrides: Default::default(),
+                        env_overrides: Default::default(),
+                        cli_overrides: Default::default(),
+                    },
+                    role_groups: Default::default(),
+                },
+                metadata_storage_database: Default::default(),
+                deep_storage: Default::default(),
+                s3: None,
+                zookeeper_reference: Default::default(),
+            },
+        );
+    }
 }
