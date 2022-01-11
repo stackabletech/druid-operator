@@ -155,6 +155,7 @@ pub struct NoNamespaceError;
 /// Reference to a single `Pod` that is a component of a [`DruidCluster`]
 ///
 /// Used for service discovery.
+#[derive(Debug, PartialEq, Eq)]
 pub struct DruidPodRef {
     pub namespace: String,
     pub role_group_service_name: String,
@@ -458,17 +459,20 @@ fn build_string_list(strings: &[String]) -> String {
 mod tests {
     use super::*;
     use stackable_operator::role_utils::CommonConfiguration;
+    use stackable_operator::role_utils::RoleGroup;
+    use std::array::IntoIter;
+    use std::collections::HashMap;
 
     #[test]
     fn test1() {
-        let cluster = DruidCluster::new(
+        let mut cluster = DruidCluster::new(
             "testcluster",
             DruidClusterSpec {
                 stopped: None,
                 version: "".to_string(),
                 brokers: Role {
                     config: CommonConfiguration {
-                        config: DruidConfig,
+                        config: DruidConfig {},
                         config_overrides: Default::default(),
                         env_overrides: Default::default(),
                         cli_overrides: Default::default(),
@@ -477,7 +481,7 @@ mod tests {
                 },
                 coordinators: Role {
                     config: CommonConfiguration {
-                        config: DruidConfig,
+                        config: DruidConfig {},
                         config_overrides: Default::default(),
                         env_overrides: Default::default(),
                         cli_overrides: Default::default(),
@@ -486,7 +490,7 @@ mod tests {
                 },
                 historicals: Role {
                     config: CommonConfiguration {
-                        config: DruidConfig,
+                        config: DruidConfig {},
                         config_overrides: Default::default(),
                         env_overrides: Default::default(),
                         cli_overrides: Default::default(),
@@ -495,7 +499,7 @@ mod tests {
                 },
                 middle_managers: Role {
                     config: CommonConfiguration {
-                        config: DruidConfig,
+                        config: DruidConfig {},
                         config_overrides: Default::default(),
                         env_overrides: Default::default(),
                         cli_overrides: Default::default(),
@@ -504,12 +508,24 @@ mod tests {
                 },
                 routers: Role {
                     config: CommonConfiguration {
-                        config: DruidConfig,
+                        config: DruidConfig {},
                         config_overrides: Default::default(),
                         env_overrides: Default::default(),
                         cli_overrides: Default::default(),
                     },
-                    role_groups: Default::default(),
+                    role_groups: HashMap::<_, _>::from_iter(IntoIter::new([(
+                        "default".to_string(),
+                        RoleGroup {
+                            config: CommonConfiguration {
+                                config: DruidConfig {},
+                                config_overrides: Default::default(),
+                                env_overrides: Default::default(),
+                                cli_overrides: Default::default(),
+                            },
+                            replicas: Some(1),
+                            selector: None,
+                        },
+                    )])),
                 },
                 metadata_storage_database: Default::default(),
                 deep_storage: Default::default(),
@@ -517,5 +533,31 @@ mod tests {
                 zookeeper_reference: Default::default(),
             },
         );
+
+        cluster.metadata.namespace = Some("default".to_string());
+
+        assert_eq!(cluster.metadata.name, Some("testcluster".to_string()));
+
+        assert_eq!(
+            cluster.role_service_name(&DruidRole::Router),
+            Some("testcluster-router".to_string())
+        );
+
+        match cluster.pods(&DruidRole::Router) {
+            Ok(pods) => assert_eq!(
+                pods,
+                vec![DruidPodRef {
+                    namespace: "default".to_string(),
+                    role_group_service_name: "testcluster-router-default".to_string(),
+                    pod_name: "testcluster-router-default-0".to_string()
+                }]
+            ),
+            Err(e) => {
+                panic!(
+                    "There as an error fetching the pod names for the cluster: {}",
+                    e
+                );
+            }
+        }
     }
 }
