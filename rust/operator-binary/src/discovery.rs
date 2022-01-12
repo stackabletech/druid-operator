@@ -1,5 +1,5 @@
-//! Discovery for Druid.  We make Druid discoverable by putting a connection string to the router process
-//! inside a config map.  We only provide a connection string to the router process, since it serves as
+//! Discovery for Druid.  We make Druid discoverable by putting a connection string to the router service
+//! inside a config map.  We only provide a connection string to the router service, since it serves as
 //! a gateway to the cluster for client queries.
 
 use snafu::{OptionExt, ResultExt, Snafu};
@@ -27,7 +27,7 @@ pub enum Error {
     },
 }
 
-/// Builds discovery [`ConfigMap`]s for connecting to a [`DruidCluster`] for all expected scenarios
+/// Builds discovery [`ConfigMap`]s for connecting to a [`DruidCluster`]
 pub async fn build_discovery_configmaps(
     owner: &impl Resource<DynamicType = ()>,
     druid: &DruidCluster,
