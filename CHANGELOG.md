@@ -6,9 +6,9 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
-- Shut down gracefully ([#XXX]).
+- Shut down gracefully ([#101]).
 
-[#XXX]: https://github.com/stackabletech/druid-operator/pull/XXX
+[#101]: https://github.com/stackabletech/druid-operator/pull/101
 
 ## [0.2.0] - 2021-12-23
 
