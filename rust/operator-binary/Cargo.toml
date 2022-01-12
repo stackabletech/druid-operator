@@ -11,7 +11,7 @@ version = "0.3.0-nightly"
 stackable-operator = { git = "https://github.com/stackabletech/operator-rs.git", tag = "0.7.0" }
 stackable-druid-crd = { path = "../crd" }
 anyhow = "1.0"
-clap = "2.33"
+clap = "2.34"
 fnv = "1.0"
 futures = { version = "0.3", features = ["compat"] }
 pin-project = "1.0"
