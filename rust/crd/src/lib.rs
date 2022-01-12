@@ -470,5 +470,10 @@ mod tests {
             cluster.role_service_name(&DruidRole::Router),
             Some("testcluster-router".to_string())
         );
+
+        assert_eq!(
+            cluster.role_service_fqdn(&DruidRole::Router),
+            Some("testcluster-router.default.svc.cluster.local".to_string())
+        )
     }
 }
