@@ -4,8 +4,17 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
-## [0.2.0] - 2021-12-23
+### Changed
 
+- Fixed a port reference in the role services ([#102])
+
+### Added
+
+- Added the discovery ConfigMap creation ([#102])
+
+[#102]: https://github.com/stackabletech/druid-operator/pull/102
+
+## [0.2.0] - 2021-12-23
 
 ### Changed
 
