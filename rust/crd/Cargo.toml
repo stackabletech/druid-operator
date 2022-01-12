@@ -1,6 +1,6 @@
 [package]
 authors = ["Stackable GmbH <info@stackable.de>"]
-description = "Contains the druid CRD structs and utilities"
+description = "Contains the Apache Druid CRD structs and utilities"
 edition = "2021"
 license = "OSL-3.0"
 name = "stackable-druid-crd"
@@ -19,6 +19,4 @@ thiserror = "1.0"
 tracing = "0.1"
 
 [dev-dependencies]
-indoc = "1.0"
-rstest = "0.12"
 serde_yaml = "0.8"
