@@ -220,11 +220,11 @@ pub async fn reconcile_druid(druid: DruidCluster, ctx: Context<Ctx>) -> Result<R
     }
 
     // discovery
-    for discovery_cm in build_discovery_configmaps(client, &druid, &druid)
+    for discovery_cm in build_discovery_configmaps(&druid, &druid)
         .await
         .context(BuildDiscoveryConfig)?
     {
-        let discovery_cm = client
+        client
             .apply_patch(FIELD_MANAGER_SCOPE, &discovery_cm, &discovery_cm)
             .await
             .context(ApplyDiscoveryConfig)?;

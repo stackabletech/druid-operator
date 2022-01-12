@@ -1,12 +1,10 @@
 use serde::{Deserialize, Serialize};
-use snafu::{OptionExt, Snafu};
 use stackable_operator::{
-    kube::{runtime::reflector::ObjectRef, CustomResource},
+    kube::CustomResource,
     product_config_utils::{ConfigError, Configuration},
-    role_utils::{Role, RoleGroupRef},
+    role_utils::Role,
     schemars::{self, JsonSchema},
 };
-use std::borrow::Borrow;
 use std::collections::BTreeMap;
 use std::str::FromStr;
 use strum_macros::Display;
@@ -145,29 +143,6 @@ impl DruidRole {
             self.get_process_name().to_string(),
             "/stackable/conf".to_string(),
         ]
-    }
-}
-
-#[derive(Debug, Snafu)]
-#[snafu(display("object has no namespace associated"))]
-pub struct NoNamespaceError;
-
-/// Reference to a single `Pod` that is a component of a [`DruidCluster`]
-///
-/// Used for service discovery.
-#[derive(Debug, PartialEq, Eq)]
-pub struct DruidPodRef {
-    pub namespace: String,
-    pub role_group_service_name: String,
-    pub pod_name: String,
-}
-
-impl DruidPodRef {
-    pub fn fqdn(&self) -> String {
-        format!(
-            "{}.{}.{}.svc.cluster.local",
-            self.pod_name, self.role_group_service_name, self.namespace
-        )
     }
 }
 

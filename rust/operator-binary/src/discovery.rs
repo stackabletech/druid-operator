@@ -2,13 +2,13 @@
 //! inside a config map.  We only provide a connection string to the router process, since it serves as
 //! a gateway to the cluster for client queries.
 
-use std::{collections::BTreeSet, num::TryFromIntError};
+use std::num::TryFromIntError;
 
 use snafu::{OptionExt, ResultExt, Snafu};
 use stackable_druid_crd::{DruidCluster, DruidRole, APP_NAME};
 use stackable_operator::{
     builder::{ConfigMapBuilder, ObjectMetaBuilder},
-    k8s_openapi::api::core::v1::{ConfigMap, Endpoints, Service},
+    k8s_openapi::api::core::v1::{ConfigMap, Service},
     kube::{runtime::reflector::ObjectRef, Resource, ResourceExt},
 };
 
@@ -27,10 +27,6 @@ pub enum Error {
     NoName,
     #[snafu(display("object has no namespace associated"))]
     NoNamespace,
-    #[snafu(display("failed to list expected pods"))]
-    ExpectedPods {
-        source: stackable_druid_crd::NoNamespaceError,
-    },
     #[snafu(display("failed to get service FQDN"))]
     NoServiceFqdn,
     #[snafu(display("could not find service port with name {}", port_name))]
@@ -52,7 +48,6 @@ pub enum Error {
 
 /// Builds discovery [`ConfigMap`]s for connecting to a [`DruidCluster`] for all expected scenarios
 pub async fn build_discovery_configmaps(
-    client: &stackable_operator::client::Client,
     owner: &impl Resource<DynamicType = ()>,
     druid: &DruidCluster,
 ) -> Result<Vec<ConfigMap>, Error> {
@@ -68,10 +63,6 @@ fn build_discovery_configmap(
     owner: &impl Resource<DynamicType = ()>,
     druid: &DruidCluster,
 ) -> Result<ConfigMap, Error> {
-    // TODO: Question: What does the connection string look like for druid?  Online it says to connect
-    //                 to the Broker (or probably router) host. But we could maybe have multiple of those,
-    //                 How can we support multiple hosts?  Is it fine to just provide the service domain?
-    //                 I tried that and it seems to have worked.  Testing with multiple routers would be necessary.
     let conn_str = format!(
         "druid://{}:{}/druid/v2/sql",
         druid
@@ -79,13 +70,7 @@ fn build_discovery_configmap(
             .with_context(|| NoServiceFqdn)?,
         DruidRole::Router.get_http_port()
     );
-    /*
-    let mut conn_str = hosts
-        .into_iter()
-        .map(|(host, port)| format!("{}:{}", host.into(), port))
-        .collect::<Vec<_>>()
-        .join(",");
-     */
+
     ConfigMapBuilder::new()
         .metadata(
             ObjectMetaBuilder::new()
@@ -108,14 +93,3 @@ fn build_discovery_configmap(
         .build()
         .context(BuildConfigMap)
 }
-
-/*
-/// Lists all Pods FQDNs expected to host the [`ZookeeperCluster`]
-fn pod_hosts(druid: &DruidCluster) -> Result<impl IntoIterator<Item = (String, u16)> + '_, Error> {
-    Ok(druid
-        .pods(&DruidRole::Router)
-        .context(ExpectedPods)?
-        .into_iter()
-        .map(|pod_ref| (pod_ref.fqdn(), DruidRole::Router.get_http_port())))
-}
-*/
