@@ -255,12 +255,12 @@ pub fn build_role_service(role_name: &str, druid: &DruidCluster) -> Result<Servi
             .build(),
         spec: Some(ServiceSpec {
             ports: Some(vec![ServicePort {
-                name: Some("plaintext".to_string()),
+                name: Some(CONTAINER_HTTP_PORT.to_string()),
                 port: DruidRole::from_str(role_name)
                     .unwrap()
                     .get_http_port()
                     .into(),
-                target_port: Some(IntOrString::String("plaintext".to_string())),
+                target_port: Some(IntOrString::String(CONTAINER_HTTP_PORT.to_string())),
                 protocol: Some("TCP".to_string()),
                 ..ServicePort::default()
             }]),

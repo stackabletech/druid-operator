@@ -200,53 +200,6 @@ impl DruidCluster {
             self.metadata.namespace.as_ref()?
         ))
     }
-
-    /// Metadata about a rolegroup
-    pub fn rolegroup_ref(
-        &self,
-        role: &DruidRole,
-        group_name: impl Into<String>,
-    ) -> RoleGroupRef<DruidCluster> {
-        RoleGroupRef {
-            cluster: ObjectRef::from_obj(self),
-            role: role.to_string(),
-            role_group: group_name.into(),
-        }
-    }
-
-    /// List all pods expected to form the cluster
-    ///
-    /// We try to predict the pods here rather than looking at the current cluster state in order to
-    /// avoid instance churn. For example, regenerating zoo.cfg based on the cluster state would lead to
-    /// a lot of spurious restarts, as well as opening us up to dangerous split-brain conditions because
-    /// the pods have inconsistent snapshots of which servers they should expect to be in quorum.
-    pub fn pods(&self, role: &DruidRole) -> Result<Vec<DruidPodRef>, NoNamespaceError> {
-        let ns = self
-            .metadata
-            .namespace
-            .clone()
-            .context(NoNamespaceContext)?;
-        // Order rolegroups consistently, to avoid spurious downstream rewrites
-        let sorted_rolegroups = self
-            .get_role(role)
-            .role_groups
-            .borrow()
-            .into_iter()
-            .collect::<BTreeMap<_, _>>();
-        let pods = sorted_rolegroups
-            .into_iter()
-            .flat_map(move |(rolegroup_name, rolegroup)| {
-                let rolegroup_ref = self.rolegroup_ref(role, rolegroup_name);
-                let ns = ns.clone();
-                (0..rolegroup.replicas.unwrap_or(0)).map(move |i| DruidPodRef {
-                    namespace: ns.clone(),
-                    role_group_service_name: rolegroup_ref.object_name(),
-                    pod_name: format!("{}-{}", rolegroup_ref.object_name(), i),
-                })
-            })
-            .collect();
-        Ok(pods)
-    }
 }
 
 #[derive(Clone, Debug, Default, Deserialize, JsonSchema, Serialize)]
@@ -464,7 +417,7 @@ mod tests {
     use std::collections::HashMap;
 
     #[test]
-    fn test1() {
+    fn test_service_name_generation() {
         let mut cluster = DruidCluster::new(
             "testcluster",
             DruidClusterSpec {
@@ -542,22 +495,5 @@ mod tests {
             cluster.role_service_name(&DruidRole::Router),
             Some("testcluster-router".to_string())
         );
-
-        match cluster.pods(&DruidRole::Router) {
-            Ok(pods) => assert_eq!(
-                pods,
-                vec![DruidPodRef {
-                    namespace: "default".to_string(),
-                    role_group_service_name: "testcluster-router-default".to_string(),
-                    pod_name: "testcluster-router-default-0".to_string()
-                }]
-            ),
-            Err(e) => {
-                panic!(
-                    "There as an error fetching the pod names for the cluster: {}",
-                    e
-                );
-            }
-        }
     }
 }
