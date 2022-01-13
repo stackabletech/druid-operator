@@ -49,7 +49,7 @@ fn build_discovery_configmap(
             .with_context(|| NoServiceFqdn)?,
         DruidRole::Router.get_http_port()
     );
-    let sqalchemy_conn_str = format!("druid://{}/druid/v2/sql", router_host);
+    let sqlalchemy_conn_str = format!("druid://{}/druid/v2/sql", router_host);
     let avatica_conn_str = format!(
         "jdbc:avatica:remote:url=http://{}/druid/v2/sql/avatica/",
         router_host
@@ -74,7 +74,7 @@ fn build_discovery_configmap(
                 .build(),
         )
         .add_data("DRUID_ROUTER", router_host)
-        .add_data("DRUID_SQALCHEMY", sqalchemy_conn_str)
+        .add_data("DRUID_SQLALCHEMY", sqlalchemy_conn_str)
         .add_data("DRUID_AVATICA_JDBC", avatica_conn_str)
         .build()
         .context(BuildConfigMap)
