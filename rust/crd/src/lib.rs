@@ -160,11 +160,7 @@ impl DruidCluster {
 
     /// The name of the role-level load-balanced Kubernetes `Service`
     pub fn role_service_name(&self, role: &DruidRole) -> Option<String> {
-        Some(format!(
-            "{}-{}",
-            self.metadata.name.clone()?,
-            role.to_string()
-        ))
+        Some(format!("{}-{}", self.metadata.name.clone()?, role))
     }
 
     /// The fully-qualified domain name of the role-level load-balanced Kubernetes `Service`
