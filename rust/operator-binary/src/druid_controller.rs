@@ -551,8 +551,7 @@ fn container_image(version: &str) -> String {
         // image during restarts depending on the imagePullPolicy.
         // TODO: should be made configurable
         "docker.stackable.tech/stackable/druid:{}-stackable{}",
-        version.to_string(),
-        DEFAULT_IMAGE_VERSION
+        version, DEFAULT_IMAGE_VERSION
     )
 }
 
