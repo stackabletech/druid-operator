@@ -2,9 +2,13 @@
   "extends": [
     "helpers:pinGitHubActionDigests"
   ],
-  "labels": ["dependencies"],
+  "labels": [
+    "dependencies"
+  ],
   "prCreation": "not-pending",
-  "reviewers": ["team:developers"],
+  "reviewers": [
+    "team:developers"
+  ],
   "rollbackPrs": true,
   "schedule": [
     "after 22:00 and before 6:00 every weekday"
@@ -12,8 +16,16 @@
   "timezone": "Europe/Berlin",
   "packageRules": [
     {
-      "matchUpdateTypes": ["patch"],
+      "matchUpdateTypes": [
+        "patch"
+      ],
       "groupName": "All dependencies (patch only)"
     }
-  ]
+  ],
+  "lockFileMaintenance": {
+    "enabled": true,
+    "schedule": [
+      "after 22:00 and before 6:00 every weekday"
+    ]
+  }
 }
