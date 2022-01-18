@@ -7,5 +7,3 @@ target/
 *.iml
 
 *.tgz
-deploy/helm/druid-operator/configs
-deploy/helm/druid-operator/templates/crds.yaml
