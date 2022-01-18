@@ -6,7 +6,10 @@ use std::{
     time::Duration,
 };
 
-use crate::config::{get_jvm_config, get_log4j_config, get_runtime_properties};
+use crate::{
+    config::{get_jvm_config, get_log4j_config, get_runtime_properties},
+    discovery::{self, build_discovery_configmaps},
+};
 use snafu::{OptionExt, ResultExt, Snafu};
 use stackable_druid_crd::{
     DeepStorageType, DruidCluster, DruidRole, APP_NAME, CONTAINER_HTTP_PORT,
@@ -114,6 +117,12 @@ pub enum Error {
     PropertiesWriteError {
         source: stackable_operator::product_config::writer::PropertiesWriterError,
     },
+    #[snafu(display("failed to build discovery ConfigMap"))]
+    BuildDiscoveryConfig { source: discovery::Error },
+    #[snafu(display("failed to apply discovery ConfigMap"))]
+    ApplyDiscoveryConfig {
+        source: stackable_operator::error::Error,
+    },
 }
 type Result<T, E = Error> = std::result::Result<T, E>;
 
@@ -210,6 +219,17 @@ pub async fn reconcile_druid(druid: DruidCluster, ctx: Context<Ctx>) -> Result<R
         }
     }
 
+    // discovery
+    for discovery_cm in build_discovery_configmaps(&druid, &druid)
+        .await
+        .context(BuildDiscoveryConfig)?
+    {
+        client
+            .apply_patch(FIELD_MANAGER_SCOPE, &discovery_cm, &discovery_cm)
+            .await
+            .context(ApplyDiscoveryConfig)?;
+    }
+
     Ok(ReconcilerAction {
         requeue_after: None,
     })
@@ -235,12 +255,12 @@ pub fn build_role_service(role_name: &str, druid: &DruidCluster) -> Result<Servi
             .build(),
         spec: Some(ServiceSpec {
             ports: Some(vec![ServicePort {
-                name: Some("plaintext".to_string()),
+                name: Some(CONTAINER_HTTP_PORT.to_string()),
                 port: DruidRole::from_str(role_name)
                     .unwrap()
                     .get_http_port()
                     .into(),
-                target_port: Some(IntOrString::String("plaintext".to_string())),
+                target_port: Some(IntOrString::String(CONTAINER_HTTP_PORT.to_string())),
                 protocol: Some("TCP".to_string()),
                 ..ServicePort::default()
             }]),

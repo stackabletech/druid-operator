@@ -1,8 +1,10 @@
 use serde::{Deserialize, Serialize};
-use stackable_operator::kube::CustomResource;
-use stackable_operator::product_config_utils::{ConfigError, Configuration};
-use stackable_operator::role_utils::Role;
-use stackable_operator::schemars::{self, JsonSchema};
+use stackable_operator::{
+    kube::CustomResource,
+    product_config_utils::{ConfigError, Configuration},
+    role_utils::Role,
+    schemars::{self, JsonSchema},
+};
 use std::collections::BTreeMap;
 use std::str::FromStr;
 use strum_macros::Display;
@@ -145,6 +147,7 @@ impl DruidRole {
 }
 
 impl DruidCluster {
+    /// The spec for the given Role
     pub fn get_role(&self, role: &DruidRole) -> &Role<DruidConfig> {
         match role {
             DruidRole::Coordinator => &self.spec.coordinators,
@@ -153,6 +156,20 @@ impl DruidCluster {
             DruidRole::Historical => &self.spec.historicals,
             DruidRole::Router => &self.spec.routers,
         }
+    }
+
+    /// The name of the role-level load-balanced Kubernetes `Service`
+    pub fn role_service_name(&self, role: &DruidRole) -> Option<String> {
+        Some(format!("{}-{}", self.metadata.name.clone()?, role))
+    }
+
+    /// The fully-qualified domain name of the role-level load-balanced Kubernetes `Service`
+    pub fn role_service_fqdn(&self, role: &DruidRole) -> Option<String> {
+        Some(format!(
+            "{}.{}.svc.cluster.local",
+            self.role_service_name(role)?,
+            self.metadata.namespace.as_ref()?
+        ))
     }
 }
 
@@ -360,4 +377,99 @@ fn build_string_list(strings: &[String]) -> String {
     let quoted_strings: Vec<String> = strings.iter().map(|s| format!("\"{}\"", s)).collect();
     let comma_list = quoted_strings.join(", ");
     format!("[{}]", comma_list)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use stackable_operator::role_utils::CommonConfiguration;
+    use stackable_operator::role_utils::RoleGroup;
+    use std::array::IntoIter;
+    use std::collections::HashMap;
+
+    #[test]
+    fn test_service_name_generation() {
+        let mut cluster = DruidCluster::new(
+            "testcluster",
+            DruidClusterSpec {
+                stopped: None,
+                version: "".to_string(),
+                brokers: Role {
+                    config: CommonConfiguration {
+                        config: DruidConfig {},
+                        config_overrides: Default::default(),
+                        env_overrides: Default::default(),
+                        cli_overrides: Default::default(),
+                    },
+                    role_groups: Default::default(),
+                },
+                coordinators: Role {
+                    config: CommonConfiguration {
+                        config: DruidConfig {},
+                        config_overrides: Default::default(),
+                        env_overrides: Default::default(),
+                        cli_overrides: Default::default(),
+                    },
+                    role_groups: Default::default(),
+                },
+                historicals: Role {
+                    config: CommonConfiguration {
+                        config: DruidConfig {},
+                        config_overrides: Default::default(),
+                        env_overrides: Default::default(),
+                        cli_overrides: Default::default(),
+                    },
+                    role_groups: Default::default(),
+                },
+                middle_managers: Role {
+                    config: CommonConfiguration {
+                        config: DruidConfig {},
+                        config_overrides: Default::default(),
+                        env_overrides: Default::default(),
+                        cli_overrides: Default::default(),
+                    },
+                    role_groups: Default::default(),
+                },
+                routers: Role {
+                    config: CommonConfiguration {
+                        config: DruidConfig {},
+                        config_overrides: Default::default(),
+                        env_overrides: Default::default(),
+                        cli_overrides: Default::default(),
+                    },
+                    role_groups: HashMap::<_, _>::from_iter(IntoIter::new([(
+                        "default".to_string(),
+                        RoleGroup {
+                            config: CommonConfiguration {
+                                config: DruidConfig {},
+                                config_overrides: Default::default(),
+                                env_overrides: Default::default(),
+                                cli_overrides: Default::default(),
+                            },
+                            replicas: Some(1),
+                            selector: None,
+                        },
+                    )])),
+                },
+                metadata_storage_database: Default::default(),
+                deep_storage: Default::default(),
+                s3: None,
+                zookeeper_reference: Default::default(),
+            },
+        );
+
+        cluster.metadata.namespace = Some("default".to_string());
+
+        assert_eq!(cluster.metadata.name, Some("testcluster".to_string()));
+
+        assert_eq!(
+            cluster.role_service_name(&DruidRole::Router),
+            Some("testcluster-router".to_string())
+        );
+
+        assert_eq!(
+            cluster.role_service_fqdn(&DruidRole::Router),
+            Some("testcluster-router.default.svc.cluster.local".to_string())
+        )
+    }
 }
