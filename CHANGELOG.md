@@ -7,7 +7,6 @@ All notable changes to this project will be documented in this file.
 ### Changed
 
 - `operator-rs` `0.7.0` → `0.8.0` ([#123])
-- More minor dependency updates
 - Fixed a port reference in the role services ([#102])
 - Shut down gracefully ([#101]).
 
