@@ -6,6 +6,7 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- `operator-rs` `0.7.0` → `0.8.0` ([#123])
 - Fixed a port reference in the role services ([#102])
 - Shut down gracefully ([#101]).
 
@@ -15,6 +16,7 @@ All notable changes to this project will be documented in this file.
 
 [#101]: https://github.com/stackabletech/druid-operator/pull/101
 [#102]: https://github.com/stackabletech/druid-operator/pull/102
+[#123]: https://github.com/stackabletech/druid-operator/pull/123
 
 ## [0.2.0] - 2021-12-23
 
