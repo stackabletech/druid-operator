@@ -121,6 +121,6 @@ jobs:
 
     steps:
       - uses: actions/checkout@v2.4.0
-      - uses: EmbarkStudios/cargo-deny-action@v1.2.6
+      - uses: EmbarkStudios/cargo-deny-action@2a55392931cddc0ae1d7397515fd0951d39ebaf2 # renovate: tag=v1.2.10
         with:
           command: check ${{ matrix.checks }}
