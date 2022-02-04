@@ -4,9 +4,7 @@ metadata:
   name: derby-druid
 spec:
   version: 0.22.0
-  zookeeperReference:
-    configMapName: simple
-    namespace: default
+  zookeeperCluster: simple
   metadataStorageDatabase:
     dbType: derby
     connString: jdbc:derby://localhost:1527/var/druid/metadata.db;create=true

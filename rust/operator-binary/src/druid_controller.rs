@@ -39,6 +39,7 @@ use stackable_operator::{
             controller::{Context, ReconcilerAction},
             reflector::ObjectRef,
         },
+        ResourceExt,
     },
     labels::{role_group_selector_labels, role_selector_labels},
     product_config::{types::PropertyNameKind, ProductConfigManager},
@@ -94,21 +95,18 @@ pub enum Error {
         druid: ObjectRef<DruidCluster>,
     },
     #[snafu(display(
-        "Failed to get ZooKeeper connection string from config map {} in namespace {}",
-        cm_name,
-        namespace
+        "Failed to get ZooKeeper discovery config map for cluster: {}",
+        cm_name
     ))]
     GetZookeeperConnStringConfigMap {
         source: stackable_operator::error::Error,
         cm_name: String,
-        namespace: String,
     },
     #[snafu(display(
-        "Failed to get ZooKeeper connection string from config map {} in namespace {}",
-        cm_name,
-        namespace
+        "Failed to get ZooKeeper connection string from config map {}",
+        cm_name
     ))]
-    MissingZookeeperConnString { cm_name: String, namespace: String },
+    MissingZookeeperConnString { cm_name: String },
     #[snafu(display("Failed to transform configs"))]
     ProductConfigTransform {
         source: stackable_operator::product_config_utils::ConfigError,
@@ -131,20 +129,17 @@ pub async fn reconcile_druid(druid: DruidCluster, ctx: Context<Ctx>) -> Result<R
     let druid_ref = ObjectRef::from_obj(&druid);
     let client = &ctx.get_ref().client;
 
-    let zk_confmap = druid.spec.zookeeper_reference.config_map_name.clone();
-    let zk_cm_ns = druid.spec.zookeeper_reference.namespace.clone();
+    let zk_confmap = druid.spec.zookeeper_cluster.clone();
     let zk_connstr = client
-        .get::<ConfigMap>(&zk_confmap, Some(&zk_cm_ns))
+        .get::<ConfigMap>(&zk_confmap, druid.namespace().as_deref())
         .await
-        .with_context(|| GetZookeeperConnStringConfigMap {
+        .context(GetZookeeperConnStringConfigMap {
             cm_name: zk_confmap.clone(),
-            namespace: zk_cm_ns.clone(),
         })?
         .data
         .and_then(|mut data| data.remove("ZOOKEEPER"))
-        .with_context(|| MissingZookeeperConnString {
+        .context(MissingZookeeperConnString {
             cm_name: zk_confmap.clone(),
-            namespace: zk_cm_ns.clone(),
         })?;
 
     let mut roles = HashMap::new();

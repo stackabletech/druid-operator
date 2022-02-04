@@ -522,16 +522,8 @@ spec:
                 version:
                   description: Desired Druid version
                   type: string
-                zookeeperReference:
-                  properties:
-                    configMapName:
-                      type: string
-                    namespace:
-                      type: string
-                  required:
-                    - configMapName
-                    - namespace
-                  type: object
+                zookeeperCluster:
+                  type: string
               required:
                 - brokers
                 - coordinators
@@ -541,7 +533,7 @@ spec:
                 - middleManagers
                 - routers
                 - version
-                - zookeeperReference
+                - zookeeperCluster
               type: object
             status:
               nullable: true
