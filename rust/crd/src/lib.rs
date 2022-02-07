@@ -447,7 +447,7 @@ mod tests {
                 metadata_storage_database: Default::default(),
                 deep_storage: Default::default(),
                 s3: None,
-                zookeeper_cluster: Default::default(),
+                zookeeper_config_map_name: Default::default(),
             },
         );
 
