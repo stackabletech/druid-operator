@@ -129,7 +129,7 @@ pub async fn reconcile_druid(druid: DruidCluster, ctx: Context<Ctx>) -> Result<R
     let druid_ref = ObjectRef::from_obj(&druid);
     let client = &ctx.get_ref().client;
 
-    let zk_confmap = druid.spec.zookeeper_cluster.clone();
+    let zk_confmap = druid.spec.zookeeper_config_map_name.clone();
     let zk_connstr = client
         .get::<ConfigMap>(&zk_confmap, druid.namespace().as_deref())
         .await

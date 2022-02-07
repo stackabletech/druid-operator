@@ -83,7 +83,7 @@ pub struct DruidClusterSpec {
     pub metadata_storage_database: DatabaseConnectionSpec,
     pub deep_storage: DeepStorageSpec,
     pub s3: Option<S3Spec>,
-    pub zookeeper_cluster: String,
+    pub zookeeper_config_map_name: String,
 }
 
 #[derive(
