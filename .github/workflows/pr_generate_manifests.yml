@@ -28,7 +28,7 @@ jobs:
         env:
           NEXUS_PASSWORD: ${{ secrets.NEXUS_PASSWORD }}
         if: env.NEXUS_PASSWORD != null
-        uses: EndBug/add-and-commit@v7
+        uses: EndBug/add-and-commit@72e246094f1af94def5a07467cd789c503ae8be0 # renovate: tag=v8
         with:
           default_author: user_info
           author_name: Stacky McStackface
