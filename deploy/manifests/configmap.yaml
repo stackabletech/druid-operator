@@ -1,11 +1,67 @@
 ---
+# Source: druid-operator/templates/configmap.yaml
 apiVersion: v1
 data:
-  properties.yaml: "version: 0.1.0\nspec:\n  units:\n    - unit: &unitDirectory\n        name: \"directory\"\n        regex: \"^/|(/[\\\\w-]+)+$\"\n        examples:\n          - \"/tmp/xyz\"\n\n###################################################################################################\n# runtime.properties\n###################################################################################################\n\nproperties:\n\n  - property: &metadataStorageType\n      propertyNames:\n        - name: \"druid.metadata.storage.type\"\n          kind:\n            type: \"file\"\n            file: \"runtime.properties\"\n      datatype:\n        type: \"string\"\n      roles:\n        - name: \"broker\"\n          required: true\n        - name: \"coordinator\"\n          required: true\n        - name: \"historical\"\n          required: true\n        - name: \"middleManager\"\n          required: true\n        - name: \"router\"\n          required: true\n      asOfVersion: \"0.0.0\"\n\n  - property: &metadataStorageConnectURI\n      propertyNames:\n        - name: \"druid.metadata.storage.connector.connectURI\"\n          kind:\n            type: \"file\"\n            file: \"runtime.properties\"\n      datatype:\n        type: \"string\"\n      roles:\n        - name: \"broker\"\n          required: true\n        - name: \"coordinator\"\n          required: true\n        - name: \"historical\"\n          required: true\n        - name: \"middleManager\"\n          required: true\n        - name: \"router\"\n          required: true\n      asOfVersion: \"0.0.0\"\n\n  - property: &metadataStorageHost\n      propertyNames:\n        - name: \"druid.metadata.storage.connector.host\"\n          kind:\n            type: \"file\"\n            file: \"runtime.properties\"\n      datatype:\n        type: \"string\"\n      roles:\n        - name: \"broker\"\n          required: true\n        - name: \"coordinator\"\n          required: true\n        - name: \"historical\"\n          required: true\n        - name: \"middleManager\"\n          required: true\n        - name: \"router\"\n          required: true\n      asOfVersion: \"0.0.0\"\n\n  - property: &metadataStoragePort\n      propertyNames:\n        - name: \"druid.metadata.storage.connector.port\"\n          kind:\n            type: \"file\"\n            file: \"runtime.properties\"\n      datatype:\n        type: \"integer\"\n        min: \"1024\"\n        max: \"65535\"\n      roles:\n        - name: \"broker\"\n          required: true\n        - name: \"coordinator\"\n          required: true\n        - name: \"historical\"\n          required: true\n        - name: \"middleManager\"\n          required: true\n        - name: \"router\"\n          required: true\n      asOfVersion: \"0.0.0\"\n\n  - property: &metadataStorageUser\n      propertyNames:\n        - name: \"druid.metadata.storage.connector.user\"\n          kind:\n            type: \"file\"\n            file: \"runtime.properties\"\n      datatype:\n        type: \"string\"\n      roles:\n        - name: \"broker\"\n          required: false\n        - name: \"coordinator\"\n          required: false\n        - name: \"historical\"\n          required: false\n        - name: \"middleManager\"\n          required: false\n        - name: \"router\"\n          required: false\n      asOfVersion: \"0.0.0\"\n\n  - property: &metadataStoragePassword\n      propertyNames:\n        - name: \"druid.metadata.storage.connector.password\"\n          kind:\n            type: \"file\"\n            file: \"runtime.properties\"\n      datatype:\n        type: \"string\"\n      roles:\n        - name: \"broker\"\n          required: false\n        - name: \"coordinator\"\n          required: false\n        - name: \"historical\"\n          required: false\n        - name: \"middleManager\"\n          required: false\n        - name: \"router\"\n          required: false\n      asOfVersion: \"0.0.0\"\n\n###################################################################################################\n# jvm.config\n###################################################################################################\n\n###################################################################################################\n# log.properties\n###################################################################################################\n\n  - property: &ioTrino\n      propertyNames:\n        - name: \"io.trino\"\n          kind:\n            type: \"file\"\n            file: \"log.properties\"\n      datatype:\n        type: \"string\"\n      defaultValues:\n        - fromVersion: \"0.0.0\"\n          value: \"INFO\"\n      allowedValues:\n        - \"INFO\"\n        - \"DEBUG\"\n        - \"WARN\"\n        - \"ERROR\"          \n      roles:\n        - name: \"coordinator\"\n          required: true\n        - name: \"worker\"\n          required: true\n      asOfVersion: \"0.0.0\"\n"
+  properties.yaml: "version: 0.1.0\nspec:\n  units:\n    - unit: &unitDirectory\n        name:
+    \"directory\"\n        regex: \"^/|(/[\\\\w-]+)+$\"\n        examples:\n          -
+    \"/tmp/xyz\"\n\n###################################################################################################\n#
+    runtime.properties\n###################################################################################################\n\nproperties:\n\n
+    \ - property: &metadataStorageType\n      propertyNames:\n        - name: \"druid.metadata.storage.type\"\n
+    \         kind:\n            type: \"file\"\n            file: \"runtime.properties\"\n
+    \     datatype:\n        type: \"string\"\n      roles:\n        - name: \"broker\"\n
+    \         required: true\n        - name: \"coordinator\"\n          required: true\n
+    \       - name: \"historical\"\n          required: true\n        - name: \"middleManager\"\n
+    \         required: true\n        - name: \"router\"\n          required: true\n
+    \     asOfVersion: \"0.0.0\"\n\n  - property: &metadataStorageConnectURI\n      propertyNames:\n
+    \       - name: \"druid.metadata.storage.connector.connectURI\"\n          kind:\n
+    \           type: \"file\"\n            file: \"runtime.properties\"\n      datatype:\n
+    \       type: \"string\"\n      roles:\n        - name: \"broker\"\n          required:
+    true\n        - name: \"coordinator\"\n          required: true\n        - name:
+    \"historical\"\n          required: true\n        - name: \"middleManager\"\n          required:
+    true\n        - name: \"router\"\n          required: true\n      asOfVersion: \"0.0.0\"\n\n
+    \ - property: &metadataStorageHost\n      propertyNames:\n        - name: \"druid.metadata.storage.connector.host\"\n
+    \         kind:\n            type: \"file\"\n            file: \"runtime.properties\"\n
+    \     datatype:\n        type: \"string\"\n      roles:\n        - name: \"broker\"\n
+    \         required: true\n        - name: \"coordinator\"\n          required: true\n
+    \       - name: \"historical\"\n          required: true\n        - name: \"middleManager\"\n
+    \         required: true\n        - name: \"router\"\n          required: true\n
+    \     asOfVersion: \"0.0.0\"\n\n  - property: &metadataStoragePort\n      propertyNames:\n
+    \       - name: \"druid.metadata.storage.connector.port\"\n          kind:\n            type:
+    \"file\"\n            file: \"runtime.properties\"\n      datatype:\n        type:
+    \"integer\"\n        min: \"1024\"\n        max: \"65535\"\n      roles:\n        -
+    name: \"broker\"\n          required: true\n        - name: \"coordinator\"\n          required:
+    true\n        - name: \"historical\"\n          required: true\n        - name:
+    \"middleManager\"\n          required: true\n        - name: \"router\"\n          required:
+    true\n      asOfVersion: \"0.0.0\"\n\n  - property: &metadataStorageUser\n      propertyNames:\n
+    \       - name: \"druid.metadata.storage.connector.user\"\n          kind:\n            type:
+    \"file\"\n            file: \"runtime.properties\"\n      datatype:\n        type:
+    \"string\"\n      roles:\n        - name: \"broker\"\n          required: false\n
+    \       - name: \"coordinator\"\n          required: false\n        - name: \"historical\"\n
+    \         required: false\n        - name: \"middleManager\"\n          required:
+    false\n        - name: \"router\"\n          required: false\n      asOfVersion:
+    \"0.0.0\"\n\n  - property: &metadataStoragePassword\n      propertyNames:\n        -
+    name: \"druid.metadata.storage.connector.password\"\n          kind:\n            type:
+    \"file\"\n            file: \"runtime.properties\"\n      datatype:\n        type:
+    \"string\"\n      roles:\n        - name: \"broker\"\n          required: false\n
+    \       - name: \"coordinator\"\n          required: false\n        - name: \"historical\"\n
+    \         required: false\n        - name: \"middleManager\"\n          required:
+    false\n        - name: \"router\"\n          required: false\n      asOfVersion:
+    \"0.0.0\"\n\n###################################################################################################\n#
+    jvm.config\n###################################################################################################\n\n###################################################################################################\n#
+    log.properties\n###################################################################################################\n\n
+    \ - property: &ioTrino\n      propertyNames:\n        - name: \"io.trino\"\n          kind:\n
+    \           type: \"file\"\n            file: \"log.properties\"\n      datatype:\n
+    \       type: \"string\"\n      defaultValues:\n        - fromVersion: \"0.0.0\"\n
+    \         value: \"INFO\"\n      allowedValues:\n        - \"INFO\"\n        - \"DEBUG\"\n
+    \       - \"WARN\"\n        - \"ERROR\"          \n      roles:\n        - name:
+    \"coordinator\"\n          required: true\n        - name: \"worker\"\n          required:
+    true\n      asOfVersion: \"0.0.0\"\n"
 kind: ConfigMap
 metadata:
   name: druid-operator-configmap
   labels:
+    helm.sh/chart: druid-operator-0.4.0-nightly
     app.kubernetes.io/name: druid-operator
     app.kubernetes.io/instance: druid-operator
     app.kubernetes.io/version: "0.4.0-nightly"
+    app.kubernetes.io/managed-by: Helm
