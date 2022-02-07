@@ -40,7 +40,7 @@ metadata:
   name: simple-druid
 spec:
   version: 0.22.0
-  zookeeperReference: simple-zk
+  zookeeperConfigMapName: simple-zk
   metadataStorageDatabase:
     dbType: postgresql
     connString: jdbc:postgresql://druid-postgresql/druid

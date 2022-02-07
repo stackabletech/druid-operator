@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Changed 
+
+- Removed the option to set a namespace for the zookeeper reference ([#140])
+
+[#140]: https://github.com/stackabletech/druid-operator/pull/140
+
 ## [0.3.0] - 2022-01-27
 
 

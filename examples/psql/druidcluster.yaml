@@ -4,9 +4,7 @@ metadata:
   name: psql-druid
 spec:
   version: 0.22.0
-  zookeeperReference:
-    configMapName: simple
-    namespace: default
+  zookeeperConfigMapName: simple
   metadataStorageDatabase:
     dbType: postgresql
     connString: jdbc:postgresql://druid-postgresql/druid
