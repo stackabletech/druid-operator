@@ -1,3 +1,9 @@
 = Stackable Operator for Apache Druid
 
 This is an operator for Kubernetes that can manage https://druid.apache.org/[Apache Druid] clusters.
+
+== Supported Versions
+
+The Stackable Operator for Apache Druid currently supports the following versions of Druid:
+
+include::partial$supported-versions.adoc[]
