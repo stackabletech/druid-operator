@@ -1,12 +1,15 @@
 ---
+# Source: druid-operator/templates/deployment.yaml
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: druid-operator-deployment
   labels:
+    helm.sh/chart: druid-operator-0.4.0-nightly
     app.kubernetes.io/name: druid-operator
     app.kubernetes.io/instance: druid-operator
     app.kubernetes.io/version: "0.4.0-nightly"
+    app.kubernetes.io/managed-by: Helm
 spec:
   replicas: 1
   strategy:
@@ -22,13 +25,16 @@ spec:
         app.kubernetes.io/instance: druid-operator
     spec:
       serviceAccountName: druid-operator-serviceaccount
-      securityContext: {}
+      securityContext:
+        {}
       containers:
         - name: druid-operator
-          securityContext: {}
+          securityContext:
+            {}
           image: "docker.stackable.tech/stackable/druid-operator:0.4.0-nightly"
           imagePullPolicy: IfNotPresent
-          resources: {}
+          resources:
+            {}
           volumeMounts:
             - mountPath: /etc/stackable/druid-operator/config-spec
               name: config-spec
