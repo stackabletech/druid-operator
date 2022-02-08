@@ -39,7 +39,7 @@ kind: DruidCluster
 metadata:
   name: simple-druid
 spec:
-  version: 0.22.0
+  version: 0.22.1
   zookeeperConfigMapName: simple-zk
   metadataStorageDatabase:
     dbType: postgresql

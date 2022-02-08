@@ -3,7 +3,7 @@ kind: DruidCluster
 metadata:
   name: psql-druid
 spec:
-  version: 0.22.0
+  version: 0.22.1
   zookeeperConfigMapName: simple
   metadataStorageDatabase:
     dbType: postgresql
