@@ -444,6 +444,19 @@ fn build_rolegroup_statefulset(
     if let Some(e) = secret_env {
         cb.add_env_vars(e);
     }
+    // rest of env
+    let rest_env = rolegroup_config
+        .get(&PropertyNameKind::Env)
+        .iter()
+        .flat_map(|env_vars| env_vars.iter())
+        .filter(|(k, _)| k != &&CREDENTIALS_SECRET_PROPERTY.to_string())
+        .map(|(k, v)| EnvVar {
+            name: k.clone(),
+            value: Some(v.clone()),
+            ..EnvVar::default()
+        })
+        .collect::<Vec<_>>();
+    cb.add_env_vars(rest_env);
 
     // add ports
     cb.add_container_port(CONTAINER_HTTP_PORT, role.get_http_port().into());
