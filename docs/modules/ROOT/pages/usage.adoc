@@ -142,7 +142,7 @@ The cluster definition also supports overriding specific configuration propertie
 
 IMPORTANT: Overriding certain properties which are set by  operator (such as the HTTP port) can interfere with the operator and can lead to problems.
 
-For a role or rolegroup, at the same level of `config`, you can specify: `configOverrides`, for the `runtime.properties`. For example, if you want to set the `druid.server.http.numThreads` for the router to 100 adapt the `routers` section of the cluster resource like so:
+For a role or rolegroup, at the same level of `config`, you can specify: `configOverrides` for the `runtime.properties`. For example, if you want to set the `druid.server.http.numThreads` for the router to 100 adapt the `routers` section of the cluster resource like so:
 
 [source,yaml]
 ----
