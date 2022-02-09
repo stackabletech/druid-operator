@@ -136,13 +136,11 @@ The operator creates a `ConfigMap` with the name of the cluster which contains c
 - `DRUID_AVATICA_JDBC` contains a JDBC connect string which can be used together with the https://calcite.apache.org/avatica/downloads/[Avatica JDBC Driver] to connect to Druid and query data. https://druid.apache.org/docs/latest/querying/sql.html#jdbc[More information in the Druid Docs].
 - `DRUID_SQALCHEMY` contains a connection string used to connect to Druid with SQAlchemy, in - for example - Apache Superset.
 
-== Configuration & Environment Overrides
+== Configuration Overrides
 
-The cluster definition also supports overriding configuration properties and environment variables, either per role or per role group, where the more specific override (role group) has precedence over the less specific one (role).
+The cluster definition also supports overriding configuration properties, either per role or per role group, where the more specific override (role group) has precedence over the less specific one (role).
 
 IMPORTANT: Overriding certain properties which are set by operator (such as the HTTP port) can interfere with the operator and can lead to problems.
-
-=== Configuration Properties
 
 For a role or role group, at the same level of `config`, you can specify: `configOverrides` for the `runtime.properties`. For example, if you want to set the `druid.server.http.numThreads` for the router to 100 adapt the `routers` section of the cluster resource like so:
 
@@ -176,33 +174,6 @@ All override property values must be strings.
 
 For a full list of configuration options we refer to the Druid https://druid.apache.org/docs/latest/configuration/index.html[Configuration Reference].
 
-=== Environment Variables
-
-In a similar fashion, environment variables can be (over)written. For example per role group:
-
-[source,yaml]
-----
-routers:
-  roleGroups:
-    default:
-      config: {}
-      envOverrides:
-        MY_ENV_VAR: "MY_VALUE"
-      replicas: 1
-----
-
-or per role:
-
-[source,yaml]
-----
-routers:
-  envOverrides:
-    MY_ENV_VAR: "MY_VALUE"
-  roleGroups:
-    default:
-      config: {}
-      replicas: 1
-----
-
+// envOverrides are not implemented and also are not necessary since druid doesn't read env vars
 
 // cliOverrides don't make sense for this operator, so the feature is omitted for now
