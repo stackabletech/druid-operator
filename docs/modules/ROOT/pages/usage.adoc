@@ -15,26 +15,35 @@ Druid requires a MySQL or Postgres database.
 
 For testing purposes, you can spin up a PostgreSQL database with the bitnami PostgreSQL helm chart.  Add the bitnami repository:
 
-    helm repo add bitnami https://charts.bitnami.com/bitnami
+[source,bash]
+----
+helm repo add bitnami https://charts.bitnami.com/bitnami
+----
 
 And set up the Postgres database:
 
-    helm install druid bitnami/postgresql \
-    --version=11 \
-    --set auth.username=druid \
-    --set auth.password=druid \
-    --set auth.database=druid
+[source,bash]
+----
+helm install druid bitnami/postgresql \
+--version=11 \
+--set auth.username=druid \
+--set auth.password=druid \
+--set auth.database=druid
+----
 
 == Creating a Druid Cluster
 
 With the prerequisites fulfilled, the CRD for this operator must be created:
 
-    kubectl apply -f /etc/stackable/druid-operator/crd
+[source,bash]
+----
+kubectl apply -f /etc/stackable/druid-operator/crd
+----
 
 Then a cluster can be deployed using the example below. Make sure you have *exactly one node* labeled with `nodeType=druid-data` as used in the deep storage selector. Having more than one data node is not supported when using local storage.
 
-
-    cat <<EOF | kubectl apply -f -
+[source,yaml]
+----
 apiVersion: druid.stackable.tech/v1alpha1
 kind: DruidCluster
 metadata:
@@ -79,6 +88,7 @@ spec:
       default:
         config: {}
         replicas: 1
+----
 
 The Router is hosting the web UI, a `NodePort` service is created by the operator to access the web UI. Connect to the `simple-druid-router` `NodePort` service and follow the https://druid.apache.org/docs/latest/tutorials/index.html#step-4-load-data[druid documentation] on how to load and query sample data.
 
@@ -88,26 +98,35 @@ Druid can use S3 as a backend for deep storage, as well as a data source to inge
 
 To use S3, add a section like this to you cluster `spec`:
 
-  s3:
-    endpoint: s3-de-central.profitbricks.com
-    credentialsSecret: s3-credentials
+[source,yaml]
+----
+s3:
+  endpoint: s3-de-central.profitbricks.com
+  credentialsSecret: s3-credentials
+----
 
 the secret `s3-credentials` should contain your access key ID and the secret access key:
 
-  apiVersion: v1
-  kind: Secret
-  metadata:
-    name: s3-credentials
-  stringData:
-    accessKeyId: YOURACCESSKEYIDHERE
-    secretAccessKey: YOURSECRETACCESSKEYHERE
+[source,yaml]
+----
+apiVersion: v1
+kind: Secret
+metadata:
+  name: s3-credentials
+stringData:
+  accessKeyId: YOURACCESSKEYIDHERE
+  secretAccessKey: YOURSECRETACCESSKEYHERE
+----
 
 This allows to ingest data from accessible buckets already. To configure a bucket and prefix to be used as a deep storage, change the deep storage configuration like so:
 
-  deepStorage:
-    storageType: s3
-    bucket: druid-deepstorage
-    baseKey: storage           # the base key is the prefix to be used; optional
+[source,yaml]
+----
+deepStorage:
+  storageType: s3
+  bucket: druid-deepstorage
+  baseKey: storage           # the base key is the prefix to be used; optional
+----
 
 == Connecting to Druid from other Services
 
@@ -116,3 +135,74 @@ The operator creates a `ConfigMap` with the name of the cluster which contains c
 - `DRUID_ROUTER` with the format `<host>:<port>`, which points to the router processes HTTP endpoint. Here you can connect to the web UI, or use REST endpoints such as `/druid/v2/sql/` to query data. https://druid.apache.org/docs/latest/querying/sql.html#http-post[More information in the Druid Docs].
 - `DRUID_AVATICA_JDBC` contains a JDBC connect string which can be used together with the https://calcite.apache.org/avatica/downloads/[Avatica JDBC Driver] to connect to Druid and query data. https://druid.apache.org/docs/latest/querying/sql.html#jdbc[More information in the Druid Docs].
 - `DRUID_SQALCHEMY` contains a connection string used to connect to Druid with SQAlchemy, in - for example - Apache Superset.
+
+== Configuration & Environment Overrides
+
+The cluster definition also supports overriding configuration properties and environment variables, either per role or per role group, where the more specific override (role group) has precedence over the less specific one (role).
+
+IMPORTANT: Overriding certain properties which are set by operator (such as the HTTP port) can interfere with the operator and can lead to problems.
+
+=== Configuration Properties
+
+For a role or role group, at the same level of `config`, you can specify: `configOverrides` for the `runtime.properties`. For example, if you want to set the `druid.server.http.numThreads` for the router to 100 adapt the `routers` section of the cluster resource like so:
+
+[source,yaml]
+----
+routers:
+  roleGroups:
+    default:
+      config: {}
+      configOverrides:
+        runtime.properties:
+          druid.server.http.numThreads: "100"
+      replicas: 1
+----
+
+Just as for the `config`, it is possible to specify this at role level as well:
+
+[source,yaml]
+----
+routers:
+  configOverrides:
+    runtime.properties:
+      druid.server.http.numThreads: "100"
+  roleGroups:
+    default:
+      config: {}
+      replicas: 1
+----
+
+All override property values must be strings.
+
+For a full list of configuration options we refer to the Druid https://druid.apache.org/docs/latest/configuration/index.html[Configuration Reference].
+
+=== Environment Variables
+
+In a similar fashion, environment variables can be (over)written. For example per role group:
+
+[source,yaml]
+----
+routers:
+  roleGroups:
+    default:
+      config: {}
+      envOverrides:
+        MY_ENV_VAR: "MY_VALUE"
+      replicas: 1
+----
+
+or per role:
+
+[source,yaml]
+----
+routers:
+  envOverrides:
+    MY_ENV_VAR: "MY_VALUE"
+  roleGroups:
+    default:
+      config: {}
+      replicas: 1
+----
+
+
+// cliOverrides don't make sense for this operator, so the feature is omitted for now
