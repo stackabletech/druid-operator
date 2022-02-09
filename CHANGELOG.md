@@ -4,11 +4,17 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+
+- Monitoring scraping label `prometheus.io/scrape: true` ([#155]).
+
 ### Changed 
 
 - Removed the option to set a namespace for the zookeeper reference ([#140])
+- `operator-rs` `0.8.0` → `0.10.0` ([#155])
 
 [#140]: https://github.com/stackabletech/druid-operator/pull/140
+[#155]: https://github.com/stackabletech/druid-operator/pull/155
 
 ## [0.3.0] - 2022-01-27
 
