@@ -138,13 +138,13 @@ The operator creates a `ConfigMap` with the name of the cluster which contains c
 
 == Configuration & Environment Overrides
 
-The cluster definition also supports overriding configuration properties and environment variables.
+The cluster definition also supports overriding configuration properties and environment variables, either per role or per role group, where the more specific override (role group) has precedence over the less specific one (role).
 
 IMPORTANT: Overriding certain properties which are set by operator (such as the HTTP port) can interfere with the operator and can lead to problems.
 
 === Configuration Properties
 
-For a role or rolegroup, at the same level of `config`, you can specify: `configOverrides` for the `runtime.properties`. For example, if you want to set the `druid.server.http.numThreads` for the router to 100 adapt the `routers` section of the cluster resource like so:
+For a role or role group, at the same level of `config`, you can specify: `configOverrides` for the `runtime.properties`. For example, if you want to set the `druid.server.http.numThreads` for the router to 100 adapt the `routers` section of the cluster resource like so:
 
 [source,yaml]
 ----
@@ -178,7 +178,7 @@ For a full list of configuration options we refer to the Druid https://druid.apa
 
 === Environment Variables
 
-In a similar fashion, environment variables can be (over)written. For example:
+In a similar fashion, environment variables can be (over)written. For example per role group:
 
 [source,yaml]
 ----
@@ -191,7 +191,7 @@ routers:
       replicas: 1
 ----
 
-or
+or per role:
 
 [source,yaml]
 ----
