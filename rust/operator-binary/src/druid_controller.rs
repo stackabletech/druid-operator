@@ -1,14 +1,14 @@
 //! Ensures that `Pod`s are configured and running for each [`DruidCluster`]
+use crate::{
+    config::{get_jvm_config, get_log4j_config, get_runtime_properties},
+    discovery::{self, build_discovery_configmaps},
+};
 
 use std::{
     collections::{BTreeMap, HashMap},
     str::FromStr,
     time::Duration,
-};
-
-use crate::{
-    config::{get_jvm_config, get_log4j_config, get_runtime_properties},
-    discovery::{self, build_discovery_configmaps},
+    sync::Arc,
 };
 use snafu::{OptionExt, ResultExt, Snafu};
 use stackable_druid_crd::{
@@ -124,9 +124,9 @@ pub enum Error {
 }
 type Result<T, E = Error> = std::result::Result<T, E>;
 
-pub async fn reconcile_druid(druid: DruidCluster, ctx: Context<Ctx>) -> Result<ReconcilerAction> {
+pub async fn reconcile_druid(druid: Arc<DruidCluster>, ctx: Context<Ctx>) -> Result<ReconcilerAction> {
     tracing::info!("Starting reconcile");
-    let druid_ref = ObjectRef::from_obj(&druid);
+    let druid_ref = ObjectRef::from_obj(&*druid);
     let client = &ctx.get_ref().client;
 
     let zk_confmap = druid.spec.zookeeper_config_map_name.clone();
@@ -158,7 +158,7 @@ pub async fn reconcile_druid(druid: DruidCluster, ctx: Context<Ctx>) -> Result<R
         );
     }
 
-    let role_config = transform_all_roles_to_config(&druid, roles);
+    let role_config = transform_all_roles_to_config(&*druid, roles);
     let validated_role_config = validate_all_roles_and_groups_config(
         druid_version(&druid)?,
         &role_config.with_context(|| ProductConfigTransform)?,
@@ -180,7 +180,7 @@ pub async fn reconcile_druid(druid: DruidCluster, ctx: Context<Ctx>) -> Result<R
             })?;
         for (rolegroup_name, rolegroup_config) in role_config.iter() {
             let rolegroup = RoleGroupRef {
-                cluster: ObjectRef::from_obj(&druid),
+                cluster: ObjectRef::from_obj(&*druid),
                 role: role_name.into(),
                 role_group: rolegroup_name.into(),
             };
@@ -215,7 +215,7 @@ pub async fn reconcile_druid(druid: DruidCluster, ctx: Context<Ctx>) -> Result<R
     }
 
     // discovery
-    for discovery_cm in build_discovery_configmaps(&druid, &druid)
+    for discovery_cm in build_discovery_configmaps(&*druid, &*druid)
         .await
         .context(BuildDiscoveryConfig)?
     {
@@ -361,6 +361,7 @@ fn build_rolegroup_services(
                 &rolegroup.role,
                 &rolegroup.role_group,
             )
+            .with_label("prometheus.io/scrape", "true")
             .build(),
         spec: Some(ServiceSpec {
             cluster_ip: Some("None".to_string()),
