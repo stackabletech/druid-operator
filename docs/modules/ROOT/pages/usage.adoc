@@ -205,4 +205,4 @@ routers:
 ----
 
 
-// cliOverrides don't make sense for this operator, so th feature is omitted for now
+// cliOverrides don't make sense for this operator, so the feature is omitted for now
