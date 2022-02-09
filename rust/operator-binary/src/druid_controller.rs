@@ -4,12 +4,6 @@ use crate::{
     discovery::{self, build_discovery_configmaps},
 };
 
-use std::{
-    collections::{BTreeMap, HashMap},
-    str::FromStr,
-    time::Duration,
-    sync::Arc,
-};
 use snafu::{OptionExt, ResultExt, Snafu};
 use stackable_druid_crd::{
     DeepStorageType, DruidCluster, DruidRole, APP_NAME, CONTAINER_HTTP_PORT,
@@ -45,6 +39,12 @@ use stackable_operator::{
     product_config::{types::PropertyNameKind, ProductConfigManager},
     product_config_utils::{transform_all_roles_to_config, validate_all_roles_and_groups_config},
     role_utils::RoleGroupRef,
+};
+use std::{
+    collections::{BTreeMap, HashMap},
+    str::FromStr,
+    sync::Arc,
+    time::Duration,
 };
 use strum::IntoEnumIterator;
 
@@ -124,7 +124,10 @@ pub enum Error {
 }
 type Result<T, E = Error> = std::result::Result<T, E>;
 
-pub async fn reconcile_druid(druid: Arc<DruidCluster>, ctx: Context<Ctx>) -> Result<ReconcilerAction> {
+pub async fn reconcile_druid(
+    druid: Arc<DruidCluster>,
+    ctx: Context<Ctx>,
+) -> Result<ReconcilerAction> {
     tracing::info!("Starting reconcile");
     let druid_ref = ObjectRef::from_obj(&*druid);
     let client = &ctx.get_ref().client;
