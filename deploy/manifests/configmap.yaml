@@ -60,8 +60,8 @@ kind: ConfigMap
 metadata:
   name: druid-operator-configmap
   labels:
-    helm.sh/chart: druid-operator-0.4.0-nightly
+    helm.sh/chart: druid-operator-0.4.0
     app.kubernetes.io/name: druid-operator
     app.kubernetes.io/instance: druid-operator
-    app.kubernetes.io/version: "0.4.0-nightly"
+    app.kubernetes.io/version: "0.4.0"
     app.kubernetes.io/managed-by: Helm
