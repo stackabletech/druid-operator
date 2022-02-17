@@ -1,0 +1,93 @@
+---
+apiVersion: zookeeper.stackable.tech/v1alpha1
+kind: ZookeeperCluster
+metadata:
+  name: simple-zk
+spec:
+  version: 3.5.8
+  servers:
+    roleGroups:
+      default:
+        selector:
+          matchLabels:
+            kubernetes.io/os: linux
+        replicas: 3
+        config: {}
+---
+apiVersion: zookeeper.stackable.tech/v1alpha1
+kind: ZookeeperZnode
+metadata:
+  name: simple-druid-znode
+spec:
+  clusterRef:
+    name: simple-zk
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: s3-credentials
+stringData:
+  accessKeyId: YOUR_VALID_ACCESS_KEY_ID_HERE
+  secretAccessKey: YOUR_SECRET_ACCES_KEY_THATBELONGS_TO_THE_KEY_ID_HERE
+---
+apiVersion: druid.stackable.tech/v1alpha1
+kind: DruidCluster
+metadata:
+  name: psql-s3-druid
+spec:
+  version: 0.22.1
+  zookeeperConfigMapName: simple-druid-znode
+  metadataStorageDatabase:
+    dbType: postgresql
+    connString: jdbc:postgresql://druid-postgresql/druid
+    host: druid-postgresql
+    port: 5432
+    user: druid
+    password: druid
+  s3:
+    endpoint: s3-de-central.profitbricks.com
+    credentialsSecret: s3-credentials    # this needs to be deployed additionally
+  deepStorage:
+    storageType: s3
+    bucket: druid-deepstorage2
+    baseKey: storage               # this is optional; deep storage can also be at the root of the bucket
+  brokers:
+    roleGroups:
+      default:
+        selector:
+          matchLabels:
+            kubernetes.io/os: linux
+        config: {}
+        replicas: 1
+  coordinators:
+    roleGroups:
+      default:
+        selector:
+          matchLabels:
+            kubernetes.io/os: linux
+        config: {}
+        replicas: 1
+  historicals:
+    roleGroups:
+      default:
+        selector:
+          matchLabels:
+            kubernetes.io/os: linux
+        config: {}
+        replicas: 1
+  middleManagers:
+    roleGroups:
+      default:
+        selector:
+          matchLabels:
+            kubernetes.io/os: linux
+        config: {}
+        replicas: 1
+  routers:
+    roleGroups:
+      default:
+        selector:
+          matchLabels:
+            kubernetes.io/os: linux
+        config: {}
+        replicas: 1

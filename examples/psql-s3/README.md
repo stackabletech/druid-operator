@@ -6,6 +6,17 @@ Add the bitname repository:
 And setup the Postgres database:
 
     helm install druid bitnami/postgresql \
-    --set postgresqlUsername=druid \
-    --set postgresqlPassword=druid \
-    --set postgresqlDatabase=druid
+    --version=11 \
+    --set auth.username=druid \
+    --set auth.password=druid \
+    --set auth.database=druid
+
+Make sure to adapt the S3 secret in `./druid-cluster.yaml` with your credentials:
+
+    apiVersion: v1
+    kind: Secret
+    metadata:
+      name: s3-credentials
+    stringData:
+      accessKeyId: YOUR_VALID_ACCESS_KEY_ID_HERE
+      secretAccessKey: YOUR_SECRET_ACCES_KEY_THATBELONGS_TO_THE_KEY_ID_HERE
