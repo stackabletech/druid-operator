@@ -1,10 +1,34 @@
+---
+apiVersion: zookeeper.stackable.tech/v1alpha1
+kind: ZookeeperCluster
+metadata:
+  name: simple-zk
+spec:
+  version: 3.5.8
+  servers:
+    roleGroups:
+      default:
+        selector:
+          matchLabels:
+            kubernetes.io/os: linux
+        replicas: 3
+        config: {}
+---
+apiVersion: zookeeper.stackable.tech/v1alpha1
+kind: ZookeeperZnode
+metadata:
+  name: simple-druid-znode
+spec:
+  clusterRef:
+    name: simple-zk
+---
 apiVersion: druid.stackable.tech/v1alpha1
 kind: DruidCluster
 metadata:
-  name: derby-druid
+  name: simple-derby-druid
 spec:
   version: 0.22.1
-  zookeeperConfigMapName: simple
+  zookeeperConfigMapName: simple-druid-znode
   metadataStorageDatabase:
     dbType: derby
     connString: jdbc:derby://localhost:1527/var/druid/metadata.db;create=true
