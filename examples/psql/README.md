@@ -6,6 +6,7 @@ Add the bitname repository:
 And setup the Postgres database:
 
     helm install druid bitnami/postgresql \
-    --set postgresqlUsername=druid \
-    --set postgresqlPassword=druid \
-    --set postgresqlDatabase=druid
+    --version=11 \
+    --set auth.username=druid \
+    --set auth.password=druid \
+    --set auth.database=druid
