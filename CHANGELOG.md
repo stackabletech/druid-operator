@@ -4,6 +4,17 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+
+- Reconciliation errors are now reported as Kubernetes events ([#178]).
+
+### Changed
+
+- `operator-rs` `0.10.0` -> `0.12.0` ([#178]).
+- `snafu` `0.6` -> `0.7` ([#178]).
+
+[#178]: https://github.com/stackabletech/druid-operator/pull/178
+
 ## [0.4.0] - 2022-02-14
 
 ### Added
