@@ -36,6 +36,7 @@ use stackable_operator::{
         ResourceExt,
     },
     labels::{role_group_selector_labels, role_selector_labels},
+    logging::controller::ReconcilerError,
     product_config::{types::PropertyNameKind, ProductConfigManager},
     product_config_utils::{transform_all_roles_to_config, validate_all_roles_and_groups_config},
     role_utils::RoleGroupRef,
@@ -46,7 +47,7 @@ use std::{
     sync::Arc,
     time::Duration,
 };
-use strum::IntoEnumIterator;
+use strum::{EnumDiscriminants, IntoEnumIterator, IntoStaticStr};
 
 const FIELD_MANAGER_SCOPE: &str = "druidcluster";
 const DEFAULT_IMAGE_VERSION: &str = "0";
@@ -56,13 +57,13 @@ pub struct Ctx {
     pub product_config: ProductConfigManager,
 }
 
-#[derive(Snafu, Debug)]
+#[derive(Snafu, Debug, EnumDiscriminants)]
+#[strum_discriminants(derive(IntoStaticStr))]
 #[allow(clippy::enum_variant_names)]
 pub enum Error {
-    #[snafu(display("failed to apply global Service for {}", druid))]
+    #[snafu(display("failed to apply global Service"))]
     ApplyRoleService {
         source: stackable_operator::error::Error,
-        druid: ObjectRef<DruidCluster>,
     },
     #[snafu(display("failed to apply Service for {}", rolegroup))]
     ApplyRoleGroupService {
@@ -84,15 +85,13 @@ pub enum Error {
         source: stackable_operator::error::Error,
         rolegroup: RoleGroupRef<DruidCluster>,
     },
-    #[snafu(display("invalid product config for {}", druid))]
+    #[snafu(display("invalid product config"))]
     InvalidProductConfig {
         source: stackable_operator::error::Error,
-        druid: ObjectRef<DruidCluster>,
     },
-    #[snafu(display("object {} is missing metadata to build owner reference", druid))]
+    #[snafu(display("object is missing metadata to build owner reference"))]
     ObjectMissingMetadataForOwnerRef {
         source: stackable_operator::error::Error,
-        druid: ObjectRef<DruidCluster>,
     },
     #[snafu(display(
         "Failed to get ZooKeeper discovery config map for cluster: {}",
@@ -122,26 +121,32 @@ pub enum Error {
         source: stackable_operator::error::Error,
     },
 }
+
 type Result<T, E = Error> = std::result::Result<T, E>;
+
+impl ReconcilerError for Error {
+    fn category(&self) -> &'static str {
+        ErrorDiscriminants::from(self).into()
+    }
+}
 
 pub async fn reconcile_druid(
     druid: Arc<DruidCluster>,
     ctx: Context<Ctx>,
 ) -> Result<ReconcilerAction> {
     tracing::info!("Starting reconcile");
-    let druid_ref = ObjectRef::from_obj(&*druid);
     let client = &ctx.get_ref().client;
 
     let zk_confmap = druid.spec.zookeeper_config_map_name.clone();
     let zk_connstr = client
         .get::<ConfigMap>(&zk_confmap, druid.namespace().as_deref())
         .await
-        .context(GetZookeeperConnStringConfigMap {
+        .context(GetZookeeperConnStringConfigMapSnafu {
             cm_name: zk_confmap.clone(),
         })?
         .data
         .and_then(|mut data| data.remove("ZOOKEEPER"))
-        .context(MissingZookeeperConnString {
+        .context(MissingZookeeperConnStringSnafu {
             cm_name: zk_confmap.clone(),
         })?;
 
@@ -164,23 +169,19 @@ pub async fn reconcile_druid(
     let role_config = transform_all_roles_to_config(&*druid, roles);
     let validated_role_config = validate_all_roles_and_groups_config(
         druid_version(&druid)?,
-        &role_config.with_context(|| ProductConfigTransform)?,
+        &role_config.context(ProductConfigTransformSnafu)?,
         &ctx.get_ref().product_config,
         false,
         false,
     )
-    .with_context(|| InvalidProductConfig {
-        druid: druid_ref.clone(),
-    })?;
+    .context(InvalidProductConfigSnafu)?;
 
     for (role_name, role_config) in validated_role_config.iter() {
         let role_service = build_role_service(role_name, &druid)?;
         client
             .apply_patch(FIELD_MANAGER_SCOPE, &role_service, &role_service)
             .await
-            .with_context(|| ApplyRoleService {
-                druid: druid_ref.clone(),
-            })?;
+            .context(ApplyRoleServiceSnafu)?;
         for (rolegroup_name, rolegroup_config) in role_config.iter() {
             let rolegroup = RoleGroupRef {
                 cluster: ObjectRef::from_obj(&*druid),
@@ -199,19 +200,19 @@ pub async fn reconcile_druid(
             client
                 .apply_patch(FIELD_MANAGER_SCOPE, &rg_service, &rg_service)
                 .await
-                .with_context(|| ApplyRoleGroupService {
+                .with_context(|_| ApplyRoleGroupServiceSnafu {
                     rolegroup: rolegroup.clone(),
                 })?;
             client
                 .apply_patch(FIELD_MANAGER_SCOPE, &rg_configmap, &rg_configmap)
                 .await
-                .with_context(|| ApplyRoleGroupConfig {
+                .with_context(|_| ApplyRoleGroupConfigSnafu {
                     rolegroup: rolegroup.clone(),
                 })?;
             client
                 .apply_patch(FIELD_MANAGER_SCOPE, &rg_statefulset, &rg_statefulset)
                 .await
-                .with_context(|| ApplyRoleGroupStatefulSet {
+                .with_context(|_| ApplyRoleGroupStatefulSetSnafu {
                     rolegroup: rolegroup.clone(),
                 })?;
         }
@@ -220,12 +221,12 @@ pub async fn reconcile_druid(
     // discovery
     for discovery_cm in build_discovery_configmaps(&*druid, &*druid)
         .await
-        .context(BuildDiscoveryConfig)?
+        .context(BuildDiscoveryConfigSnafu)?
     {
         client
             .apply_patch(FIELD_MANAGER_SCOPE, &discovery_cm, &discovery_cm)
             .await
-            .context(ApplyDiscoveryConfig)?;
+            .context(ApplyDiscoveryConfigSnafu)?;
     }
 
     Ok(ReconcilerAction {
@@ -246,9 +247,7 @@ pub fn build_role_service(role_name: &str, druid: &DruidCluster) -> Result<Servi
             .name_and_namespace(druid)
             .name(&role_svc_name)
             .ownerreference_from_resource(druid, None, Some(true))
-            .with_context(|| ObjectMissingMetadataForOwnerRef {
-                druid: ObjectRef::from_obj(druid),
-            })?
+            .context(ObjectMissingMetadataForOwnerRefSnafu)?
             .with_recommended_labels(druid, APP_NAME, druid_version(druid)?, role_name, "global")
             .build(),
         spec: Some(ServiceSpec {
@@ -296,7 +295,7 @@ fn build_rolegroup_config_map(
                     Some(zk_connstr.clone()),
                 );
                 let runtime_properties = get_runtime_properties(&role, &transformed_config)
-                    .with_context(|| PropertiesWriteError)?;
+                    .context(PropertiesWriteSnafu)?;
                 cm_conf_data.insert(RUNTIME_PROPS.to_string(), runtime_properties);
             }
             PropertyNameKind::File(file_name) if file_name == JVM_CONFIG => {
@@ -317,9 +316,7 @@ fn build_rolegroup_config_map(
             .name_and_namespace(druid)
             .name(rolegroup.object_name())
             .ownerreference_from_resource(druid, None, Some(true))
-            .with_context(|| ObjectMissingMetadataForOwnerRef {
-                druid: ObjectRef::from_obj(druid),
-            })?
+            .context(ObjectMissingMetadataForOwnerRefSnafu)?
             .with_recommended_labels(
                 druid,
                 APP_NAME,
@@ -334,7 +331,7 @@ fn build_rolegroup_config_map(
     }
     config_map_builder
         .build()
-        .with_context(|| BuildRoleGroupConfig {
+        .with_context(|_| BuildRoleGroupConfigSnafu {
             rolegroup: rolegroup.clone(),
         })
 }
@@ -354,9 +351,7 @@ fn build_rolegroup_services(
             .name_and_namespace(druid)
             .name(&rolegroup.object_name())
             .ownerreference_from_resource(druid, None, Some(true))
-            .with_context(|| ObjectMissingMetadataForOwnerRef {
-                druid: ObjectRef::from_obj(druid),
-            })?
+            .context(ObjectMissingMetadataForOwnerRefSnafu)?
             .with_recommended_labels(
                 druid,
                 APP_NAME,
@@ -523,9 +518,7 @@ fn build_rolegroup_statefulset(
             .name_and_namespace(druid)
             .name(&rolegroup_ref.object_name())
             .ownerreference_from_resource(druid, None, Some(true))
-            .with_context(|| ObjectMissingMetadataForOwnerRef {
-                druid: ObjectRef::from_obj(druid),
-            })?
+            .context(ObjectMissingMetadataForOwnerRefSnafu)?
             .with_recommended_labels(
                 druid,
                 APP_NAME,

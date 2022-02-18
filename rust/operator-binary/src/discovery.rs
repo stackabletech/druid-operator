@@ -46,7 +46,7 @@ fn build_discovery_configmap(
         "{}:{}",
         druid
             .role_service_fqdn(&DruidRole::Router)
-            .with_context(|| NoServiceFqdn)?,
+            .with_context(|| NoServiceFqdnSnafu)?,
         DruidRole::Router.get_http_port()
     );
     let sqlalchemy_conn_str = format!("druid://{}/druid/v2/sql", router_host);
@@ -61,7 +61,7 @@ fn build_discovery_configmap(
                 .name_and_namespace(druid)
                 .name(name)
                 .ownerreference_from_resource(owner, None, Some(true))
-                .with_context(|| ObjectMissingMetadataForOwnerRef {
+                .with_context(|_| ObjectMissingMetadataForOwnerRefSnafu {
                     druid: ObjectRef::from_obj(druid),
                 })?
                 .with_recommended_labels(
@@ -77,5 +77,5 @@ fn build_discovery_configmap(
         .add_data("DRUID_SQLALCHEMY", sqlalchemy_conn_str)
         .add_data("DRUID_AVATICA_JDBC", avatica_conn_str)
         .build()
-        .context(BuildConfigMap)
+        .context(BuildConfigMapSnafu)
 }
