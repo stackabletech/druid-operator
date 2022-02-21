@@ -136,6 +136,11 @@ The operator creates a `ConfigMap` with the name of the cluster which contains c
 - `DRUID_AVATICA_JDBC` contains a JDBC connect string which can be used together with the https://calcite.apache.org/avatica/downloads/[Avatica JDBC Driver] to connect to Druid and query data. https://druid.apache.org/docs/latest/querying/sql.html#jdbc[More information in the Druid Docs].
 - `DRUID_SQALCHEMY` contains a connection string used to connect to Druid with SQAlchemy, in - for example - Apache Superset.
 
+== Monitoring
+
+The managed Druid instances are automatically configured to export Prometheus metrics. See
+xref:home::monitoring.adoc[] for more details.
+
 == Configuration & Environment Overrides
 
 The cluster definition also supports overriding configuration properties and environment variables, either per role or per role group, where the more specific override (role group) has precedence over the less specific one (role).
