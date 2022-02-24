@@ -9,7 +9,7 @@ All notable changes to this project will be documented in this file.
 - Reconciliation errors are now reported as Kubernetes events ([#178]).
 - Use cli argument `watch-namespace` / env var `WATCH_NAMESPACE` to specify
   a single namespace to watch ([#183]).
-- 
+
 ### Changed
 
 - `operator-rs` `0.10.0` -> `0.13.0` ([#178],[#183]).
