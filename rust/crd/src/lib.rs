@@ -7,9 +7,7 @@ use stackable_operator::{
 };
 use std::collections::BTreeMap;
 use std::str::FromStr;
-use strum_macros::Display;
-use strum_macros::EnumIter;
-use strum_macros::EnumString;
+use strum::{Display, EnumIter, EnumString};
 
 pub const APP_NAME: &str = "druid";
 
@@ -184,17 +182,7 @@ pub struct DatabaseConnectionSpec {
     pub password: Option<String>,
 }
 
-#[derive(
-    Clone,
-    Debug,
-    Deserialize,
-    Eq,
-    JsonSchema,
-    PartialEq,
-    Serialize,
-    strum_macros::Display,
-    strum_macros::EnumString,
-)]
+#[derive(Clone, Debug, Deserialize, Eq, JsonSchema, PartialEq, Serialize, Display, EnumString)]
 pub enum DbType {
     #[serde(rename = "derby")]
     #[strum(serialize = "derby")]
@@ -215,17 +203,7 @@ impl Default for DbType {
     }
 }
 
-#[derive(
-    Clone,
-    Debug,
-    Deserialize,
-    Eq,
-    JsonSchema,
-    PartialEq,
-    Serialize,
-    strum_macros::Display,
-    strum_macros::EnumString,
-)]
+#[derive(Clone, Debug, Deserialize, Eq, JsonSchema, PartialEq, Serialize, Display, EnumString)]
 pub enum DeepStorageType {
     #[serde(rename = "local")]
     #[strum(serialize = "local")]

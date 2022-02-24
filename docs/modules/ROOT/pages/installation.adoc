@@ -6,7 +6,7 @@ There are two ways to run the Apache Druid Operator:
 
 2. As a Docker container
 
-3. Build from source. This is documented in xref:building.adoc[Building the Operator].
+3. Build from source
 
 == Helm
 
@@ -50,4 +50,13 @@ docker run \
     --env KUBECONFIG=/home/stackable/.kube/config \
     --mount type=bind,source="$HOME/.kube/config",target="/home/stackable/.kube/config" \
     docker.stackable.tech/stackable/druid-operator:latest
+----
+
+== Building the operator from source
+
+This operator is written in Rust and is developed against the latest stable Rust release (1.56 at the time of writing).
+
+[source]
+----
+cargo build
 ----
