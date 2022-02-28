@@ -40,7 +40,7 @@ With the prerequisites fulfilled, the CRD for this operator must be created:
 kubectl apply -f /etc/stackable/druid-operator/crd
 ----
 
-Then a cluster can be deployed using the example below. Make sure you have *exactly one node* labeled with `nodeType=druid-data` as used in the deep storage selector. Having more than one data node is not supported when using local storage.
+Then a cluster can be deployed using the example below.
 
 [source,yaml]
 ----
@@ -60,8 +60,6 @@ spec:
     password: druid
   deepStorage:
     storageType: local
-    dataNodeSelector:
-      nodeType: druid-data
     storageDirectory: /path/to/druidDeepStorage
   brokers:
     roleGroups:

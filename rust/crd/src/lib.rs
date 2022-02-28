@@ -33,6 +33,7 @@ pub const EXT_DATASKETCHES: &str = "druid-datasketches";
 pub const PROMETHEUS_EMITTER: &str = "prometheus-emitter";
 pub const EXT_PSQL_MD_ST: &str = "postgresql-metadata-storage";
 pub const EXT_MYSQL_MD_ST: &str = "mysql-metadata-storage";
+pub const EXT_HDFS: &str = "druid-hdfs-storage";
 // zookeeper
 pub const ZOOKEEPER_CONNECTION_STRING: &str = "druid.zk.service.host";
 // deep storage
@@ -227,9 +228,9 @@ impl Default for DbType {
     strum_macros::EnumString,
 )]
 pub enum DeepStorageType {
-    #[serde(rename = "local")]
-    #[strum(serialize = "local")]
-    Local,
+    #[serde(rename = "hdfs")]
+    #[strum(serialize = "hdfs")]
+    HDFS,
 
     #[serde(rename = "s3")]
     #[strum(serialize = "s3")]
@@ -238,7 +239,7 @@ pub enum DeepStorageType {
 
 impl Default for DeepStorageType {
     fn default() -> Self {
-        Self::Local
+        Self::HDFS
     }
 }
 
@@ -246,8 +247,6 @@ impl Default for DeepStorageType {
 #[serde(rename_all = "camelCase")]
 pub struct DeepStorageSpec {
     pub storage_type: DeepStorageType,
-    // local only
-    pub data_node_selector: Option<BTreeMap<String, String>>,
     pub storage_directory: Option<String>,
     // S3 only
     pub bucket: Option<String>,
@@ -310,6 +309,7 @@ impl Configuration for DruidConfig {
                     String::from(EXT_DATASKETCHES),
                     String::from(PROMETHEUS_EMITTER),
                     String::from(EXT_S3),
+                    String::from(EXT_HDFS),
                 ];
                 // metadata storage
                 let mds = &resource.spec.metadata_storage_database;

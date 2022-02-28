@@ -6,29 +6,23 @@ use crate::{
 
 use snafu::{OptionExt, ResultExt, Snafu};
 use stackable_druid_crd::{
-    DeepStorageType, DruidCluster, DruidRole, APP_NAME, CONTAINER_HTTP_PORT,
-    CONTAINER_METRICS_PORT, CREDENTIALS_SECRET_PROPERTY, DRUID_METRICS_PORT, JVM_CONFIG,
-    LOG4J2_CONFIG, RUNTIME_PROPS, ZOOKEEPER_CONNECTION_STRING,
+    DruidCluster, DruidRole, APP_NAME, CONTAINER_HTTP_PORT, CONTAINER_METRICS_PORT,
+    CREDENTIALS_SECRET_PROPERTY, DRUID_METRICS_PORT, JVM_CONFIG, LOG4J2_CONFIG, RUNTIME_PROPS,
+    ZOOKEEPER_CONNECTION_STRING,
 };
 use stackable_operator::{
-    builder::{
-        ConfigMapBuilder, ContainerBuilder, ObjectMetaBuilder, PodBuilder,
-        PodSecurityContextBuilder, VolumeBuilder,
-    },
+    builder::{ConfigMapBuilder, ContainerBuilder, ObjectMetaBuilder, PodBuilder, VolumeBuilder},
     k8s_openapi::{
         api::{
             apps::v1::{StatefulSet, StatefulSetSpec},
             core::v1::{
-                ConfigMap, EnvVar, EnvVarSource, PersistentVolumeClaim, PersistentVolumeClaimSpec,
-                ResourceRequirements, SecretKeySelector, Service, ServicePort, ServiceSpec,
+                ConfigMap, EnvVar, EnvVarSource, SecretKeySelector, Service, ServicePort,
+                ServiceSpec,
             },
         },
-        apimachinery::pkg::{
-            api::resource::Quantity, apis::meta::v1::LabelSelector, util::intstr::IntOrString,
-        },
+        apimachinery::pkg::{apis::meta::v1::LabelSelector, util::intstr::IntOrString},
     },
     kube::{
-        api::ObjectMeta,
         runtime::{
             controller::{Context, ReconcilerAction},
             reflector::ObjectRef,
@@ -465,50 +459,6 @@ fn build_rolegroup_statefulset(
             .build(),
     );
 
-    // add local deep storage setup
-    let mut pvcs = vec![];
-    if druid.spec.deep_storage.storage_type == DeepStorageType::Local {
-        let data_dir = String::from("/data");
-        let dir = druid
-            .spec
-            .deep_storage
-            .storage_directory
-            .as_ref()
-            .unwrap_or(&data_dir);
-        cb.add_volume_mount("data", "/data");
-        pb.add_volume(
-            VolumeBuilder::new("data")
-                .with_host_path(dir, Some("DirectoryOrCreate".to_string()))
-                .build(),
-        );
-        pvcs.push(PersistentVolumeClaim {
-            metadata: ObjectMeta {
-                name: Some("data".to_string()),
-                ..ObjectMeta::default()
-            },
-            spec: Some(PersistentVolumeClaimSpec {
-                access_modes: Some(vec!["ReadWriteOnce".to_string()]),
-                resources: Some(ResourceRequirements {
-                    requests: Some({
-                        let mut map = BTreeMap::new();
-                        map.insert("storage".to_string(), Quantity("1Gi".to_string()));
-                        map
-                    }),
-                    ..ResourceRequirements::default()
-                }),
-                ..PersistentVolumeClaimSpec::default()
-            }),
-            ..PersistentVolumeClaim::default()
-        });
-        pb.security_context(
-            PodSecurityContextBuilder::new()
-                .run_as_user(0)
-                .fs_group(0)
-                .run_as_group(0)
-                .build(),
-        );
-    }
-
     let mut container = cb.build();
     container.image_pull_policy = Some("IfNotPresent".to_string());
     pb.add_container(container);
@@ -545,7 +495,7 @@ fn build_rolegroup_statefulset(
             },
             service_name: rolegroup_ref.object_name(),
             template: pb.build_template(),
-            volume_claim_templates: Some(pvcs),
+            volume_claim_templates: Some(vec![]),
             ..StatefulSetSpec::default()
         }),
         status: None,
