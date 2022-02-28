@@ -355,7 +355,6 @@ mod tests {
     use super::*;
     use stackable_operator::role_utils::CommonConfiguration;
     use stackable_operator::role_utils::RoleGroup;
-    use std::array::IntoIter;
     use std::collections::HashMap;
 
     #[test]
@@ -408,7 +407,7 @@ mod tests {
                         env_overrides: Default::default(),
                         cli_overrides: Default::default(),
                     },
-                    role_groups: HashMap::<_, _>::from_iter(IntoIter::new([(
+                    role_groups: [(
                         "default".to_string(),
                         RoleGroup {
                             config: CommonConfiguration {
@@ -420,7 +419,9 @@ mod tests {
                             replicas: Some(1),
                             selector: None,
                         },
-                    )])),
+                    )]
+                    .into_iter()
+                    .collect::<HashMap<_, _>>(),
                 },
                 metadata_storage_database: Default::default(),
                 deep_storage: Default::default(),
