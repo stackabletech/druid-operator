@@ -38,6 +38,7 @@ pub const EXT_HDFS: &str = "druid-hdfs-storage";
 pub const ZOOKEEPER_CONNECTION_STRING: &str = "druid.zk.service.host";
 // deep storage
 pub const DS_TYPE: &str = "druid.storage.type";
+pub const DS_DIRECTORY: &str = "druid.storage.storageDirectory";
 // S3
 pub const DS_BUCKET: &str = "druid.storage.bucket";
 pub const DS_BASE_KEY: &str = "druid.storage.baseKey";
@@ -345,6 +346,10 @@ impl Configuration for DruidConfig {
                 }
                 if let Some(key) = &ds.base_key {
                     result.insert(DS_BASE_KEY.to_string(), Some(key.to_string()));
+                }
+                // TODO resolve endpoint from namenode name...
+                if let Some(dir) = &ds.storage_directory {
+                    result.insert(DS_DIRECTORY.to_string(), Some(dir.to_string()));
                 }
                 // other
                 result.insert(
