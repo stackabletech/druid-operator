@@ -8,7 +8,7 @@ use snafu::{OptionExt, ResultExt, Snafu};
 use stackable_druid_crd::{
     DeepStorageType, DruidCluster, DruidRole, APP_NAME, CONTAINER_HTTP_PORT,
     CONTAINER_METRICS_PORT, CREDENTIALS_SECRET_PROPERTY, DRUID_METRICS_PORT, JVM_CONFIG,
-    LOG4J2_CONFIG, RUNTIME_PROPS, ZOOKEEPER_CONNECTION_STRING,
+    LOG4J2_CONFIG, OPA_CONNECTION_STRING, RUNTIME_PROPS, ZOOKEEPER_CONNECTION_STRING,
 };
 use stackable_operator::{
     builder::{
@@ -150,6 +150,22 @@ pub async fn reconcile_druid(
             cm_name: zk_confmap.clone(),
         })?;
 
+    let opa_confmap = druid.spec.opa_config_map_name.clone();
+    let opa_connstr = client
+        .get::<ConfigMap>(&opa_confmap, druid.namespace().as_deref())
+        .await
+        .context(GetZookeeperConnStringConfigMapSnafu {
+            // TODO write different error here
+            cm_name: opa_confmap.clone(),
+        })?
+        .data
+        .and_then(|mut data| data.remove("OPA"))
+        .context(MissingZookeeperConnStringSnafu {
+            // TODO error
+            cm_name: zk_confmap.clone(),
+        })?
+        + &druid.spec.opa_druid_api_path;
+
     let mut roles = HashMap::new();
 
     let config_files = vec![
@@ -195,6 +211,7 @@ pub async fn reconcile_druid(
                 &druid,
                 rolegroup_config,
                 zk_connstr.clone(),
+                opa_connstr.clone(),
             )?;
             let rg_statefulset = build_rolegroup_statefulset(&rolegroup, &druid, rolegroup_config)?;
             client
@@ -275,6 +292,7 @@ fn build_rolegroup_config_map(
     druid: &DruidCluster,
     rolegroup_config: &HashMap<PropertyNameKind, BTreeMap<String, String>>,
     zk_connstr: String,
+    opa_connstr: String,
 ) -> Result<ConfigMap> {
     let role = DruidRole::from_str(&rolegroup.role).unwrap();
     let mut cm_conf_data = BTreeMap::new(); // filename -> filecontent
@@ -294,6 +312,8 @@ fn build_rolegroup_config_map(
                     ZOOKEEPER_CONNECTION_STRING.to_string(),
                     Some(zk_connstr.clone()),
                 );
+                transformed_config
+                    .insert(OPA_CONNECTION_STRING.to_string(), Some(opa_connstr.clone()));
                 let runtime_properties = get_runtime_properties(&role, &transformed_config)
                     .context(PropertiesWriteSnafu)?;
                 cm_conf_data.insert(RUNTIME_PROPS.to_string(), runtime_properties);

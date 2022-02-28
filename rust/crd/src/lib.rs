@@ -33,9 +33,12 @@ pub const EXT_DATASKETCHES: &str = "druid-datasketches";
 pub const PROMETHEUS_EMITTER: &str = "prometheus-emitter";
 pub const EXT_PSQL_MD_ST: &str = "postgresql-metadata-storage";
 pub const EXT_MYSQL_MD_ST: &str = "mysql-metadata-storage";
+pub const EXT_OPA_AUTHORIZER: &str = "druid-opa-authorizer";
+pub const EXT_BASIC_SECURITY: &str = "druid-basic-security";
 // zookeeper
 pub const ZOOKEEPER_CONNECTION_STRING: &str = "druid.zk.service.host";
-// deep storage
+pub const OPA_CONNECTION_STRING: &str = "druid.auth.authorizer.MyBasicMetadataAuthorizer.opaUri"; // TODO here the name is hardcoded! problematic
+                                                                                                  // deep storage
 pub const DS_TYPE: &str = "druid.storage.type";
 // S3
 pub const DS_BUCKET: &str = "druid.storage.bucket";
@@ -84,6 +87,8 @@ pub struct DruidClusterSpec {
     pub deep_storage: DeepStorageSpec,
     pub s3: Option<S3Spec>,
     pub zookeeper_config_map_name: String,
+    pub opa_config_map_name: String,
+    pub opa_druid_api_path: String,
 }
 
 #[derive(
@@ -310,6 +315,8 @@ impl Configuration for DruidConfig {
                     String::from(EXT_DATASKETCHES),
                     String::from(PROMETHEUS_EMITTER),
                     String::from(EXT_S3),
+                    String::from(EXT_BASIC_SECURITY),
+                    String::from(EXT_OPA_AUTHORIZER),
                 ];
                 // metadata storage
                 let mds = &resource.spec.metadata_storage_database;
@@ -448,6 +455,7 @@ mod tests {
                 deep_storage: Default::default(),
                 s3: None,
                 zookeeper_config_map_name: Default::default(),
+                opa_config_map_name: Default::default(),
             },
         );
 
