@@ -7,9 +7,7 @@ use stackable_operator::{
 };
 use std::collections::BTreeMap;
 use std::str::FromStr;
-use strum_macros::Display;
-use strum_macros::EnumIter;
-use strum_macros::EnumString;
+use strum::{Display, EnumIter, EnumString};
 
 pub const APP_NAME: &str = "druid";
 
@@ -184,17 +182,7 @@ pub struct DatabaseConnectionSpec {
     pub password: Option<String>,
 }
 
-#[derive(
-    Clone,
-    Debug,
-    Deserialize,
-    Eq,
-    JsonSchema,
-    PartialEq,
-    Serialize,
-    strum_macros::Display,
-    strum_macros::EnumString,
-)]
+#[derive(Clone, Debug, Deserialize, Eq, JsonSchema, PartialEq, Serialize, Display, EnumString)]
 pub enum DbType {
     #[serde(rename = "derby")]
     #[strum(serialize = "derby")]
@@ -215,17 +203,7 @@ impl Default for DbType {
     }
 }
 
-#[derive(
-    Clone,
-    Debug,
-    Deserialize,
-    Eq,
-    JsonSchema,
-    PartialEq,
-    Serialize,
-    strum_macros::Display,
-    strum_macros::EnumString,
-)]
+#[derive(Clone, Debug, Deserialize, Eq, JsonSchema, PartialEq, Serialize, Display, EnumString)]
 pub enum DeepStorageType {
     #[serde(rename = "local")]
     #[strum(serialize = "local")]
@@ -377,7 +355,6 @@ mod tests {
     use super::*;
     use stackable_operator::role_utils::CommonConfiguration;
     use stackable_operator::role_utils::RoleGroup;
-    use std::array::IntoIter;
     use std::collections::HashMap;
 
     #[test]
@@ -430,7 +407,7 @@ mod tests {
                         env_overrides: Default::default(),
                         cli_overrides: Default::default(),
                     },
-                    role_groups: HashMap::<_, _>::from_iter(IntoIter::new([(
+                    role_groups: [(
                         "default".to_string(),
                         RoleGroup {
                             config: CommonConfiguration {
@@ -442,7 +419,9 @@ mod tests {
                             replicas: Some(1),
                             selector: None,
                         },
-                    )])),
+                    )]
+                    .into_iter()
+                    .collect::<HashMap<_, _>>(),
                 },
                 metadata_storage_database: Default::default(),
                 deep_storage: Default::default(),
