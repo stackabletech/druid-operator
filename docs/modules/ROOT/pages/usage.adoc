@@ -125,8 +125,46 @@ This allows to ingest data from accessible buckets already. To configure a bucke
 deepStorage:
   storageType: s3
   bucket: druid-deepstorage
-  baseKey: storage           # the base key is the prefix to be used; optional
+  baseKey: storage <1>
 ----
+<1> The base key is the prefix to be used; optional
+
+== Using Open Policy Agent (OPA) for Authorization
+
+Druid can connect to an Open Policy Agent (OPA) instance for authorization policy decisions. You need to run an OPA instance to connect to, for which we refer to the https://docs.stackable.tech/opa/index.html[OPA Operator docs]. How you can write RegoRules for Druid is explained <<_defining_regorules, below>>.
+
+Once you have defined your rules, you need to configure the OPA cluster name and endpoint to use for Druid authorization requests. Add a section to the `spec` for OPA:
+
+[source,yaml]
+----
+opa:
+  opaConfigMapName: simple-opa <1>
+  opaDruidApiPath: v1/data/druid/allow <2>
+----
+<1> The name of your OPA cluster (`simple-opa` in this case)
+<2> The resource to request. If you created a package `druid` and a rule `allow` in that package that you want to use, the resource becomes `v1/data/druid/allow`.
+
+=== Defining RegoRules
+
+For a general explanation of how rules are written, we refer to the https://www.openpolicyagent.org/docs/latest/#rego[OPA documentation]. Inside your rule you will have access to input from Druid. Druid provides this data to you to base your policy decisions on:
+
+[source,json]
+----
+{
+  "user": "someUsername", <1>
+  "action": "READ", <2>
+  "resource": {
+    "type": "DATASOURCE", <3>
+    "name": "myTable" <4>
+  }
+}
+----
+<1> The authenticated identity of the user that wants to perform the action
+<2> The action type, can be either `READ` or `WRITE`.
+<3> The resource type, one of `STATE`, `CONFIG` and `DATASOURCE`.
+<4> In case of a datasource this is the table name, for `STATE` this will simply be `STATE`, the same for `CONFIG`.
+
+For more details consult the https://druid.apache.org/docs/latest/operations/security-user-auth.html#authentication-and-authorization-model[Druid Authentication and Authorization Model].
 
 == Connecting to Druid from other Services
 
