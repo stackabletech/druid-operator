@@ -40,7 +40,7 @@ spec:
       s3-credentials
   deepStorage:
     storageType: hdfs
-    storageDirectory: hdfs://simple-hdfs-namenode-default-0:8020/user/stackable/druid
+    storageDirectory: hdfs://simple-hdfs-namenode-default-0:8020/data
   brokers:
     roleGroups:
       default:
