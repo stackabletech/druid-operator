@@ -37,7 +37,6 @@ exceptions = [
     { name = "stackable-druid-crd", allow = ["OSL-3.0"] },
     { name = "stackable-druid-operator", allow = ["OSL-3.0"] },
     { name = "stackable-druid-operator-binary", allow = ["OSL-3.0"] },
-    { name = "stackable-zookeeper-crd", allow = ["OSL-3.0"] },
     ]
 
 [[licenses.clarify]]
