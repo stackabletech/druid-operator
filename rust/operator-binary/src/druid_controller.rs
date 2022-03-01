@@ -8,7 +8,7 @@ use snafu::{OptionExt, ResultExt, Snafu};
 use stackable_druid_crd::{
     DeepStorageType, DruidCluster, DruidRole, APP_NAME, CONTAINER_HTTP_PORT,
     CONTAINER_METRICS_PORT, CREDENTIALS_SECRET_PROPERTY, DRUID_METRICS_PORT, JVM_CONFIG,
-    LOG4J2_CONFIG, OPA_CONNECTION_STRING, RUNTIME_PROPS, ZOOKEEPER_CONNECTION_STRING,
+    LOG4J2_CONFIG, RUNTIME_PROPS, ZOOKEEPER_CONNECTION_STRING,
 };
 use stackable_operator::{
     builder::{
@@ -157,24 +157,30 @@ pub async fn reconcile_druid(
             cm_name: zk_confmap.clone(),
         })?;
 
-    // Get host + port from the discovery configmap
-    let opa_confmap = druid.spec.opa.opa_config_map_name.clone();
-    let opa_host = client
-        .get::<ConfigMap>(&opa_confmap, druid.namespace().as_deref())
-        .await
-        .context(GetOpaConnStringConfigMapSnafu {
-            cm_name: opa_confmap.clone(),
-        })?
-        .data
-        .and_then(|mut data| data.remove("OPA"))
-        .context(MissingOpaConnStringSnafu {
-            cm_name: zk_confmap.clone(),
-        })?;
+    // Assemble the OPA connection string from the discovery and the given path, if a spec is given.
+    let opa_connstr = if let Some(opa_spec) = &druid.spec.opa {
+        let opa_confmap = opa_spec.opa_config_map_name.clone();
+        let opa_host = client
+            .get::<ConfigMap>(&opa_confmap, druid.namespace().as_deref())
+            .await
+            .context(GetOpaConnStringConfigMapSnafu {
+                cm_name: opa_confmap.clone(),
+            })?
+            .data
+            .and_then(|mut data| data.remove("OPA"))
+            .context(MissingOpaConnStringSnafu {
+                cm_name: zk_confmap.clone(),
+            })?;
 
-    // Add the API path to the end
-    let opa_connstr = opa_host.trim_end_matches('/').to_owned()
-        + "/"
-        + druid.spec.opa.opa_druid_api_path.trim_start_matches('/');
+        // Add the API path to the end
+        Some(
+            opa_host.trim_end_matches('/').to_owned()
+                + "/"
+                + opa_spec.opa_druid_api_path.trim_start_matches('/'),
+        )
+    } else {
+        None
+    };
 
     let mut roles = HashMap::new();
 
@@ -302,7 +308,7 @@ fn build_rolegroup_config_map(
     druid: &DruidCluster,
     rolegroup_config: &HashMap<PropertyNameKind, BTreeMap<String, String>>,
     zk_connstr: String,
-    opa_connstr: String,
+    opa_connstr: Option<String>,
 ) -> Result<ConfigMap> {
     let role = DruidRole::from_str(&rolegroup.role).unwrap();
     let mut cm_conf_data = BTreeMap::new(); // filename -> filecontent
@@ -322,10 +328,9 @@ fn build_rolegroup_config_map(
                     ZOOKEEPER_CONNECTION_STRING.to_string(),
                     Some(zk_connstr.clone()),
                 );
-                transformed_config
-                    .insert(OPA_CONNECTION_STRING.to_string(), Some(opa_connstr.clone()));
-                let runtime_properties = get_runtime_properties(&role, &transformed_config)
-                    .context(PropertiesWriteSnafu)?;
+                let runtime_properties =
+                    get_runtime_properties(&role, &opa_connstr, &transformed_config)
+                        .context(PropertiesWriteSnafu)?;
                 cm_conf_data.insert(RUNTIME_PROPS.to_string(), runtime_properties);
             }
             PropertyNameKind::File(file_name) if file_name == JVM_CONFIG => {

@@ -37,7 +37,6 @@ pub const EXT_OPA_AUTHORIZER: &str = "druid-opa-authorizer";
 pub const EXT_BASIC_SECURITY: &str = "druid-basic-security";
 // zookeeper
 pub const ZOOKEEPER_CONNECTION_STRING: &str = "druid.zk.service.host";
-pub const OPA_CONNECTION_STRING: &str = "druid.auth.authorizer.OpaAuthorizer.opaUri";
 // deep storage
 pub const DS_TYPE: &str = "druid.storage.type";
 // S3
@@ -87,7 +86,7 @@ pub struct DruidClusterSpec {
     pub deep_storage: DeepStorageSpec,
     pub s3: Option<S3Spec>,
     pub zookeeper_config_map_name: String,
-    pub opa: OpaSpec,
+    pub opa: Option<OpaSpec>,
 }
 
 #[derive(

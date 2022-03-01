@@ -59,6 +59,7 @@ pub fn get_jvm_config(role: &DruidRole) -> String {
 
 pub fn get_runtime_properties(
     role: &DruidRole,
+    opa_connstr: &Option<String>,
     other_props: &BTreeMap<String, Option<String>>,
 ) -> Result<String, PropertiesWriterError> {
     let common = "
@@ -78,11 +79,21 @@ pub fn get_runtime_properties(
     druid.emitter=prometheus
     druid.emitter.prometheus.strategy=exporter
     druid.emitter.prometheus.namespace=druid
-
-    # OPA Authorizer. opaUri is set from the custom resource
-    druid.auth.authorizers=[\"OpaAuthorizer\"]
-    druid.auth.authorizer.OpaAuthorizer.type=opa
     ";
+
+    let opa = if let Some(opa_str) = opa_connstr {
+        format!(
+            "\
+        # OPA Authorizer. opaUri is set from the custom resource
+        druid.auth.authorizers=[\"OpaAuthorizer\"]
+        druid.auth.authorizer.OpaAuthorizer.type=opa
+        druid.auth.authorizer.OpaAuthorizer.opaUri={}
+        ",
+            opa_str
+        )
+    } else {
+        "".to_string()
+    };
 
     let ports = format!(
         "druid.plaintext={}\n\
@@ -188,7 +199,10 @@ pub fn get_runtime_properties(
     };
     let others =
         stackable_operator::product_config::writer::to_java_properties_string(other_props.iter())?;
-    Ok(format!("{}{}{}{}", ports, common, role_specifics, others))
+    Ok(format!(
+        "{}{}{}{}{}",
+        ports, common, opa, role_specifics, others
+    ))
 }
 
 pub fn get_log4j_config(_role: &DruidRole) -> String {

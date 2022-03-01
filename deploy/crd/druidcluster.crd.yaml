@@ -419,6 +419,7 @@ spec:
                     - roleGroups
                   type: object
                 opa:
+                  nullable: true
                   properties:
                     opaConfigMapName:
                       type: string
@@ -541,7 +542,6 @@ spec:
                 - historicals
                 - metadataStorageDatabase
                 - middleManagers
-                - opa
                 - routers
                 - version
                 - zookeeperConfigMapName
