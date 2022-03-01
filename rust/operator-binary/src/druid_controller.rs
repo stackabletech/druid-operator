@@ -172,9 +172,9 @@ pub async fn reconcile_druid(
         })?;
 
     // Add the API path to the end
-    let opa_connstr = opa_host.trim_end_matches("/").to_owned()
+    let opa_connstr = opa_host.trim_end_matches('/').to_owned()
         + "/"
-        + &druid.spec.opa.opa_druid_api_path.trim_start_matches("/");
+        + druid.spec.opa.opa_druid_api_path.trim_start_matches('/');
 
     let mut roles = HashMap::new();
 
