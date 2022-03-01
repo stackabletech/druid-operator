@@ -106,18 +106,12 @@ pub enum Error {
         cm_name
     ))]
     MissingZookeeperConnString { cm_name: String },
-    #[snafu(display(
-    "Failed to get OPA discovery config map for cluster: {}",
-    cm_name
-    ))]
+    #[snafu(display("Failed to get OPA discovery config map for cluster: {}", cm_name))]
     GetOpaConnStringConfigMap {
         source: stackable_operator::error::Error,
         cm_name: String,
     },
-    #[snafu(display(
-    "Failed to get OPA connection string from config map {}",
-    cm_name
-    ))]
+    #[snafu(display("Failed to get OPA connection string from config map {}", cm_name))]
     MissingOpaConnString { cm_name: String },
     #[snafu(display("Failed to transform configs"))]
     ProductConfigTransform {
@@ -178,7 +172,8 @@ pub async fn reconcile_druid(
         })?;
 
     // Add the API path to the end
-    let opa_connstr = opa_host.trim_end_matches("/").to_owned() + "/"
+    let opa_connstr = opa_host.trim_end_matches("/").to_owned()
+        + "/"
         + &druid.spec.opa.opa_druid_api_path.trim_start_matches("/");
 
     let mut roles = HashMap::new();
