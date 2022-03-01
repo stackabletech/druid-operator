@@ -79,36 +79,9 @@ pub fn get_runtime_properties(
     druid.emitter.prometheus.strategy=exporter
     druid.emitter.prometheus.namespace=druid
 
-    # Druid basic security
-    druid.auth.authenticatorChain=[\"MyBasicMetadataAuthenticator\"]
-    druid.auth.authenticator.MyBasicMetadataAuthenticator.type=basic
-    
-    # Default password for 'admin' user, should be changed for production.
-    druid.auth.authenticator.MyBasicMetadataAuthenticator.initialAdminPassword=password1
-    
-    # Default password for internal 'druid_system' user, should be changed for production.
-    druid.auth.authenticator.MyBasicMetadataAuthenticator.initialInternalClientPassword=password2
-    
-    # Uses the metadata store for storing users, you can use authentication API to create new users and grant permissions
-    druid.auth.authenticator.MyBasicMetadataAuthenticator.credentialsValidator.type=metadata
-    
-    # If true and the request credential doesn't exists in this credentials store, the request will proceed to next Authenticator in the chain.
-    druid.auth.authenticator.MyBasicMetadataAuthenticator.skipOnFailure=false
-    
-    druid.auth.authenticator.MyBasicMetadataAuthenticator.authorizerName=MyBasicMetadataAuthorizer
-    
-    # Escalator
-    druid.escalator.type=basic
-    druid.escalator.internalClientUsername=druid_system
-    druid.escalator.internalClientPassword=password2
-    druid.escalator.authorizerName=MyBasicMetadataAuthorizer
-    
-    druid.auth.authorizers=[\"MyBasicMetadataAuthorizer\"]
-    
-     # now 'opa', was 'basic'
-    druid.auth.authorizer.MyBasicMetadataAuthorizer.type=opa
-    druid.auth.authorizer.MyBasicMetadataAuthorizer.opaUri=http://localhost:8181/v1/data/app/druid/allow
-
+    # OPA Authorizer. opaUri is set from the custom resource
+    druid.auth.authorizers=[\"OpaAuthorizer\"]
+    druid.auth.authorizer.OpaAuthorizer.type=opa
     ";
 
     let ports = format!(

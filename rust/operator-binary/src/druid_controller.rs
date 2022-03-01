@@ -106,6 +106,19 @@ pub enum Error {
         cm_name
     ))]
     MissingZookeeperConnString { cm_name: String },
+    #[snafu(display(
+    "Failed to get OPA discovery config map for cluster: {}",
+    cm_name
+    ))]
+    GetOpaConnStringConfigMap {
+        source: stackable_operator::error::Error,
+        cm_name: String,
+    },
+    #[snafu(display(
+    "Failed to get OPA connection string from config map {}",
+    cm_name
+    ))]
+    MissingOpaConnString { cm_name: String },
     #[snafu(display("Failed to transform configs"))]
     ProductConfigTransform {
         source: stackable_operator::product_config_utils::ConfigError,
@@ -150,21 +163,23 @@ pub async fn reconcile_druid(
             cm_name: zk_confmap.clone(),
         })?;
 
-    let opa_confmap = druid.spec.opa_config_map_name.clone();
-    let opa_connstr = client
+    // Get host + port from the discovery configmap
+    let opa_confmap = druid.spec.opa.opa_config_map_name.clone();
+    let opa_host = client
         .get::<ConfigMap>(&opa_confmap, druid.namespace().as_deref())
         .await
-        .context(GetZookeeperConnStringConfigMapSnafu {
-            // TODO write different error here
+        .context(GetOpaConnStringConfigMapSnafu {
             cm_name: opa_confmap.clone(),
         })?
         .data
         .and_then(|mut data| data.remove("OPA"))
-        .context(MissingZookeeperConnStringSnafu {
-            // TODO error
+        .context(MissingOpaConnStringSnafu {
             cm_name: zk_confmap.clone(),
-        })?
-        + &druid.spec.opa_druid_api_path;
+        })?;
+
+    // Add the API path to the end
+    let opa_connstr = opa_host.trim_end_matches("/").to_owned() + "/"
+        + &druid.spec.opa.opa_druid_api_path.trim_start_matches("/");
 
     let mut roles = HashMap::new();
 

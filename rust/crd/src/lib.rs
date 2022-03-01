@@ -37,8 +37,8 @@ pub const EXT_OPA_AUTHORIZER: &str = "druid-opa-authorizer";
 pub const EXT_BASIC_SECURITY: &str = "druid-basic-security";
 // zookeeper
 pub const ZOOKEEPER_CONNECTION_STRING: &str = "druid.zk.service.host";
-pub const OPA_CONNECTION_STRING: &str = "druid.auth.authorizer.MyBasicMetadataAuthorizer.opaUri"; // TODO here the name is hardcoded! problematic
-                                                                                                  // deep storage
+pub const OPA_CONNECTION_STRING: &str = "druid.auth.authorizer.OpaAuthorizer.opaUri";
+// deep storage
 pub const DS_TYPE: &str = "druid.storage.type";
 // S3
 pub const DS_BUCKET: &str = "druid.storage.bucket";
@@ -87,8 +87,7 @@ pub struct DruidClusterSpec {
     pub deep_storage: DeepStorageSpec,
     pub s3: Option<S3Spec>,
     pub zookeeper_config_map_name: String,
-    pub opa_config_map_name: String,
-    pub opa_druid_api_path: String,
+    pub opa: OpaSpec,
 }
 
 #[derive(
@@ -264,6 +263,13 @@ pub struct DeepStorageSpec {
 pub struct S3Spec {
     pub credentials_secret: String,
     pub endpoint: Option<String>,
+}
+
+#[derive(Clone, Debug, Default, Deserialize, JsonSchema, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct OpaSpec {
+    pub opa_config_map_name: String,
+    pub opa_druid_api_path: String,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, JsonSchema, PartialEq, Serialize, Default)]

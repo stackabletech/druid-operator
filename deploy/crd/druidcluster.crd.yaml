@@ -418,10 +418,16 @@ spec:
                   required:
                     - roleGroups
                   type: object
-                opaConfigMapName:
-                  type: string
-                opaDruidApiPath:
-                  type: string
+                opa:
+                  properties:
+                    opaConfigMapName:
+                      type: string
+                    opaDruidApiPath:
+                      type: string
+                  required:
+                    - opaConfigMapName
+                    - opaDruidApiPath
+                  type: object
                 routers:
                   properties:
                     cliOverrides:
@@ -535,8 +541,7 @@ spec:
                 - historicals
                 - metadataStorageDatabase
                 - middleManagers
-                - opaConfigMapName
-                - opaDruidApiPath
+                - opa
                 - routers
                 - version
                 - zookeeperConfigMapName
