@@ -1,6 +1,6 @@
 = Usage
 
-Druid requires a Zookeeper to run, as well as a database.
+Druid requires a Zookeeper to run, as well as a database. If HDFS is used as the backend-storage (so called "deep storage") then the HDFS operator is required as well.
 
 
 == Setup Prerequisites
@@ -8,6 +8,10 @@ Druid requires a Zookeeper to run, as well as a database.
 === Zookeeper operator
 
 Please refer to the https://github.com/stackabletech/zookeeper-operator[Zookeeper] operator and https://docs.stackable.tech/zookeeper/index.html[docs].
+
+=== HDFS operator (optional)
+
+Please refer to the https://github.com/stackabletech/hdfs-operator[HDFS] operator and https://docs.stackable.tech/hdfs/index.html[docs].
 
 === SQL Database
 
@@ -59,8 +63,8 @@ spec:
     user: druid
     password: druid
   deepStorage:
-    storageType: local
-    storageDirectory: /path/to/druidDeepStorage
+    storageType: hdfs
+    storageDirectory: hdfs://path/to/druidDeepStorage
   brokers:
     roleGroups:
       default:
