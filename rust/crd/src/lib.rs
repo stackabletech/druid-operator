@@ -31,10 +31,12 @@ pub const EXT_DATASKETCHES: &str = "druid-datasketches";
 pub const PROMETHEUS_EMITTER: &str = "prometheus-emitter";
 pub const EXT_PSQL_MD_ST: &str = "postgresql-metadata-storage";
 pub const EXT_MYSQL_MD_ST: &str = "mysql-metadata-storage";
+pub const EXT_HDFS: &str = "druid-hdfs-storage";
 // zookeeper
 pub const ZOOKEEPER_CONNECTION_STRING: &str = "druid.zk.service.host";
 // deep storage
 pub const DS_TYPE: &str = "druid.storage.type";
+pub const DS_DIRECTORY: &str = "druid.storage.storageDirectory";
 // S3
 pub const DS_BUCKET: &str = "druid.storage.bucket";
 pub const DS_BASE_KEY: &str = "druid.storage.baseKey";
@@ -205,9 +207,9 @@ impl Default for DbType {
 
 #[derive(Clone, Debug, Deserialize, Eq, JsonSchema, PartialEq, Serialize, Display, EnumString)]
 pub enum DeepStorageType {
-    #[serde(rename = "local")]
-    #[strum(serialize = "local")]
-    Local,
+    #[serde(rename = "hdfs")]
+    #[strum(serialize = "hdfs")]
+    HDFS,
 
     #[serde(rename = "s3")]
     #[strum(serialize = "s3")]
@@ -216,7 +218,7 @@ pub enum DeepStorageType {
 
 impl Default for DeepStorageType {
     fn default() -> Self {
-        Self::Local
+        Self::HDFS
     }
 }
 
@@ -224,8 +226,6 @@ impl Default for DeepStorageType {
 #[serde(rename_all = "camelCase")]
 pub struct DeepStorageSpec {
     pub storage_type: DeepStorageType,
-    // local only
-    pub data_node_selector: Option<BTreeMap<String, String>>,
     pub storage_directory: Option<String>,
     // S3 only
     pub bucket: Option<String>,
@@ -288,6 +288,7 @@ impl Configuration for DruidConfig {
                     String::from(EXT_DATASKETCHES),
                     String::from(PROMETHEUS_EMITTER),
                     String::from(EXT_S3),
+                    String::from(EXT_HDFS),
                 ];
                 // metadata storage
                 let mds = &resource.spec.metadata_storage_database;
@@ -323,6 +324,10 @@ impl Configuration for DruidConfig {
                 }
                 if let Some(key) = &ds.base_key {
                     result.insert(DS_BASE_KEY.to_string(), Some(key.to_string()));
+                }
+                // TODO resolve endpoint from namenode name...
+                if let Some(dir) = &ds.storage_directory {
+                    result.insert(DS_DIRECTORY.to_string(), Some(dir.to_string()));
                 }
                 // other
                 result.insert(

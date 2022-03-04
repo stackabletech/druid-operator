@@ -36,11 +36,13 @@ spec:
     port: 5432
     user: druid
     password: druid
+  s3:
+    endpoint: s3-de-central.profitbricks.com
+    credentialsSecret:
+      s3-credentials
   deepStorage:
-    storageType: local
-    dataNodeSelector:
-      nodeType: druid-data
-    storageDirectory: /data
+    storageType: hdfs
+    storageDirectory: hdfs://simple-hdfs-namenode-default-0:8020/data
   brokers:
     roleGroups:
       default:

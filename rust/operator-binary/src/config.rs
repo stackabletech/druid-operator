@@ -73,7 +73,6 @@ pub fn get_runtime_properties(
     druid.server.hiddenProperties=[\"druid.s3.accessKey\",\"druid.s3.secretKey\",\"druid.metadata.storage.connector.password\"]
     druid.sql.enable=true
     druid.lookup.enableLookupSyncOnStartup=false
-    druid.storage.storageDirectory=/data
     # The prometheus port is configured later
     druid.emitter=prometheus
     druid.emitter.prometheus.strategy=exporter
@@ -196,19 +195,19 @@ pub fn get_log4j_config(_role: &DruidRole) -> String {
     </Console>
   </Appenders>
   <Loggers>
-    <Root level=\"debug\">
+    <Root level=\"info\">
       <AppenderRef ref=\"Console\"/>
     </Root>
-    <Logger name=\"org.apache.druid.server.QueryLifecycle\" level=\"debug\" additivity=\"false\">
+    <Logger name=\"org.apache.druid.server.QueryLifecycle\" level=\"info\" additivity=\"false\">
       <Appender-ref ref=\"Console\"/>
     </Logger>
-    <Logger name=\"org.apache.druid.server.coordinator\" level=\"debug\" additivity=\"false\">
+    <Logger name=\"org.apache.druid.server.coordinator\" level=\"info\" additivity=\"false\">
       <Appender-ref ref=\"Console\"/>
     </Logger>
-    <Logger name=\"org.apache.druid.segment\" level=\"debug\" additivity=\"false\">
+    <Logger name=\"org.apache.druid.segment\" level=\"info\" additivity=\"false\">
       <Appender-ref ref=\"Console\"/>
     </Logger>
-    <Logger name=\"org.apache.druid.initialization\" level=\"debug\" additivity=\"false\">
+    <Logger name=\"org.apache.druid.initialization\" level=\"info\" additivity=\"false\">
       <Appender-ref ref=\"Console\"/>
     </Logger>
     <Logger name=\"org.skife.config\" level=\"warn\" additivity=\"false\">
