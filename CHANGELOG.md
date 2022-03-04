@@ -9,8 +9,8 @@ All notable changes to this project will be documented in this file.
 - Reconciliation errors are now reported as Kubernetes events ([#178]).
 - Use cli argument `watch-namespace` / env var `WATCH_NAMESPACE` to specify
   a single namespace to watch ([#183]).
-- Local backend storage (deep-storage) has been replaced with HDFS-storage ([#187]).
-- The corresponding local-storage label has been removed ([#124]).
+- BREAKING: Local backend storage (deep-storage) has been replaced with HDFS-storage, affecting the CRD ([#187]).
+- BREAKING: The corresponding local-storage label has been removed, affecting the CRD ([#124]).
 
 ### Changed
 

@@ -495,7 +495,6 @@ fn build_rolegroup_statefulset(
             },
             service_name: rolegroup_ref.object_name(),
             template: pb.build_template(),
-            volume_claim_templates: Some(vec![]),
             ..StatefulSetSpec::default()
         }),
         status: None,
