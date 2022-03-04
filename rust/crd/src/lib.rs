@@ -287,7 +287,6 @@ impl Configuration for DruidConfig {
                     String::from(EXT_KAFKA_INDEXING),
                     String::from(EXT_DATASKETCHES),
                     String::from(PROMETHEUS_EMITTER),
-                    //String::from(EXT_S3),
                     String::from(EXT_HDFS),
                 ];
                 // metadata storage

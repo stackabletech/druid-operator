@@ -77,10 +77,6 @@ pub fn get_runtime_properties(
     druid.emitter=prometheus
     druid.emitter.prometheus.strategy=exporter
     druid.emitter.prometheus.namespace=druid
-    # dummy properties so that the s3-extension can be used
-    #druid.s3.accessKey=KEY_PLACEHOLDER
-    #druid.s3.secretKey=KEY_PLACEHOLDER
-    #druid.s3.endpoint.url=s3-de-central.profitbricks.com
     ";
 
     let ports = format!(
