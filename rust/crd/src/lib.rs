@@ -287,7 +287,7 @@ impl Configuration for DruidConfig {
                     String::from(EXT_KAFKA_INDEXING),
                     String::from(EXT_DATASKETCHES),
                     String::from(PROMETHEUS_EMITTER),
-                    String::from(EXT_S3),
+                    //String::from(EXT_S3),
                     String::from(EXT_HDFS),
                 ];
                 // metadata storage
@@ -314,6 +314,7 @@ impl Configuration for DruidConfig {
                 if let Some(s3) = &resource.spec.s3 {
                     if let Some(endpoint) = &s3.endpoint {
                         result.insert(S3_ENDPOINT_URL.to_string(), Some(endpoint.to_string()));
+                        extensions.push(EXT_S3.to_string());
                     }
                 }
                 // deep storage
