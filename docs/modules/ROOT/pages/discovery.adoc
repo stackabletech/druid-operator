@@ -1,0 +1,56 @@
+:clusterName: simple-derby-druid
+:namespace: stackable
+
+= Discovery Profiles
+
+The Stackable Operator for Apache Druid creates a single discovery profile that allows access to multiple Druid services which are published into the Kubernetes cluster as a
+https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#configmap-v1-core[`ConfigMap`] object.
+
+== Profiles
+
+Given the following Druid cluster:
+
+[subs="attributes"]
+----
+apiVersion: druid.stackable.tech/v1alpha1
+kind: DruidCluster
+metadata:
+  name: {clusterName} # <1>
+  namespace: {namespace} # <2>
+spec:
+  [...]
+----
+<1> Name of the Druid cluster which is the name of the `ConfigMap` created for this discovery profile.
+<2> Namespace of the `ConfigMap` created for this discovery profile.
+
+The published `ConfigMap` name and namespace are equal to the cluster name and namespace. In this case `{namespace}/{clusterName}`.
+
+=== Default
+
+This profile allows access to the Druid cluster from inside the Kubernetes cluster, and connects directly to the router NodePort `Service`.
+
+== Contents
+
+The discovery profile contains the following fields:
+
+`DRUID_AVATICA_JDBC`::
+====
+Contains the connection string for the https://calcite.apache.org/avatica/downloads/[Avatica] JDBC driver to connect to the router:
+[subs="attributes"]
+  jdbc:avatica:remote:url=http://{clusterName}-router.{namespace}.svc.cluster.local:8888/druid/v2/sql/avatica/
+====
+
+`DRUID_SQLALCHEMY`::
+====
+Contains the connection string for the python SQLAlchemy toolkit:
+
+[subs="attributes"]
+  druid://{clusterName}-router.{namespace}.svc.cluster.local:8888/druid/v2/sql
+====
+
+`DRUID_ROUTER`::
+====
+Contains the connection string for the Druid router:
+[subs="attributes"]
+  {clusterName}-router.{namespace}.svc.cluster.local:8888
+====
