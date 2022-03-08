@@ -1,5 +1,6 @@
 :clusterName: simple-derby-druid
 :namespace: stackable
+:routerPort: 8888
 
 = Discovery Profiles
 
@@ -37,7 +38,7 @@ The discovery profile contains the following fields:
 ====
 Contains the connection string for the https://calcite.apache.org/avatica/downloads/[Avatica] JDBC driver to connect to the router:
 [subs="attributes"]
-  jdbc:avatica:remote:url=http://{clusterName}-router.{namespace}.svc.cluster.local:8888/druid/v2/sql/avatica/
+  jdbc:avatica:remote:url=http://{clusterName}-router.{namespace}.svc.cluster.local:{routerPort}/druid/v2/sql/avatica/
 ====
 
 `DRUID_SQLALCHEMY`::
@@ -45,12 +46,12 @@ Contains the connection string for the https://calcite.apache.org/avatica/downlo
 Contains the connection string for the python SQLAlchemy toolkit:
 
 [subs="attributes"]
-  druid://{clusterName}-router.{namespace}.svc.cluster.local:8888/druid/v2/sql
+  druid://{clusterName}-router.{namespace}.svc.cluster.local:{routerPort}/druid/v2/sql
 ====
 
 `DRUID_ROUTER`::
 ====
 Contains the connection string for the Druid router:
 [subs="attributes"]
-  {clusterName}-router.{namespace}.svc.cluster.local:8888
+  {clusterName}-router.{namespace}.svc.cluster.local:{routerPort}
 ====
