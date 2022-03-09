@@ -141,6 +141,78 @@ properties:
           required: false
       asOfVersion: "0.0.0"
 
+  - property: &indexerLogsDirectory
+      propertyNames:
+        - name: "druid.indexer.logs.directory"
+          kind:
+            type: "file"
+            file: "runtime.properties"
+      datatype:
+        type: "string"
+      defaultValues:
+        - fromVersion: "0.0.0"
+          value: "/stackable/var/druid/indexing-logs"
+      roles:
+        - name: "broker"
+          required: true
+        - name: "coordinator"
+          required: true
+        - name: "historical"
+          required: true
+        - name: "middleManager"
+          required: true
+        - name: "router"
+          required: true
+      asOfVersion: "0.0.0"
+
+  - property: &processingTmpDir
+      propertyNames:
+        - name: "druid.processing.tmpDir"
+          kind:
+            type: "file"
+            file: "runtime.properties"
+      datatype:
+        type: "string"
+      defaultValues:
+        - fromVersion: "0.0.0"
+          value: "/stackable/var/druid/processing"
+      roles:
+        - name: "broker"
+          required: true
+        - name: "coordinator"
+          required: false
+        - name: "historical"
+          required: true
+        - name: "middleManager"
+          required: false
+        - name: "router"
+          required: false
+      asOfVersion: "0.0.0"
+
+  - property: &indexerTaskHadoopWorkingPath
+      propertyNames:
+        - name: "druid.indexer.task.hadoopWorkingPath"
+          kind:
+            type: "file"
+            file: "runtime.properties"
+      datatype:
+        type: "string"
+      defaultValues:
+        - fromVersion: "0.0.0"
+          value: "/stackable/var/druid/hadoop-tmp"
+      roles:
+        - name: "broker"
+          required: false
+        - name: "coordinator"
+          required: false
+        - name: "historical"
+          required: false
+        - name: "middleManager"
+          required: true
+        - name: "router"
+          required: false
+      asOfVersion: "0.0.0"
+
 ###################################################################################################
 # jvm.config
 ###################################################################################################

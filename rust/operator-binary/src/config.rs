@@ -63,14 +63,10 @@ pub fn get_runtime_properties(
 ) -> Result<String, PropertiesWriterError> {
     let common = "
     druid.startup.logging.logProperties=true
-    druid.zk.paths.base=/druid
     druid.indexer.logs.type=file
-    druid.indexer.logs.directory=/stackable/var/druid/indexing-logs
     druid.selectors.indexing.serviceName=druid/overlord
     druid.selectors.coordinator.serviceName=druid/coordinator
     druid.monitoring.monitors=[\"org.apache.druid.java.util.metrics.JvmMonitor\"]
-    druid.server.hiddenProperties=[\"druid.s3.accessKey\",\"druid.s3.secretKey\",\"druid.metadata.storage.connector.password\"]
-    druid.lookup.enableLookupSyncOnStartup=false
     # The prometheus port is configured later
     druid.emitter=prometheus
     druid.emitter.prometheus.strategy=exporter
@@ -87,9 +83,6 @@ pub fn get_runtime_properties(
     let role_specifics = match role {
         DruidRole::Broker => "
         druid.service=druid/broker
-
-        # Processing threads and buffers
-        druid.processing.tmpDir=/stackable/var/druid/processing
         ",
         DruidRole::Coordinator => "
         druid.service=druid/coordinator
@@ -109,8 +102,6 @@ pub fn get_runtime_properties(
         DruidRole::Historical => "
         druid.service=druid/historical
 
-        druid.processing.tmpDir=/stackable/var/druid/processing
-
         # Segment storage
         druid.segmentCache.locations=[{\"path\":\"/stackable/var/druid/segment-cache\",\"maxSize\":\"300g\"}]
 
@@ -125,9 +116,6 @@ pub fn get_runtime_properties(
         # Task launch parameters
         druid.indexer.runner.javaOpts=-server -Xms256m -Xmx256m -XX:MaxDirectMemorySize=300m -Duser.timezone=UTC -Dfile.encoding=UTF-8 -XX:+ExitOnOutOfMemoryError -Djava.util.logging.manager=org.apache.logging.log4j.jul.LogManager
         druid.indexer.task.baseTaskDir=/stackable/var/druid/task
-
-        # Hadoop indexing
-        druid.indexer.task.hadoopWorkingPath=/stackable/var/druid/hadoop-tmp
         ",
         DruidRole::Router => "
         druid.service=druid/router
