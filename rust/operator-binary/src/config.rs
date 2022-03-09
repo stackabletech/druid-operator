@@ -90,22 +90,8 @@ pub fn get_runtime_properties(
         DruidRole::Broker => "
         druid.service=druid/broker
 
-        # HTTP server settings
-        druid.server.http.numThreads=6
-
-        # HTTP client settings
-        druid.broker.http.numConnections=5
-        druid.broker.http.maxQueuedBytes=5MiB
-
         # Processing threads and buffers
-        druid.processing.buffer.sizeBytes=50MiB
-        druid.processing.numMergeBuffers=2
-        druid.processing.numThreads=1
         druid.processing.tmpDir=/stackable/var/druid/processing
-
-        # Query cache disabled -- push down caching and merging instead
-        druid.broker.cache.useCache=false
-        druid.broker.cache.populateCache=false
         ",
         DruidRole::Coordinator => "
         druid.service=druid/coordinator
@@ -125,13 +111,6 @@ pub fn get_runtime_properties(
         DruidRole::Historical => "
         druid.service=druid/historical
 
-        # HTTP server threads
-        druid.server.http.numThreads=6
-
-        # Processing threads and buffers
-        druid.processing.buffer.sizeBytes=50MiB
-        druid.processing.numMergeBuffers=2
-        druid.processing.numThreads=1
         druid.processing.tmpDir=/stackable/var/druid/processing
 
         # Segment storage
@@ -140,26 +119,14 @@ pub fn get_runtime_properties(
         # Query cache
         druid.historical.cache.useCache=true
         druid.historical.cache.populateCache=true
-        druid.cache.type=caffeine
         druid.cache.sizeInBytes=50MiB
         ",
         DruidRole::MiddleManager => "
         druid.service=druid/middleManager
 
-        # Number of tasks per middleManager
-        druid.worker.capacity=2
-
         # Task launch parameters
         druid.indexer.runner.javaOpts=-server -Xms256m -Xmx256m -XX:MaxDirectMemorySize=300m -Duser.timezone=UTC -Dfile.encoding=UTF-8 -XX:+ExitOnOutOfMemoryError -Djava.util.logging.manager=org.apache.logging.log4j.jul.LogManager
         druid.indexer.task.baseTaskDir=/stackable/var/druid/task
-
-        # HTTP server threads
-        druid.server.http.numThreads=6
-
-        # Processing threads and buffers on Peons
-        druid.indexer.fork.property.druid.processing.numMergeBuffers=2
-        druid.indexer.fork.property.druid.processing.buffer.sizeBytes=25MiB
-        druid.indexer.fork.property.druid.processing.numThreads=1
 
         # Hadoop indexing
         druid.indexer.task.hadoopWorkingPath=/stackable/var/druid/hadoop-tmp
