@@ -87,51 +87,22 @@ pub fn get_runtime_properties(
         DruidRole::Coordinator => "
         druid.service=druid/coordinator
 
-        druid.coordinator.startDelay=PT10S
-        druid.coordinator.period=PT5S
-
         # Run the overlord service in the coordinator process
-        druid.coordinator.asOverlord.enabled=true
+
         druid.coordinator.asOverlord.overlordService=druid/overlord
-
-        druid.indexer.queue.startDelay=PT5S
-
-        druid.indexer.runner.type=remote
-        druid.indexer.storage.type=metadata
         ",
         DruidRole::Historical => "
         druid.service=druid/historical
-
-        # Segment storage
-        druid.segmentCache.locations=[{\"path\":\"/stackable/var/druid/segment-cache\",\"maxSize\":\"300g\"}]
-
-        # Query cache
-        druid.historical.cache.useCache=true
-        druid.historical.cache.populateCache=true
-        druid.cache.sizeInBytes=50MiB
         ",
         DruidRole::MiddleManager => "
         druid.service=druid/middleManager
-
-        # Task launch parameters
-        druid.indexer.runner.javaOpts=-server -Xms256m -Xmx256m -XX:MaxDirectMemorySize=300m -Duser.timezone=UTC -Dfile.encoding=UTF-8 -XX:+ExitOnOutOfMemoryError -Djava.util.logging.manager=org.apache.logging.log4j.jul.LogManager
-        druid.indexer.task.baseTaskDir=/stackable/var/druid/task
         ",
         DruidRole::Router => "
         druid.service=druid/router
 
-        # HTTP proxy
-        druid.router.http.numConnections=25
-        druid.router.http.readTimeout=PT5M
-        druid.router.http.numMaxThreads=50
-        druid.server.http.numThreads=50
-
         # Service discovery
         druid.router.defaultBrokerServiceName=druid/broker
         druid.router.coordinatorServiceName=druid/coordinator
-
-        # Management proxy to coordinator / overlord: required for unified web console.
-        druid.router.managementProxy.enabled=true
         ",
     };
     let others =

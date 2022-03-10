@@ -213,6 +213,319 @@ properties:
           required: false
       asOfVersion: "0.0.0"
 
+  - property: &indexerTaskBaseTaskDir
+      propertyNames:
+        - name: "druid.indexer.task.baseTaskDir"
+          kind:
+            type: "file"
+            file: "runtime.properties"
+      datatype:
+        type: "string"
+      defaultValues:
+        - fromVersion: "0.0.0"
+          value: "/stackable/var/druid/task"
+      roles:
+        - name: "broker"
+          required: false
+        - name: "coordinator"
+          required: false
+        - name: "historical"
+          required: false
+        - name: "middleManager"
+          required: true
+        - name: "router"
+          required: false
+      asOfVersion: "0.0.0"
+
+  - property: &indexerRunnerJavaOpts
+      propertyNames:
+        - name: "druid.indexer.runner.javaOpts"
+          kind:
+            type: "file"
+            file: "runtime.properties"
+      datatype:
+        type: "string"
+      defaultValues:
+        - fromVersion: "0.0.0"
+          value: "-server -Xms256m -Xmx256m -XX:MaxDirectMemorySize=300m -Duser.timezone=UTC -Dfile.encoding=UTF-8 -XX:+ExitOnOutOfMemoryError -Djava.util.logging.manager=org.apache.logging.log4j.jul.LogManager"
+      roles:
+        - name: "broker"
+          required: false
+        - name: "coordinator"
+          required: false
+        - name: "historical"
+          required: false
+        - name: "middleManager"
+          required: true
+        - name: "router"
+          required: false
+      asOfVersion: "0.0.0"
+
+  - property: &routerManagementProxyEnabled
+      propertyNames:
+        # Management proxy to coordinator / overlord: required for unified web console.
+        - name: "druid.router.managementProxy.enabled"
+          kind:
+            type: "file"
+            file: "runtime.properties"
+      datatype:
+        type: "bool"
+      defaultValues:
+        - fromVersion: "0.0.0"
+          value: "true"
+      roles:
+        - name: "broker"
+          required: false
+        - name: "coordinator"
+          required: false
+        - name: "historical"
+          required: false
+        - name: "middleManager"
+          required: false
+        - name: "router"
+          required: true
+      asOfVersion: "0.0.0"
+
+  - property: &routerHttpNumConnections
+      propertyNames:
+        - name: "druid.router.http.numConnections"
+          kind:
+            type: "file"
+            file: "runtime.properties"
+      datatype:
+        type: "integer"
+      defaultValues:
+        - fromVersion: "0.0.0"
+          value: "25"
+      roles:
+        - name: "broker"
+          required: false
+        - name: "coordinator"
+          required: false
+        - name: "historical"
+          required: false
+        - name: "middleManager"
+          required: false
+        - name: "router"
+          required: true
+      asOfVersion: "0.0.0"
+
+  - property: &historicalCacheUseCache
+      propertyNames:
+        - name: "druid.historical.cache.useCache"
+          kind:
+            type: "file"
+            file: "runtime.properties"
+      datatype:
+        type: "bool"
+      defaultValues:
+        - fromVersion: "0.0.0"
+          value: "true"
+      roles:
+        - name: "broker"
+          required: false
+        - name: "coordinator"
+          required: false
+        - name: "historical"
+          required: true
+        - name: "middleManager"
+          required: false
+        - name: "router"
+          required: false
+      asOfVersion: "0.0.0"
+
+  - property: &historicalCachePopulateCache
+      propertyNames:
+        - name: "druid.historical.cache.populateCache"
+          kind:
+            type: "file"
+            file: "runtime.properties"
+      datatype:
+        type: "bool"
+      defaultValues:
+        - fromVersion: "0.0.0"
+          value: "true"
+      roles:
+        - name: "broker"
+          required: false
+        - name: "coordinator"
+          required: false
+        - name: "historical"
+          required: true
+        - name: "middleManager"
+          required: false
+        - name: "router"
+          required: false
+      asOfVersion: "0.0.0"
+
+  - property: &coordinatorStartDelay
+      propertyNames:
+        - name: "druid.coordinator.startDelay"
+          kind:
+            type: "file"
+            file: "runtime.properties"
+      datatype:
+        type: "string"
+      defaultValues:
+        - fromVersion: "0.0.0"
+          value: "PT20S"
+      roles:
+        - name: "broker"
+          required: false
+        - name: "coordinator"
+          required: true
+        - name: "historical"
+          required: false
+        - name: "middleManager"
+          required: false
+        - name: "router"
+          required: false
+      asOfVersion: "0.0.0"
+
+  - property: &indexerQueueStartDelay
+      propertyNames:
+        - name: "druid.indexer.queue.startDelay"
+          kind:
+            type: "file"
+            file: "runtime.properties"
+      datatype:
+        type: "string"
+      defaultValues:
+        - fromVersion: "0.0.0"
+          value: "PT20S"
+      roles:
+        - name: "broker"
+          required: false
+        - name: "coordinator"
+          required: true
+        - name: "historical"
+          required: false
+        - name: "middleManager"
+          required: false
+        - name: "router"
+          required: false
+      asOfVersion: "0.0.0"
+
+  - property: &indexerRunnerType
+      propertyNames:
+        - name: "druid.indexer.runner.type"
+          kind:
+            type: "file"
+            file: "runtime.properties"
+      datatype:
+        type: "string"
+      defaultValues:
+        - fromVersion: "0.0.0"
+          value: "remote"
+      roles:
+        - name: "broker"
+          required: false
+        - name: "coordinator"
+          required: true
+        - name: "historical"
+          required: false
+        - name: "middleManager"
+          required: false
+        - name: "router"
+          required: false
+      asOfVersion: "0.0.0"
+
+  - property: &indexerStorageType
+      propertyNames:
+        - name: "druid.indexer.storage.type"
+          kind:
+            type: "file"
+            file: "runtime.properties"
+      datatype:
+        type: "string"
+      defaultValues:
+        - fromVersion: "0.0.0"
+          value: "metadata"
+      roles:
+        - name: "broker"
+          required: false
+        - name: "coordinator"
+          required: true
+        - name: "historical"
+          required: false
+        - name: "middleManager"
+          required: false
+        - name: "router"
+          required: false
+      asOfVersion: "0.0.0"
+
+  - property: &coordinatorPeriod
+      propertyNames:
+        - name: "druid.coordinator.period"
+          kind:
+            type: "file"
+            file: "runtime.properties"
+      datatype:
+        type: "string"
+      defaultValues:
+        - fromVersion: "0.0.0"
+          value: "PT20S"
+      roles:
+        - name: "broker"
+          required: false
+        - name: "coordinator"
+          required: true
+        - name: "historical"
+          required: false
+        - name: "middleManager"
+          required: false
+        - name: "router"
+          required: false
+      asOfVersion: "0.0.0"
+
+  - property: &coordinatorAsOverlordEnabled
+      propertyNames:
+        - name: "druid.coordinator.asOverlord.enabled"
+          kind:
+            type: "file"
+            file: "runtime.properties"
+      datatype:
+        type: "bool"
+      defaultValues:
+        - fromVersion: "0.0.0"
+          value: "true"
+      roles:
+        - name: "broker"
+          required: false
+        - name: "coordinator"
+          required: true
+        - name: "historical"
+          required: false
+        - name: "middleManager"
+          required: false
+        - name: "router"
+          required: false
+      asOfVersion: "0.0.0"
+
+  - property: &segmentCacheLocations
+      propertyNames:
+        - name: "druid.segmentCache.locations"
+          kind:
+            type: "file"
+            file: "runtime.properties"
+      datatype:
+        type: "string"
+      defaultValues:
+        - fromVersion: "0.0.0"
+          value: "[{\"path\":\"/stackable/var/druid/segment-cache\",\"maxSize\":\"300g\"}]"
+      roles:
+        - name: "broker"
+          required: false
+        - name: "coordinator"
+          required: false
+        - name: "historical"
+          required: true
+        - name: "middleManager"
+          required: false
+        - name: "router"
+          required: false
+      asOfVersion: "0.0.0"
+
 ###################################################################################################
 # jvm.config
 ###################################################################################################
