@@ -23,6 +23,8 @@ pub const CONTAINER_METRICS_PORT: &str = "metrics";
 /////////////////////////////
 //    CONFIG PROPERTIES    //
 /////////////////////////////
+// plaintext port / HTTP
+pub const PLAINTEXT: &str = "druid.plaintext";
 pub const EXTENSIONS_LOADLIST: &str = "druid.extensions.loadList";
 // extension names
 pub const EXT_S3: &str = "druid-s3-extensions";
@@ -51,6 +53,7 @@ pub const MD_ST_PASSWORD: &str = "druid.metadata.storage.connector.password";
 // extra
 pub const CREDENTIALS_SECRET_PROPERTY: &str = "credentialsSecret";
 
+pub const PROMETHEUS_PORT: &str = "druid.emitter.prometheus.port";
 pub const DRUID_METRICS_PORT: u16 = 9090;
 
 #[derive(Clone, CustomResource, Debug, Deserialize, JsonSchema, Serialize)]
@@ -276,12 +279,17 @@ impl Configuration for DruidConfig {
         role_name: &str,
         file: &str,
     ) -> Result<BTreeMap<String, Option<String>>, ConfigError> {
-        let _role = DruidRole::from_str(role_name).unwrap();
+        let role = DruidRole::from_str(role_name).unwrap();
 
         let mut result = BTreeMap::new();
         match file {
             JVM_CONFIG => {}
             RUNTIME_PROPS => {
+                // Plaintext port
+                result.insert(
+                    PLAINTEXT.to_string(),
+                    Some(role.get_http_port().to_string()),
+                );
                 // extensions
                 let mut extensions = vec![
                     String::from(EXT_KAFKA_INDEXING),
@@ -333,6 +341,11 @@ impl Configuration for DruidConfig {
                 result.insert(
                     EXTENSIONS_LOADLIST.to_string(),
                     Some(build_string_list(&extensions)),
+                );
+                // metrics
+                result.insert(
+                    PROMETHEUS_PORT.to_string(),
+                    Some(DRUID_METRICS_PORT.to_string()),
                 );
             }
             LOG4J2_CONFIG => {}

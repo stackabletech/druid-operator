@@ -1,6 +1,6 @@
 //! Ensures that `Pod`s are configured and running for each [`DruidCluster`]
 use crate::{
-    config::{get_jvm_config, get_log4j_config, get_runtime_properties},
+    config::{get_jvm_config, get_log4j_config},
     discovery::{self, build_discovery_configmaps},
 };
 
@@ -288,7 +288,10 @@ fn build_rolegroup_config_map(
                     ZOOKEEPER_CONNECTION_STRING.to_string(),
                     Some(zk_connstr.clone()),
                 );
-                let runtime_properties = get_runtime_properties(&role, &transformed_config)
+                let runtime_properties =
+                    stackable_operator::product_config::writer::to_java_properties_string(
+                        transformed_config.iter(),
+                    )
                     .context(PropertiesWriteSnafu)?;
                 cm_conf_data.insert(RUNTIME_PROPS.to_string(), runtime_properties);
             }

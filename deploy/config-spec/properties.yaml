@@ -13,6 +13,168 @@ spec:
 
 properties:
 
+  - property: &plaintext
+      propertyNames:
+        - name: "druid.plaintext"
+          kind:
+            type: "file"
+            file: "runtime.properties"
+      datatype:
+        type: "integer"
+      roles:
+        - name: "broker"
+          required: true
+        - name: "coordinator"
+          required: true
+        - name: "historical"
+          required: true
+        - name: "middleManager"
+          required: true
+        - name: "router"
+          required: true
+      asOfVersion: "0.0.0"
+
+  - property: &startupLoggingLogProperties
+      propertyNames:
+        - name: "druid.startup.logging.logProperties"
+          kind:
+            type: "file"
+            file: "runtime.properties"
+      datatype:
+        type: "bool"
+      defaultValues:
+        - fromVersion: "0.0.0"
+          value: "true"
+      roles:
+        - name: "broker"
+          required: true
+        - name: "coordinator"
+          required: true
+        - name: "historical"
+          required: true
+        - name: "middleManager"
+          required: true
+        - name: "router"
+          required: true
+      asOfVersion: "0.0.0"
+
+  - property: &monitoringMonitors
+      propertyNames:
+        - name: "druid.monitoring.monitors"
+          kind:
+            type: "file"
+            file: "runtime.properties"
+      datatype:
+        type: "string"
+      defaultValues:
+        - fromVersion: "0.0.0"
+          value: "[\"org.apache.druid.java.util.metrics.JvmMonitor\"]"
+      roles:
+        - name: "broker"
+          required: true
+        - name: "coordinator"
+          required: true
+        - name: "historical"
+          required: true
+        - name: "middleManager"
+          required: true
+        - name: "router"
+          required: true
+      asOfVersion: "0.0.0"
+
+  - property: &emitter
+      propertyNames:
+        - name: "druid.emitter"
+          kind:
+            type: "file"
+            file: "runtime.properties"
+      datatype:
+        type: "string"
+      defaultValues:
+        - fromVersion: "0.0.0"
+          value: "prometheus"
+      roles:
+        - name: "broker"
+          required: true
+        - name: "coordinator"
+          required: true
+        - name: "historical"
+          required: true
+        - name: "middleManager"
+          required: true
+        - name: "router"
+          required: true
+      asOfVersion: "0.0.0"
+
+  - property: &emitterPrometheusStrategy
+      propertyNames:
+        - name: "druid.emitter.prometheus.strategy"
+          kind:
+            type: "file"
+            file: "runtime.properties"
+      datatype:
+        type: "string"
+      defaultValues:
+        - fromVersion: "0.0.0"
+          value: "exporter"
+      roles:
+        - name: "broker"
+          required: true
+        - name: "coordinator"
+          required: true
+        - name: "historical"
+          required: true
+        - name: "middleManager"
+          required: true
+        - name: "router"
+          required: true
+      asOfVersion: "0.0.0"
+
+  - property: &emitterPrometheusNamespace
+      propertyNames:
+        - name: "druid.emitter.prometheus.namespace"
+          kind:
+            type: "file"
+            file: "runtime.properties"
+      datatype:
+        type: "string"
+      defaultValues:
+        - fromVersion: "0.0.0"
+          value: "druid"
+      roles:
+        - name: "broker"
+          required: true
+        - name: "coordinator"
+          required: true
+        - name: "historical"
+          required: true
+        - name: "middleManager"
+          required: true
+        - name: "router"
+          required: true
+      asOfVersion: "0.0.0"
+
+  - property: &emitterPrometheusPort
+      propertyNames:
+        - name: "druid.emitter.prometheus.port"
+          kind:
+            type: "file"
+            file: "runtime.properties"
+      datatype:
+        type: "integer"
+      roles:
+        - name: "broker"
+          required: true
+        - name: "coordinator"
+          required: true
+        - name: "historical"
+          required: true
+        - name: "middleManager"
+          required: true
+        - name: "router"
+          required: true
+      asOfVersion: "0.0.0"
+
   - property: &metadataStorageType
       propertyNames:
         - name: "druid.metadata.storage.type"

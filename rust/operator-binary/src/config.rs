@@ -1,7 +1,4 @@
 use stackable_druid_crd::DruidRole;
-use stackable_druid_crd::DRUID_METRICS_PORT;
-use stackable_operator::product_config::writer::PropertiesWriterError;
-use std::collections::BTreeMap;
 
 pub fn get_jvm_config(role: &DruidRole) -> String {
     let common_props = "
@@ -55,59 +52,6 @@ pub fn get_jvm_config(role: &DruidRole) -> String {
         "
         }
     }
-}
-
-pub fn get_runtime_properties(
-    role: &DruidRole,
-    other_props: &BTreeMap<String, Option<String>>,
-) -> Result<String, PropertiesWriterError> {
-    let common = "
-    druid.startup.logging.logProperties=true
-    druid.indexer.logs.type=file
-    druid.selectors.indexing.serviceName=druid/overlord
-    druid.selectors.coordinator.serviceName=druid/coordinator
-    druid.monitoring.monitors=[\"org.apache.druid.java.util.metrics.JvmMonitor\"]
-    # The prometheus port is configured later
-    druid.emitter=prometheus
-    druid.emitter.prometheus.strategy=exporter
-    druid.emitter.prometheus.namespace=druid
-    ";
-
-    let ports = format!(
-        "druid.plaintext={}\n\
-         druid.emitter.prometheus.port={}\n",
-        role.get_http_port(),
-        DRUID_METRICS_PORT
-    );
-
-    let role_specifics = match role {
-        DruidRole::Broker => "
-        druid.service=druid/broker
-        ",
-        DruidRole::Coordinator => "
-        druid.service=druid/coordinator
-
-        # Run the overlord service in the coordinator process
-
-        druid.coordinator.asOverlord.overlordService=druid/overlord
-        ",
-        DruidRole::Historical => "
-        druid.service=druid/historical
-        ",
-        DruidRole::MiddleManager => "
-        druid.service=druid/middleManager
-        ",
-        DruidRole::Router => "
-        druid.service=druid/router
-
-        # Service discovery
-        druid.router.defaultBrokerServiceName=druid/broker
-        druid.router.coordinatorServiceName=druid/coordinator
-        ",
-    };
-    let others =
-        stackable_operator::product_config::writer::to_java_properties_string(other_props.iter())?;
-    Ok(format!("{}{}{}{}", ports, common, role_specifics, others))
 }
 
 pub fn get_log4j_config(_role: &DruidRole) -> String {
