@@ -11,6 +11,7 @@ All notable changes to this project will be documented in this file.
   a single namespace to watch ([#183]).
 - BREAKING: Local backend storage (deep-storage) has been replaced with HDFS-storage, affecting the CRD ([#187]).
 - BREAKING: The corresponding local-storage label has been removed, affecting the CRD ([#124]).
+- Make the inclusion of the druid-s3-extension dependent on the Custom Resource definition ([#71]).
 
 ### Changed
 
@@ -21,6 +22,7 @@ All notable changes to this project will be documented in this file.
 [#178]: https://github.com/stackabletech/druid-operator/pull/178
 [#183]: https://github.com/stackabletech/druid-operator/pull/183
 [#187]: https://github.com/stackabletech/druid-operator/pull/187
+[#71]: https://github.com/stackabletech/druid-operator/issues/71
 
 ## [0.4.0] - 2022-02-14
 
