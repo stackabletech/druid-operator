@@ -106,6 +106,7 @@ properties:
         - "http"
         - "parametrized"
         - "composing"
+        - "prometheus"
       roles:
         - name: "broker"
           required: true
@@ -695,6 +696,30 @@ properties:
           required: false
         - name: "historical"
           required: true
+        - name: "middleManager"
+          required: false
+        - name: "router"
+          required: false
+      asOfVersion: "0.0.0"
+
+  - property: &coordinatorAsOverlordOverlordService
+      propertyNames:
+        - name: "druid.coordinator.asOverlord.overlordService"
+          kind:
+            type: "file"
+            file: "runtime.properties"
+      datatype:
+        type: "string"
+      defaultValues:
+        - fromVersion: "0.0.0"
+          value: "druid/overlord"
+      roles:
+        - name: "broker"
+          required: false
+        - name: "coordinator"
+          required: true
+        - name: "historical"
+          required: false
         - name: "middleManager"
           required: false
         - name: "router"
