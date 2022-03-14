@@ -12,7 +12,7 @@ The bundle includes several connection strings to Druid services such as the rou
 
 Given the following Druid cluster:
 
-[source,yaml,subs="attributes,callouts"]
+[source,yaml,subs="normal,callouts"]
 ----
 apiVersion: druid.stackable.tech/v1alpha1
 kind: DruidCluster
@@ -34,7 +34,7 @@ The `{namespace}/{clusterName}` discovery `ConfigMap` contains the following fie
 `DRUID_AVATICA_JDBC`::
 ====
 Contains the connection string for the https://calcite.apache.org/avatica/downloads/[Avatica] JDBC driver to connect to the router:
-[subs="attributes"]
+[subs="normal"]
   jdbc:avatica:remote:url=http://{clusterName}-router.{namespace}.svc.cluster.local:{routerPort}/druid/v2/sql/avatica/
 ====
 
@@ -42,13 +42,13 @@ Contains the connection string for the https://calcite.apache.org/avatica/downlo
 ====
 Contains the connection string for the python SQLAlchemy toolkit:
 
-[subs="attributes"]
+[subs="normal"]
   druid://{clusterName}-router.{namespace}.svc.cluster.local:{routerPort}/druid/v2/sql
 ====
 
 `DRUID_ROUTER`::
 ====
 Contains the connection string for the Druid router:
-[subs="attributes"]
+[subs="normal"]
   {clusterName}-router.{namespace}.svc.cluster.local:{routerPort}
 ====
