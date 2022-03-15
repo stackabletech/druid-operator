@@ -1214,8 +1214,8 @@ dependencies = [
 
 [[package]]
 name = "product-config"
-version = "0.4.0-nightly"
-source = "git+https://github.com/stackabletech/product-config.git?branch=feature/fancy-regex#568c9bcabc283393163b1ca4404174f36f167ccc"
+version = "0.3.1"
+source = "git+https://github.com/stackabletech/product-config.git?tag=0.3.1#40c93e5283beef100c9fecdb6368f1e1480db3e8"
 dependencies = [
  "fancy-regex",
  "java-properties",
@@ -1579,7 +1579,8 @@ dependencies = [
 
 [[package]]
 name = "stackable-operator"
-version = "0.14.0"
+version = "0.14.1"
+source = "git+https://github.com/stackabletech/operator-rs.git?tag=0.14.1#45104463a311673f62193252c5964b3267a69899"
 dependencies = [
  "backoff",
  "chrono",

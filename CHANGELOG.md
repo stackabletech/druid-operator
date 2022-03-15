@@ -15,7 +15,7 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
-- Many configuration properties are not hardcoded anymore ([#195])
+- Many configuration properties are not hardcoded anymore, product-config expanded ([#195])
 - `operator-rs` `0.10.0` -> `0.13.0` ([#178],[#183]).
 - `snafu` `0.6` -> `0.7` ([#178]).
 
