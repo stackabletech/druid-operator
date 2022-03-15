@@ -15,9 +15,11 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- Many configuration properties are not hardcoded anymore ([#195])
 - `operator-rs` `0.10.0` -> `0.13.0` ([#178],[#183]).
 - `snafu` `0.6` -> `0.7` ([#178]).
 
+[#195]: https://github.com/stackabletech/druid-operator/pull/195
 [#124]: https://github.com/stackabletech/druid-operator/pull/124
 [#178]: https://github.com/stackabletech/druid-operator/pull/178
 [#183]: https://github.com/stackabletech/druid-operator/pull/183
