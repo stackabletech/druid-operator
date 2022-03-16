@@ -4,16 +4,29 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.5.0] - 2022-03-15
+
 ### Added
 
 - Reconciliation errors are now reported as Kubernetes events ([#178]).
+- Use cli argument `watch-namespace` / env var `WATCH_NAMESPACE` to specify
+  a single namespace to watch ([#183]).
+- BREAKING: Local backend storage (deep-storage) has been replaced with HDFS-storage, affecting the CRD ([#187]).
+- BREAKING: The corresponding local-storage label has been removed, affecting the CRD ([#124]).
+- Make the inclusion of the druid-s3-extension dependent on the Custom Resource definition ([#71]).
 
 ### Changed
 
-- `operator-rs` `0.10.0` -> `0.12.0` ([#178]).
+- Many configuration properties are not hardcoded anymore, product-config expanded ([#195])
+- `operator-rs` `0.10.0` -> `0.14.1` ([#178], [#183], [#195]).
 - `snafu` `0.6` -> `0.7` ([#178]).
 
+[#195]: https://github.com/stackabletech/druid-operator/pull/195
+[#124]: https://github.com/stackabletech/druid-operator/pull/124
 [#178]: https://github.com/stackabletech/druid-operator/pull/178
+[#183]: https://github.com/stackabletech/druid-operator/pull/183
+[#187]: https://github.com/stackabletech/druid-operator/pull/187
+[#71]: https://github.com/stackabletech/druid-operator/issues/71
 
 ## [0.4.0] - 2022-02-14
 
@@ -30,7 +43,6 @@ All notable changes to this project will be documented in this file.
 [#155]: https://github.com/stackabletech/druid-operator/pull/155
 
 ## [0.3.0] - 2022-01-27
-
 
 ### Changed
 
@@ -66,4 +78,3 @@ All notable changes to this project will be documented in this file.
 
 [#13]: https://github.com/stackabletech/druid-operator/pull/13
 [#27]: https://github.com/stackabletech/druid-operator/pull/27
-

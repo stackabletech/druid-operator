@@ -1,7 +1,4 @@
 use stackable_druid_crd::DruidRole;
-use stackable_druid_crd::DRUID_METRICS_PORT;
-use stackable_operator::product_config::writer::PropertiesWriterError;
-use std::collections::BTreeMap;
 
 pub fn get_jvm_config(role: &DruidRole) -> String {
     let common_props = "
@@ -57,154 +54,6 @@ pub fn get_jvm_config(role: &DruidRole) -> String {
     }
 }
 
-pub fn get_runtime_properties(
-    role: &DruidRole,
-    opa_connstr: &Option<String>,
-    other_props: &BTreeMap<String, Option<String>>,
-) -> Result<String, PropertiesWriterError> {
-    let common = "
-    druid.startup.logging.logProperties=true
-    druid.zk.paths.base=/druid
-    druid.indexer.logs.type=file
-    druid.indexer.logs.directory=/stackable/var/druid/indexing-logs
-    druid.selectors.indexing.serviceName=druid/overlord
-    druid.selectors.coordinator.serviceName=druid/coordinator
-    druid.monitoring.monitors=[\"org.apache.druid.java.util.metrics.JvmMonitor\"]
-    druid.indexing.doubleStorage=double
-    druid.server.hiddenProperties=[\"druid.s3.accessKey\",\"druid.s3.secretKey\",\"druid.metadata.storage.connector.password\"]
-    druid.sql.enable=true
-    druid.lookup.enableLookupSyncOnStartup=false
-    druid.storage.storageDirectory=/data
-    # The prometheus port is configured later
-    druid.emitter=prometheus
-    druid.emitter.prometheus.strategy=exporter
-    druid.emitter.prometheus.namespace=druid
-    ";
-
-    let opa = if let Some(opa_str) = opa_connstr {
-        format!(
-            "\
-        # OPA Authorizer. opaUri is set from the custom resource
-        druid.auth.authorizers=[\"OpaAuthorizer\"]
-        druid.auth.authorizer.OpaAuthorizer.type=opa
-        druid.auth.authorizer.OpaAuthorizer.opaUri={}
-        ",
-            opa_str
-        )
-    } else {
-        "".to_string()
-    };
-
-    let ports = format!(
-        "druid.plaintext={}\n\
-         druid.emitter.prometheus.port={}\n",
-        role.get_http_port(),
-        DRUID_METRICS_PORT
-    );
-
-    let role_specifics = match role {
-        DruidRole::Broker => "
-        druid.service=druid/broker
-
-        # HTTP server settings
-        druid.server.http.numThreads=6
-
-        # HTTP client settings
-        druid.broker.http.numConnections=5
-        druid.broker.http.maxQueuedBytes=5MiB
-
-        # Processing threads and buffers
-        druid.processing.buffer.sizeBytes=50MiB
-        druid.processing.numMergeBuffers=2
-        druid.processing.numThreads=1
-        druid.processing.tmpDir=/stackable/var/druid/processing
-
-        # Query cache disabled -- push down caching and merging instead
-        druid.broker.cache.useCache=false
-        druid.broker.cache.populateCache=false
-        ",
-        DruidRole::Coordinator => "
-        druid.service=druid/coordinator
-
-        druid.coordinator.startDelay=PT10S
-        druid.coordinator.period=PT5S
-
-        # Run the overlord service in the coordinator process
-        druid.coordinator.asOverlord.enabled=true
-        druid.coordinator.asOverlord.overlordService=druid/overlord
-
-        druid.indexer.queue.startDelay=PT5S
-
-        druid.indexer.runner.type=remote
-        druid.indexer.storage.type=metadata
-        ",
-        DruidRole::Historical => "
-        druid.service=druid/historical
-
-        # HTTP server threads
-        druid.server.http.numThreads=6
-
-        # Processing threads and buffers
-        druid.processing.buffer.sizeBytes=50MiB
-        druid.processing.numMergeBuffers=2
-        druid.processing.numThreads=1
-        druid.processing.tmpDir=/stackable/var/druid/processing
-
-        # Segment storage
-        druid.segmentCache.locations=[{\"path\":\"/stackable/var/druid/segment-cache\",\"maxSize\":\"300g\"}]
-
-        # Query cache
-        druid.historical.cache.useCache=true
-        druid.historical.cache.populateCache=true
-        druid.cache.type=caffeine
-        druid.cache.sizeInBytes=50MiB
-        ",
-        DruidRole::MiddleManager => "
-        druid.service=druid/middleManager
-
-        # Number of tasks per middleManager
-        druid.worker.capacity=2
-
-        # Task launch parameters
-        druid.indexer.runner.javaOpts=-server -Xms256m -Xmx256m -XX:MaxDirectMemorySize=300m -Duser.timezone=UTC -Dfile.encoding=UTF-8 -XX:+ExitOnOutOfMemoryError -Djava.util.logging.manager=org.apache.logging.log4j.jul.LogManager
-        druid.indexer.task.baseTaskDir=/stackable/var/druid/task
-
-        # HTTP server threads
-        druid.server.http.numThreads=6
-
-        # Processing threads and buffers on Peons
-        druid.indexer.fork.property.druid.processing.numMergeBuffers=2
-        druid.indexer.fork.property.druid.processing.buffer.sizeBytes=25MiB
-        druid.indexer.fork.property.druid.processing.numThreads=1
-
-        # Hadoop indexing
-        druid.indexer.task.hadoopWorkingPath=/stackable/var/druid/hadoop-tmp
-        ",
-        DruidRole::Router => "
-        druid.service=druid/router
-
-        # HTTP proxy
-        druid.router.http.numConnections=25
-        druid.router.http.readTimeout=PT5M
-        druid.router.http.numMaxThreads=50
-        druid.server.http.numThreads=50
-
-        # Service discovery
-        druid.router.defaultBrokerServiceName=druid/broker
-        druid.router.coordinatorServiceName=druid/coordinator
-
-        # Management proxy to coordinator / overlord: required for unified web console.
-        druid.router.managementProxy.enabled=true
-        ",
-    };
-    let others =
-        stackable_operator::product_config::writer::to_java_properties_string(other_props.iter())?;
-    Ok(format!(
-        "{}{}{}{}{}",
-        ports, common, opa, role_specifics, others
-    ))
-}
-
 pub fn get_log4j_config(_role: &DruidRole) -> String {
     "<?xml version=\"1.0\" encoding=\"UTF-8\" ?>
 <Configuration status=\"WARN\">
@@ -214,19 +63,19 @@ pub fn get_log4j_config(_role: &DruidRole) -> String {
     </Console>
   </Appenders>
   <Loggers>
-    <Root level=\"debug\">
+    <Root level=\"info\">
       <AppenderRef ref=\"Console\"/>
     </Root>
-    <Logger name=\"org.apache.druid.server.QueryLifecycle\" level=\"debug\" additivity=\"false\">
+    <Logger name=\"org.apache.druid.server.QueryLifecycle\" level=\"info\" additivity=\"false\">
       <Appender-ref ref=\"Console\"/>
     </Logger>
-    <Logger name=\"org.apache.druid.server.coordinator\" level=\"debug\" additivity=\"false\">
+    <Logger name=\"org.apache.druid.server.coordinator\" level=\"info\" additivity=\"false\">
       <Appender-ref ref=\"Console\"/>
     </Logger>
-    <Logger name=\"org.apache.druid.segment\" level=\"debug\" additivity=\"false\">
+    <Logger name=\"org.apache.druid.segment\" level=\"info\" additivity=\"false\">
       <Appender-ref ref=\"Console\"/>
     </Logger>
-    <Logger name=\"org.apache.druid.initialization\" level=\"debug\" additivity=\"false\">
+    <Logger name=\"org.apache.druid.initialization\" level=\"info\" additivity=\"false\">
       <Appender-ref ref=\"Console\"/>
     </Logger>
     <Logger name=\"org.skife.config\" level=\"warn\" additivity=\"false\">

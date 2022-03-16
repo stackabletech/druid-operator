@@ -7,9 +7,7 @@ use stackable_operator::{
 };
 use std::collections::BTreeMap;
 use std::str::FromStr;
-use strum_macros::Display;
-use strum_macros::EnumIter;
-use strum_macros::EnumString;
+use strum::{Display, EnumIter, EnumString};
 
 pub const APP_NAME: &str = "druid";
 
@@ -25,6 +23,8 @@ pub const CONTAINER_METRICS_PORT: &str = "metrics";
 /////////////////////////////
 //    CONFIG PROPERTIES    //
 /////////////////////////////
+// plaintext port / HTTP
+pub const PLAINTEXT: &str = "druid.plaintext";
 pub const EXTENSIONS_LOADLIST: &str = "druid.extensions.loadList";
 // extension names
 pub const EXT_S3: &str = "druid-s3-extensions";
@@ -35,10 +35,12 @@ pub const EXT_PSQL_MD_ST: &str = "postgresql-metadata-storage";
 pub const EXT_MYSQL_MD_ST: &str = "mysql-metadata-storage";
 pub const EXT_OPA_AUTHORIZER: &str = "druid-opa-authorizer";
 pub const EXT_BASIC_SECURITY: &str = "druid-basic-security";
+pub const EXT_HDFS: &str = "druid-hdfs-storage";
 // zookeeper
 pub const ZOOKEEPER_CONNECTION_STRING: &str = "druid.zk.service.host";
 // deep storage
 pub const DS_TYPE: &str = "druid.storage.type";
+pub const DS_DIRECTORY: &str = "druid.storage.storageDirectory";
 // S3
 pub const DS_BUCKET: &str = "druid.storage.bucket";
 pub const DS_BASE_KEY: &str = "druid.storage.baseKey";
@@ -53,6 +55,7 @@ pub const MD_ST_PASSWORD: &str = "druid.metadata.storage.connector.password";
 // extra
 pub const CREDENTIALS_SECRET_PROPERTY: &str = "credentialsSecret";
 
+pub const PROMETHEUS_PORT: &str = "druid.emitter.prometheus.port";
 pub const DRUID_METRICS_PORT: u16 = 9090;
 
 #[derive(Clone, CustomResource, Debug, Deserialize, JsonSchema, Serialize)]
@@ -187,17 +190,7 @@ pub struct DatabaseConnectionSpec {
     pub password: Option<String>,
 }
 
-#[derive(
-    Clone,
-    Debug,
-    Deserialize,
-    Eq,
-    JsonSchema,
-    PartialEq,
-    Serialize,
-    strum_macros::Display,
-    strum_macros::EnumString,
-)]
+#[derive(Clone, Debug, Deserialize, Eq, JsonSchema, PartialEq, Serialize, Display, EnumString)]
 pub enum DbType {
     #[serde(rename = "derby")]
     #[strum(serialize = "derby")]
@@ -218,21 +211,11 @@ impl Default for DbType {
     }
 }
 
-#[derive(
-    Clone,
-    Debug,
-    Deserialize,
-    Eq,
-    JsonSchema,
-    PartialEq,
-    Serialize,
-    strum_macros::Display,
-    strum_macros::EnumString,
-)]
+#[derive(Clone, Debug, Deserialize, Eq, JsonSchema, PartialEq, Serialize, Display, EnumString)]
 pub enum DeepStorageType {
-    #[serde(rename = "local")]
-    #[strum(serialize = "local")]
-    Local,
+    #[serde(rename = "hdfs")]
+    #[strum(serialize = "hdfs")]
+    HDFS,
 
     #[serde(rename = "s3")]
     #[strum(serialize = "s3")]
@@ -241,7 +224,7 @@ pub enum DeepStorageType {
 
 impl Default for DeepStorageType {
     fn default() -> Self {
-        Self::Local
+        Self::HDFS
     }
 }
 
@@ -249,8 +232,6 @@ impl Default for DeepStorageType {
 #[serde(rename_all = "camelCase")]
 pub struct DeepStorageSpec {
     pub storage_type: DeepStorageType,
-    // local only
-    pub data_node_selector: Option<BTreeMap<String, String>>,
     pub storage_directory: Option<String>,
     // S3 only
     pub bucket: Option<String>,
@@ -308,20 +289,31 @@ impl Configuration for DruidConfig {
         role_name: &str,
         file: &str,
     ) -> Result<BTreeMap<String, Option<String>>, ConfigError> {
-        let _role = DruidRole::from_str(role_name).unwrap();
+        let role = DruidRole::from_str(role_name).unwrap();
+
+        // TODO
+        // # OPA Authorizer. opaUri is set from the custom resource
+        // druid.auth.authorizers=[\"OpaAuthorizer\"]
+        // druid.auth.authorizer.OpaAuthorizer.type=opa
+        // druid.auth.authorizer.OpaAuthorizer.opaUri={}
 
         let mut result = BTreeMap::new();
         match file {
             JVM_CONFIG => {}
             RUNTIME_PROPS => {
+                // Plaintext port
+                result.insert(
+                    PLAINTEXT.to_string(),
+                    Some(role.get_http_port().to_string()),
+                );
                 // extensions
                 let mut extensions = vec![
                     String::from(EXT_KAFKA_INDEXING),
                     String::from(EXT_DATASKETCHES),
                     String::from(PROMETHEUS_EMITTER),
-                    String::from(EXT_S3),
                     String::from(EXT_BASIC_SECURITY),
                     String::from(EXT_OPA_AUTHORIZER),
+                    String::from(EXT_HDFS),
                 ];
                 // metadata storage
                 let mds = &resource.spec.metadata_storage_database;
@@ -347,6 +339,7 @@ impl Configuration for DruidConfig {
                 if let Some(s3) = &resource.spec.s3 {
                     if let Some(endpoint) = &s3.endpoint {
                         result.insert(S3_ENDPOINT_URL.to_string(), Some(endpoint.to_string()));
+                        extensions.push(EXT_S3.to_string());
                     }
                 }
                 // deep storage
@@ -358,10 +351,19 @@ impl Configuration for DruidConfig {
                 if let Some(key) = &ds.base_key {
                     result.insert(DS_BASE_KEY.to_string(), Some(key.to_string()));
                 }
+                // TODO resolve endpoint from namenode name...
+                if let Some(dir) = &ds.storage_directory {
+                    result.insert(DS_DIRECTORY.to_string(), Some(dir.to_string()));
+                }
                 // other
                 result.insert(
                     EXTENSIONS_LOADLIST.to_string(),
                     Some(build_string_list(&extensions)),
+                );
+                // metrics
+                result.insert(
+                    PROMETHEUS_PORT.to_string(),
+                    Some(DRUID_METRICS_PORT.to_string()),
                 );
             }
             LOG4J2_CONFIG => {}
@@ -389,7 +391,6 @@ mod tests {
     use super::*;
     use stackable_operator::role_utils::CommonConfiguration;
     use stackable_operator::role_utils::RoleGroup;
-    use std::array::IntoIter;
     use std::collections::HashMap;
 
     #[test]
@@ -442,7 +443,7 @@ mod tests {
                         env_overrides: Default::default(),
                         cli_overrides: Default::default(),
                     },
-                    role_groups: HashMap::<_, _>::from_iter(IntoIter::new([(
+                    role_groups: [(
                         "default".to_string(),
                         RoleGroup {
                             config: CommonConfiguration {
@@ -454,7 +455,9 @@ mod tests {
                             replicas: Some(1),
                             selector: None,
                         },
-                    )])),
+                    )]
+                    .into_iter()
+                    .collect::<HashMap<_, _>>(),
                 },
                 metadata_storage_database: Default::default(),
                 deep_storage: Default::default(),

@@ -37,10 +37,8 @@ spec:
     user: druid
     password: druid
   deepStorage:
-    storageType: local
-    dataNodeSelector:
-      nodeType: druid-data
-    storageDirectory: /data
+    storageType: hdfs
+    storageDirectory: hdfs://simple-hdfs-namenode-default-0:8020/data
   brokers:
     roleGroups:
       default:
