@@ -1551,7 +1551,7 @@ dependencies = [
  "serde_json",
  "serde_yaml",
  "stackable-operator",
- "strum 0.24.0",
+ "strum",
  "tracing",
 ]
 
@@ -1572,7 +1572,7 @@ dependencies = [
  "snafu",
  "stackable-druid-crd",
  "stackable-operator",
- "strum 0.24.0",
+ "strum",
  "tokio",
  "tracing",
 ]
@@ -1580,7 +1580,7 @@ dependencies = [
 [[package]]
 name = "stackable-operator"
 version = "0.14.1"
-source = "git+https://github.com/stackabletech/operator-rs.git?tag=0.14.1#45104463a311673f62193252c5964b3267a69899"
+source = "git+https://github.com/stackabletech/operator-rs.git?branch=add_opa_config_struct#71992f1e2615eac9e448ab67c970421fe8650f5f"
 dependencies = [
  "backoff",
  "chrono",
@@ -1600,7 +1600,7 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_yaml",
- "strum 0.23.0",
+ "strum",
  "thiserror",
  "tokio",
  "tracing",
@@ -1615,33 +1615,11 @@ checksum = "73473c0e59e6d5812c5dfe2a064a6444949f089e20eec9a2e5506596494e4623"
 
 [[package]]
 name = "strum"
-version = "0.23.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cae14b91c7d11c9a851d3fbc80a963198998c2a64eec840477fa92d8ce9b70bb"
-dependencies = [
- "strum_macros 0.23.1",
-]
-
-[[package]]
-name = "strum"
 version = "0.24.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e96acfc1b70604b8b2f1ffa4c57e59176c7dbb05d556c71ecd2f5498a1dee7f8"
 dependencies = [
- "strum_macros 0.24.0",
-]
-
-[[package]]
-name = "strum_macros"
-version = "0.23.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5bb0dc7ee9c15cea6199cde9a127fa16a4c5819af85395457ad72d68edc85a38"
-dependencies = [
- "heck 0.3.3",
- "proc-macro2",
- "quote",
- "rustversion",
- "syn",
+ "strum_macros",
 ]
 
 [[package]]

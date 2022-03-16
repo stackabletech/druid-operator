@@ -416,13 +416,13 @@ spec:
                 opa:
                   nullable: true
                   properties:
-                    opaConfigMapName:
+                    configMapName:
                       type: string
-                    opaDruidApiPath:
+                    package:
+                      nullable: true
                       type: string
                   required:
-                    - opaConfigMapName
-                    - opaDruidApiPath
+                    - configMapName
                   type: object
                 routers:
                   properties:

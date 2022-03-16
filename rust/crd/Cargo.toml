@@ -8,7 +8,8 @@ repository = "https://github.com/stackabletech/druid-operator"
 version = "0.6.0-nightly"
 
 [dependencies]
-stackable-operator = { git = "https://github.com/stackabletech/operator-rs.git", tag = "0.14.1" }
+# stackable-operator = { git = "https://github.com/stackabletech/operator-rs.git", tag = "0.14.1" }
+stackable-operator = { git = "https://github.com/stackabletech/operator-rs.git", branch = "add_opa_config_struct" }
 
 semver = "1.0"
 serde = { version = "1.0", features = ["derive"] }
