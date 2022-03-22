@@ -140,11 +140,11 @@ Once you have defined your rules, you need to configure the OPA cluster name and
 [source,yaml]
 ----
 opa:
-  opaConfigMapName: simple-opa <1>
-  opaDruidApiPath: v1/data/druid/allow <2>
+  configMapName: simple-opa <1>
+  package: my-druid-rules <2>
 ----
 <1> The name of your OPA cluster (`simple-opa` in this case)
-<2> The resource to request. If you created a package `druid` and a rule `allow` in that package that you want to use, the resource becomes `v1/data/druid/allow`.
+<2> The RegoRule package to use for policy decisions. The package should contain an `allow` rule. This is optional and will default to the name of the Druid cluster.
 
 === Defining RegoRules
 
