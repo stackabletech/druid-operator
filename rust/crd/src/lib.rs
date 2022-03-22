@@ -252,13 +252,6 @@ pub struct S3Spec {
     pub endpoint: Option<String>,
 }
 
-#[derive(Clone, Debug, Default, Deserialize, JsonSchema, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct OpaSpec {
-    pub opa_config_map_name: String,
-    pub opa_druid_api_path: String,
-}
-
 #[derive(Clone, Debug, Deserialize, Eq, JsonSchema, PartialEq, Serialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct DruidConfig {}
