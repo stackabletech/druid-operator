@@ -5,7 +5,11 @@ use crate::{
 };
 
 use snafu::{OptionExt, ResultExt, Snafu};
-use stackable_druid_crd::{DruidCluster, DruidRole, APP_NAME, CONTAINER_HTTP_PORT, CONTAINER_METRICS_PORT, CREDENTIALS_SECRET_PROPERTY, DRUID_METRICS_PORT, JVM_CONFIG, LOG4J2_CONFIG, RUNTIME_PROPS, ZOOKEEPER_CONNECTION_STRING, AUTH_AUTHORIZER_OPA_URI};
+use stackable_druid_crd::{
+    DruidCluster, DruidRole, APP_NAME, AUTH_AUTHORIZER_OPA_URI, CONTAINER_HTTP_PORT,
+    CONTAINER_METRICS_PORT, CREDENTIALS_SECRET_PROPERTY, DRUID_METRICS_PORT, JVM_CONFIG,
+    LOG4J2_CONFIG, RUNTIME_PROPS, ZOOKEEPER_CONNECTION_STRING,
+};
 use stackable_operator::{
     builder::{ConfigMapBuilder, ContainerBuilder, ObjectMetaBuilder, PodBuilder, VolumeBuilder},
     k8s_openapi::{
@@ -20,24 +24,25 @@ use stackable_operator::{
     },
     kube::{
         runtime::{
-            controller::{Context, ReconcilerAction},
+            controller::{Action, Context},
             reflector::ObjectRef,
         },
         ResourceExt,
     },
     labels::{role_group_selector_labels, role_selector_labels},
     logging::controller::ReconcilerError,
+    opa::OpaApiVersion,
     product_config::{types::PropertyNameKind, ProductConfigManager},
     product_config_utils::{transform_all_roles_to_config, validate_all_roles_and_groups_config},
     role_utils::RoleGroupRef,
 };
+use std::ops::Deref;
 use std::{
     collections::{BTreeMap, HashMap},
     str::FromStr,
     sync::Arc,
     time::Duration,
 };
-use std::ops::Deref;
 use strum::{EnumDiscriminants, IntoEnumIterator, IntoStaticStr};
 
 const FIELD_MANAGER_SCOPE: &str = "druidcluster";
@@ -85,16 +90,16 @@ pub enum Error {
         source: stackable_operator::error::Error,
     },
     #[snafu(display(
-    "Failed to get ZooKeeper discovery config map for cluster: {}",
-    cm_name
+        "Failed to get ZooKeeper discovery config map for cluster: {}",
+        cm_name
     ))]
     GetZookeeperConnStringConfigMap {
         source: stackable_operator::error::Error,
         cm_name: String,
     },
     #[snafu(display(
-    "Failed to get OPA discovery config map and/or connection string for cluster: {}",
-    cm_name
+        "Failed to get OPA discovery config map and/or connection string for cluster: {}",
+        cm_name
     ))]
     GetOpaConnString {
         source: stackable_operator::error::Error,
@@ -136,10 +141,7 @@ impl ReconcilerError for Error {
     }
 }
 
-pub async fn reconcile_druid(
-    druid: Arc<DruidCluster>,
-    ctx: Context<Ctx>,
-) -> Result<ReconcilerAction> {
+pub async fn reconcile_druid(druid: Arc<DruidCluster>, ctx: Context<Ctx>) -> Result<Action> {
     tracing::info!("Starting reconcile");
     let client = &ctx.get_ref().client;
 
@@ -158,9 +160,19 @@ pub async fn reconcile_druid(
 
     // Assemble the OPA connection string from the discovery and the given path, if a spec is given.
     let opa_connstr = if let Some(opa_spec) = &druid.spec.opa {
-        Some(opa_spec.full_package_url_from_config_map(&client, druid.deref()).await.context(GetOpaConnStringSnafu {
-            cm_name: opa_spec.config_map_name.clone(),
-        })?)
+        Some(
+            opa_spec
+                .full_document_url_from_config_map(
+                    client,
+                    druid.deref(),
+                    Some("allow"),
+                    OpaApiVersion::V1,
+                )
+                .await
+                .context(GetOpaConnStringSnafu {
+                    cm_name: opa_spec.config_map_name.clone(),
+                })?,
+        )
     } else {
         None
     };
@@ -209,8 +221,8 @@ pub async fn reconcile_druid(
                 &rolegroup,
                 &druid,
                 rolegroup_config,
-                zk_connstr.clone(),
-                opa_connstr.clone(),
+                &zk_connstr,
+                opa_connstr.as_deref(),
             )?;
             let rg_statefulset = build_rolegroup_statefulset(&rolegroup, &druid, rolegroup_config)?;
             client
@@ -245,9 +257,7 @@ pub async fn reconcile_druid(
             .context(ApplyDiscoveryConfigSnafu)?;
     }
 
-    Ok(ReconcilerAction {
-        requeue_after: None,
-    })
+    Ok(Action::await_change())
 }
 
 /// The server-role service is the primary endpoint that should be used by clients that do not perform internal load balancing,
@@ -290,8 +300,8 @@ fn build_rolegroup_config_map(
     rolegroup: &RoleGroupRef<DruidCluster>,
     druid: &DruidCluster,
     rolegroup_config: &HashMap<PropertyNameKind, BTreeMap<String, String>>,
-    zk_connstr: String,
-    opa_connstr: Option<String>,  // TODO make use of this again
+    zk_connstr: &str,
+    opa_connstr: Option<&str>,
 ) -> Result<ConfigMap> {
     let role = DruidRole::from_str(&rolegroup.role).unwrap();
     let mut cm_conf_data = BTreeMap::new(); // filename -> filecontent
@@ -309,12 +319,12 @@ fn build_rolegroup_config_map(
                 // but might need to be revisited in the future
                 transformed_config.insert(
                     ZOOKEEPER_CONNECTION_STRING.to_string(),
-                    Some(zk_connstr.clone()),
+                    Some(zk_connstr.to_string()),
                 );
-                if let Some(opa_str) = opa_connstr.clone() {
+                if let Some(opa_str) = opa_connstr {
                     transformed_config.insert(
                         AUTH_AUTHORIZER_OPA_URI.to_string(),
-                        Some(opa_str),
+                        Some(opa_str.to_string()),
                     );
                 };
                 let runtime_properties =
@@ -565,8 +575,6 @@ pub fn druid_version(druid: &DruidCluster) -> Result<&str> {
     Ok(&druid.spec.version)
 }
 
-pub fn error_policy(_error: &Error, _ctx: Context<Ctx>) -> ReconcilerAction {
-    ReconcilerAction {
-        requeue_after: Some(Duration::from_secs(5)),
-    }
+pub fn error_policy(_error: &Error, _ctx: Context<Ctx>) -> Action {
+    Action::requeue(Duration::from_secs(5))
 }
