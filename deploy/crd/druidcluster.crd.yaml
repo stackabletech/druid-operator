@@ -413,6 +413,17 @@ spec:
                   required:
                     - roleGroups
                   type: object
+                opa:
+                  nullable: true
+                  properties:
+                    configMapName:
+                      type: string
+                    package:
+                      nullable: true
+                      type: string
+                  required:
+                    - configMapName
+                  type: object
                 routers:
                   properties:
                     cliOverrides:

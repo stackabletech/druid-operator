@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 use stackable_operator::{
     kube::CustomResource,
+    opa::OpaConfig,
     product_config_utils::{ConfigError, Configuration},
     role_utils::Role,
     schemars::{self, JsonSchema},
@@ -33,6 +34,8 @@ pub const EXT_DATASKETCHES: &str = "druid-datasketches";
 pub const PROMETHEUS_EMITTER: &str = "prometheus-emitter";
 pub const EXT_PSQL_MD_ST: &str = "postgresql-metadata-storage";
 pub const EXT_MYSQL_MD_ST: &str = "mysql-metadata-storage";
+pub const EXT_OPA_AUTHORIZER: &str = "druid-opa-authorizer";
+pub const EXT_BASIC_SECURITY: &str = "druid-basic-security";
 pub const EXT_HDFS: &str = "druid-hdfs-storage";
 // zookeeper
 pub const ZOOKEEPER_CONNECTION_STRING: &str = "druid.zk.service.host";
@@ -43,6 +46,12 @@ pub const DS_DIRECTORY: &str = "druid.storage.storageDirectory";
 pub const DS_BUCKET: &str = "druid.storage.bucket";
 pub const DS_BASE_KEY: &str = "druid.storage.baseKey";
 pub const S3_ENDPOINT_URL: &str = "druid.s3.endpoint.url";
+// OPA
+pub const AUTH_AUTHORIZERS: &str = "druid.auth.authorizers";
+pub const AUTH_AUTHORIZERS_VALUE: &str = "[\"OpaAuthorizer\"]";
+pub const AUTH_AUTHORIZER_OPA_TYPE: &str = "druid.auth.authorizer.OpaAuthorizer.type";
+pub const AUTH_AUTHORIZER_OPA_TYPE_VALUE: &str = "opa";
+pub const AUTH_AUTHORIZER_OPA_URI: &str = "druid.auth.authorizer.OpaAuthorizer.opaUri";
 // metadata storage config properties
 pub const MD_ST_TYPE: &str = "druid.metadata.storage.type";
 pub const MD_ST_CONNECT_URI: &str = "druid.metadata.storage.connector.connectURI";
@@ -87,6 +96,7 @@ pub struct DruidClusterSpec {
     pub deep_storage: DeepStorageSpec,
     pub s3: Option<S3Spec>,
     pub zookeeper_config_map_name: String,
+    pub opa: Option<OpaConfig>,
 }
 
 #[derive(
@@ -295,6 +305,8 @@ impl Configuration for DruidConfig {
                     String::from(EXT_KAFKA_INDEXING),
                     String::from(EXT_DATASKETCHES),
                     String::from(PROMETHEUS_EMITTER),
+                    String::from(EXT_BASIC_SECURITY),
+                    String::from(EXT_OPA_AUTHORIZER),
                     String::from(EXT_HDFS),
                 ];
                 // metadata storage
@@ -323,6 +335,18 @@ impl Configuration for DruidConfig {
                         result.insert(S3_ENDPOINT_URL.to_string(), Some(endpoint.to_string()));
                         extensions.push(EXT_S3.to_string());
                     }
+                }
+                // OPA
+                if let Some(_opa) = &resource.spec.opa {
+                    result.insert(
+                        AUTH_AUTHORIZERS.to_string(),
+                        Some(AUTH_AUTHORIZERS_VALUE.to_string()),
+                    );
+                    result.insert(
+                        AUTH_AUTHORIZER_OPA_TYPE.to_string(),
+                        Some(AUTH_AUTHORIZER_OPA_TYPE_VALUE.to_string()),
+                    );
+                    // The opaUri still needs to be set, but that requires a discovery config map and is handled in the druid_controller.rs
                 }
                 // deep storage
                 let ds = &resource.spec.deep_storage;
@@ -445,6 +469,7 @@ mod tests {
                 deep_storage: Default::default(),
                 s3: None,
                 zookeeper_config_map_name: Default::default(),
+                opa: Default::default(),
             },
         );
 
