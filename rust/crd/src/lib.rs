@@ -346,7 +346,7 @@ impl Configuration for DruidConfig {
                         AUTH_AUTHORIZER_OPA_TYPE.to_string(),
                         Some(AUTH_AUTHORIZER_OPA_TYPE_VALUE.to_string()),
                     );
-                    // The opaUri still needs to be set, but that is done later
+                    // The opaUri still needs to be set, but that requires a discovery config map and is handled in the druid_controller.rs
                 }
                 // deep storage
                 let ds = &resource.spec.deep_storage;
