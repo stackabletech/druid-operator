@@ -1,9 +1,9 @@
 use serde::{Deserialize, Serialize};
 use stackable_operator::{
     kube::CustomResource,
+    opa::OpaConfig,
     product_config_utils::{ConfigError, Configuration},
     role_utils::Role,
-    opa::OpaConfig,
     schemars::{self, JsonSchema},
 };
 use std::collections::BTreeMap;
@@ -345,8 +345,14 @@ impl Configuration for DruidConfig {
                 }
                 // OPA
                 if let Some(_opa) = &resource.spec.opa {
-                    result.insert(AUTH_AUTHORIZERS.to_string(), Some(AUTH_AUTHORIZERS_VALUE.to_string()));
-                    result.insert(AUTH_AUTHORIZER_OPA_TYPE.to_string(), Some(AUTH_AUTHORIZER_OPA_TYPE_VALUE.to_string()));
+                    result.insert(
+                        AUTH_AUTHORIZERS.to_string(),
+                        Some(AUTH_AUTHORIZERS_VALUE.to_string()),
+                    );
+                    result.insert(
+                        AUTH_AUTHORIZER_OPA_TYPE.to_string(),
+                        Some(AUTH_AUTHORIZER_OPA_TYPE_VALUE.to_string()),
+                    );
                     // The opaUri still needs to be set, but that is done later
                 }
                 // deep storage
