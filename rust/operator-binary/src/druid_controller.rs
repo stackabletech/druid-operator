@@ -339,7 +339,10 @@ fn build_rolegroup_config_map(
                         Some(opa_str.to_string()),
                     );
                 };
-                if let Some(conn) = s3_conn {}
+                if let Some(conn) = s3_conn {
+                    // TODO get S3_ENDPOINT_URL from the conn and put it in
+                    // TODO get DS_BUCKET in
+                }
                 let runtime_properties =
                     stackable_operator::product_config::writer::to_java_properties_string(
                         transformed_config.iter(),

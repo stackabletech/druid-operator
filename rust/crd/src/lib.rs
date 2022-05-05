@@ -248,6 +248,14 @@ impl DruidCluster {
             Ok(None)
         }
     }
+
+    /// Returns true if the cluster uses an s3 connection.
+    /// This is a quicker convenience function over the [get_s3_connection] function.
+    pub fn uses_s3(&self) -> bool {
+        let s3_ingestion = self.spec.ingestion.s3connection.is_some();
+        let s3_storage = self.spec.deep_storage.is_s3();
+        s3_ingestion || s3_storage
+    }
 }
 
 #[derive(Clone, Debug, Default, Deserialize, JsonSchema, Serialize)]
@@ -285,8 +293,26 @@ impl Default for DbType {
 #[derive(Clone, Debug, Deserialize, JsonSchema, PartialEq, Serialize, Display)]
 #[serde(rename_all = "camelCase")]
 pub enum DeepStorageSpec {
+    #[strum(serialize = "hdfs")]
     HDFS(HdfsDeepStorageSpec),
+    #[strum(serialize = "s3")]
     S3(S3DeepStorageSpec),
+}
+
+impl DeepStorageSpec {
+    pub fn is_hdfs(&self) -> bool {
+        match self {
+            DeepStorageSpec::HDFS(_) => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_s3(&self) -> bool {
+        match self {
+            DeepStorageSpec::S3(_) => true,
+            _ => false,
+        }
+    }
 }
 
 #[derive(Clone, Debug, Deserialize, JsonSchema, PartialEq, Serialize)]
@@ -379,11 +405,8 @@ impl Configuration for DruidConfig {
                     result.insert(MD_ST_PASSWORD.to_string(), Some(password.to_string()));
                 }
                 // s3
-                if let Some(s3) = &resource.spec.s3 {
-                    if let Some(endpoint) = &s3.endpoint {
-                        result.insert(S3_ENDPOINT_URL.to_string(), Some(endpoint.to_string()));
-                        extensions.push(EXT_S3.to_string());
-                    }
+                if resource.uses_s3() {
+                    extensions.push(EXT_S3.to_string());
                 }
                 // OPA
                 if let Some(_opa) = &resource.spec.opa {
@@ -398,6 +421,10 @@ impl Configuration for DruidConfig {
                     // The opaUri still needs to be set, but that requires a discovery config map and is handled in the druid_controller.rs
                 }
                 // deep storage
+                result.insert(
+                    DS_TYPE.to_string(),
+                    Some(resource.spec.deep_storage.to_string()),
+                );
                 match &resource.spec.deep_storage {
                     DeepStorageSpec::HDFS(hdfs_spec) => {
                         result.insert(
@@ -412,11 +439,6 @@ impl Configuration for DruidConfig {
                         // bucket information (name, connection) needs to be resolved first,
                         // that is done directly in the controller
                     }
-                }
-                let ds = &resource.spec.deep_storage;
-                result.insert(DS_TYPE.to_string(), Some(ds.storage_type.to_string()));
-                if let Some(bucket) = &ds.bucket {
-                    result.insert(DS_BUCKET.to_string(), Some(bucket.to_string()));
                 }
                 // other
                 result.insert(
