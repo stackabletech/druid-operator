@@ -1,14 +1,17 @@
+use snafu::{ResultExt, Snafu};
 use serde::{Deserialize, Serialize};
 use stackable_operator::{
     kube::CustomResource,
-    opa::OpaConfig,
+    commons::{opa::OpaConfig, s3::S3ConnectionDef},
     product_config_utils::{ConfigError, Configuration},
     role_utils::Role,
     schemars::{self, JsonSchema},
 };
 use std::collections::BTreeMap;
 use std::str::FromStr;
-use strum::{Display, EnumIter, EnumString};
+use stackable_operator::client::Client;
+use stackable_operator::commons::s3::{InlinedS3BucketSpec, S3BucketDef, S3ConnectionSpec};
+use strum::{Display, EnumIter, EnumString, EnumDiscriminants, IntoStaticStr};
 
 pub const APP_NAME: &str = "druid";
 
@@ -65,6 +68,22 @@ pub const CREDENTIALS_SECRET_PROPERTY: &str = "credentialsSecret";
 pub const PROMETHEUS_PORT: &str = "druid.emitter.prometheus.port";
 pub const DRUID_METRICS_PORT: u16 = 9090;
 
+#[derive(Snafu, Debug, EnumDiscriminants)]
+#[strum_discriminants(derive(IntoStaticStr))]
+#[allow(clippy::enum_variant_names)]
+pub enum Error {
+    #[snafu(display("failed to resolve S3 connection"))]
+    ResolveS3Connection {
+        source: stackable_operator::error::Error,
+    },
+    #[snafu(display("failed to resolve S3 bucket"))]
+    ResolveS3Bucket {
+        source: stackable_operator::error::Error,
+    },
+    #[snafu(display("2 differing s3 connections were given, this is unsupported by Druid"))]
+    IncompatibleS3Connections,
+}
+
 #[derive(Clone, CustomResource, Debug, Deserialize, JsonSchema, Serialize)]
 #[kube(
     group = "druid.stackable.tech",
@@ -94,7 +113,7 @@ pub struct DruidClusterSpec {
     pub routers: Role<DruidConfig>,
     pub metadata_storage_database: DatabaseConnectionSpec,
     pub deep_storage: DeepStorageSpec,
-    pub s3: Option<S3Spec>,
+    pub ingestion: IngestionSpec,
     pub zookeeper_config_map_name: String,
     pub opa: Option<OpaConfig>,
 }
@@ -184,6 +203,37 @@ impl DruidCluster {
             self.metadata.namespace.as_ref()?
         ))
     }
+
+    /// If an s3 connection for ingestion is given, as well as an s3 connection for deep storage, they need to be the same.
+    /// This function returns the resolved connection, or raises an Error if the connections are not identical.
+    pub async fn get_s3_connection(&self, client: &Client, namespace: Option<&str>) -> Result<Option<S3ConnectionSpec>, Error> {
+        // get connection for ingestion
+        let ingestion_conn = if let Some(ic) = &self.spec.ingestion.s3connection {
+            Some(ic.resolve(client, namespace).await.context(ResolveS3ConnectionSnafu)?)
+        } else { None };
+
+        let storage_conn = match &self.spec.deep_storage {
+            DeepStorageSpec::S3(s3_spec) => {
+                let inlined_bucket: InlinedS3BucketSpec = s3_spec.bucket.resolve(client, namespace).await.context(ResolveS3BucketSnafu)?;
+                inlined_bucket.connection
+            },
+            _ => None
+        };
+
+        if ingestion_conn.is_some() && storage_conn.is_some() {
+            if ingestion_conn == storage_conn {
+                Ok(ingestion_conn)
+            } else {
+                Err(Error::IncompatibleS3Connections)
+            }
+        } else if ingestion_conn.is_some() {
+            Ok(ingestion_conn)
+        } else if storage_conn.is_some() {
+            Ok(storage_conn)
+        } else {
+            Ok(None)
+        }
+    }
 }
 
 #[derive(Clone, Debug, Default, Deserialize, JsonSchema, Serialize)]
@@ -218,38 +268,30 @@ impl Default for DbType {
     }
 }
 
-#[derive(Clone, Debug, Deserialize, Eq, JsonSchema, PartialEq, Serialize, Display, EnumString)]
-pub enum DeepStorageType {
-    #[serde(rename = "hdfs")]
-    #[strum(serialize = "hdfs")]
-    HDFS,
-
-    #[serde(rename = "s3")]
-    #[strum(serialize = "s3")]
-    S3,
-}
-
-impl Default for DeepStorageType {
-    fn default() -> Self {
-        Self::HDFS
-    }
-}
-
-#[derive(Clone, Debug, Default, Deserialize, JsonSchema, Serialize)]
+#[derive(Clone, Debug, Deserialize, JsonSchema, PartialEq, Serialize, Display)]
 #[serde(rename_all = "camelCase")]
-pub struct DeepStorageSpec {
-    pub storage_type: DeepStorageType,
-    pub storage_directory: Option<String>,
-    // S3 only
-    pub bucket: Option<String>,
+pub enum DeepStorageSpec {
+    HDFS(HdfsDeepStorageSpec),
+    S3(S3DeepStorageSpec),
+}
+
+#[derive(Clone, Debug, Deserialize, JsonSchema, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct HdfsDeepStorageSpec {
+    pub storage_directory: String,
+}
+
+#[derive(Clone, Debug, Deserialize, JsonSchema, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct S3DeepStorageSpec {
+    pub bucket: S3BucketDef,
     pub base_key: Option<String>,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, JsonSchema, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct S3Spec {
-    pub credentials_secret: String,
-    pub endpoint: Option<String>,
+pub struct IngestionSpec {
+    pub s3connection: Option<S3ConnectionDef>,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, JsonSchema, PartialEq, Serialize, Default)]
@@ -267,9 +309,12 @@ impl Configuration for DruidConfig {
         let mut result = BTreeMap::new();
         // s3
         if let Some(s3) = &resource.spec.s3 {
+            // this is just the name of the secret
+            // it is read in the controller and used to mount the stuff
+            // TODO changes to be made here
             result.insert(
                 CREDENTIALS_SECRET_PROPERTY.to_string(),
-                Some(s3.credentials_secret.clone()),
+                Some(s3.secret_class.clone()),
             );
         }
         Ok(result)
@@ -398,6 +443,7 @@ mod tests {
     use stackable_operator::role_utils::CommonConfiguration;
     use stackable_operator::role_utils::RoleGroup;
     use std::collections::HashMap;
+    use crate::DeepStorageSpec::HDFS;
 
     #[test]
     fn test_service_name_generation() {
@@ -466,8 +512,8 @@ mod tests {
                     .collect::<HashMap<_, _>>(),
                 },
                 metadata_storage_database: Default::default(),
-                deep_storage: Default::default(),
-                s3: None,
+                deep_storage: HDFS(HdfsDeepStorageSpec { storage_directory: "/path/to/dir".to_string() }),
+                ingestion: Default::default(),
                 zookeeper_config_map_name: Default::default(),
                 opa: Default::default(),
             },

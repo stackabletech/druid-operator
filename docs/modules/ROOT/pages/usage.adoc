@@ -96,6 +96,37 @@ The Router is hosting the web UI, a `NodePort` service is created by the operato
 
 == Using S3
 
+The Stackable Platform uses a common set of resource definitions for s3 across all operators, explained in detail on the link:TODO[S3 resources] page. In general, you can configure an S3 connection or bucket inline, or as a reference to a dedicated object.
+
+In Druid, S3 can be used for two things:
+
+* Ingesting data from a bucket
+* Using it as a backend for deep storage
+
+You can specify just a connection/bucket or just one of these or for both, but Druid only supports a single S3 endpoint under the hood, so if two connections are specified, they must be the same. This is easiest if a dedicated link:to_s3_docs[S3 Connection Resource] is used.
+
+TLS for S3 is not yet supported.
+
+=== S3 for ingestion
+
+To ingest data from s3, you need to specify at least an endpoint to use, but there are more settings that can be set:
+
+[source,yaml]
+----
+spec:
+  ingestion:
+    s3connection:
+      host: yourhost.com  # <1>
+      port: 80 # optional <2>
+      secretClass: my-s3-credentials  # optional <3>
+----
+
+<1> The S3 host, not optional
+<2> Port, optional, defaults to 80
+<3> Credentials to use. Since these might be bucket-dependent, they can instead be given in the ingestion job
+
+=== S3 deep storage
+
 Druid can use S3 as a backend for deep storage, as well as a data source to ingest data from.
 
 To use S3, add a section like this to you cluster `spec`:

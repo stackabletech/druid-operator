@@ -22,6 +22,14 @@ spec:
   clusterRef:
     name: simple-zk
 ---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: s3-credentials
+stringData:
+  accessKeyId: YOUR_VALID_ACCESS_KEY_ID_HERE
+  secretAccessKey: YOUR_SECRET_ACCES_KEY_THATBELONGS_TO_THE_KEY_ID_HERE
+---
 apiVersion: druid.stackable.tech/v1alpha1
 kind: DruidCluster
 metadata:
@@ -34,6 +42,9 @@ spec:
     connString: jdbc:derby://localhost:1527/var/druid/metadata.db;create=true
     host: localhost
     port: 1527
+  s3:
+    endpoint: s3-de-central.profitbricks.com
+    credentialsSecret: s3-credentials
   deepStorage:
     storageType: hdfs
     storageDirectory: hdfs://simple-hdfs-namenode-default-0:8020/data
