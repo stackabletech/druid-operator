@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 use snafu::{ResultExt, Snafu};
 use stackable_operator::client::Client;
 use stackable_operator::commons::s3::{InlinedS3BucketSpec, S3BucketDef, S3ConnectionSpec};
+use stackable_operator::kube::ResourceExt;
 use stackable_operator::{
     commons::{opa::OpaConfig, s3::S3ConnectionDef},
     kube::CustomResource,
@@ -209,12 +210,11 @@ impl DruidCluster {
     pub async fn get_s3_connection(
         &self,
         client: &Client,
-        namespace: Option<&str>,
     ) -> Result<Option<S3ConnectionSpec>, Error> {
         // get connection for ingestion
         let ingestion_conn = if let Some(ic) = &self.spec.ingestion.s3connection {
             Some(
-                ic.resolve(client, namespace)
+                ic.resolve(client, self.namespace().as_deref())
                     .await
                     .context(ResolveS3ConnectionSnafu)?,
             )
@@ -226,7 +226,7 @@ impl DruidCluster {
             DeepStorageSpec::S3(s3_spec) => {
                 let inlined_bucket: InlinedS3BucketSpec = s3_spec
                     .bucket
-                    .resolve(client, namespace)
+                    .resolve(client, self.namespace().as_deref())
                     .await
                     .context(ResolveS3BucketSnafu)?;
                 inlined_bucket.connection

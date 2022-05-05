@@ -10,6 +10,7 @@ use stackable_druid_crd::{
     CONTAINER_METRICS_PORT, CREDENTIALS_SECRET_PROPERTY, DRUID_METRICS_PORT, JVM_CONFIG,
     LOG4J2_CONFIG, RUNTIME_PROPS, ZOOKEEPER_CONNECTION_STRING,
 };
+use stackable_operator::commons::s3::S3ConnectionSpec;
 use stackable_operator::{
     builder::{ConfigMapBuilder, ContainerBuilder, ObjectMetaBuilder, PodBuilder, VolumeBuilder},
     k8s_openapi::{
@@ -105,6 +106,8 @@ pub enum Error {
         source: stackable_operator::error::Error,
         cm_name: String,
     },
+    #[snafu(display("Failed to get valid S3 connection"))]
+    GetS3Connection { source: stackable_druid_crd::Error },
     #[snafu(display(
         "Failed to get ZooKeeper connection string from config map {}",
         cm_name
@@ -177,6 +180,12 @@ pub async fn reconcile_druid(druid: Arc<DruidCluster>, ctx: Context<Ctx>) -> Res
         None
     };
 
+    // Get the s3 connection if one is defined
+    let s3_conn = &druid
+        .get_s3_connection(client)
+        .await
+        .context(GetS3ConnectionSnafu)?;
+
     let mut roles = HashMap::new();
 
     let config_files = vec![
@@ -223,6 +232,7 @@ pub async fn reconcile_druid(druid: Arc<DruidCluster>, ctx: Context<Ctx>) -> Res
                 rolegroup_config,
                 &zk_connstr,
                 opa_connstr.as_deref(),
+                &s3_conn,
             )?;
             let rg_statefulset = build_rolegroup_statefulset(&rolegroup, &druid, rolegroup_config)?;
             client
@@ -302,6 +312,7 @@ fn build_rolegroup_config_map(
     rolegroup_config: &HashMap<PropertyNameKind, BTreeMap<String, String>>,
     zk_connstr: &str,
     opa_connstr: Option<&str>,
+    s3_conn: &Option<S3ConnectionSpec>, // TODO use it here
 ) -> Result<ConfigMap> {
     let role = DruidRole::from_str(&rolegroup.role).unwrap();
     let mut cm_conf_data = BTreeMap::new(); // filename -> filecontent
