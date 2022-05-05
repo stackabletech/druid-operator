@@ -1705,7 +1705,7 @@ dependencies = [
 [[package]]
 name = "stackable-operator"
 version = "0.18.0"
-source = "git+https://github.com/stackabletech/operator-rs.git?branch=main#e44853e63c3a4eec522f4d49e97bec3e181fd204"
+source = "git+https://github.com/stackabletech/operator-rs.git?branch=main#fb6e65f3534f52813fe88dd3d24a58ec7db76260"
 dependencies = [
  "backoff",
  "chrono",
@@ -1727,12 +1727,24 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_yaml",
+ "stackable-operator-derive",
  "strum",
  "thiserror",
  "tokio",
  "tracing",
  "tracing-opentelemetry",
  "tracing-subscriber",
+]
+
+[[package]]
+name = "stackable-operator-derive"
+version = "0.17.0"
+source = "git+https://github.com/stackabletech/operator-rs.git?branch=main#fb6e65f3534f52813fe88dd3d24a58ec7db76260"
+dependencies = [
+ "darling",
+ "proc-macro2",
+ "quote",
+ "syn",
 ]
 
 [[package]]

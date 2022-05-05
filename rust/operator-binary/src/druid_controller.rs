@@ -5,11 +5,7 @@ use crate::{
 };
 
 use snafu::{OptionExt, ResultExt, Snafu};
-use stackable_druid_crd::{
-    DruidCluster, DruidRole, APP_NAME, AUTH_AUTHORIZER_OPA_URI, CONTAINER_HTTP_PORT,
-    CONTAINER_METRICS_PORT, CREDENTIALS_SECRET_PROPERTY, DRUID_METRICS_PORT, JVM_CONFIG,
-    LOG4J2_CONFIG, RUNTIME_PROPS, ZOOKEEPER_CONNECTION_STRING,
-};
+use stackable_druid_crd::{DruidCluster, DruidRole, APP_NAME, AUTH_AUTHORIZER_OPA_URI, CONTAINER_HTTP_PORT, CONTAINER_METRICS_PORT, CREDENTIALS_SECRET_PROPERTY, DRUID_METRICS_PORT, JVM_CONFIG, LOG4J2_CONFIG, RUNTIME_PROPS, ZOOKEEPER_CONNECTION_STRING, S3_ENDPOINT_URL, DeepStorageSpec, DS_BUCKET};
 use stackable_operator::commons::s3::S3ConnectionSpec;
 use stackable_operator::{
     builder::{ConfigMapBuilder, ContainerBuilder, ObjectMetaBuilder, PodBuilder, VolumeBuilder},
@@ -108,6 +104,8 @@ pub enum Error {
     },
     #[snafu(display("Failed to get valid S3 connection"))]
     GetS3Connection { source: stackable_druid_crd::Error },
+    #[snafu(display("Failed to get deep storage bucket"))]
+    GetDeepStorageBucket { source: stackable_operator::error::Error },
     #[snafu(display(
         "Failed to get ZooKeeper connection string from config map {}",
         cm_name
@@ -186,6 +184,13 @@ pub async fn reconcile_druid(druid: Arc<DruidCluster>, ctx: Context<Ctx>) -> Res
         .await
         .context(GetS3ConnectionSnafu)?;
 
+    let deep_storage_bucket_name = match &druid.spec.deep_storage {
+        DeepStorageSpec::S3(s3_spec) => {
+            s3_spec.bucket.resolve(client, druid.namespace().as_deref()).await.context(GetDeepStorageBucketSnafu)?.bucket_name
+        },
+        _ => None
+    };
+
     let mut roles = HashMap::new();
 
     let config_files = vec![
@@ -233,6 +238,7 @@ pub async fn reconcile_druid(druid: Arc<DruidCluster>, ctx: Context<Ctx>) -> Res
                 &zk_connstr,
                 opa_connstr.as_deref(),
                 &s3_conn,
+                &deep_storage_bucket_name,
             )?;
             let rg_statefulset =
                 build_rolegroup_statefulset(&rolegroup, &druid, rolegroup_config, &s3_conn)?;
@@ -313,7 +319,8 @@ fn build_rolegroup_config_map(
     rolegroup_config: &HashMap<PropertyNameKind, BTreeMap<String, String>>,
     zk_connstr: &str,
     opa_connstr: Option<&str>,
-    s3_conn: &Option<S3ConnectionSpec>, // TODO use it here
+    s3_conn: &Option<S3ConnectionSpec>,
+    deep_storage_bucket_name: Option<&str>,
 ) -> Result<ConfigMap> {
     let role = DruidRole::from_str(&rolegroup.role).unwrap();
     let mut cm_conf_data = BTreeMap::new(); // filename -> filecontent
@@ -340,9 +347,11 @@ fn build_rolegroup_config_map(
                     );
                 };
                 if let Some(conn) = s3_conn {
-                    // TODO get S3_ENDPOINT_URL from the conn and put it in
-                    // TODO get DS_BUCKET in
+                    if let Some(endpoint) = conn.endpoint() {
+                        transformed_config.insert(S3_ENDPOINT_URL.to_string(), Some(endpoint));
+                    }  // TODO make code nicer
                 }
+                transformed_config.insert(DS_BUCKET.to_string(), deep_storage_bucket_name.map(str::to_string));
                 let runtime_properties =
                     stackable_operator::product_config::writer::to_java_properties_string(
                         transformed_config.iter(),

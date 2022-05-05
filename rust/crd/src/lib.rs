@@ -343,11 +343,11 @@ impl Configuration for DruidConfig {
 
     fn compute_env(
         &self,
-        resource: &Self::Configurable,
+        _resource: &Self::Configurable,
         _role_name: &str,
     ) -> Result<BTreeMap<String, Option<String>>, ConfigError> {
-        let mut result = BTreeMap::new();
-        Ok(result)
+        let mut _result = BTreeMap::new();
+        Ok(_result)
     }
 
     fn compute_cli(
