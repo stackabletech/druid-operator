@@ -181,7 +181,7 @@ pub async fn reconcile_druid(druid: Arc<DruidCluster>, ctx: Context<Ctx>) -> Res
     };
 
     // Get the s3 connection if one is defined
-    let s3_conn = &druid
+    let s3_conn: &Option<S3ConnectionSpec> = &druid
         .get_s3_connection(client)
         .await
         .context(GetS3ConnectionSnafu)?;
@@ -234,7 +234,8 @@ pub async fn reconcile_druid(druid: Arc<DruidCluster>, ctx: Context<Ctx>) -> Res
                 opa_connstr.as_deref(),
                 &s3_conn,
             )?;
-            let rg_statefulset = build_rolegroup_statefulset(&rolegroup, &druid, rolegroup_config)?;
+            let rg_statefulset =
+                build_rolegroup_statefulset(&rolegroup, &druid, rolegroup_config, &s3_conn)?;
             client
                 .apply_patch(FIELD_MANAGER_SCOPE, &rg_service, &rg_service)
                 .await
@@ -338,6 +339,7 @@ fn build_rolegroup_config_map(
                         Some(opa_str.to_string()),
                     );
                 };
+                if let Some(conn) = s3_conn {}
                 let runtime_properties =
                     stackable_operator::product_config::writer::to_java_properties_string(
                         transformed_config.iter(),
@@ -444,6 +446,7 @@ fn build_rolegroup_statefulset(
     rolegroup_ref: &RoleGroupRef<DruidCluster>,
     druid: &DruidCluster,
     rolegroup_config: &HashMap<PropertyNameKind, BTreeMap<String, String>>,
+    s3_conn: &Option<S3ConnectionSpec>,
 ) -> Result<StatefulSet> {
     // setup
     let role = DruidRole::from_str(&rolegroup_ref.role).unwrap();
@@ -474,13 +477,10 @@ fn build_rolegroup_statefulset(
     cb.command(role.get_command(druid_version));
 
     // add env
-    let secret = rolegroup_config
-        .get(&PropertyNameKind::Env)
-        .and_then(|m| m.get(CREDENTIALS_SECRET_PROPERTY));
-    let secret_env = secret.map(|s| {
+    let secret_env = s3_conn.and_then(|c| c.secret_class).map(|s| {
         vec![
-            env_var_from_secret("AWS_ACCESS_KEY_ID", s, "accessKeyId"),
-            env_var_from_secret("AWS_SECRET_ACCESS_KEY", s, "secretAccessKey"),
+            env_var_from_secret("AWS_ACCESS_KEY_ID", &s, "ACCESS_KEY_ID"),
+            env_var_from_secret("AWS_SECRET_ACCESS_KEY", &s, "SECRET_ACCESS_KEY"),
         ]
     });
     if let Some(e) = secret_env {

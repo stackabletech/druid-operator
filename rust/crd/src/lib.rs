@@ -321,16 +321,6 @@ impl Configuration for DruidConfig {
         _role_name: &str,
     ) -> Result<BTreeMap<String, Option<String>>, ConfigError> {
         let mut result = BTreeMap::new();
-        // s3
-        if let Some(s3) = &resource.spec.s3 {
-            // this is just the name of the secret
-            // it is read in the controller and used to mount the stuff
-            // TODO changes to be made here
-            result.insert(
-                CREDENTIALS_SECRET_PROPERTY.to_string(),
-                Some(s3.secret_class.clone()),
-            );
-        }
         Ok(result)
     }
 
@@ -408,17 +398,25 @@ impl Configuration for DruidConfig {
                     // The opaUri still needs to be set, but that requires a discovery config map and is handled in the druid_controller.rs
                 }
                 // deep storage
+                match &resource.spec.deep_storage {
+                    DeepStorageSpec::HDFS(hdfs_spec) => {
+                        result.insert(
+                            DS_DIRECTORY.to_string(),
+                            Some(hdfs_spec.storage_directory.clone()),
+                        );
+                    }
+                    DeepStorageSpec::S3(s3_spec) => {
+                        if let Some(key) = &s3_spec.base_key {
+                            result.insert(DS_BASE_KEY.to_string(), Some(key.to_string()));
+                        }
+                        // bucket information (name, connection) needs to be resolved first,
+                        // that is done directly in the controller
+                    }
+                }
                 let ds = &resource.spec.deep_storage;
                 result.insert(DS_TYPE.to_string(), Some(ds.storage_type.to_string()));
                 if let Some(bucket) = &ds.bucket {
                     result.insert(DS_BUCKET.to_string(), Some(bucket.to_string()));
-                }
-                if let Some(key) = &ds.base_key {
-                    result.insert(DS_BASE_KEY.to_string(), Some(key.to_string()));
-                }
-                // TODO resolve endpoint from namenode name...
-                if let Some(dir) = &ds.storage_directory {
-                    result.insert(DS_DIRECTORY.to_string(), Some(dir.to_string()));
                 }
                 // other
                 result.insert(
