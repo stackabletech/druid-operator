@@ -1,17 +1,17 @@
-use snafu::{ResultExt, Snafu};
 use serde::{Deserialize, Serialize};
+use snafu::{ResultExt, Snafu};
+use stackable_operator::client::Client;
+use stackable_operator::commons::s3::{InlinedS3BucketSpec, S3BucketDef, S3ConnectionSpec};
 use stackable_operator::{
-    kube::CustomResource,
     commons::{opa::OpaConfig, s3::S3ConnectionDef},
+    kube::CustomResource,
     product_config_utils::{ConfigError, Configuration},
     role_utils::Role,
     schemars::{self, JsonSchema},
 };
 use std::collections::BTreeMap;
 use std::str::FromStr;
-use stackable_operator::client::Client;
-use stackable_operator::commons::s3::{InlinedS3BucketSpec, S3BucketDef, S3ConnectionSpec};
-use strum::{Display, EnumIter, EnumString, EnumDiscriminants, IntoStaticStr};
+use strum::{Display, EnumDiscriminants, EnumIter, EnumString, IntoStaticStr};
 
 pub const APP_NAME: &str = "druid";
 
@@ -206,18 +206,32 @@ impl DruidCluster {
 
     /// If an s3 connection for ingestion is given, as well as an s3 connection for deep storage, they need to be the same.
     /// This function returns the resolved connection, or raises an Error if the connections are not identical.
-    pub async fn get_s3_connection(&self, client: &Client, namespace: Option<&str>) -> Result<Option<S3ConnectionSpec>, Error> {
+    pub async fn get_s3_connection(
+        &self,
+        client: &Client,
+        namespace: Option<&str>,
+    ) -> Result<Option<S3ConnectionSpec>, Error> {
         // get connection for ingestion
         let ingestion_conn = if let Some(ic) = &self.spec.ingestion.s3connection {
-            Some(ic.resolve(client, namespace).await.context(ResolveS3ConnectionSnafu)?)
-        } else { None };
+            Some(
+                ic.resolve(client, namespace)
+                    .await
+                    .context(ResolveS3ConnectionSnafu)?,
+            )
+        } else {
+            None
+        };
 
         let storage_conn = match &self.spec.deep_storage {
             DeepStorageSpec::S3(s3_spec) => {
-                let inlined_bucket: InlinedS3BucketSpec = s3_spec.bucket.resolve(client, namespace).await.context(ResolveS3BucketSnafu)?;
+                let inlined_bucket: InlinedS3BucketSpec = s3_spec
+                    .bucket
+                    .resolve(client, namespace)
+                    .await
+                    .context(ResolveS3BucketSnafu)?;
                 inlined_bucket.connection
-            },
-            _ => None
+            }
+            _ => None,
         };
 
         if ingestion_conn.is_some() && storage_conn.is_some() {
@@ -440,10 +454,10 @@ fn build_string_list(strings: &[String]) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::DeepStorageSpec::HDFS;
     use stackable_operator::role_utils::CommonConfiguration;
     use stackable_operator::role_utils::RoleGroup;
     use std::collections::HashMap;
-    use crate::DeepStorageSpec::HDFS;
 
     #[test]
     fn test_service_name_generation() {
@@ -512,7 +526,9 @@ mod tests {
                     .collect::<HashMap<_, _>>(),
                 },
                 metadata_storage_database: Default::default(),
-                deep_storage: HDFS(HdfsDeepStorageSpec { storage_directory: "/path/to/dir".to_string() }),
+                deep_storage: HDFS(HdfsDeepStorageSpec {
+                    storage_directory: "/path/to/dir".to_string(),
+                }),
                 ingestion: Default::default(),
                 zookeeper_config_map_name: Default::default(),
                 opa: Default::default(),
