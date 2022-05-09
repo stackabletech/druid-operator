@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Changed
+
+- BREAKING: The deep storage on s3 and the s3 config for ingestion have been changed to use the operator-rs commons::s3 structs ([#228])
+
+[#228]: https://github.com/stackabletech/druid-operator/pull/228
+
 ## [0.5.0] - 2022-03-15
 
 ### Added
