@@ -127,7 +127,15 @@ spec:
 
 === S3 deep storage
 
-Druid can use S3 as a backend for deep storage, as well as a data source to ingest data from.
+Druid can use S3 as a backend for deep storage:
+
+[source,yaml]
+----
+spec:
+  deepStorage:
+    s3:
+
+----
 
 To use S3, add a section like this to you cluster `spec`:
 
