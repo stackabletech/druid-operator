@@ -301,17 +301,11 @@ pub enum DeepStorageSpec {
 
 impl DeepStorageSpec {
     pub fn is_hdfs(&self) -> bool {
-        match self {
-            DeepStorageSpec::HDFS(_) => true,
-            _ => false,
-        }
+        matches!(self, DeepStorageSpec::HDFS(_))
     }
 
     pub fn is_s3(&self) -> bool {
-        match self {
-            DeepStorageSpec::S3(_) => true,
-            _ => false,
-        }
+        matches!(self, DeepStorageSpec::S3(_))
     }
 }
 
