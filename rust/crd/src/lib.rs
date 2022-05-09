@@ -250,7 +250,7 @@ impl DruidCluster {
     }
 
     /// Returns true if the cluster uses an s3 connection.
-    /// This is a quicker convenience function over the [get_s3_connection] function.
+    /// This is a quicker convenience function over the [DruidCluster::get_s3_connection] function.
     pub fn uses_s3(&self) -> bool {
         let s3_ingestion = self.spec.ingestion.s3connection.is_some();
         let s3_storage = self.spec.deep_storage.is_s3();
