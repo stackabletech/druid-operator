@@ -134,41 +134,51 @@ Druid can use S3 as a backend for deep storage:
 spec:
   deepStorage:
     s3:
-
+      inline:
+        bucketName: my-bucket  # <1>
+        connection:
+          inline:
+            host: test-minio  # <2>
+            port: 9000  # <3>
+            secretClass: minio-credentials  # <4>
 ----
+<1> Bucket name.
+<2> Bucket host.
+<3> Optional bucket port.
+<4> Name of the `Secret` object expected to contain the following keys: `ACCESS_KEY_ID` and `SECRET_ACCESS_KEY`.
 
-To use S3, add a section like this to you cluster `spec`:
+
+It is also possible to configure the bucket connection details as a separate Kubernetes resource and only refer to that object from the `DruidCluster` like this:
 
 [source,yaml]
 ----
-s3:
-  endpoint: s3-de-central.profitbricks.com
-  credentialsSecret: s3-credentials
+spec:
+  deepStorage:
+    s3:
+      reference: my-bucket-resource # <1>
 ----
+<1> Name of the bucket resource with connection details.
 
-the secret `s3-credentials` should contain your access key ID and the secret access key:
+The resource named `my-bucket-resource` is then defined as shown below:
 
 [source,yaml]
 ----
-apiVersion: v1
-kind: Secret
+---
+apiVersion: s3.stackable.tech/v1alpha1
+kind: S3Bucket
 metadata:
-  name: s3-credentials
-stringData:
-  accessKeyId: YOURACCESSKEYIDHERE
-  secretAccessKey: YOURSECRETACCESSKEYHERE
+  name: my-bucket-resource
+spec:
+  bucketName: my-bucket-name
+  connection:
+    inline:
+      host: test-minio
+      port: 9000
+      secretClass: minio-credentials
 ----
 
-This allows to ingest data from accessible buckets already. To configure a bucket and prefix to be used as a deep storage, change the deep storage configuration like so:
+This has the advantage that bucket configuration can be shared across `DruidClusters`s (and other stackable CRDs) and reduces the cost of updating these details.
 
-[source,yaml]
-----
-deepStorage:
-  storageType: s3
-  bucket: druid-deepstorage
-  baseKey: storage <1>
-----
-<1> The base key is the prefix to be used; optional
 
 == Using Open Policy Agent (OPA) for Authorization
 
