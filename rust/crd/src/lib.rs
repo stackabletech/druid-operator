@@ -114,7 +114,7 @@ pub struct DruidClusterSpec {
     pub routers: Role<DruidConfig>,
     pub metadata_storage_database: DatabaseConnectionSpec,
     pub deep_storage: DeepStorageSpec,
-    pub ingestion: IngestionSpec,
+    pub ingestion: Option<IngestionSpec>,
     pub zookeeper_config_map_name: String,
     pub opa: Option<OpaConfig>,
 }
@@ -212,7 +212,8 @@ impl DruidCluster {
         client: &Client,
     ) -> Result<Option<S3ConnectionSpec>, Error> {
         // get connection for ingestion
-        let ingestion_conn = if let Some(ic) = &self.spec.ingestion.s3connection {
+
+        let ingestion_conn = if let Some(ic) = self.spec.ingestion.as_ref().and_then(|is| is.s3connection.as_ref()) {
             Some(
                 ic.resolve(client, self.namespace().as_deref())
                     .await
@@ -252,7 +253,7 @@ impl DruidCluster {
     /// Returns true if the cluster uses an s3 connection.
     /// This is a quicker convenience function over the [DruidCluster::get_s3_connection] function.
     pub fn uses_s3(&self) -> bool {
-        let s3_ingestion = self.spec.ingestion.s3connection.is_some();
+        let s3_ingestion = self.spec.ingestion.as_ref().and_then(|spec| spec.s3connection.as_ref()).is_some();
         let s3_storage = self.spec.deep_storage.is_s3();
         s3_ingestion || s3_storage
     }
@@ -293,6 +294,7 @@ impl Default for DbType {
 #[derive(Clone, Debug, Deserialize, JsonSchema, PartialEq, Serialize, Display)]
 #[serde(rename_all = "camelCase")]
 pub enum DeepStorageSpec {
+    #[serde(rename = "hdfs")]
     #[strum(serialize = "hdfs")]
     HDFS(HdfsDeepStorageSpec),
     #[strum(serialize = "s3")]

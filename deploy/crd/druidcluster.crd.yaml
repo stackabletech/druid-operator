@@ -197,11 +197,11 @@ spec:
                 deepStorage:
                   oneOf:
                     - required:
-                        - hDFS
+                        - hdfs
                     - required:
                         - s3
                   properties:
-                    hDFS:
+                    hdfs:
                       properties:
                         storageDirectory:
                           type: string
@@ -388,6 +388,7 @@ spec:
                     - roleGroups
                   type: object
                 ingestion:
+                  nullable: true
                   properties:
                     s3connection:
                       description: Operators are expected to define fields for this type in order to work with S3 connections.
@@ -681,7 +682,6 @@ spec:
                 - coordinators
                 - deepStorage
                 - historicals
-                - ingestion
                 - metadataStorageDatabase
                 - middleManagers
                 - routers
