@@ -1,5 +1,5 @@
 name: druid
-version: '0.1'
+version: '0.2'
 title: Stackable Operator for Apache Druid
 nav:
   - modules/ROOT/nav.adoc
