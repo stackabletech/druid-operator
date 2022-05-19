@@ -500,7 +500,7 @@ fn build_rolegroup_statefulset(
     cb.image(container_image(druid_version));
 
     // add command
-    cb.command(role.get_command(druid_version));
+    cb.command(role.get_command());
 
     // Add s3 credentials secret volume
     if let Some(S3ConnectionSpec{
