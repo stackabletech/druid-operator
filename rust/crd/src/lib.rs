@@ -69,6 +69,9 @@ pub const CREDENTIALS_SECRET_PROPERTY: &str = "credentialsSecret";
 pub const PROMETHEUS_PORT: &str = "druid.emitter.prometheus.port";
 pub const DRUID_METRICS_PORT: u16 = 9090;
 
+// container locations
+pub const S3_SECRET_DIR_NAME: &str = "/stackable/secrets";
+
 #[derive(Snafu, Debug, EnumDiscriminants)]
 #[strum_discriminants(derive(IntoStaticStr))]
 #[allow(clippy::enum_variant_names)]

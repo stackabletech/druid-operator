@@ -5,12 +5,7 @@ use crate::{
 };
 
 use snafu::{OptionExt, ResultExt, Snafu};
-use stackable_druid_crd::{
-    DeepStorageSpec, DruidCluster, DruidRole, APP_NAME, AUTH_AUTHORIZER_OPA_URI,
-    CONTAINER_HTTP_PORT, CONTAINER_METRICS_PORT, CREDENTIALS_SECRET_PROPERTY, DRUID_METRICS_PORT,
-    DS_BUCKET, JVM_CONFIG, LOG4J2_CONFIG, RUNTIME_PROPS, S3_ENDPOINT_URL,
-    ZOOKEEPER_CONNECTION_STRING,
-};
+use stackable_druid_crd::{DeepStorageSpec, DruidCluster, DruidRole, APP_NAME, AUTH_AUTHORIZER_OPA_URI, CONTAINER_HTTP_PORT, CONTAINER_METRICS_PORT, CREDENTIALS_SECRET_PROPERTY, DRUID_METRICS_PORT, DS_BUCKET, JVM_CONFIG, LOG4J2_CONFIG, RUNTIME_PROPS, S3_ENDPOINT_URL, ZOOKEEPER_CONNECTION_STRING, S3_SECRET_DIR_NAME};
 use stackable_operator::commons::s3::S3ConnectionSpec;
 use stackable_operator::{
     builder::{ConfigMapBuilder, ContainerBuilder, ObjectMetaBuilder, PodBuilder, VolumeBuilder},
@@ -19,7 +14,7 @@ use stackable_operator::{
         api::{
             apps::v1::{StatefulSet, StatefulSetSpec},
             core::v1::{
-                ConfigMap, EnvVar, EnvVarSource, SecretKeySelector, Service, ServicePort,
+                ConfigMap, EnvVar, Service, ServicePort,
                 ServiceSpec,
             },
         },
@@ -507,16 +502,15 @@ fn build_rolegroup_statefulset(
     // add command
     cb.command(role.get_command(druid_version));
 
-    // add env
-    let secret_env = s3_conn.and_then(|c| c.secret_class.as_ref()).map(|s| {
-        vec![
-            env_var_from_secret("AWS_ACCESS_KEY_ID", s, "ACCESS_KEY_ID"),
-            env_var_from_secret("AWS_SECRET_ACCESS_KEY", s, "SECRET_ACCESS_KEY"),
-        ]
-    });
-    if let Some(e) = secret_env {
-        cb.add_env_vars(e);
+    // Add s3 credentials secret volume
+    if let Some(S3ConnectionSpec{
+        credentials: Some(credentials),
+        ..
+    }) = s3_conn {
+        pb.add_volume(credentials.to_volume("s3-credentials"));
+        cb.add_volume_mount("s3-credentials", S3_SECRET_DIR_NAME);
     }
+
     // rest of env
     let rest_env = rolegroup_config
         .get(&PropertyNameKind::Env)
@@ -583,21 +577,6 @@ fn build_rolegroup_statefulset(
         }),
         status: None,
     })
-}
-
-fn env_var_from_secret(var_name: &str, secret: &str, secret_key: &str) -> EnvVar {
-    EnvVar {
-        name: String::from(var_name),
-        value_from: Some(EnvVarSource {
-            secret_key_ref: Some(SecretKeySelector {
-                name: Some(String::from(secret)),
-                key: String::from(secret_key),
-                ..Default::default()
-            }),
-            ..Default::default()
-        }),
-        ..Default::default()
-    }
 }
 
 fn container_image(version: &str) -> String {
