@@ -499,17 +499,20 @@ fn build_rolegroup_statefulset(
     // add image
     cb.image(container_image(druid_version));
 
-    // add command
-    cb.command(role.get_command());
-
+    let mut load_s3_credentials = false;
     // Add s3 credentials secret volume
     if let Some(S3ConnectionSpec{
         credentials: Some(credentials),
         ..
     }) = s3_conn {
+        load_s3_credentials = true;
         pb.add_volume(credentials.to_volume("s3-credentials"));
         cb.add_volume_mount("s3-credentials", S3_SECRET_DIR_NAME);
     }
+    
+    // add command
+    cb.command(role.get_command(load_s3_credentials));
+
 
     // rest of env
     let rest_env = rolegroup_config

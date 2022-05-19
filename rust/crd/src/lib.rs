@@ -71,6 +71,10 @@ pub const DRUID_METRICS_PORT: u16 = 9090;
 
 // container locations
 pub const S3_SECRET_DIR_NAME: &str = "/stackable/secrets";
+const ENV_S3_ACCESS_KEY: &str = "AWS_ACCESS_KEY_ID";
+const ENV_S3_SECRET_KEY: &str = "AWS_SECRET_ACCESS_KEY";
+const SECRET_KEY_S3_ACCESS_KEY: &str = "accessKey";
+const SECRET_KEY_S3_SECRET_KEY: &str = "secretKey";
 
 #[derive(Snafu, Debug, EnumDiscriminants)]
 #[strum_discriminants(derive(IntoStaticStr))]
@@ -173,12 +177,30 @@ impl DruidRole {
     }
 
     /// Returns the start commands for the different server types.
-    pub fn get_command(&self) -> Vec<String> {
-        vec![
+    pub fn get_command(&self, mount_s3_credentials: bool) -> Vec<String> {
+        let mut cmd = vec![];
+        if mount_s3_credentials {
+            cmd.extend(vec![
+                format!(
+                    "export {env_var}=$(cat {secret_dir}/{file_name})",
+                    env_var = ENV_S3_ACCESS_KEY,
+                    secret_dir = S3_SECRET_DIR_NAME,
+                    file_name = SECRET_KEY_S3_ACCESS_KEY
+                ),
+                format!(
+                    "export {env_var}=$(cat {secret_dir}/{file_name})",
+                    env_var = ENV_S3_SECRET_KEY,
+                    secret_dir = S3_SECRET_DIR_NAME,
+                    file_name = SECRET_KEY_S3_SECRET_KEY
+                ),
+            ]);
+        }
+        cmd.extend(vec![
             "/stackable/druid/bin/run-druid".to_string(),
             self.get_process_name().to_string(),
             "/stackable/conf".to_string(),
-        ]
+        ]);
+        vec![cmd.join(" && ")]
     }
 }
 
