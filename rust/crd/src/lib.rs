@@ -195,9 +195,9 @@ impl DruidRole {
         }
         shell_cmd.push(format!(
             "{} {} {}",
-            "/stackable/druid/bin/run-druid".to_string(),
-            self.get_process_name().to_string(),
-            "/stackable/conf".to_string(),
+            "/stackable/druid/bin/run-druid",
+            self.get_process_name(),
+            "/stackable/conf",
         ));
         vec![
             "/bin/sh".to_string(),
