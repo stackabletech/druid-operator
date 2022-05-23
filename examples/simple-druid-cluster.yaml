@@ -22,13 +22,25 @@ spec:
   clusterRef:
     name: simple-zk
 ---
+apiVersion: secrets.stackable.tech/v1alpha1
+kind: SecretClass
+metadata:
+  name: s3-credentials-class
+spec:
+  backend:
+    k8sSearch:
+      searchNamespace:
+        pod: {}
+---
 apiVersion: v1
 kind: Secret
 metadata:
   name: s3-credentials
+  labels:
+    secrets.stackable.tech/class: s3-credentials-class
 stringData:
-  accessKeyId: YOUR_VALID_ACCESS_KEY_ID_HERE
-  secretAccessKey: YOUR_SECRET_ACCES_KEY_THATBELONGS_TO_THE_KEY_ID_HERE
+  accessKey: YOUR_VALID_ACCESS_KEY_ID_HERE
+  secretKey: YOUR_SECRET_ACCES_KEY_THATBELONGS_TO_THE_KEY_ID_HERE
 ---
 apiVersion: druid.stackable.tech/v1alpha1
 kind: DruidCluster
@@ -45,6 +57,12 @@ spec:
   deepStorage:
     hdfs:
       storageDirectory: hdfs://simple-hdfs-namenode-default-0:8020/data
+  ingestion:
+    s3connection:
+      inline:
+        host: mys3host.com
+        credentials:
+          secretClass: s3-credentials-class
   brokers:
     roleGroups:
       default:

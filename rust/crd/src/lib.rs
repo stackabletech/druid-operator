@@ -178,29 +178,32 @@ impl DruidRole {
 
     /// Returns the start commands for the different server types.
     pub fn get_command(&self, mount_s3_credentials: bool) -> Vec<String> {
-        let mut cmd = vec![];
+        let mut shell_cmd = vec![];
         if mount_s3_credentials {
-            cmd.extend(vec![
-                format!(
-                    "export {env_var}=$(cat {secret_dir}/{file_name})",
-                    env_var = ENV_S3_ACCESS_KEY,
-                    secret_dir = S3_SECRET_DIR_NAME,
-                    file_name = SECRET_KEY_S3_ACCESS_KEY
-                ),
-                format!(
-                    "export {env_var}=$(cat {secret_dir}/{file_name})",
-                    env_var = ENV_S3_SECRET_KEY,
-                    secret_dir = S3_SECRET_DIR_NAME,
-                    file_name = SECRET_KEY_S3_SECRET_KEY
-                ),
-            ]);
+            shell_cmd.push(format!(
+                "export {env_var}=$(cat {secret_dir}/{file_name})",
+                env_var = ENV_S3_ACCESS_KEY,
+                secret_dir = S3_SECRET_DIR_NAME,
+                file_name = SECRET_KEY_S3_ACCESS_KEY
+            ));
+            shell_cmd.push(format!(
+                "export {env_var}=$(cat {secret_dir}/{file_name})",
+                env_var = ENV_S3_SECRET_KEY,
+                secret_dir = S3_SECRET_DIR_NAME,
+                file_name = SECRET_KEY_S3_SECRET_KEY
+            ));
         }
-        cmd.extend(vec![
+        shell_cmd.push(format!(
+            "{} {} {}",
             "/stackable/druid/bin/run-druid".to_string(),
             self.get_process_name().to_string(),
             "/stackable/conf".to_string(),
-        ]);
-        vec![cmd.join(" && ")]
+        ));
+        vec![
+            "/bin/sh".to_string(),
+            "-c".to_string(),
+            shell_cmd.join(" && "),
+        ]
     }
 }
 
@@ -238,7 +241,12 @@ impl DruidCluster {
     ) -> Result<Option<S3ConnectionSpec>, Error> {
         // get connection for ingestion
 
-        let ingestion_conn = if let Some(ic) = self.spec.ingestion.as_ref().and_then(|is| is.s3connection.as_ref()) {
+        let ingestion_conn = if let Some(ic) = self
+            .spec
+            .ingestion
+            .as_ref()
+            .and_then(|is| is.s3connection.as_ref())
+        {
             Some(
                 ic.resolve(client, self.namespace().as_deref())
                     .await
@@ -278,7 +286,12 @@ impl DruidCluster {
     /// Returns true if the cluster uses an s3 connection.
     /// This is a quicker convenience function over the [DruidCluster::get_s3_connection] function.
     pub fn uses_s3(&self) -> bool {
-        let s3_ingestion = self.spec.ingestion.as_ref().and_then(|spec| spec.s3connection.as_ref()).is_some();
+        let s3_ingestion = self
+            .spec
+            .ingestion
+            .as_ref()
+            .and_then(|spec| spec.s3connection.as_ref())
+            .is_some();
         let s3_storage = self.spec.deep_storage.is_s3();
         s3_ingestion || s3_storage
     }

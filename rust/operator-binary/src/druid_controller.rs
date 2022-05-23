@@ -5,7 +5,12 @@ use crate::{
 };
 
 use snafu::{OptionExt, ResultExt, Snafu};
-use stackable_druid_crd::{DeepStorageSpec, DruidCluster, DruidRole, APP_NAME, AUTH_AUTHORIZER_OPA_URI, CONTAINER_HTTP_PORT, CONTAINER_METRICS_PORT, CREDENTIALS_SECRET_PROPERTY, DRUID_METRICS_PORT, DS_BUCKET, JVM_CONFIG, LOG4J2_CONFIG, RUNTIME_PROPS, S3_ENDPOINT_URL, ZOOKEEPER_CONNECTION_STRING, S3_SECRET_DIR_NAME};
+use stackable_druid_crd::{
+    DeepStorageSpec, DruidCluster, DruidRole, APP_NAME, AUTH_AUTHORIZER_OPA_URI,
+    CONTAINER_HTTP_PORT, CONTAINER_METRICS_PORT, CREDENTIALS_SECRET_PROPERTY, DRUID_METRICS_PORT,
+    DS_BUCKET, JVM_CONFIG, LOG4J2_CONFIG, RUNTIME_PROPS, S3_ENDPOINT_URL, S3_SECRET_DIR_NAME,
+    ZOOKEEPER_CONNECTION_STRING,
+};
 use stackable_operator::commons::s3::S3ConnectionSpec;
 use stackable_operator::{
     builder::{ConfigMapBuilder, ContainerBuilder, ObjectMetaBuilder, PodBuilder, VolumeBuilder},
@@ -13,10 +18,7 @@ use stackable_operator::{
     k8s_openapi::{
         api::{
             apps::v1::{StatefulSet, StatefulSetSpec},
-            core::v1::{
-                ConfigMap, EnvVar, Service, ServicePort,
-                ServiceSpec,
-            },
+            core::v1::{ConfigMap, EnvVar, Service, ServicePort, ServiceSpec},
         },
         apimachinery::pkg::{apis::meta::v1::LabelSelector, util::intstr::IntOrString},
     },
@@ -501,18 +503,18 @@ fn build_rolegroup_statefulset(
 
     let mut load_s3_credentials = false;
     // Add s3 credentials secret volume
-    if let Some(S3ConnectionSpec{
+    if let Some(S3ConnectionSpec {
         credentials: Some(credentials),
         ..
-    }) = s3_conn {
+    }) = s3_conn
+    {
         load_s3_credentials = true;
         pb.add_volume(credentials.to_volume("s3-credentials"));
         cb.add_volume_mount("s3-credentials", S3_SECRET_DIR_NAME);
     }
-    
+
     // add command
     cb.command(role.get_command(load_s3_credentials));
-
 
     // rest of env
     let rest_env = rolegroup_config
