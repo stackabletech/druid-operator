@@ -96,18 +96,97 @@ The Router is hosting the web UI, a `NodePort` service is created by the operato
 
 == Using S3
 
-Druid can use S3 as a backend for deep storage, as well as a data source to ingest data from.
+The Stackable Platform uses a common set of resource definitions for s3 across all operators. In general, you can configure an S3 connection or bucket inline, or as a reference to a dedicated object.
 
-To use S3, add a section like this to you cluster `spec`:
+In Druid, S3 can be used for two things:
+
+* Ingesting data from a bucket
+* Using it as a backend for deep storage
+
+You can specify just a connection/bucket for just one of these or for both, but Druid only supports a single S3 connection under the hood, so if two connections are specified, they must be the same. This is easiest if a dedicated S3 Connection Resource is used - not defined inline but as a dedicated object.
+
+TLS for S3 is not yet supported.
+
+=== S3 for ingestion
+
+To ingest data from s3, you need to specify at least a host to connect to, but there are more settings that can be set:
 
 [source,yaml]
 ----
-s3:
-  endpoint: s3-de-central.profitbricks.com
-  credentialsSecret: s3-credentials
+spec:
+  ingestion:
+    s3connection:
+      host: yourhost.com  # <1>
+      port: 80 # optional <2>
+      credentials: # optional <3>
+        ...
 ----
 
-the secret `s3-credentials` should contain your access key ID and the secret access key:
+<1> The S3 host, not optional
+<2> Port, optional, defaults to 80
+<3> Credentials to use. Since these might be bucket-dependent, they can instead be given in the ingestion job. Specifying the credentials here is explained <<S3 Credentials, below>>.
+
+=== S3 deep storage
+
+Druid can use S3 as a backend for deep storage:
+
+[source,yaml]
+----
+spec:
+  deepStorage:
+    s3:
+      inline:
+        bucketName: my-bucket  # <1>
+        connection:
+          inline:
+            host: test-minio  # <2>
+            port: 9000  # <3>
+            credentials:  # <4>
+              ...
+----
+<1> Bucket name.
+<2> Bucket host.
+<3> Optional bucket port.
+<4> Credentials explained <<S3 Credentials, below>>.
+
+
+It is also possible to configure the bucket connection details as a separate Kubernetes resource and only refer to that object from the `DruidCluster` like this:
+
+[source,yaml]
+----
+spec:
+  deepStorage:
+    s3:
+      reference: my-bucket-resource # <1>
+----
+<1> Name of the bucket resource with connection details.
+
+The resource named `my-bucket-resource` is then defined as shown below:
+
+[source,yaml]
+----
+---
+apiVersion: s3.stackable.tech/v1alpha1
+kind: S3Bucket
+metadata:
+  name: my-bucket-resource
+spec:
+  bucketName: my-bucket-name
+  connection:
+    inline:
+      host: test-minio
+      port: 9000
+      credentials:
+        ... (explained below)
+----
+
+This has the advantage that bucket configuration can be shared across `DruidClusters`s (and other stackable CRDs) and reduces the cost of updating these details.
+
+=== S3 Credentials
+
+No matter if a connection is specified inline or as a separate object, the credentials are always specified in the same way. You will need a `Secret` containing the access key ID and secret access key, a `SecretClass` and then a reference to this `SecretClass` where you want to specify the credentials.
+
+The `Secret`:
 
 [source,yaml]
 ----
@@ -115,21 +194,40 @@ apiVersion: v1
 kind: Secret
 metadata:
   name: s3-credentials
+  labels:
+    secrets.stackable.tech/class: s3-credentials-class  # <1>
 stringData:
-  accessKeyId: YOURACCESSKEYIDHERE
-  secretAccessKey: YOURSECRETACCESSKEYHERE
+  accessKey: YOUR_VALID_ACCESS_KEY_ID_HERE
+  secretKey: YOUR_SECRET_ACCES_KEY_THATBELONGS_TO_THE_KEY_ID_HERE
 ----
 
-This allows to ingest data from accessible buckets already. To configure a bucket and prefix to be used as a deep storage, change the deep storage configuration like so:
+<1> This label connects the `Secret` to the `SecretClass`.
+
+The `SecretClass`:
 
 [source,yaml]
 ----
-deepStorage:
-  storageType: s3
-  bucket: druid-deepstorage
-  baseKey: storage <1>
+apiVersion: secrets.stackable.tech/v1alpha1
+kind: SecretClass
+metadata:
+  name: s3-credentials-class
+spec:
+  backend:
+    k8sSearch:
+      searchNamespace:
+        pod: {}
 ----
-<1> The base key is the prefix to be used; optional
+
+Referencing it:
+
+[source,yaml]
+----
+...
+credentials:
+  secretClass: s3-credentials-class
+...
+----
+
 
 == Using Open Policy Agent (OPA) for Authorization
 

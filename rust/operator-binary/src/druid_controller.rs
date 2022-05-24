@@ -6,19 +6,19 @@ use crate::{
 
 use snafu::{OptionExt, ResultExt, Snafu};
 use stackable_druid_crd::{
-    DruidCluster, DruidRole, APP_NAME, AUTH_AUTHORIZER_OPA_URI, CONTAINER_HTTP_PORT,
-    CONTAINER_METRICS_PORT, CREDENTIALS_SECRET_PROPERTY, DRUID_METRICS_PORT, JVM_CONFIG,
-    LOG4J2_CONFIG, RUNTIME_PROPS, ZOOKEEPER_CONNECTION_STRING,
+    DeepStorageSpec, DruidCluster, DruidRole, APP_NAME, AUTH_AUTHORIZER_OPA_URI,
+    CONTAINER_HTTP_PORT, CONTAINER_METRICS_PORT, CREDENTIALS_SECRET_PROPERTY, DRUID_METRICS_PORT,
+    DS_BUCKET, JVM_CONFIG, LOG4J2_CONFIG, RUNTIME_PROPS, S3_ENDPOINT_URL, S3_SECRET_DIR_NAME,
+    ZOOKEEPER_CONNECTION_STRING,
 };
+use stackable_operator::commons::s3::S3ConnectionSpec;
 use stackable_operator::{
     builder::{ConfigMapBuilder, ContainerBuilder, ObjectMetaBuilder, PodBuilder, VolumeBuilder},
+    commons::opa::OpaApiVersion,
     k8s_openapi::{
         api::{
             apps::v1::{StatefulSet, StatefulSetSpec},
-            core::v1::{
-                ConfigMap, EnvVar, EnvVarSource, SecretKeySelector, Service, ServicePort,
-                ServiceSpec,
-            },
+            core::v1::{ConfigMap, EnvVar, Service, ServicePort, ServiceSpec},
         },
         apimachinery::pkg::{apis::meta::v1::LabelSelector, util::intstr::IntOrString},
     },
@@ -31,7 +31,6 @@ use stackable_operator::{
     },
     labels::{role_group_selector_labels, role_selector_labels},
     logging::controller::ReconcilerError,
-    opa::OpaApiVersion,
     product_config::{types::PropertyNameKind, ProductConfigManager},
     product_config_utils::{transform_all_roles_to_config, validate_all_roles_and_groups_config},
     role_utils::RoleGroupRef,
@@ -105,6 +104,12 @@ pub enum Error {
         source: stackable_operator::error::Error,
         cm_name: String,
     },
+    #[snafu(display("Failed to get valid S3 connection"))]
+    GetS3Connection { source: stackable_druid_crd::Error },
+    #[snafu(display("Failed to get deep storage bucket"))]
+    GetDeepStorageBucket {
+        source: stackable_operator::error::Error,
+    },
     #[snafu(display(
         "Failed to get ZooKeeper connection string from config map {}",
         cm_name
@@ -177,6 +182,24 @@ pub async fn reconcile_druid(druid: Arc<DruidCluster>, ctx: Context<Ctx>) -> Res
         None
     };
 
+    // Get the s3 connection if one is defined
+    let s3_conn: Option<S3ConnectionSpec> = druid
+        .get_s3_connection(client)
+        .await
+        .context(GetS3ConnectionSnafu)?;
+
+    let deep_storage_bucket_name = match &druid.spec.deep_storage {
+        DeepStorageSpec::S3(s3_spec) => {
+            s3_spec
+                .bucket
+                .resolve(client, druid.namespace().as_deref())
+                .await
+                .context(GetDeepStorageBucketSnafu)?
+                .bucket_name
+        }
+        _ => None,
+    };
+
     let mut roles = HashMap::new();
 
     let config_files = vec![
@@ -223,8 +246,15 @@ pub async fn reconcile_druid(druid: Arc<DruidCluster>, ctx: Context<Ctx>) -> Res
                 rolegroup_config,
                 &zk_connstr,
                 opa_connstr.as_deref(),
+                s3_conn.as_ref(),
+                deep_storage_bucket_name.as_deref(),
             )?;
-            let rg_statefulset = build_rolegroup_statefulset(&rolegroup, &druid, rolegroup_config)?;
+            let rg_statefulset = build_rolegroup_statefulset(
+                &rolegroup,
+                &druid,
+                rolegroup_config,
+                s3_conn.as_ref(),
+            )?;
             client
                 .apply_patch(FIELD_MANAGER_SCOPE, &rg_service, &rg_service)
                 .await
@@ -302,6 +332,8 @@ fn build_rolegroup_config_map(
     rolegroup_config: &HashMap<PropertyNameKind, BTreeMap<String, String>>,
     zk_connstr: &str,
     opa_connstr: Option<&str>,
+    s3_conn: Option<&S3ConnectionSpec>,
+    deep_storage_bucket_name: Option<&str>,
 ) -> Result<ConfigMap> {
     let role = DruidRole::from_str(&rolegroup.role).unwrap();
     let mut cm_conf_data = BTreeMap::new(); // filename -> filecontent
@@ -327,6 +359,15 @@ fn build_rolegroup_config_map(
                         Some(opa_str.to_string()),
                     );
                 };
+                if let Some(conn) = s3_conn {
+                    if let Some(endpoint) = conn.endpoint() {
+                        transformed_config.insert(S3_ENDPOINT_URL.to_string(), Some(endpoint));
+                    } // TODO make code nicer
+                }
+                transformed_config.insert(
+                    DS_BUCKET.to_string(),
+                    deep_storage_bucket_name.map(str::to_string),
+                );
                 let runtime_properties =
                     stackable_operator::product_config::writer::to_java_properties_string(
                         transformed_config.iter(),
@@ -433,6 +474,7 @@ fn build_rolegroup_statefulset(
     rolegroup_ref: &RoleGroupRef<DruidCluster>,
     druid: &DruidCluster,
     rolegroup_config: &HashMap<PropertyNameKind, BTreeMap<String, String>>,
+    s3_conn: Option<&S3ConnectionSpec>,
 ) -> Result<StatefulSet> {
     // setup
     let role = DruidRole::from_str(&rolegroup_ref.role).unwrap();
@@ -459,22 +501,21 @@ fn build_rolegroup_statefulset(
     // add image
     cb.image(container_image(druid_version));
 
-    // add command
-    cb.command(role.get_command(druid_version));
-
-    // add env
-    let secret = rolegroup_config
-        .get(&PropertyNameKind::Env)
-        .and_then(|m| m.get(CREDENTIALS_SECRET_PROPERTY));
-    let secret_env = secret.map(|s| {
-        vec![
-            env_var_from_secret("AWS_ACCESS_KEY_ID", s, "accessKeyId"),
-            env_var_from_secret("AWS_SECRET_ACCESS_KEY", s, "secretAccessKey"),
-        ]
-    });
-    if let Some(e) = secret_env {
-        cb.add_env_vars(e);
+    let mut load_s3_credentials = false;
+    // Add s3 credentials secret volume
+    if let Some(S3ConnectionSpec {
+        credentials: Some(credentials),
+        ..
+    }) = s3_conn
+    {
+        load_s3_credentials = true;
+        pb.add_volume(credentials.to_volume("s3-credentials"));
+        cb.add_volume_mount("s3-credentials", S3_SECRET_DIR_NAME);
     }
+
+    // add command
+    cb.command(role.get_command(load_s3_credentials));
+
     // rest of env
     let rest_env = rolegroup_config
         .get(&PropertyNameKind::Env)
@@ -541,21 +582,6 @@ fn build_rolegroup_statefulset(
         }),
         status: None,
     })
-}
-
-fn env_var_from_secret(var_name: &str, secret: &str, secret_key: &str) -> EnvVar {
-    EnvVar {
-        name: String::from(var_name),
-        value_from: Some(EnvVarSource {
-            secret_key_ref: Some(SecretKeySelector {
-                name: Some(String::from(secret)),
-                key: String::from(secret_key),
-                ..Default::default()
-            }),
-            ..Default::default()
-        }),
-        ..Default::default()
-    }
 }
 
 fn container_image(version: &str) -> String {
