@@ -184,7 +184,7 @@ This has the advantage that bucket configuration can be shared across `DruidClus
 
 === S3 Credentials
 
-No matter if a connection is specified inline or as a separate object, the credentials are always specified in the same way. You will need a `Secret` containing the access key ID and secret access key, a `SecretClass` and then referencing this `SecretClass where you want to specify the credentials.
+No matter if a connection is specified inline or as a separate object, the credentials are always specified in the same way. You will need a `Secret` containing the access key ID and secret access key, a `SecretClass` and then a reference to this `SecretClass` where you want to specify the credentials.
 
 The `Secret`:
 
