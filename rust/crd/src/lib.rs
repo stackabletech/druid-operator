@@ -239,8 +239,7 @@ impl DruidCluster {
         &self,
         client: &Client,
     ) -> Result<Option<S3ConnectionSpec>, Error> {
-        // get connection for ingestion
-
+        // retrieve connection for ingestion (can be None)
         let ingestion_conn = if let Some(ic) = self
             .spec
             .ingestion
@@ -256,6 +255,7 @@ impl DruidCluster {
             None
         };
 
+        // retrieve connection for deep storage (can be None)
         let storage_conn = match &self.spec.deep_storage {
             DeepStorageSpec::S3(s3_spec) => {
                 let inlined_bucket: InlinedS3BucketSpec = s3_spec
@@ -268,6 +268,9 @@ impl DruidCluster {
             _ => None,
         };
 
+        // if both connections are specified and are identical, return it
+        // if they differ, raise an error
+        // if only one connection is specified, return it
         if ingestion_conn.is_some() && storage_conn.is_some() {
             if ingestion_conn == storage_conn {
                 Ok(ingestion_conn)
