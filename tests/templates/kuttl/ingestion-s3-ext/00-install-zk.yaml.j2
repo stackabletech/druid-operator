@@ -1,0 +1,29 @@
+apiVersion: zookeeper.stackable.tech/v1alpha1
+kind: ZookeeperCluster
+metadata:
+  name: druid-zk
+spec:
+  servers:
+    roleGroups:
+      default:
+        replicas: 1
+        config:
+          myidOffset: 10
+  version: {{ test_scenario['values']['hadoop'] }}
+  stopped: false
+---
+apiVersion: zookeeper.stackable.tech/v1alpha1
+kind: ZookeeperZnode
+metadata:
+  name: druid-znode
+spec:
+  clusterRef:
+    name: druid-zk
+---
+apiVersion: zookeeper.stackable.tech/v1alpha1
+kind: ZookeeperZnode
+metadata:
+  name: hdfs-znode
+spec:
+  clusterRef:
+    name: druid-zk

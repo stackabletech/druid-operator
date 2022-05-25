@@ -1,44 +1,24 @@
----
-apiVersion: zookeeper.stackable.tech/v1alpha1
-kind: ZookeeperCluster
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
 metadata:
-  name: simple-zk
-spec:
-  version: 3.5.8-stackable0.7.0
-  servers:
-    roleGroups:
-      default:
-        selector:
-          matchLabels:
-            kubernetes.io/os: linux
-        replicas: 3
-        config: {}
----
-apiVersion: zookeeper.stackable.tech/v1alpha1
-kind: ZookeeperZnode
-metadata:
-  name: simple-druid-znode
-spec:
-  clusterRef:
-    name: simple-zk
+  name: install-druid
+timeout: 180
 ---
 apiVersion: druid.stackable.tech/v1alpha1
 kind: DruidCluster
 metadata:
-  name: psql-druid
+  name: derby-druid
 spec:
-  version: 0.22.1-stackable0.1.0
-  zookeeperConfigMapName: simple-druid-znode
+  version: {{ test_scenario['values']['druid'] }}
+  zookeeperConfigMapName: druid-znode
   metadataStorageDatabase:
-    dbType: postgresql
-    connString: jdbc:postgresql://druid-postgresql/druid
-    host: druid-postgresql
-    port: 5432
-    user: druid
-    password: druid
+    dbType: derby
+    connString: jdbc:derby://localhost:1527/var/druid/metadata.db;create=true
+    host: localhost
+    port: 1527
   deepStorage:
-    storageType: hdfs
-    storageDirectory: hdfs://simple-hdfs-namenode-default-0:8020/data
+    hdfs:
+      storageDirectory: hdfs://druid-hdfs-namenode-default-0:8020/data
   brokers:
     roleGroups:
       default:

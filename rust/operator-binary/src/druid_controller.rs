@@ -45,7 +45,6 @@ use std::{
 use strum::{EnumDiscriminants, IntoEnumIterator, IntoStaticStr};
 
 const FIELD_MANAGER_SCOPE: &str = "druidcluster";
-const DEFAULT_IMAGE_VERSION: &str = "0";
 
 pub struct Ctx {
     pub client: stackable_operator::client::Client,
@@ -585,16 +584,7 @@ fn build_rolegroup_statefulset(
 }
 
 fn container_image(version: &str) -> String {
-    format!(
-        // For now we hardcode the stackable image version via DEFAULT_IMAGE_VERSION
-        // which represents the major image version and will fallback to the newest
-        // available image e.g. if DEFAULT_IMAGE_VERSION = 0 and versions 0.0.1 and
-        // 0.0.2 are available, the latter one will be selected. This may change the
-        // image during restarts depending on the imagePullPolicy.
-        // TODO: should be made configurable
-        "docker.stackable.tech/stackable/druid:{}-stackable{}",
-        version, DEFAULT_IMAGE_VERSION
-    )
+    format!("docker.stackable.tech/stackable/druid:{}", version)
 }
 
 pub fn druid_version(druid: &DruidCluster) -> Result<&str> {
