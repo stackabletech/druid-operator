@@ -16,7 +16,7 @@ spec:
         app: checks
     spec:
       containers:
-      - name: checks
-        image: python:3.10-slim
-        stdin: true
-        tty: true
+        - name: checks
+          image: python:3.10-slim
+          stdin: true
+          tty: true
