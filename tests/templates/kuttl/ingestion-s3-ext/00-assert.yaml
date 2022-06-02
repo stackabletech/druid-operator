@@ -12,3 +12,8 @@ metadata:
 status:
   readyReplicas: 1
   replicas: 1
+---
+apiVersion: apps/v1
+kind: ConfigMap
+metadata:
+  name: hdfs-znode
