@@ -1,6 +1,7 @@
 import requests
 import sys
 import logging
+import time
 
 if __name__ == "__main__":
     result = 0
@@ -26,9 +27,27 @@ if __name__ == "__main__":
 
     for role in druid_roles:
         url = f"http://{druid_cluster_name}-{role}-default:{druid_ports[role]}/status/health"
-        res = requests.get(url)
-        if res.status_code != 200 or res.text.lower() != "true":
-            result = 1
-            break
+        count = 1
+        while True:
+            try:
+                count = count + 1
+                print(f"Checking role [{role}] on url [{url}]")
+                res = requests.get(url, timeout=5)
+                code = res.status_code
+                if res.status_code == 200 and res.text.lower() == "true":
+                    break
+                else:
+                    print(f"Got non 200 status code [{res.status_code}] or non-true response [{res.text.lower()}], retrying attempt no [{count}] ....")
+            except requests.exceptions.Timeout:
+                print(f"Connection timed out, retrying attempt no [{count}] ....")
+            except requests.ConnectionError as e:
+                print(f"Connection Error: {str(e)}")
+            except requests.RequestException as e:
+                print(f"General Error: {str(e)}")
+            except:
+                print(f"Unhandled error occurred, retrying attempt no [{count}] ....")
 
-    sys.exit(result)
+            # Wait a little bit before retrying
+            time.sleep(1)
+
+    sys.exit(0)

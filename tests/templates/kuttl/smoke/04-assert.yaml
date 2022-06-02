@@ -5,3 +5,4 @@ metadata:
   name: install-healthcheck-files
 commands:
   - script: kubectl exec -n $NAMESPACE checks-0 -- python /tmp/healthcheck.py
+timeout: 300
