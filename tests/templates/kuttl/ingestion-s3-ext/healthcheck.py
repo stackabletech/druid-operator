@@ -28,6 +28,17 @@ if __name__ == "__main__":
     for role in druid_roles:
         url = f"http://{druid_cluster_name}-{role}-default:{druid_ports[role]}/status/health"
         count = 1
+
+        # As this script is intended to be executed by Kuttl which is in charge of overall test timeouts it is ok
+        # to loop infinitely here - or until all tests succeed
+        # The script iterates over all known ports and services and checks that the ports are available
+        # The timeout for this connection attempt is configured to 5 seconds, to ensure frequent retries that are
+        # not handled internally by the requests library, because it was unclear when or if dns entries are cached
+        # internally during retry handling.
+        # By issuing a new call to .get() we are trying to ensure a new dns lookup for the target.
+        #
+        # Any errors are logged and retried until either the test succeeds or Kuttl kills this script due to
+        # the timeout.
         while True:
             try:
                 count = count + 1
