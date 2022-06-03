@@ -55,7 +55,7 @@ if __name__ == "__main__":
                 print(f"Connection Error: {str(e)}")
             except requests.RequestException as e:
                 print(f"General Error: {str(e)}")
-            except:
+            except Exception:
                 print(f"Unhandled error occurred, retrying attempt no [{count}] ....")
 
             # Wait a little bit before retrying
