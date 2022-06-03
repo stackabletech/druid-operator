@@ -11,14 +11,15 @@ use stackable_druid_crd::{
     DS_BUCKET, JVM_CONFIG, LOG4J2_CONFIG, RUNTIME_PROPS, S3_ENDPOINT_URL, S3_SECRET_DIR_NAME,
     ZOOKEEPER_CONNECTION_STRING,
 };
-use stackable_operator::commons::s3::S3ConnectionSpec;
 use stackable_operator::{
     builder::{ConfigMapBuilder, ContainerBuilder, ObjectMetaBuilder, PodBuilder, VolumeBuilder},
-    commons::opa::OpaApiVersion,
+    commons::{opa::OpaApiVersion, s3::S3ConnectionSpec},
     k8s_openapi::{
         api::{
             apps::v1::{StatefulSet, StatefulSetSpec},
-            core::v1::{ConfigMap, EnvVar, Service, ServicePort, ServiceSpec},
+            core::v1::{
+                ConfigMap, EnvVar, Probe, Service, ServicePort, ServiceSpec, TCPSocketAction,
+            },
         },
         apimachinery::pkg::{apis::meta::v1::LabelSelector, util::intstr::IntOrString},
     },
@@ -540,6 +541,18 @@ fn build_rolegroup_statefulset(
             .with_config_map(rolegroup_ref.object_name())
             .build(),
     );
+
+    // readiness probe
+    let probe = Probe {
+        tcp_socket: Some(TCPSocketAction {
+            port: IntOrString::Int(role.get_http_port().into()),
+            ..Default::default()
+        }),
+        initial_delay_seconds: Some(30),
+        period_seconds: Some(5),
+        ..Default::default()
+    };
+    cb.readiness_probe(probe);
 
     let mut container = cb.build();
     container.image_pull_policy = Some("IfNotPresent".to_string());
