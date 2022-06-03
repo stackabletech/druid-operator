@@ -1,3 +1,5 @@
+import urllib
+
 import requests
 import http
 import sys
@@ -11,6 +13,11 @@ class DruidClient:
         self.session.headers.update({'Accept': 'application/json', 'Content-Type': 'application/json'})
         http.client.HTTPConnection.debuglevel = 1
 
+    def get(self, url):
+        response = self.session.get(url)
+        assert response.status_code == 200
+        return response.text
+
     def get_tasks(self, url):
         response = self.session.get(url)
         assert response.status_code == 200
@@ -20,6 +27,10 @@ class DruidClient:
         response = self.session.post(url, data=open(input, 'rb'))
         assert response.status_code == 200
         return response.text
+
+    def check_rc(self, url):
+        response = self.session.get(url)
+        return response.status_code
 
     def query_datasource(self, url, sql, expected, iterations):
         loop = 0
@@ -53,7 +64,9 @@ ingestion = druid.post_task(
     url=f"http://{druid_cluster_name}-coordinator-default:8081/druid/indexer/v1/task",
     input='/tmp/druid-quickstartimport.json'
 )
-
+task_id = json.loads(ingestion)["task"]
+url_encoded_taskid = urllib.parse.quote(task_id, safe='')
+print(f"TASKID: [{task_id}]")
 print('''
 Re-query tasks
 ==============''')
@@ -66,9 +79,28 @@ print(f'assert {new_task_count} == {task_count+1}')
 assert new_task_count == task_count + 1
 
 print('''
-Wait for ingestion task and datasource
+Wait for ingestion task to succeed
 ======================================''')
-time.sleep(30)
+job_finished = False
+while not job_finished:
+    time.sleep(5)
+    task = druid.get(
+        url=f"http://{druid_cluster_name}-coordinator-default:8081/druid/indexer/v1/task/{url_encoded_taskid}/status",
+    )
+    task_status = json.loads(task)["status"]["statusCode"]
+    print(f"Current task status: [{task_status}]")
+    assert task_status == "RUNNING" or task_status == "SUCCESS", f"Taskstatus not running or succeeeded: {task_status}"
+    job_finished = task_status == "SUCCESS"
+
+print('''
+Wait for broker to indicate all segments are fully online
+======================================''')
+broker_ready = False
+while not broker_ready:
+    time.sleep(2)
+    broker_ready_rc = druid.check_rc(f"http://{druid_cluster_name}-broker-default:8082/druid/broker/v1/readiness")
+    broker_ready = broker_ready_rc == 200
+    print(f"Broker respondend with [{broker_ready_rc}] to readiness check")
 
 print('''
 Datasource SQL
