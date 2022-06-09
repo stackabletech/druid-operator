@@ -12,7 +12,7 @@ use stackable_druid_crd::{
     ZOOKEEPER_CONNECTION_STRING,
 };
 use stackable_operator::{
-    builder::{ConfigMapBuilder, ContainerBuilder, ObjectMetaBuilder, PodBuilder, VolumeBuilder},
+    builder::{ConfigMapBuilder, ContainerBuilder, ObjectMetaBuilder, PodBuilder, VolumeBuilder, PodSecurityContextBuilder},
     commons::{opa::OpaApiVersion, s3::S3ConnectionSpec},
     k8s_openapi::{
         api::{
@@ -557,6 +557,7 @@ fn build_rolegroup_statefulset(
     let mut container = cb.build();
     container.image_pull_policy = Some("IfNotPresent".to_string());
     pb.add_container(container);
+    pb.security_context(PodSecurityContextBuilder::new().fs_group(1000).build()); // Needed for secret-operator
 
     Ok(StatefulSet {
         metadata: ObjectMetaBuilder::new()
