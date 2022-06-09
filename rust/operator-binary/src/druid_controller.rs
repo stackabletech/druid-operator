@@ -8,15 +8,18 @@ use snafu::{OptionExt, ResultExt, Snafu};
 use stackable_druid_crd::{
     DeepStorageSpec, DruidCluster, DruidRole, APP_NAME, AUTH_AUTHORIZER_OPA_URI,
     CONTAINER_HTTP_PORT, CONTAINER_METRICS_PORT, CREDENTIALS_SECRET_PROPERTY, DRUID_METRICS_PORT,
-    DS_BUCKET, JVM_CONFIG, LOG4J2_CONFIG, RUNTIME_PROPS, S3_ENDPOINT_URL, S3_SECRET_DIR_NAME,
-    ZOOKEEPER_CONNECTION_STRING,
+    DS_BUCKET, JVM_CONFIG, LOG4J2_CONFIG, RUNTIME_PROPS, S3_ENDPOINT_URL, S3_PATH_STYLE_ACCESS,
+    S3_SECRET_DIR_NAME, ZOOKEEPER_CONNECTION_STRING,
 };
 use stackable_operator::{
     builder::{
         ConfigMapBuilder, ContainerBuilder, ObjectMetaBuilder, PodBuilder,
         PodSecurityContextBuilder, VolumeBuilder,
     },
-    commons::{opa::OpaApiVersion, s3::S3ConnectionSpec},
+    commons::{
+        opa::OpaApiVersion,
+        s3::{S3AccessStyle, S3ConnectionSpec},
+    },
     k8s_openapi::{
         api::{
             apps::v1::{StatefulSet, StatefulSetSpec},
@@ -366,6 +369,13 @@ fn build_rolegroup_config_map(
                     if let Some(endpoint) = conn.endpoint() {
                         transformed_config.insert(S3_ENDPOINT_URL.to_string(), Some(endpoint));
                     } // TODO make code nicer
+
+                    let path_style_access =
+                        conn.access_style.clone().unwrap_or_default() == S3AccessStyle::Path;
+                    transformed_config.insert(
+                        S3_PATH_STYLE_ACCESS.to_string(),
+                        Some(path_style_access.to_string()),
+                    );
                 }
                 transformed_config.insert(
                     DS_BUCKET.to_string(),

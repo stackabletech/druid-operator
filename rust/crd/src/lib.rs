@@ -50,6 +50,7 @@ pub const DS_DIRECTORY: &str = "druid.storage.storageDirectory";
 pub const DS_BUCKET: &str = "druid.storage.bucket";
 pub const DS_BASE_KEY: &str = "druid.storage.baseKey";
 pub const S3_ENDPOINT_URL: &str = "druid.s3.endpoint.url";
+pub const S3_PATH_STYLE_ACCESS: &str = "druid.s3.enablePathStyleAccess";
 // OPA
 pub const AUTH_AUTHORIZERS: &str = "druid.auth.authorizers";
 pub const AUTH_AUTHORIZERS_VALUE: &str = "[\"OpaAuthorizer\"]";
