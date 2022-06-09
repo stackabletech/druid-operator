@@ -12,7 +12,10 @@ use stackable_druid_crd::{
     ZOOKEEPER_CONNECTION_STRING,
 };
 use stackable_operator::{
-    builder::{ConfigMapBuilder, ContainerBuilder, ObjectMetaBuilder, PodBuilder, VolumeBuilder, PodSecurityContextBuilder},
+    builder::{
+        ConfigMapBuilder, ContainerBuilder, ObjectMetaBuilder, PodBuilder,
+        PodSecurityContextBuilder, VolumeBuilder,
+    },
     commons::{opa::OpaApiVersion, s3::S3ConnectionSpec},
     k8s_openapi::{
         api::{
