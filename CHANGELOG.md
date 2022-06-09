@@ -14,9 +14,14 @@ All notable changes to this project will be documented in this file.
 - `operator-rs` `0.15.0` -> `0.21.0` ([#228])
 - [BREAKING] Specifying the product version has been changed to adhere to [ADR018](https://docs.stackable.tech/home/contributor/adr/ADR018-product_image_versioning.html) instead of just specifying the product version you will now have to add the Stackable image version as well, so `version: 3.5.8` becomes (for example) `version: 3.5.8-stackable0.1.0` ([#238])
 
+### Fixed
+
+- Fixed wrong file permissions on mounted secrets ([#244])
+
 [#228]: https://github.com/stackabletech/druid-operator/pull/228
 [#238]: https://github.com/stackabletech/druid-operator/pull/238
 [#241]: https://github.com/stackabletech/druid-operator/pull/241
+[#244]: https://github.com/stackabletech/druid-operator/pull/244
 
 ## [0.5.0] - 2022-03-15
 
