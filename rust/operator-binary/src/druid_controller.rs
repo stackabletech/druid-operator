@@ -370,8 +370,10 @@ fn build_rolegroup_config_map(
                         transformed_config.insert(S3_ENDPOINT_URL.to_string(), Some(endpoint));
                     } // TODO make code nicer
 
-                    let path_style_access =
-                        conn.access_style.clone().unwrap_or_default() == S3AccessStyle::Path;
+                    let path_style_access = match conn.access_style.clone().unwrap_or_default() {
+                        S3AccessStyle::Path => true,
+                        S3AccessStyle::VirtualHosted => false,
+                    };
                     transformed_config.insert(
                         S3_PATH_STYLE_ACCESS.to_string(),
                         Some(path_style_access.to_string()),
