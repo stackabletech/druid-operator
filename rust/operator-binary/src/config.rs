@@ -1,55 +1,58 @@
-use stackable_druid_crd::DruidRole;
+use indoc::formatdoc;
+use stackable_druid_crd::{DruidRole, STACKABLE_TRUST_STORE, STACKABLE_TRUST_STORE_PASSWORD};
 
 pub fn get_jvm_config(role: &DruidRole) -> String {
-    let common_props = "
-    -server
-    -Duser.timezone=UTC
-    -Dfile.encoding=UTF-8
-    -Djava.io.tmpdir=/tmp
-    -Djava.util.logging.manager=org.apache.logging.log4j.jul.LogManager
-    -XX:+UseG1GC
-    -XX:+ExitOnOutOfMemoryError
-    ";
+    let common_config = formatdoc! {"
+      -server
+      -Duser.timezone=UTC
+      -Dfile.encoding=UTF-8
+      -Djava.io.tmpdir=/tmp
+      -Djava.util.logging.manager=org.apache.logging.log4j.jul.LogManager
+      -XX:+UseG1GC
+      -XX:+ExitOnOutOfMemoryError
+      -Djavax.net.ssl.trustStore={STACKABLE_TRUST_STORE}
+      -Djavax.net.ssl.trustStorePassword={STACKABLE_TRUST_STORE_PASSWORD}
+      -Djavax.net.ssl.trustStoreType=pkcs12"};
 
     match role {
         DruidRole::Broker => {
-            common_props.to_string()
-                + "
-            -Xms512m
-            -Xmx512m
-            -XX:MaxDirectMemorySize=400m
-        "
+            formatdoc! {"
+              {common_config}
+              -Xms512m
+              -Xmx512m
+              -XX:MaxDirectMemorySize=400m
+            "}
         }
         DruidRole::Coordinator => {
-            common_props.to_string()
-                + "
-            -Xms256m
-            -Xmx256m
-            -Dderby.stream.error.file=/stackable/var/druid/derby.log
-        "
+            formatdoc! {"
+              {common_config}
+              -Xms256m
+              -Xmx256m
+              -Dderby.stream.error.file=/stackable/var/druid/derby.log
+            "}
         }
         DruidRole::Historical => {
-            common_props.to_string()
-                + "
-            -Xms512m
-            -Xmx512m
-            -XX:MaxDirectMemorySize=400m
-        "
+            formatdoc! {"
+              {common_config}
+              -Xms512m
+              -Xmx512m
+              -XX:MaxDirectMemorySize=400m
+            "}
         }
         DruidRole::MiddleManager => {
-            common_props.to_string()
-                + "
-            -Xms64m
-            -Xmx64m
-        "
+            formatdoc! {"
+              {common_config}
+              -Xms64m
+              -Xmx64m
+            "}
         }
         DruidRole::Router => {
-            common_props.to_string()
-                + "
-            -Xms128m
-            -Xmx128m
-            -XX:MaxDirectMemorySize=128m
-        "
+            formatdoc! {"
+              {common_config}
+              -Xms128m
+              -Xmx128m
+              -XX:MaxDirectMemorySize=128m
+            "}
         }
     }
 }

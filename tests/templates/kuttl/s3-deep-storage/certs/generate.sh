@@ -11,12 +11,12 @@ openssl req \
   -new \
   -nodes \
   -key root-ca.key.pem \
-  -days 9131 \
+  -days 36500 \
   -out root-ca.crt.pem \
   -subj "/C=DE/ST=Schleswig-Holstein/L=Wedel/O=Stackable Signing Authority Inc/CN=stackable.de"
 
 echo "Creating client cert"
-FQDN="*"
+FQDN="minio-druid"
 
 openssl genrsa \
   -out client.key.pem \

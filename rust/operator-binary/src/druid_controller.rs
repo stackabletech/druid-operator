@@ -6,7 +6,7 @@ use crate::{
 
 use snafu::{OptionExt, ResultExt, Snafu};
 use stackable_druid_crd::{
-    DeepStorageSpec, DruidCluster, DruidRole, APP_NAME, AUTH_AUTHORIZER_OPA_URI,
+    DeepStorageSpec, DruidCluster, DruidRole, APP_NAME, AUTH_AUTHORIZER_OPA_URI, CERTS_DIR,
     CONTAINER_HTTP_PORT, CONTAINER_METRICS_PORT, CREDENTIALS_SECRET_PROPERTY, DRUID_METRICS_PORT,
     DS_BUCKET, JVM_CONFIG, LOG4J2_CONFIG, RUNTIME_PROPS, S3_ENDPOINT_URL, S3_PATH_STYLE_ACCESS,
     S3_SECRET_DIR_NAME, ZOOKEEPER_CONNECTION_STRING,
@@ -14,11 +14,12 @@ use stackable_druid_crd::{
 use stackable_operator::{
     builder::{
         ConfigMapBuilder, ContainerBuilder, ObjectMetaBuilder, PodBuilder,
-        PodSecurityContextBuilder, VolumeBuilder,
+        PodSecurityContextBuilder, SecretOperatorVolumeSourceBuilder, VolumeBuilder,
     },
     commons::{
         opa::OpaApiVersion,
         s3::{S3AccessStyle, S3ConnectionSpec},
+        tls::{CaCert, TlsVerification},
     },
     k8s_openapi::{
         api::{
@@ -142,6 +143,10 @@ pub enum Error {
     ApplyDiscoveryConfig {
         source: stackable_operator::error::Error,
     },
+    #[snafu(display(
+        "Druid does not support skipping the verification of the tls enabled S3 server"
+    ))]
+    S3TlsNoVerificationNotSupported,
 }
 
 type Result<T, E = Error> = std::result::Result<T, E>;
@@ -189,7 +194,7 @@ pub async fn reconcile_druid(druid: Arc<DruidCluster>, ctx: Context<Ctx>) -> Res
     };
 
     // Get the s3 connection if one is defined
-    let s3_conn: Option<S3ConnectionSpec> = druid
+    let s3_conn = druid
         .get_s3_connection(client)
         .await
         .context(GetS3ConnectionSnafu)?;
@@ -368,8 +373,9 @@ fn build_rolegroup_config_map(
                 if let Some(conn) = s3_conn {
                     if let Some(endpoint) = conn.endpoint() {
                         transformed_config.insert(S3_ENDPOINT_URL.to_string(), Some(endpoint));
-                    } // TODO make code nicer
+                    }
 
+                    // We did choose a match statement here to detect new access styles in the future
                     let path_style_access = match conn.access_style.clone().unwrap_or_default() {
                         S3AccessStyle::Path => true,
                         S3AccessStyle::VirtualHosted => false,
@@ -516,20 +522,37 @@ fn build_rolegroup_statefulset(
     // add image
     cb.image(container_image(druid_version));
 
-    let mut load_s3_credentials = false;
-    // Add s3 credentials secret volume
-    if let Some(S3ConnectionSpec {
-        credentials: Some(credentials),
-        ..
-    }) = s3_conn
-    {
-        load_s3_credentials = true;
-        pb.add_volume(credentials.to_volume("s3-credentials"));
-        cb.add_volume_mount("s3-credentials", S3_SECRET_DIR_NAME);
+    if let Some(s3_conn) = s3_conn {
+        if let Some(credentials) = &s3_conn.credentials {
+            pb.add_volume(credentials.to_volume("s3-credentials"));
+            cb.add_volume_mount("s3-credentials", S3_SECRET_DIR_NAME);
+        }
+
+        if let Some(tls) = &s3_conn.tls {
+            match &tls.verification {
+                TlsVerification::None {} => return S3TlsNoVerificationNotSupportedSnafu.fail(),
+                TlsVerification::Server(server_verification) => {
+                    match &server_verification.ca_cert {
+                        CaCert::WebPki {} => {}
+                        CaCert::SecretClass(secret_class) => {
+                            let volume_name = format!("{secret_class}-tls-certificate");
+
+                            let volume = VolumeBuilder::new(&volume_name)
+                                .ephemeral(
+                                    SecretOperatorVolumeSourceBuilder::new(secret_class).build(),
+                                )
+                                .build();
+                            pb.add_volume(volume);
+                            cb.add_volume_mount(&volume_name, format!("{CERTS_DIR}{volume_name}"));
+                        }
+                    }
+                }
+            }
+        }
     }
 
     // add command
-    cb.command(role.get_command(load_s3_credentials));
+    cb.command(role.get_command(s3_conn));
 
     // rest of env
     let rest_env = rolegroup_config

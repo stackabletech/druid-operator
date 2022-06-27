@@ -1,7 +1,9 @@
+use indoc::formatdoc;
 use serde::{Deserialize, Serialize};
 use snafu::{ResultExt, Snafu};
 use stackable_operator::client::Client;
 use stackable_operator::commons::s3::{InlinedS3BucketSpec, S3BucketDef, S3ConnectionSpec};
+use stackable_operator::commons::tls::{CaCert, Tls, TlsServerVerification, TlsVerification};
 use stackable_operator::kube::ResourceExt;
 use stackable_operator::{
     commons::{opa::OpaConfig, s3::S3ConnectionDef},
@@ -20,6 +22,12 @@ pub const APP_NAME: &str = "druid";
 pub const JVM_CONFIG: &str = "jvm.config";
 pub const RUNTIME_PROPS: &str = "runtime.properties";
 pub const LOG4J2_CONFIG: &str = "log4j2.xml";
+
+pub const SYSTEM_TRUST_STORE: &str = "/etc/pki/java/cacerts";
+pub const SYSTEM_TRUST_STORE_PASSWORD: &str = "changeit";
+pub const STACKABLE_TRUST_STORE: &str = "/stackable/truststore.p12";
+pub const STACKABLE_TRUST_STORE_PASSWORD: &str = "changeit";
+pub const CERTS_DIR: &str = "/stackable/certificates/";
 
 // port names
 pub const CONTAINER_HTTP_PORT: &str = "http";
@@ -64,6 +72,8 @@ pub const MD_ST_HOST: &str = "druid.metadata.storage.connector.host";
 pub const MD_ST_PORT: &str = "druid.metadata.storage.connector.port";
 pub const MD_ST_USER: &str = "druid.metadata.storage.connector.user";
 pub const MD_ST_PASSWORD: &str = "druid.metadata.storage.connector.password";
+// indexer properties
+pub const INDEXER_JAVA_OPTS: &str = "druid.indexer.runner.javaOptsArray";
 // extra
 pub const CREDENTIALS_SECRET_PROPERTY: &str = "credentialsSecret";
 
@@ -178,21 +188,34 @@ impl DruidRole {
     }
 
     /// Returns the start commands for the different server types.
-    pub fn get_command(&self, mount_s3_credentials: bool) -> Vec<String> {
-        let mut shell_cmd = vec![];
-        if mount_s3_credentials {
-            shell_cmd.push(format!(
-                "export {env_var}=$(cat {secret_dir}/{file_name})",
-                env_var = ENV_S3_ACCESS_KEY,
-                secret_dir = S3_SECRET_DIR_NAME,
-                file_name = SECRET_KEY_S3_ACCESS_KEY
-            ));
-            shell_cmd.push(format!(
-                "export {env_var}=$(cat {secret_dir}/{file_name})",
-                env_var = ENV_S3_SECRET_KEY,
-                secret_dir = S3_SECRET_DIR_NAME,
-                file_name = SECRET_KEY_S3_SECRET_KEY
-            ));
+    pub fn get_command(&self, s3_connection: Option<&S3ConnectionSpec>) -> Vec<String> {
+        let mut shell_cmd = vec![format!("keytool -importkeystore -srckeystore {SYSTEM_TRUST_STORE} -srcstoretype jks -srcstorepass {SYSTEM_TRUST_STORE_PASSWORD} -destkeystore {STACKABLE_TRUST_STORE} -deststoretype pkcs12 -deststorepass {STACKABLE_TRUST_STORE_PASSWORD} -noprompt")];
+
+        if let Some(s3_connection) = s3_connection {
+            if let Some(Tls {
+                verification:
+                    TlsVerification::Server(TlsServerVerification {
+                        ca_cert: CaCert::SecretClass(secret_class),
+                    }),
+            }) = &s3_connection.tls
+            {
+                shell_cmd.push(format!("keytool -importcert -file /stackable/certificates/{secret_class}-tls-certificate/ca.crt -alias stackable-{secret_class} -keystore {STACKABLE_TRUST_STORE} -storepass {STACKABLE_TRUST_STORE_PASSWORD} -noprompt"));
+            }
+
+            if s3_connection.credentials.is_some() {
+                shell_cmd.push(format!(
+                    "export {env_var}=$(cat {secret_dir}/{file_name})",
+                    env_var = ENV_S3_ACCESS_KEY,
+                    secret_dir = S3_SECRET_DIR_NAME,
+                    file_name = SECRET_KEY_S3_ACCESS_KEY
+                ));
+                shell_cmd.push(format!(
+                    "export {env_var}=$(cat {secret_dir}/{file_name})",
+                    env_var = ENV_S3_SECRET_KEY,
+                    secret_dir = S3_SECRET_DIR_NAME,
+                    file_name = SECRET_KEY_S3_SECRET_KEY
+                ));
+            }
         }
         shell_cmd.push(format!(
             "{} {} {}",
@@ -488,6 +511,19 @@ impl Configuration for DruidConfig {
                     PROMETHEUS_PORT.to_string(),
                     Some(DRUID_METRICS_PORT.to_string()),
                 );
+                // Role-specific config
+                if role == DruidRole::MiddleManager {
+                    result.insert(
+                        INDEXER_JAVA_OPTS.to_string(),
+                        Some(formatdoc! {r#"
+                            [
+                                "-Djavax.net.ssl.trustStore={STACKABLE_TRUST_STORE}",
+                                "-Djavax.net.ssl.trustStorePassword={STACKABLE_TRUST_STORE_PASSWORD}",
+                                "-Djavax.net.ssl.trustStoreType=pkcs12"
+                            ]
+                        "#})
+                    );
+                }
             }
             LOG4J2_CONFIG => {}
             _ => {}
