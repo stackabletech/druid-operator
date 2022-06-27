@@ -1694,7 +1694,6 @@ dependencies = [
 name = "stackable-druid-crd"
 version = "0.6.0-nightly"
 dependencies = [
- "indoc",
  "semver",
  "serde",
  "serde_json",

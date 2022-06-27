@@ -1,4 +1,3 @@
-use indoc::formatdoc;
 use serde::{Deserialize, Serialize};
 use snafu::{ResultExt, Snafu};
 use stackable_operator::client::Client;
@@ -203,18 +202,8 @@ impl DruidRole {
             }
 
             if s3_connection.credentials.is_some() {
-                shell_cmd.push(format!(
-                    "export {env_var}=$(cat {secret_dir}/{file_name})",
-                    env_var = ENV_S3_ACCESS_KEY,
-                    secret_dir = S3_SECRET_DIR_NAME,
-                    file_name = SECRET_KEY_S3_ACCESS_KEY
-                ));
-                shell_cmd.push(format!(
-                    "export {env_var}=$(cat {secret_dir}/{file_name})",
-                    env_var = ENV_S3_SECRET_KEY,
-                    secret_dir = S3_SECRET_DIR_NAME,
-                    file_name = SECRET_KEY_S3_SECRET_KEY
-                ));
+                shell_cmd.push(format!("export {ENV_S3_ACCESS_KEY}=$(cat {S3_SECRET_DIR_NAME}/{SECRET_KEY_S3_ACCESS_KEY})"));
+                shell_cmd.push(format!("export {ENV_S3_SECRET_KEY}=$(cat {S3_SECRET_DIR_NAME}/{SECRET_KEY_S3_SECRET_KEY})"));
             }
         }
         shell_cmd.push(format!(
@@ -515,13 +504,11 @@ impl Configuration for DruidConfig {
                 if role == DruidRole::MiddleManager {
                     result.insert(
                         INDEXER_JAVA_OPTS.to_string(),
-                        Some(formatdoc! {r#"
-                            [
-                                "-Djavax.net.ssl.trustStore={STACKABLE_TRUST_STORE}",
-                                "-Djavax.net.ssl.trustStorePassword={STACKABLE_TRUST_STORE_PASSWORD}",
-                                "-Djavax.net.ssl.trustStoreType=pkcs12"
-                            ]
-                        "#})
+                        Some(build_string_list(&[
+                            format!("-Djavax.net.ssl.trustStore={STACKABLE_TRUST_STORE}"),
+                            format!("-Djavax.net.ssl.trustStorePassword={STACKABLE_TRUST_STORE_PASSWORD}"),
+                            "-Djavax.net.ssl.trustStoreType=pkcs12".to_string()
+                        ]))
                     );
                 }
             }
