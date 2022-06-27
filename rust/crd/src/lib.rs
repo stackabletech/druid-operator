@@ -502,6 +502,8 @@ impl Configuration for DruidConfig {
                 );
                 // Role-specific config
                 if role == DruidRole::MiddleManager {
+                    // When we start ingestion jobs they will run as new JVM processes.
+                    // We need to set this config to pass the custom truststore not only to the Druid roles but also to the started ingestion jobs. 
                     result.insert(
                         INDEXER_JAVA_OPTS.to_string(),
                         Some(build_string_list(&[
