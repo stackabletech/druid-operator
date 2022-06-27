@@ -10,7 +10,6 @@ kind: StatefulSet
 metadata:
   name: druid-zk-server-default
 status:
-  availableReplicas: 1
   readyReplicas: 1
   replicas: 1
 ---
