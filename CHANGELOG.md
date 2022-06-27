@@ -16,7 +16,6 @@ All notable changes to this project will be documented in this file.
 - BREAKING: The deep storage on s3 and the s3 config for ingestion have been changed to use the operator-rs commons::s3 structs ([#228])
 - `operator-rs` `0.15.0` -> `0.21.0` ([#228])
 - [BREAKING] Specifying the product version has been changed to adhere to [ADR018](https://docs.stackable.tech/home/contributor/adr/ADR018-product_image_versioning.html) instead of just specifying the product version you will now have to add the Stackable image version as well, so `version: 3.5.8` becomes (for example) `version: 3.5.8-stackable0.1.0` ([#238])
-- Removed support for Druid 0.22.1 ([#255])
 
 ### Fixed
 
