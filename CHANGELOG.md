@@ -7,13 +7,16 @@ All notable changes to this project will be documented in this file.
 ### Added
 
 - Readiness probe added ([#241])
-- Support s3 path style access ([#245])
+- Support S3 path style access ([#245])
+- Support S3 TLS verification ([#255])
+- Support Druid 0.23.0 ([#255])
 
 ### Changed
 
 - BREAKING: The deep storage on s3 and the s3 config for ingestion have been changed to use the operator-rs commons::s3 structs ([#228])
 - `operator-rs` `0.15.0` -> `0.21.0` ([#228])
 - [BREAKING] Specifying the product version has been changed to adhere to [ADR018](https://docs.stackable.tech/home/contributor/adr/ADR018-product_image_versioning.html) instead of just specifying the product version you will now have to add the Stackable image version as well, so `version: 3.5.8` becomes (for example) `version: 3.5.8-stackable0.1.0` ([#238])
+- Removed support for Druid 0.22.1 ([#255])
 
 ### Fixed
 
@@ -24,6 +27,7 @@ All notable changes to this project will be documented in this file.
 [#241]: https://github.com/stackabletech/druid-operator/pull/241
 [#244]: https://github.com/stackabletech/druid-operator/pull/244
 [#245]: https://github.com/stackabletech/druid-operator/pull/245
+[#255]: https://github.com/stackabletech/druid-operator/pull/255
 
 ## [0.5.0] - 2022-03-15
 
