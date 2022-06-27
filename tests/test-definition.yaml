@@ -18,27 +18,27 @@ dimensions:
       - "true"
       - "false"
 tests:
-  # - name: authorizer
-  #   dimensions:
-  #     - druid
-  #     - zookeeper
-  #     - opa
-  #     - hadoop
-  # - name: ingestion-no-s3-ext
-  #   dimensions:
-  #     - druid
-  #     - zookeeper
-  #     - hadoop
-  # - name: ingestion-s3-ext
-  #   dimensions:
-  #     - druid
-  #     - zookeeper
-  #     - hadoop
-  # - name: smoke
-  #   dimensions:
-  #     - druid
-  #     - zookeeper
-  #     - hadoop
+  - name: authorizer
+    dimensions:
+      - druid
+      - zookeeper
+      - opa
+      - hadoop
+  - name: ingestion-no-s3-ext
+    dimensions:
+      - druid
+      - zookeeper
+      - hadoop
+  - name: ingestion-s3-ext
+    dimensions:
+      - druid
+      - zookeeper
+      - hadoop
+  - name: smoke
+    dimensions:
+      - druid
+      - zookeeper
+      - hadoop
   - name: s3-deep-storage
     dimensions:
       - druid
