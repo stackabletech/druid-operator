@@ -3,7 +3,7 @@ apiVersion: kuttl.dev/v1beta1
 kind: TestAssert
 metadata:
   name: install-zk
-timeout: 300
+timeout: 600
 ---
 apiVersion: apps/v1
 kind: StatefulSet
@@ -16,4 +16,4 @@ status:
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: hdfs-znode
+  name: druid-znode

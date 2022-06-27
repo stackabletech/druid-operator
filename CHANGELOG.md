@@ -7,7 +7,9 @@ All notable changes to this project will be documented in this file.
 ### Added
 
 - Readiness probe added ([#241])
-- Support s3 path style access ([#245])
+- Support S3 path style access ([#245])
+- Support S3 TLS verification ([#255])
+- Support Druid 0.23.0 ([#255])
 
 ### Changed
 
@@ -24,6 +26,7 @@ All notable changes to this project will be documented in this file.
 [#241]: https://github.com/stackabletech/druid-operator/pull/241
 [#244]: https://github.com/stackabletech/druid-operator/pull/244
 [#245]: https://github.com/stackabletech/druid-operator/pull/245
+[#255]: https://github.com/stackabletech/druid-operator/pull/255
 
 ## [0.5.0] - 2022-03-15
 

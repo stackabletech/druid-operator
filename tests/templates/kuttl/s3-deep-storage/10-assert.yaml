@@ -1,0 +1,46 @@
+---
+apiVersion: kuttl.dev/v1beta1
+kind: TestAssert
+metadata:
+  name: install-druid
+timeout: 600
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: druid-s3-deep-storage-broker-default
+status:
+  readyReplicas: 1
+  replicas: 1
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: druid-s3-deep-storage-coordinator-default
+status:
+  readyReplicas: 1
+  replicas: 1
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: druid-s3-deep-storage-historical-default
+status:
+  readyReplicas: 1
+  replicas: 1
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: druid-s3-deep-storage-middlemanager-default
+status:
+  readyReplicas: 1
+  replicas: 1
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: druid-s3-deep-storage-router-default
+status:
+  readyReplicas: 1
+  replicas: 1
