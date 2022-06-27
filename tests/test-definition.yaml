@@ -3,9 +3,10 @@ dimensions:
   - name: druid
     values:
       - 0.22.1-authorizer0.1.0-stackable0.2.0
+      - 0.23.0-stackable0.3.0
   - name: zookeeper
     values:
-      # - 3.7.0-stackable0.7.1
+      - 3.7.0-stackable0.7.1
       - 3.8.0-stackable0.7.1
   - name: opa
     values:
@@ -18,6 +19,11 @@ dimensions:
       - "true"
       - "false"
 tests:
+  - name: smoke
+    dimensions:
+      - druid
+      - zookeeper
+      - hadoop
   - name: authorizer
     dimensions:
       - druid
@@ -30,11 +36,6 @@ tests:
       - zookeeper
       - hadoop
   - name: ingestion-s3-ext
-    dimensions:
-      - druid
-      - zookeeper
-      - hadoop
-  - name: smoke
     dimensions:
       - druid
       - zookeeper
