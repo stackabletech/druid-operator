@@ -4,6 +4,8 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.6.0] - 2022-06-30
+
 ### Added
 
 - Readiness probe added ([#241])
