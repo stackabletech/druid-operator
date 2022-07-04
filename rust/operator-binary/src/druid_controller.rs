@@ -7,8 +7,9 @@ use crate::{
 use snafu::{OptionExt, ResultExt, Snafu};
 use stackable_druid_crd::{
     DeepStorageSpec, DruidCluster, DruidRole, APP_NAME, AUTH_AUTHORIZER_OPA_URI, CERTS_DIR,
-    CONTAINER_HTTP_PORT, CONTAINER_METRICS_PORT, CREDENTIALS_SECRET_PROPERTY, DRUID_METRICS_PORT,
-    DS_BUCKET, JVM_CONFIG, LOG4J2_CONFIG, RUNTIME_PROPS, S3_ENDPOINT_URL, S3_PATH_STYLE_ACCESS,
+    CONTAINER_HTTP_PORT, CONTAINER_METRICS_PORT, CREDENTIALS_SECRET_PROPERTY,
+    DRUID_CONFIG_DIRECTORY, DRUID_METRICS_PORT, DS_BUCKET, HDFS_CONFIG_DIRECTORY, JVM_CONFIG,
+    LOG4J2_CONFIG, RUNTIME_PROPS, RW_CONFIG_DIRECTORY, S3_ENDPOINT_URL, S3_PATH_STYLE_ACCESS,
     S3_SECRET_DIR_NAME, ZOOKEEPER_CONNECTION_STRING,
 };
 use stackable_operator::{
@@ -573,10 +574,28 @@ fn build_rolegroup_statefulset(
     cb.add_container_port(CONTAINER_METRICS_PORT, DRUID_METRICS_PORT.into());
 
     // config mount
-    cb.add_volume_mount("config", "/stackable/conf");
+    cb.add_volume_mount("config", DRUID_CONFIG_DIRECTORY);
     pb.add_volume(
         VolumeBuilder::new("config")
             .with_config_map(rolegroup_ref.object_name())
+            .build(),
+    );
+
+    // hdfs deep storage mount
+    if let DeepStorageSpec::HDFS(hdfs) = &druid.spec.deep_storage {
+        cb.add_volume_mount("hdfs", HDFS_CONFIG_DIRECTORY);
+        pb.add_volume(
+            VolumeBuilder::new("hdfs")
+                .with_config_map(&hdfs.config_map_name)
+                .build(),
+        );
+    }
+
+    // read write config folder
+    cb.add_volume_mount("rwconfig", RW_CONFIG_DIRECTORY);
+    pb.add_volume(
+        VolumeBuilder::new("rwconfig")
+            .with_empty_dir(Some(""), None)
             .build(),
     );
 
