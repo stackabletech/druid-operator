@@ -219,7 +219,7 @@ impl DruidRole {
             rw_conf = RW_CONFIG_DIRECTORY
         ));
 
-        // copy hdfs config to RW_CONFIG_DIRECTORY folder
+        // copy hdfs config to RW_CONFIG_DIRECTORY folder (if available)
         shell_cmd.push(format!(
             "cp -RL {hdfs_conf}/* {rw_conf} || :",
             hdfs_conf = HDFS_CONFIG_DIRECTORY,
