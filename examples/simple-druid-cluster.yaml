@@ -95,7 +95,7 @@ spec:
   deepStorage:
     hdfs:
       configMapName: simple-hdfs
-      storageDirectory: /data
+      storageDirectory: /druid
   ingestion:
     s3connection:
       inline:

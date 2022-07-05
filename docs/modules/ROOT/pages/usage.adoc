@@ -63,8 +63,9 @@ spec:
     user: druid
     password: druid
   deepStorage:
-    storageType: hdfs
-    storageDirectory: hdfs://path/to/druidDeepStorage
+    hdfs:
+      configMapName: simple-hdfs
+      storageDirectory: /druid
   brokers:
     roleGroups:
       default:
@@ -351,6 +352,5 @@ routers:
       config: {}
       replicas: 1
 ----
-
 
 // cliOverrides don't make sense for this operator, so the feature is omitted for now
