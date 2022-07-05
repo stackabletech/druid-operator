@@ -219,15 +219,9 @@ impl DruidRole {
             rw_conf = RW_CONFIG_DIRECTORY
         ));
 
-        // create RW_CONFIG_DIRECTORY/_commons directory for hdfs-site.xml and core-site.xml
+        // copy hdfs config to RW_CONFIG_DIRECTORY folder
         shell_cmd.push(format!(
-            "mkdir {rw_conf}/_commons",
-            rw_conf = RW_CONFIG_DIRECTORY
-        ));
-
-        // copy hdfs config to RW_CONFIG_DIRECTORY/_commons folder
-        shell_cmd.push(format!(
-            "cp -RL {hdfs_conf}/* {rw_conf}/_commons || :",
+            "cp -RL {hdfs_conf}/* {rw_conf} || :",
             hdfs_conf = HDFS_CONFIG_DIRECTORY,
             rw_conf = RW_CONFIG_DIRECTORY,
         ));
