@@ -6,7 +6,7 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
-- HDFS deep storage now configurable via HDFS discovery config map instead of url to namenode ([#262]).
+- BREAKING: HDFS deep storage now configurable via HDFS discovery config map instead of an url to a HDFS name node ([#262]).
 
 [#262]: https://github.com/stackabletech/druid-operator/pull/262
 
