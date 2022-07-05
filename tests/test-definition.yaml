@@ -45,3 +45,8 @@ tests:
       - druid
       - zookeeper
       - s3-use-tls
+  - name: hdfs-deep-storage
+    dimensions:
+      - druid
+      - hadoop
+      - zookeeper
