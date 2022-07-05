@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Changed
+
+- HDFS deep storage now configurable via HDFS discovery config map instead of url to namenode ([#262]).
+
+[#262]: https://github.com/stackabletech/druid-operator/pull/262
+
 ## [0.6.0] - 2022-06-30
 
 ### Added
@@ -61,7 +67,7 @@ All notable changes to this project will be documented in this file.
 
 - Monitoring scraping label `prometheus.io/scrape: true` ([#155]).
 
-### Changed 
+### Changed
 
 - Removed the option to set a namespace for the zookeeper reference ([#140])
 - `operator-rs` `0.8.0` → `0.10.0` ([#155])
