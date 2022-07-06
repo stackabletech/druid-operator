@@ -56,14 +56,6 @@ spec:
     port: 5432
     user: druid
     password: druid
-  ingestion:
-    s3connection:
-      inline:
-        host: minio-druid
-        port: 9000
-        accessStyle: Path
-        credentials:
-          secretClass: druid-s3-credentials
   deepStorage:
     s3:
       bucket:

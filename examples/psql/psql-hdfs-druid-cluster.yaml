@@ -35,7 +35,7 @@ kind: HdfsCluster
 metadata:
   name: simple-hdfs
 spec:
-  version: 3.2.2-stackable0.5.0
+  version: 3.3.3-stackable0.1.0
   zookeeperConfigMapName: psql-druid-znode
   dfsReplication: 1
   nameNodes:

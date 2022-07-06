@@ -27,7 +27,7 @@ kind: HdfsCluster
 metadata:
   name: simple-hdfs
 spec:
-  version: 3.2.2-stackable0.5.0
+  version: 3.3.3-stackable0.1.0
   zookeeperConfigMapName: simple-hdfs-znode
   dfsReplication: 3
   nameNodes:
@@ -77,8 +77,8 @@ metadata:
   labels:
     secrets.stackable.tech/class: druid-s3-credentials
 stringData:
-  accessKey: YOUR_VALID_ACCESS_KEY_ID_HERE
-  secretKey: YOUR_SECRET_ACCES_KEY_THATBELONGS_TO_THE_KEY_ID_HERE
+  accessKey: YOUR_ACCESS_KEY
+  secretKey: YOUR_SECRET_KEY
 ---
 apiVersion: druid.stackable.tech/v1alpha2
 kind: DruidCluster
@@ -99,7 +99,7 @@ spec:
   ingestion:
     s3connection:
       inline:
-        host: http://minio
+        host: minio-druid
         port: 9000
         accessStyle: Path
         credentials:
