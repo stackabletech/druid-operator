@@ -80,7 +80,7 @@ stringData:
   accessKey: YOUR_VALID_ACCESS_KEY_ID_HERE
   secretKey: YOUR_SECRET_ACCES_KEY_THATBELONGS_TO_THE_KEY_ID_HERE
 ---
-apiVersion: druid.stackable.tech/v1alpha1
+apiVersion: druid.stackable.tech/v1alpha2
 kind: DruidCluster
 metadata:
   name: simple-derby-druid
@@ -95,7 +95,7 @@ spec:
   deepStorage:
     hdfs:
       configMapName: simple-hdfs
-      storageDirectory: /druid
+      directory: /druid
   ingestion:
     s3connection:
       inline:

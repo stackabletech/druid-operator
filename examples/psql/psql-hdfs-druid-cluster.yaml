@@ -60,7 +60,7 @@ spec:
             kubernetes.io/os: linux
         replicas: 1
 ---
-apiVersion: druid.stackable.tech/v1alpha1
+apiVersion: druid.stackable.tech/v1alpha2
 kind: DruidCluster
 metadata:
   name: psql-druid
@@ -77,7 +77,7 @@ spec:
   deepStorage:
     hdfs:
       configMapName: simple-hdfs
-      storageDirectory: /druid
+      directory: /druid
   brokers:
     roleGroups:
       default:

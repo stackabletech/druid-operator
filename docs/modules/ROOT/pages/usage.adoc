@@ -48,7 +48,7 @@ Then a cluster can be deployed using the example below.
 
 [source,yaml]
 ----
-apiVersion: druid.stackable.tech/v1alpha1
+apiVersion: druid.stackable.tech/v1alpha2
 kind: DruidCluster
 metadata:
   name: simple-druid
@@ -65,7 +65,7 @@ spec:
   deepStorage:
     hdfs:
       configMapName: simple-hdfs
-      storageDirectory: /druid
+      directory: /druid
   brokers:
     roleGroups:
       default:

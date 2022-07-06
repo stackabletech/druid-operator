@@ -14,7 +14,7 @@ Given the following Druid cluster:
 
 [source,yaml,subs="normal,callouts"]
 ----
-apiVersion: druid.stackable.tech/v1alpha1
+apiVersion: druid.stackable.tech/v1alpha2
 kind: DruidCluster
 metadata:
   name: {clusterName} # <1>

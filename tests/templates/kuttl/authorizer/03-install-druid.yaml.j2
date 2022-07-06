@@ -5,7 +5,7 @@ metadata:
   name: install-druid
 timeout: 600
 ---
-apiVersion: druid.stackable.tech/v1alpha1
+apiVersion: druid.stackable.tech/v1alpha2
 kind: DruidCluster
 metadata:
   name: derby-druid
@@ -22,7 +22,8 @@ spec:
     port: 1527
   deepStorage:
     hdfs:
-      storageDirectory: hdfs://druid-hdfs-namenode-default-0:8020/data
+      configMapName: druid-hdfs
+      directory: /druid
   brokers:
     configOverrides:
       runtime.properties:

@@ -18,7 +18,7 @@ spec:
   scope: Namespaced
   versions:
     - additionalPrinterColumns: []
-      name: v1alpha1
+      name: v1alpha2
       schema:
         openAPIV3Schema:
           description: "Auto-generated derived type for DruidClusterSpec via `CustomResource`"
@@ -208,11 +208,11 @@ spec:
                       properties:
                         configMapName:
                           type: string
-                        storageDirectory:
+                        directory:
                           type: string
                       required:
                         - configMapName
-                        - storageDirectory
+                        - directory
                       type: object
                     s3:
                       properties:

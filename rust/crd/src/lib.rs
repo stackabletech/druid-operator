@@ -110,7 +110,7 @@ pub enum Error {
 #[derive(Clone, CustomResource, Debug, Deserialize, JsonSchema, Serialize)]
 #[kube(
     group = "druid.stackable.tech",
-    version = "v1alpha1",
+    version = "v1alpha2",
     kind = "DruidCluster",
     plural = "druidclusters",
     shortname = "druid",
@@ -389,7 +389,7 @@ impl DeepStorageSpec {
 #[serde(rename_all = "camelCase")]
 pub struct HdfsDeepStorageSpec {
     pub config_map_name: String,
-    pub storage_directory: String,
+    pub directory: String,
 }
 
 #[derive(Clone, Debug, Deserialize, JsonSchema, PartialEq, Serialize)]
@@ -498,10 +498,7 @@ impl Configuration for DruidConfig {
                 );
                 match &resource.spec.deep_storage {
                     DeepStorageSpec::HDFS(hdfs) => {
-                        result.insert(
-                            DS_DIRECTORY.to_string(),
-                            Some(hdfs.storage_directory.to_string()),
-                        );
+                        result.insert(DS_DIRECTORY.to_string(), Some(hdfs.directory.to_string()));
                     }
                     DeepStorageSpec::S3(s3_spec) => {
                         if let Some(key) = &s3_spec.base_key {
@@ -632,7 +629,7 @@ mod tests {
                 metadata_storage_database: Default::default(),
                 deep_storage: HDFS(HdfsDeepStorageSpec {
                     config_map_name: "simple-hdfs".to_string(),
-                    storage_directory: "/path/to/dir".to_string(),
+                    directory: "/path/to/dir".to_string(),
                 }),
                 ingestion: Default::default(),
                 zookeeper_config_map_name: Default::default(),

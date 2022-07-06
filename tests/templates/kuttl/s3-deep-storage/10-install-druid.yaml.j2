@@ -5,7 +5,7 @@ metadata:
   name: install-druid
 timeout: 600
 ---
-apiVersion: secrets.stackable.tech/v1alpha1
+apiVersion: secrets.stackable.tech/v1alpha2
 kind: SecretClass
 metadata:
   name: druid-s3-credentials
@@ -25,7 +25,7 @@ stringData:
   accessKey: druid
   secretKey: druiddruid
 ---
-apiVersion: druid.stackable.tech/v1alpha1
+apiVersion: druid.stackable.tech/v1alpha2
 kind: DruidCluster
 metadata:
   name: druid-s3-deep-storage
