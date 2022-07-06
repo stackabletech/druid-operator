@@ -6,8 +6,10 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- BREAKING: HDFS deep storage now configurable via HDFS discovery config map instead of an url to a HDFS name node ([#262]).
 - Include chart name when installing with a custom release name ([#263], [#264]).
 
+[#262]: https://github.com/stackabletech/druid-operator/pull/262
 [#263]: https://github.com/stackabletech/druid-operator/pull/263
 [#264]: https://github.com/stackabletech/druid-operator/pull/264
 
@@ -68,7 +70,7 @@ All notable changes to this project will be documented in this file.
 
 - Monitoring scraping label `prometheus.io/scrape: true` ([#155]).
 
-### Changed 
+### Changed
 
 - Removed the option to set a namespace for the zookeeper reference ([#140])
 - `operator-rs` `0.8.0` → `0.10.0` ([#155])

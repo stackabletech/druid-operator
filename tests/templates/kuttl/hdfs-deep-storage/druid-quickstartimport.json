@@ -1,0 +1,66 @@
+{
+  "type": "index_parallel",
+  "spec": {
+    "ioConfig": {
+      "type": "index_parallel",
+      "inputSource": {
+        "type": "local",
+        "baseDir": "quickstart/tutorial/",
+        "filter": "wikiticker-2015-09-12-sampled.json.gz"
+      },
+      "inputFormat": {
+        "type": "json"
+      }
+    },
+    "tuningConfig": {
+      "type": "index_parallel",
+      "partitionsSpec": {
+        "type": "dynamic"
+      }
+    },
+    "dataSchema": {
+      "dataSource": "wikipedia-2015-09-12",
+      "timestampSpec": {
+        "column": "time",
+        "format": "iso"
+      },
+      "dimensionsSpec": {
+        "dimensions": [
+          "channel",
+          "cityName",
+          "comment",
+          "countryIsoCode",
+          "countryName",
+          "isAnonymous",
+          "isMinor",
+          "isNew",
+          "isRobot",
+          "isUnpatrolled",
+          "metroCode",
+          "namespace",
+          "page",
+          "regionIsoCode",
+          "regionName",
+          "user",
+          {
+            "type": "long",
+            "name": "delta"
+          },
+          {
+            "type": "long",
+            "name": "added"
+          },
+          {
+            "type": "long",
+            "name": "deleted"
+          }
+        ]
+      },
+      "granularitySpec": {
+        "queryGranularity": "none",
+        "rollup": false,
+        "segmentGranularity": "day"
+      }
+    }
+  }
+}

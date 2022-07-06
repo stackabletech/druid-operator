@@ -3,7 +3,7 @@ apiVersion: kuttl.dev/v1beta1
 kind: TestStep
 metadata:
   name: install-druid
-timeout: 180
+timeout: 600
 ---
 apiVersion: druid.stackable.tech/v1alpha1
 kind: DruidCluster
@@ -22,7 +22,8 @@ spec:
     port: 1527
   deepStorage:
     hdfs:
-      storageDirectory: hdfs://druid-hdfs-namenode-default-0:8020/data
+      configMapName: druid-hdfs
+      directory: /druid
   brokers:
     configOverrides:
       runtime.properties:

@@ -205,10 +205,13 @@ spec:
                   properties:
                     hdfs:
                       properties:
-                        storageDirectory:
+                        configMapName:
+                          type: string
+                        directory:
                           type: string
                       required:
-                        - storageDirectory
+                        - configMapName
+                        - directory
                       type: object
                     s3:
                       properties:
