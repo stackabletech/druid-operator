@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Changed
+
+- Include chart name when installing with a custom release name ([#263], [#264]).
+
+[#263]: https://github.com/stackabletech/druid-operator/pull/263
+[#264]: https://github.com/stackabletech/druid-operator/pull/264
+
 ## [0.6.0] - 2022-06-30
 
 ### Added
