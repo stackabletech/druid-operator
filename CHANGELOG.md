@@ -6,7 +6,7 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
- - Include chart name when installing with a custom release name ([#263], [#264]).
+- Include chart name when installing with a custom release name ([#263], [#264]).
 
 [#263]: https://github.com/stackabletech/druid-operator/pull/263
 [#264]: https://github.com/stackabletech/druid-operator/pull/264
