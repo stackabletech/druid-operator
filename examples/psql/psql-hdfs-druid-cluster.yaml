@@ -60,7 +60,7 @@ spec:
             kubernetes.io/os: linux
         replicas: 1
 ---
-apiVersion: druid.stackable.tech/v1alpha2
+apiVersion: druid.stackable.tech/v1alpha1
 kind: DruidCluster
 metadata:
   name: psql-druid

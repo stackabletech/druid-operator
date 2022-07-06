@@ -17,7 +17,7 @@ spec:
   scope: Namespaced
   versions:
     - additionalPrinterColumns: []
-      name: v1alpha2
+      name: v1alpha1
       schema:
         openAPIV3Schema:
           description: "Auto-generated derived type for DruidClusterSpec via `CustomResource`"

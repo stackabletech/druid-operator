@@ -110,7 +110,7 @@ pub enum Error {
 #[derive(Clone, CustomResource, Debug, Deserialize, JsonSchema, Serialize)]
 #[kube(
     group = "druid.stackable.tech",
-    version = "v1alpha2",
+    version = "v1alpha1",
     kind = "DruidCluster",
     plural = "druidclusters",
     shortname = "druid",
