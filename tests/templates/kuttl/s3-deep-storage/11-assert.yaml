@@ -5,4 +5,4 @@ metadata:
   name: install-healthcheck-files
 commands:
   - script: kubectl exec -n $NAMESPACE checks-0 -- python /tmp/healthcheck.py druid-s3-deep-storage
-timeout: 300
+    timeout: 300
