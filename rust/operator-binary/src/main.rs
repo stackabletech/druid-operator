@@ -2,6 +2,8 @@ mod config;
 mod discovery;
 mod druid_controller;
 
+use std::sync::Arc;
+
 use clap::Parser;
 use futures::StreamExt;
 use stackable_druid_crd::{DruidCluster, APP_NAME};
@@ -12,11 +14,7 @@ use stackable_operator::{
         apps::v1::StatefulSet,
         core::v1::{ConfigMap, Service},
     },
-    kube::{
-        api::ListParams,
-        runtime::{controller::Context, Controller},
-        CustomResourceExt,
-    },
+    kube::{api::ListParams, runtime::Controller, CustomResourceExt},
     logging::controller::report_controller_reconciled,
 };
 
@@ -82,7 +80,7 @@ async fn main() -> anyhow::Result<()> {
             .run(
                 druid_controller::reconcile_druid,
                 druid_controller::error_policy,
-                Context::new(druid_controller::Ctx {
+                Arc::new(druid_controller::Ctx {
                     client: client.clone(),
                     product_config,
                 }),
