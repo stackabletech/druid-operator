@@ -30,16 +30,20 @@ pub enum Error {
 /// Builds discovery [`ConfigMap`]s for connecting to a [`DruidCluster`]
 pub async fn build_discovery_configmaps(
     owner: &impl Resource<DynamicType = ()>,
+    managed_by: &str,
     druid: &DruidCluster,
 ) -> Result<Vec<ConfigMap>, Error> {
     let name = owner.name();
-    Ok(vec![build_discovery_configmap(&name, owner, druid)?])
+    Ok(vec![build_discovery_configmap(
+        &name, owner, managed_by, druid,
+    )?])
 }
 
 /// Build a discovery [`ConfigMap`] containing information about how to connect to a certain [`DruidCluster`]
 fn build_discovery_configmap(
     name: &str,
     owner: &impl Resource<DynamicType = ()>,
+    managed_by: &str,
     druid: &DruidCluster,
 ) -> Result<ConfigMap, Error> {
     let router_host = format!(
@@ -68,6 +72,7 @@ fn build_discovery_configmap(
                     druid,
                     APP_NAME,
                     druid_version(druid).unwrap_or("unknown"),
+                    managed_by,
                     &DruidRole::Router.to_string(),
                     "discovery",
                 )

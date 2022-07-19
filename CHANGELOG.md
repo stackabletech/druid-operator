@@ -8,6 +8,7 @@ All notable changes to this project will be documented in this file.
 
 - BREAKING: HDFS deep storage now configurable via HDFS discovery config map instead of an url to a HDFS name node ([#262]).
 - Include chart name when installing with a custom release name ([#263], [#264]).
+- Orphaned resources are deleted
 
 [#262]: https://github.com/stackabletech/druid-operator/pull/262
 [#263]: https://github.com/stackabletech/druid-operator/pull/263
