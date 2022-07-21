@@ -11,7 +11,7 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 
-- Add prober startup, liveness and readiness probes ([#273])
+- Add proper startup, liveness and readiness probes ([#273])
 
 [#262]: https://github.com/stackabletech/druid-operator/pull/262
 [#263]: https://github.com/stackabletech/druid-operator/pull/263
