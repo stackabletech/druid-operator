@@ -2,6 +2,7 @@
 use crate::{
     config::{get_jvm_config, get_log4j_config},
     discovery::{self, build_discovery_configmaps},
+    probes::add_probes,
 };
 
 use snafu::{OptionExt, ResultExt, Snafu};
@@ -25,9 +26,7 @@ use stackable_operator::{
     k8s_openapi::{
         api::{
             apps::v1::{StatefulSet, StatefulSetSpec},
-            core::v1::{
-                ConfigMap, EnvVar, Probe, Service, ServicePort, ServiceSpec, TCPSocketAction,
-            },
+            core::v1::{ConfigMap, EnvVar, Service, ServicePort, ServiceSpec},
         },
         apimachinery::pkg::{apis::meta::v1::LabelSelector, util::intstr::IntOrString},
     },
@@ -596,17 +595,7 @@ fn build_rolegroup_statefulset(
             .build(),
     );
 
-    // readiness probe
-    let probe = Probe {
-        tcp_socket: Some(TCPSocketAction {
-            port: IntOrString::Int(role.get_http_port().into()),
-            ..Default::default()
-        }),
-        initial_delay_seconds: Some(30),
-        period_seconds: Some(5),
-        ..Default::default()
-    };
-    cb.readiness_probe(probe);
+    add_probes(&mut cb, &role);
 
     let mut container = cb.build();
     container.image_pull_policy = Some("IfNotPresent".to_string());
