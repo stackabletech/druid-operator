@@ -1,0 +1,73 @@
+= First cluster
+
+== Setup
+
+After going through the xref:installation.adoc[] section and have installed all the Operators, you can deploy product instances. You will also install an HDFS instance which is used as a deep storage backend by Druid, as well as a ZooKeeper instance which is needed by both Druid and HDFS.
+
+=== ZooKeeper
+
+Create a file named `zookeeper.yaml` with the following content:
+
+[source,yaml]
+
+----
+include::example$code/zookeeper.yaml[]
+----
+
+Then create the resources by applying the manifest file
+
+[source,bash]
+----
+include::example$code/getting-started.sh[tag=install-zookeeper]
+----
+
+The command should output this:
+----
+zookeepercluster.zookeeper.stackable.tech/simple-zk created
+zookeeperznode.zookeeper.stackable.tech/simple-druid-znode created
+----
+
+=== HDFS
+
+Druid needs a data storage location, we will use HDFS.
+
+Create the file:
+
+[source,yaml]
+----
+include::example$code/hdfs.yaml[]
+----
+
+
+----
+include::example$code/getting-started.sh[tag=install-hdfs]
+----
+
+=== PostgreSQL
+
+----
+include::example$code/getting-started.sh[tag=install-bitnami-postgres]
+----
+
+=== Druid
+
+Create a file named `druid.yaml` with the following content:
+
+[source,yaml]
+----
+include::example$code/druid.yaml[]
+----
+
+----
+include::example$code/getting-started.sh[tag=install-druid]
+----
+
+== Verify that it works
+
+- Open the web interface
+- run an ingestion job
+- do a query
+
+== What's next
+
+Have a look at the xref::usage.adoc[] page to find out more about features

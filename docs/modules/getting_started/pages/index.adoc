@@ -1,0 +1,13 @@
+= Getting started
+
+At the end of this guide, you will have a Druid instance running.
+
+The Guide is divided into two steps
+
+* installing all the operators
+* setting up the Druid instance and its depenencies
+
+== Prerequisites
+
+Helm
+kubectl
