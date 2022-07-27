@@ -1,7 +1,6 @@
 mod config;
 mod discovery;
 mod druid_controller;
-mod probes;
 
 use std::sync::Arc;
 
