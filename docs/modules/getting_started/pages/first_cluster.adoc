@@ -43,12 +43,6 @@ include::example$code/hdfs.yaml[]
 include::example$code/getting-started.sh[tag=install-hdfs]
 ----
 
-=== PostgreSQL
-
-----
-include::example$code/getting-started.sh[tag=install-bitnami-postgres]
-----
-
 === Druid
 
 Create a file named `druid.yaml` with the following content:
@@ -64,10 +58,52 @@ include::example$code/getting-started.sh[tag=install-druid]
 
 == Verify that it works
 
-- Open the web interface
-- run an ingestion job
-- do a query
+First, make sure that all the Pods in the StatefulSets are ready:
+
+----
+kubectl get statefulset
+----
+
+
+----
+NAME                                 READY   AGE
+simple-druid-broker-default          1/1     5m
+simple-druid-coordinator-default     1/1     5m
+simple-druid-historical-default      1/1     5m
+simple-druid-middlemanager-default   1/1     5m
+simple-druid-router-default          1/1     5m
+simple-hdfs-datanode-default         1/1     6m
+simple-hdfs-journalnode-default      1/1     6m
+simple-hdfs-namenode-default         2/2     6m
+simple-zk-server-default             3/3     7m
+----
+
+Then, port-forward the Druid Router:
+
+----
+kubectl port-forward svc/simple-druid-router 8888
+----
+
+Navigate your browser to https://localhost:8888/ to find the dashboard:
+
+image::dashboard.png[]
+
+Now load the example data:
+
+image::load_example.png[]
+
+Click through all pages of the load process. You can also follow the https://druid.apache.org/docs/latest/tutorials/index.html#step-4-load-data[Druid Quickstart Guide].
+
+Once you finished the ingestion dialog you should see the ingestion overview with the job, which will eventually show SUCCESS:
+
+image::load_success.png[]
+
+You can now navigate to "Query" in the menu and query the `wikipedia` table:
+
+image::query.png[]
+
+Great! You've set up your first Druid cluster, ingested some data and queried it in the web interface!
 
 == What's next
 
-Have a look at the xref::usage.adoc[] page to find out more about features
+Have a look at the xref::usage.adoc[] page to find out more about features.

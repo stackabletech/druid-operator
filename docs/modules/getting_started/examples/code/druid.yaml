@@ -2,7 +2,7 @@
 apiVersion: druid.stackable.tech/v1alpha1
 kind: DruidCluster
 metadata:
-  name: simple-derby-druid
+  name: simple-druid
 spec:
   version: 0.23.0-stackable0.1.0
   zookeeperConfigMapName: simple-druid-znode
