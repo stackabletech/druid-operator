@@ -1,4 +1,5 @@
-#!/bin/bash
+#!/usr/bin/env bash
+set -euo pipefail
 
 # The getting started guide script
 # It uses tagged regions which are included in the documentation
@@ -15,11 +16,11 @@ helm repo add stackable https://repo.stackable.tech/repository/helm-stable/
 # end::helm-add-repo[]
 echo "Installing Druid and ZooKeeper Operators with Helm"
 # tag::helm-install-operators[]
-helm install commons-operator stackable/commons-operator
-helm install secret-operator stackable/secret-operator
-helm install zookeeper-operator stackable/zookeeper-operator
-helm install hdfs-operator stackable/hdfs-operator
-helm install druid-operator stackable/druid-operator
+helm install --wait commons-operator stackable/commons-operator
+helm install --wait secret-operator stackable/secret-operator
+helm install --wait zookeeper-operator stackable/zookeeper-operator
+helm install --wait hdfs-operator stackable/hdfs-operator
+helm install --wait druid-operator stackable/druid-operator
 # end::helm-install-operators[]
 ;;
 "stackablectl")
@@ -35,6 +36,8 @@ echo "Installing ZooKeeper from zookeeper.yaml"
 kubectl apply -f zookeeper.yaml
 # end::install-zookeeper[]
 
+sleep 5
+
 echo "Awaiting ZooKeeper rollout finish"
 # tag::watch-zookeeper-rollout[]
 kubectl rollout status --watch statefulset/simple-zk-server-default
@@ -44,6 +47,8 @@ echo "Installing HDFS from hdfs.yaml"
 # tag::install-hdfs[]
 kubectl apply -f hdfs.yaml
 # end::install-hdfs[]
+
+sleep 5
 
 echo "Awaiting HDFS rollout finish"
 # tag::watch-hdfs-rollout[]
@@ -57,6 +62,8 @@ echo "Install DruidCluster from druid.yaml"
 kubectl apply -f druid.yaml
 # end::install-druid[]
 
+sleep 5
+
 echo "Awaiting Druid rollout finish"
 # tag::watch-druid-rollout[]
 kubectl rollout status --watch statefulset/simple-druid-broker-default
@@ -69,7 +76,60 @@ kubectl rollout status --watch statefulset/simple-druid-router-default
 
 # next, make sure everything is up and running, then open the port-forwarding
 
-# kubectl port-forward svc/simple-druid-router 8888
+port_forwarding() {
+# tag::port-forwarding[]
+kubectl port-forward svc/simple-druid-router 8888
+# end::port-forwarding[]
+}
+
+echo "Startin port-forwarding of port 8888"
+port_forwarding 2>&1 >/dev/null &
+PORT_FORWARD_PID=$!
+trap 'kill $PORT_FORWARD_PID' EXIT
+sleep 5
+
+submit_job() {
+# tag::submit-job[]
+curl -s -X 'POST' -H 'Content-Type:application/json' -d @ingestion_spec.json http://localhost:8888/druid/indexer/v1/task
+# end::submit-job[]
+}
+
+echo "Submitting job"
+task_id=$(submit_job | sed -e 's/.*":"\([^"]\+\).*/\1/g')
+
+request_job_status() {
+  curl -s http://localhost:8888/druid/indexer/v1/task/${task_id}/status | sed -e 's/.*statusCode":"\([^"]\+\).*/\1/g'
+}
+
+while [ "$(request_job_status)" == "RUNNING" ]; do
+  echo "Task still running ..."
+  sleep 5
+done
+
+task_status=$(request_job_status)
+
+if [ "$task_status" == "SUCCESS" ]; then
+  echo "Task finished successfully!"
+else
+  echo "Task not successful: $task_status"
+  exit 1
+fi
 
 
-# TODO I think HDFS is missing. And Postgres might not be necessary, it looks like derby works
+query_data() {
+curl -s -X 'POST' -H 'Content-Type:application/json' -d @query.json http://localhost:8888/druid/v2/sql
+}
+
+echo "Querying data ..."
+query_result=$(query_data)
+
+if [ "$query_result" == "$(cat expected_query_result.json)" ]; then
+  echo "Query result is as expected!"
+else
+  echo "Query result differs from expected result."
+  echo "Query:\n$query_result"
+  echo "Expected:\n$(cat expected_query_result.json)"
+  exit 1
+fi
+
+exit 0

@@ -25,6 +25,7 @@ The command should output this:
 ----
 zookeepercluster.zookeeper.stackable.tech/simple-zk created
 zookeeperznode.zookeeper.stackable.tech/simple-druid-znode created
+zookeeperznode.zookeeper.stackable.tech/simple-hdfs-znode created
 ----
 
 === HDFS
@@ -58,12 +59,16 @@ include::example$code/getting-started.sh[tag=install-druid]
 
 == Verify that it works
 
+Next you will submit an ingestion job and then query the ingested data  - either through the web interface or the API.
+
 First, make sure that all the Pods in the StatefulSets are ready:
 
+[source,bash]
 ----
 kubectl get statefulset
 ----
 
+The output should show all pods ready:
 
 ----
 NAME                                 READY   AGE
@@ -81,8 +86,12 @@ simple-zk-server-default             3/3     7m
 Then, port-forward the Druid Router:
 
 ----
-kubectl port-forward svc/simple-druid-router 8888
+include::example$code/getting-started.sh[tag=port-forwarding]
 ----
+
+=== Ingest example data
+
+Next, we will ingest some example data using the web interface.
 
 Navigate your browser to https://localhost:8888/ to find the dashboard:
 
@@ -97,6 +106,25 @@ Click through all pages of the load process. You can also follow the https://dru
 Once you finished the ingestion dialog you should see the ingestion overview with the job, which will eventually show SUCCESS:
 
 image::load_success.png[]
+
+.Alternative: Using the command line
+[%collapsible]
+====
+
+If you prefer to not use the user interface and instead interact with the API, create a file `ingestion_spec.json` with the following contents:
+
+[source,json]
+include::example$code/ingestion_spec.json[]
+
+Submit the file with the following `curl` command:
+
+[source,bash]
+include::example$code/getting-started.sh[tag=submit-job]
+
+====
+
+
+=== Query the data
 
 You can now navigate to "Query" in the menu and query the `wikipedia` table:
 

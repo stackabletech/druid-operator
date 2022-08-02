@@ -13,7 +13,8 @@ spec:
     port: 1527
   deepStorage:
     hdfs:
-      storageDirectory: hdfs://simple-hdfs-namenode-default-0:8020/data
+      configMapName: simple-hdfs
+      directory: /data
   brokers:
     roleGroups:
       default:
