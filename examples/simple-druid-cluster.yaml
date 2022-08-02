@@ -17,6 +17,44 @@ spec:
 apiVersion: zookeeper.stackable.tech/v1alpha1
 kind: ZookeeperZnode
 metadata:
+  name: simple-hdfs-znode
+spec:
+  clusterRef:
+    name: simple-zk
+---
+apiVersion: hdfs.stackable.tech/v1alpha1
+kind: HdfsCluster
+metadata:
+  name: simple-hdfs
+spec:
+  version: 3.3.3-stackable0.1.0
+  zookeeperConfigMapName: simple-hdfs-znode
+  dfsReplication: 1
+  nameNodes:
+    roleGroups:
+      default:
+        selector:
+          matchLabels:
+            kubernetes.io/os: linux
+        replicas: 2
+  dataNodes:
+    roleGroups:
+      default:
+        selector:
+          matchLabels:
+            kubernetes.io/os: linux
+        replicas: 1
+  journalNodes:
+    roleGroups:
+      default:
+        selector:
+          matchLabels:
+            kubernetes.io/os: linux
+        replicas: 1
+---
+apiVersion: zookeeper.stackable.tech/v1alpha1
+kind: ZookeeperZnode
+metadata:
   name: simple-druid-znode
 spec:
   clusterRef:
@@ -25,7 +63,7 @@ spec:
 apiVersion: secrets.stackable.tech/v1alpha1
 kind: SecretClass
 metadata:
-  name: s3-credentials-class
+  name: druid-s3-credentials
 spec:
   backend:
     k8sSearch:
@@ -35,12 +73,12 @@ spec:
 apiVersion: v1
 kind: Secret
 metadata:
-  name: s3-credentials
+  name: druid-s3-credentials
   labels:
-    secrets.stackable.tech/class: s3-credentials-class
+    secrets.stackable.tech/class: druid-s3-credentials
 stringData:
-  accessKey: YOUR_VALID_ACCESS_KEY_ID_HERE
-  secretKey: YOUR_SECRET_ACCES_KEY_THATBELONGS_TO_THE_KEY_ID_HERE
+  accessKey: YOUR_ACCESS_KEY
+  secretKey: YOUR_SECRET_KEY
 ---
 apiVersion: druid.stackable.tech/v1alpha1
 kind: DruidCluster
@@ -56,13 +94,16 @@ spec:
     port: 1527
   deepStorage:
     hdfs:
-      storageDirectory: hdfs://simple-hdfs-namenode-default-0:8020/data
+      configMapName: simple-hdfs
+      directory: /druid
   ingestion:
     s3connection:
       inline:
-        host: mys3host.com
+        host: minio-druid
+        port: 9000
+        accessStyle: Path
         credentials:
-          secretClass: s3-credentials-class
+          secretClass: druid-s3-credentials
   brokers:
     roleGroups:
       default:
@@ -102,56 +143,4 @@ spec:
           matchLabels:
             kubernetes.io/os: linux
         config: {}
-        replicas: 1
----
-apiVersion: zookeeper.stackable.tech/v1alpha1
-kind: ZookeeperZnode
-metadata:
-  name: simple-hdfs-znode
-spec:
-  clusterRef:
-    name: simple-zk
----
-apiVersion: hdfs.stackable.tech/v1alpha1
-kind: HdfsCluster
-metadata:
-  name: simple-hdfs
-spec:
-  version: 3.2.2-stackable0.5.0
-  zookeeperConfigMapName: simple-hdfs-znode
-  dfsReplication: 3
-  log4j: |-
-    # Define some default values that can be overridden by system properties
-    hadoop.root.logger=INFO,console
-    hadoop.log.dir=.
-    hadoop.log.file=hadoop.log
-    # Define the root logger to the system property "hadoop.root.logger".
-    log4j.rootLogger=${hadoop.root.logger}, EventCounter
-    # Logging Threshold
-    log4j.threshold=ALL
-    log4j.appender.console=org.apache.log4j.ConsoleAppender
-    log4j.appender.console.target=System.err
-    log4j.appender.console.layout=org.apache.log4j.PatternLayout
-    log4j.appender.console.layout.ConversionPattern=%d{ISO8601} %p %c{2}: %m%n
-    log4j.appender.EventCounter=org.apache.hadoop.log.metrics.EventCounter
-  nameNodes:
-    roleGroups:
-      default:
-        selector:
-          matchLabels:
-            kubernetes.io/os: linux
-        replicas: 2
-  dataNodes:
-    roleGroups:
-      default:
-        selector:
-          matchLabels:
-            kubernetes.io/os: linux
-        replicas: 1
-  journalNodes:
-    roleGroups:
-      default:
-        selector:
-          matchLabels:
-            kubernetes.io/os: linux
         replicas: 1

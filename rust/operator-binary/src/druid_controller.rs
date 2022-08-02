@@ -7,8 +7,9 @@ use crate::{
 use snafu::{OptionExt, ResultExt, Snafu};
 use stackable_druid_crd::{
     DeepStorageSpec, DruidCluster, DruidRole, APP_NAME, AUTH_AUTHORIZER_OPA_URI, CERTS_DIR,
-    CONTAINER_HTTP_PORT, CONTAINER_METRICS_PORT, CREDENTIALS_SECRET_PROPERTY, DRUID_METRICS_PORT,
-    DS_BUCKET, JVM_CONFIG, LOG4J2_CONFIG, RUNTIME_PROPS, S3_ENDPOINT_URL, S3_PATH_STYLE_ACCESS,
+    CONTAINER_HTTP_PORT, CONTAINER_METRICS_PORT, CREDENTIALS_SECRET_PROPERTY,
+    DRUID_CONFIG_DIRECTORY, DRUID_METRICS_PORT, DS_BUCKET, HDFS_CONFIG_DIRECTORY, JVM_CONFIG,
+    LOG4J2_CONFIG, RUNTIME_PROPS, RW_CONFIG_DIRECTORY, S3_ENDPOINT_URL, S3_PATH_STYLE_ACCESS,
     S3_SECRET_DIR_NAME, ZOOKEEPER_CONNECTION_STRING,
 };
 use stackable_operator::{
@@ -31,10 +32,7 @@ use stackable_operator::{
         apimachinery::pkg::{apis::meta::v1::LabelSelector, util::intstr::IntOrString},
     },
     kube::{
-        runtime::{
-            controller::{Action, Context},
-            reflector::ObjectRef,
-        },
+        runtime::{controller::Action, reflector::ObjectRef},
         ResourceExt,
     },
     labels::{role_group_selector_labels, role_selector_labels},
@@ -157,9 +155,9 @@ impl ReconcilerError for Error {
     }
 }
 
-pub async fn reconcile_druid(druid: Arc<DruidCluster>, ctx: Context<Ctx>) -> Result<Action> {
+pub async fn reconcile_druid(druid: Arc<DruidCluster>, ctx: Arc<Ctx>) -> Result<Action> {
     tracing::info!("Starting reconcile");
-    let client = &ctx.get_ref().client;
+    let client = &ctx.client;
 
     let zk_confmap = druid.spec.zookeeper_config_map_name.clone();
     let zk_connstr = client
@@ -231,7 +229,7 @@ pub async fn reconcile_druid(druid: Arc<DruidCluster>, ctx: Context<Ctx>) -> Res
     let validated_role_config = validate_all_roles_and_groups_config(
         druid_version(&druid)?,
         &role_config.context(ProductConfigTransformSnafu)?,
-        &ctx.get_ref().product_config,
+        &ctx.product_config,
         false,
         false,
     )
@@ -573,10 +571,28 @@ fn build_rolegroup_statefulset(
     cb.add_container_port(CONTAINER_METRICS_PORT, DRUID_METRICS_PORT.into());
 
     // config mount
-    cb.add_volume_mount("config", "/stackable/conf");
+    cb.add_volume_mount("config", DRUID_CONFIG_DIRECTORY);
     pb.add_volume(
         VolumeBuilder::new("config")
             .with_config_map(rolegroup_ref.object_name())
+            .build(),
+    );
+
+    // hdfs deep storage mount
+    if let DeepStorageSpec::HDFS(hdfs) = &druid.spec.deep_storage {
+        cb.add_volume_mount("hdfs", HDFS_CONFIG_DIRECTORY);
+        pb.add_volume(
+            VolumeBuilder::new("hdfs")
+                .with_config_map(&hdfs.config_map_name)
+                .build(),
+        );
+    }
+
+    // read write config folder
+    cb.add_volume_mount("rwconfig", RW_CONFIG_DIRECTORY);
+    pb.add_volume(
+        VolumeBuilder::new("rwconfig")
+            .with_empty_dir(Some(""), None)
             .build(),
     );
 
@@ -643,6 +659,6 @@ pub fn druid_version(druid: &DruidCluster) -> Result<&str> {
     Ok(&druid.spec.version)
 }
 
-pub fn error_policy(_error: &Error, _ctx: Context<Ctx>) -> Action {
+pub fn error_policy(_error: &Error, _ctx: Arc<Ctx>) -> Action {
     Action::requeue(Duration::from_secs(5))
 }

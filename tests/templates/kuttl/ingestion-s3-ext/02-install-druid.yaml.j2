@@ -3,7 +3,7 @@ apiVersion: kuttl.dev/v1beta1
 kind: TestStep
 metadata:
   name: install-druid
-timeout: 180
+timeout: 600
 ---
 apiVersion: druid.stackable.tech/v1alpha1
 kind: DruidCluster
@@ -25,7 +25,8 @@ spec:
           secretClass: s3-credentials-class
   deepStorage:
     hdfs:
-      storageDirectory: hdfs://druid-hdfs-namenode-default-0:8020/data
+      configMapName: druid-hdfs
+      directory: /druid
   brokers:
     roleGroups:
       default:

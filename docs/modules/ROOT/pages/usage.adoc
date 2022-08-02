@@ -63,8 +63,9 @@ spec:
     user: druid
     password: druid
   deepStorage:
-    storageType: hdfs
-    storageDirectory: hdfs://path/to/druidDeepStorage
+    hdfs:
+      configMapName: simple-hdfs
+      directory: /druid
   brokers:
     roleGroups:
       default:
@@ -154,7 +155,6 @@ spec:
 <3> Optional bucket port.
 <4> Credentials explained <<S3 Credentials, below>>.
 
-
 It is also possible to configure the bucket connection details as a separate Kubernetes resource and only refer to that object from the `DruidCluster` like this:
 
 [source,yaml]
@@ -233,6 +233,21 @@ credentials:
 ...
 ----
 
+=== HDFS deep storage
+
+Druid can use HDFS as a backend for deep storage:
+
+[source,yaml]
+----
+spec:
+  deepStorage:
+    hdfs:
+      configMapName: simple-hdfs # <1>
+      directory: /druid # <2>
+...
+----
+<1> Name of the HDFS cluster discovery config map. Can be supplied manually for a cluster not provided by Stackable. Needs to contain the `core-site.xml` and `hdfs-site.xml`.
+<2> The directory where to store the druid data.
 
 == Using Open Policy Agent (OPA) for Authorization
 
@@ -351,6 +366,5 @@ routers:
       config: {}
       replicas: 1
 ----
-
 
 // cliOverrides don't make sense for this operator, so the feature is omitted for now

@@ -17,10 +17,48 @@ spec:
 apiVersion: zookeeper.stackable.tech/v1alpha1
 kind: ZookeeperZnode
 metadata:
-  name: simple-druid-znode
+  name: simple-hdfs-znode
+spec:
+  clusterRef:
+    name: druid-zk
+---
+apiVersion: zookeeper.stackable.tech/v1alpha1
+kind: ZookeeperZnode
+metadata:
+  name: psql-druid-znode
 spec:
   clusterRef:
     name: simple-zk
+---
+apiVersion: hdfs.stackable.tech/v1alpha1
+kind: HdfsCluster
+metadata:
+  name: simple-hdfs
+spec:
+  version: 3.3.3-stackable0.1.0
+  zookeeperConfigMapName: psql-druid-znode
+  dfsReplication: 1
+  nameNodes:
+    roleGroups:
+      default:
+        selector:
+          matchLabels:
+            kubernetes.io/os: linux
+        replicas: 2
+  dataNodes:
+    roleGroups:
+      default:
+        selector:
+          matchLabels:
+            kubernetes.io/os: linux
+        replicas: 1
+  journalNodes:
+    roleGroups:
+      default:
+        selector:
+          matchLabels:
+            kubernetes.io/os: linux
+        replicas: 1
 ---
 apiVersion: druid.stackable.tech/v1alpha1
 kind: DruidCluster
@@ -28,7 +66,7 @@ metadata:
   name: psql-druid
 spec:
   version: 0.23.0-stackable0.1.0
-  zookeeperConfigMapName: simple-druid-znode
+  zookeeperConfigMapName: psql-druid-znode
   metadataStorageDatabase:
     dbType: postgresql
     connString: jdbc:postgresql://druid-postgresql/druid
@@ -37,8 +75,9 @@ spec:
     user: druid
     password: druid
   deepStorage:
-    storageType: hdfs
-    storageDirectory: hdfs://simple-hdfs-namenode-default-0:8020/data
+    hdfs:
+      configMapName: simple-hdfs
+      directory: /druid
   brokers:
     roleGroups:
       default:

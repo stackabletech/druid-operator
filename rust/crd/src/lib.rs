@@ -17,6 +17,11 @@ use strum::{Display, EnumDiscriminants, EnumIter, EnumString, IntoStaticStr};
 
 pub const APP_NAME: &str = "druid";
 
+// config directories
+pub const DRUID_CONFIG_DIRECTORY: &str = "/stackable/config";
+pub const HDFS_CONFIG_DIRECTORY: &str = "/stackable/hdfs";
+pub const RW_CONFIG_DIRECTORY: &str = "/stackable/rwconfig";
+
 // config file names
 pub const JVM_CONFIG: &str = "jvm.config";
 pub const RUNTIME_PROPS: &str = "runtime.properties";
@@ -206,11 +211,26 @@ impl DruidRole {
                 shell_cmd.push(format!("export {ENV_S3_SECRET_KEY}=$(cat {S3_SECRET_DIR_NAME}/{SECRET_KEY_S3_SECRET_KEY})"));
             }
         }
+
+        // copy druid config to rw config
+        shell_cmd.push(format!(
+            "cp -RL {conf}/* {rw_conf}",
+            conf = DRUID_CONFIG_DIRECTORY,
+            rw_conf = RW_CONFIG_DIRECTORY
+        ));
+
+        // copy hdfs config to RW_CONFIG_DIRECTORY folder (if available)
+        shell_cmd.push(format!(
+            "cp -RL {hdfs_conf}/* {rw_conf} || :",
+            hdfs_conf = HDFS_CONFIG_DIRECTORY,
+            rw_conf = RW_CONFIG_DIRECTORY,
+        ));
+
         shell_cmd.push(format!(
             "{} {} {}",
             "/stackable/druid/bin/run-druid",
             self.get_process_name(),
-            "/stackable/conf",
+            RW_CONFIG_DIRECTORY,
         ));
         vec![
             "/bin/sh".to_string(),
@@ -368,7 +388,8 @@ impl DeepStorageSpec {
 #[derive(Clone, Debug, Deserialize, JsonSchema, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct HdfsDeepStorageSpec {
-    pub storage_directory: String,
+    pub config_map_name: String,
+    pub directory: String,
 }
 
 #[derive(Clone, Debug, Deserialize, JsonSchema, PartialEq, Serialize)]
@@ -476,11 +497,8 @@ impl Configuration for DruidConfig {
                     Some(resource.spec.deep_storage.to_string()),
                 );
                 match &resource.spec.deep_storage {
-                    DeepStorageSpec::HDFS(hdfs_spec) => {
-                        result.insert(
-                            DS_DIRECTORY.to_string(),
-                            Some(hdfs_spec.storage_directory.clone()),
-                        );
+                    DeepStorageSpec::HDFS(hdfs) => {
+                        result.insert(DS_DIRECTORY.to_string(), Some(hdfs.directory.to_string()));
                     }
                     DeepStorageSpec::S3(s3_spec) => {
                         if let Some(key) = &s3_spec.base_key {
@@ -610,7 +628,8 @@ mod tests {
                 },
                 metadata_storage_database: Default::default(),
                 deep_storage: HDFS(HdfsDeepStorageSpec {
-                    storage_directory: "/path/to/dir".to_string(),
+                    config_map_name: "simple-hdfs".to_string(),
+                    directory: "/path/to/dir".to_string(),
                 }),
                 ingestion: Default::default(),
                 zookeeper_config_map_name: Default::default(),

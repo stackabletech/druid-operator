@@ -22,13 +22,25 @@ spec:
   clusterRef:
     name: simple-zk
 ---
+apiVersion: secrets.stackable.tech/v1alpha1
+kind: SecretClass
+metadata:
+  name: druid-s3-credentials
+spec:
+  backend:
+    k8sSearch:
+      searchNamespace:
+        pod: {}
+---
 apiVersion: v1
 kind: Secret
 metadata:
-  name: s3-credentials
+  name: druid-s3-credentials
+  labels:
+    secrets.stackable.tech/class: druid-s3-credentials
 stringData:
-  accessKeyId: YOUR_VALID_ACCESS_KEY_ID_HERE
-  secretAccessKey: YOUR_SECRET_ACCES_KEY_THATBELONGS_TO_THE_KEY_ID_HERE
+  accessKey: YOUR_ACCESS_KEY
+  secretKey: YOUR_SECRET_KEY
 ---
 apiVersion: druid.stackable.tech/v1alpha1
 kind: DruidCluster
@@ -44,13 +56,18 @@ spec:
     port: 5432
     user: druid
     password: druid
-  s3:
-    endpoint: s3-de-central.profitbricks.com
-    credentialsSecret: s3-credentials    # this needs to be deployed additionally
   deepStorage:
-    storageType: s3
-    bucket: druid-deepstorage2
-    baseKey: storage               # this is optional; deep storage can also be at the root of the bucket
+    s3:
+      bucket:
+        inline:
+          bucketName: druid
+          connection:
+            inline:
+              host: minio-druid
+              port: 9000
+              accessStyle: Path
+              credentials:
+                secretClass: druid-s3-credentials
   brokers:
     roleGroups:
       default:
