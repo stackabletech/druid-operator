@@ -13,17 +13,17 @@ set -euo pipefail
 
 case "$1" in
 "helm")
-echo "Adding 'stackable' Helm Chart repository"
+echo "Adding 'stackable-dev' Helm Chart repository"
 # tag::helm-add-repo[]
 helm repo add stackable-dev https://repo.stackable.tech/repository/helm-dev/
 # end::helm-add-repo[]
-echo "Installing Druid and ZooKeeper Operators with Helm"
+echo "Installing Operators with Helm"
 # tag::helm-install-operators[]
-helm install --wait commons-operator stackable-dev/commons-operator=0.3.0-nightly
-helm install --wait secret-operator stackable-dev/secret-operator=0.6.0-nightly
-helm install --wait zookeeper-operator stackable-dev/zookeeper-operator=0.12.0-nightly
-helm install --wait hdfs-operator stackable-dev/hdfs-operator=0.5.0-nightly
-helm install --wait druid-operator stackable-dev/druid-operator=0.7.0-nightly
+helm install --wait commons-operator stackable-dev/commons-operator --version 0.3.0-nightly
+helm install --wait secret-operator stackable-dev/secret-operator --version 0.6.0-nightly
+helm install --wait zookeeper-operator stackable-dev/zookeeper-operator --version 0.11.0-nightly
+helm install --wait hdfs-operator stackable-dev/hdfs-operator --version 0.5.0-nightly
+helm install --wait druid-operator stackable-dev/druid-operator --version 0.7.0-nightly
 # end::helm-install-operators[]
 ;;
 "stackablectl")
@@ -32,7 +32,7 @@ echo "installing Operators with stackablectl"
 stackablectl operator install \
   commons=0.3.0-nightly \
   secret=0.6.0-nightly \
-  zookeeper= 0.12.0-nightly \
+  zookeeper=0.11.0-nightly \
   hdfs=0.5.0-nightly \
   druid=0.7.0-nightly
 # end::stackablectl-install-operators[]
