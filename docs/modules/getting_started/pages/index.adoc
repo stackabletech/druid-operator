@@ -1,6 +1,6 @@
 = Getting started
 
-This guide will get you started with using Druid with the Stackable Operator. It will guide you through installing the Operator and its dependencies, setting up your first Druid instance and connecting to it, ingesting example data and querying that data.
+This guide will get you started with Druid using the Stackable Operator. It will guide you through the installation of the Operator and its dependencies, setting up your first Druid instance and connecting to it, ingesting example data and querying that data.
 
 == Prerequisites
 
