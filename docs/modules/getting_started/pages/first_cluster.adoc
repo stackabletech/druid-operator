@@ -2,7 +2,7 @@
 
 == Setup
 
-After going through the xref:installation.adoc[] section and have installed all the Operators, you can deploy product instances. You will also install an HDFS instance which is used as a deep storage backend by Druid, as well as a ZooKeeper instance which is needed by both Druid and HDFS.
+After going through the xref:installation.adoc[] section and having installed all the Operators, you can deploy product instances. You will also install an HDFS instance which is used as a deep storage backend by Druid, as well as a ZooKeeper instance which is needed by both Druid and HDFS.
 
 === ZooKeeper
 
