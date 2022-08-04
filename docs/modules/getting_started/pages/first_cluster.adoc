@@ -81,7 +81,7 @@ simple-hdfs-namenode-default         2/2     6m
 simple-zk-server-default             3/3     7m
 ----
 
-Then, port-forward the Druid Router:
+Then, create a port-forward for the Druid Router:
 
 ----
 include::example$code/getting-started.sh[tag=port-forwarding]
