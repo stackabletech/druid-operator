@@ -97,7 +97,7 @@ Next, we will ingest some example data using the web interface. If you prefer to
 [%collapsible]
 ====
 
-If you prefer to not use the user interface and instead interact with the API, create a file `ingestion_spec.json` with the following contents:
+If you prefer to not use the web interface and instead interact with the API, create a file `ingestion_spec.json` with the following contents:
 
 [source,json]
 include::example$code/ingestion_spec.json[]
