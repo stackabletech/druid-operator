@@ -32,7 +32,7 @@ fi
 
 for file in $(find "$docs_dir" | grep .j2\$)
 do
-  new_file_name=$(echo $file | sed 's/\(.*\).j2/\1/g')  # cut of the '.j2'
+  new_file_name=$(echo "$file" | sed 's/\(.*\).j2/\1/g')  # cut of the '.j2'
   echo "templating $new_file_name"
   jinja2 "$file" "$templating_vars_file" -o "$new_file_name"
 done
