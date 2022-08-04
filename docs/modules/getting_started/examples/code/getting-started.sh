@@ -11,6 +11,12 @@ set -euo pipefail
 # The script can be run as a test as well, to make sure that the tutorial works
 # It includes some assertions throughout, and at the end especially.
 
+if [ $# -eq 0 ]
+then
+  echo "Installation method argument ('helm' or 'stackablectl') required."
+  exit 1
+fi
+
 case "$1" in
 "helm")
 echo "Adding 'stackable-dev' Helm Chart repository"
@@ -36,6 +42,10 @@ stackablectl operator install \
   hdfs=0.5.0-nightly \
   druid=0.7.0-nightly
 # end::stackablectl-install-operators[]
+;;
+*)
+echo "Need to give 'helm' or 'stackablectl' as an argument for which installation method to use!"
+exit 1
 ;;
 esac
 
@@ -99,7 +109,7 @@ echo "Submitting job"
 task_id=$(submit_job | sed -e 's/.*":"\([^"]\+\).*/\1/g')
 
 request_job_status() {
-  curl -s http://localhost:8888/druid/indexer/v1/task/"${task_id}"/status | sed -e 's/.*statusCode":"\([^"]\+\).*/\1/g'
+  curl -s http://localhost:8888/druid/indexer/v1/task/${task_id}/status | sed -e 's/.*statusCode":"\([^"]\+\).*/\1/g'
 }
 
 while [ "$(request_job_status)" == "RUNNING" ]; do
