@@ -111,7 +111,7 @@ Continue with the <<_query_the_data,next section>>.
 
 ====
 
-To open the user interface navigate your browser to https://localhost:8888/ to find the dashboard:
+To open the web interface navigate your browser to https://localhost:8888/ to find the dashboard:
 
 image::dashboard.png[]
 
