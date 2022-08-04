@@ -1,13 +1,18 @@
 = Getting started
 
-At the end of this guide, you will have a Druid instance running.
-
-The Guide is divided into two steps
-
-* installing all the operators
-* setting up the Druid instance and its depenencies
+This guide will get you started with using Druid with the Stackable Operator. It will guide you through installing the Operator and its dependencies, setting up your first Druid instance and connecting to it, ingesting example data and querying that data.
 
 == Prerequisites
 
-Helm
-kubectl
+You will need:
+
+* a Kubernetes cluster
+* kubectl
+* optional: Helm
+
+== What's next
+
+The Guide is divided into two steps:
+
+* xref:installation.adoc[Installing the Operators].
+* xref:first_cluster.adoc[Setting up the Druid instance and loading and querying example data].
