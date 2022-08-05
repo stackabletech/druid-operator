@@ -89,3 +89,12 @@ rules:
       - {{ include "operator.name" . }}clusters/status
     verbs:
       - patch
+  - apiGroups:
+      - s3.stackable.tech
+    resources:
+      - s3connections
+      - s3buckets
+    verbs:
+      - get
+      - list
+      - watch
