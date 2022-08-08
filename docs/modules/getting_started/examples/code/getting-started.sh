@@ -148,7 +148,7 @@ if [ "$query_result" == "$(cat expected_query_result.json)" ]; then
   echo "Query result is as expected!"
 else
   echo "Query result differs from expected result."
-  echo "Query:\n$query_result"
-  echo "Expected:\n$(cat expected_query_result.json)"
+  echo "Query: $query_result"
+  echo "Expected: $(cat expected_query_result.json)"
   exit 1
 fi
