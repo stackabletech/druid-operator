@@ -52,4 +52,4 @@ Helm will deploy the Operators in a Kubernetes Deployment and apply the CRDs for
 
 == What's next
 
-xref:first_cluster.adoc[Set up a Druid cluster].
+xref:first_steps.adoc[Set up a Druid cluster] and its dependencies and xref:first_steps.adoc#_ingest_example_data[ingest example data] and xref:first_steps.adoc#_query_the_data[query the data].
