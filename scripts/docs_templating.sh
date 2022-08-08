@@ -11,7 +11,7 @@ docs_dir=../docs
 templating_vars_file=$docs_dir/templating_vars.yaml
 
 # Check if files need templating
-if [[ $(find "$docs_dir" | grep .j2\$ | wc -l) -eq "0" ]];
+if [[ $(find "$docs_dir" | grep --count .j2\$) -eq "0" ]];
 then
   echo "No files need templating, exiting."
   exit

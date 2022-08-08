@@ -109,7 +109,7 @@ echo "Submitting job"
 task_id=$(submit_job | sed -e 's/.*":"\([^"]\+\).*/\1/g')
 
 request_job_status() {
-  curl -s http://localhost:8888/druid/indexer/v1/task/${task_id}/status | sed -e 's/.*statusCode":"\([^"]\+\).*/\1/g'
+  curl -s "http://localhost:8888/druid/indexer/v1/task/${task_id}/status" | sed -e 's/.*statusCode":"\([^"]\+\).*/\1/g'
 }
 
 while [ "$(request_job_status)" == "RUNNING" ]; do
