@@ -1,8 +1,16 @@
-= First cluster
+= First steps
+
+After going through the xref:installation.adoc[] section and having installed all the Operators, you will now deploy a Druid cluster and it's dependencies. Afterwards you can <<_verify_that_it_works, verify that it works>> by ingesting example data and subsequently query it.
 
 == Setup
 
-After going through the xref:installation.adoc[] section and having installed all the Operators, you can deploy product instances. You will also install an HDFS instance which is used as a deep storage backend by Druid, as well as a ZooKeeper instance which is needed by both Druid and HDFS.
+Three things need to be installed to have a Druid cluster:
+
+* A ZooKeeper instance for internal use by Druid
+* An HDFS instance to be used as a backend for deep storage
+* The Druid cluster itself
+
+We will create them in this order, each one is created by applying a manifest file. The Operators you just installed will then create the resources according to the manifest.
 
 === ZooKeeper
 
@@ -22,8 +30,6 @@ include::example$code/getting-started.sh[tag=install-zookeeper]
 ----
 
 === HDFS
-
-Druid needs a data storage location, we will use HDFS.
 
 Create `hdfs.yaml` with the following contents:
 
