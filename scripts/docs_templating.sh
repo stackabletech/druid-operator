@@ -7,11 +7,11 @@ set -euo pipefail
 # dependencies
 # pip install jinja2-cli
 
-docs_dir=../docs
-templating_vars_file=$docs_dir/templating_vars.yaml
+docs_dir="$(dirname "$0")/../docs"
+templating_vars_file="$docs_dir/templating_vars.yaml"
 
 # Check if files need templating
-if [[ $(find "$docs_dir" | grep --count .j2\$) -eq "0" ]];
+if [[ -z $(find "$docs_dir" -name '*.j2') ]];
 then
   echo "No files need templating, exiting."
   exit
@@ -30,9 +30,9 @@ then
   echo "$templating_vars_file does not exist, cannot start templating."
 fi
 
-for file in $(find "$docs_dir" | grep .j2\$)
+for file in $(find "$docs_dir" -name '*.j2')
 do
-  new_file_name=$(echo "$file" | sed 's/\(.*\).j2/\1/g')  # cut of the '.j2'
+  new_file_name=$(echo "$file" | sed 's/.j2$//')  # cut of the '.j2'
   echo "templating $new_file_name"
   jinja2 "$file" "$templating_vars_file" -o "$new_file_name"
 done
