@@ -141,14 +141,15 @@ Druid can use S3 as a backend for deep storage:
 spec:
   deepStorage:
     s3:
-      inline:
-        bucketName: my-bucket  # <1>
-        connection:
-          inline:
-            host: test-minio  # <2>
-            port: 9000  # <3>
-            credentials:  # <4>
-              ...
+      bucket:
+        inline:
+          bucketName: my-bucket  # <1>
+          connection:
+            inline:
+              host: test-minio  # <2>
+              port: 9000  # <3>
+              credentials:  # <4>
+                ...
 ----
 <1> Bucket name.
 <2> Bucket host.
@@ -162,7 +163,8 @@ It is also possible to configure the bucket connection details as a separate Kub
 spec:
   deepStorage:
     s3:
-      reference: my-bucket-resource # <1>
+      bucket:
+        reference: my-bucket-resource # <1>
 ----
 <1> Name of the bucket resource with connection details.
 
