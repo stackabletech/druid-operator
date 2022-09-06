@@ -1,7 +1,7 @@
 use indoc::formatdoc;
 use stackable_druid_crd::{DruidRole, STACKABLE_TRUST_STORE, STACKABLE_TRUST_STORE_PASSWORD};
 
-pub fn get_jvm_config(role: &DruidRole) -> String {
+pub fn get_jvm_config(role: &DruidRole, heap_in_mebi: u32) -> String {
     let common_config = formatdoc! {"
       -server
       -Duser.timezone=UTC
@@ -18,39 +18,39 @@ pub fn get_jvm_config(role: &DruidRole) -> String {
         DruidRole::Broker => {
             formatdoc! {"
               {common_config}
-              -Xms512m
-              -Xmx512m
+              -Xms{heap_in_mebi}m
+              -Xmx{heap_in_mebi}m
               -XX:MaxDirectMemorySize=400m
             "}
         }
         DruidRole::Coordinator => {
             formatdoc! {"
               {common_config}
-              -Xms256m
-              -Xmx256m
+              -Xms{heap_in_mebi}m
+              -Xmx{heap_in_mebi}m
               -Dderby.stream.error.file=/stackable/var/druid/derby.log
             "}
         }
         DruidRole::Historical => {
             formatdoc! {"
               {common_config}
-              -Xms512m
-              -Xmx512m
+              -Xms{heap_in_mebi}m
+              -Xmx{heap_in_mebi}m
               -XX:MaxDirectMemorySize=400m
             "}
         }
         DruidRole::MiddleManager => {
             formatdoc! {"
               {common_config}
-              -Xms64m
-              -Xmx64m
+              -Xms{heap_in_mebi}m
+              -Xmx{heap_in_mebi}m
             "}
         }
         DruidRole::Router => {
             formatdoc! {"
               {common_config}
-              -Xms128m
-              -Xmx128m
+              -Xms{heap_in_mebi}m
+              -Xmx{heap_in_mebi}m
               -XX:MaxDirectMemorySize=128m
             "}
         }
