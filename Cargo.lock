@@ -1684,7 +1684,7 @@ dependencies = [
 
 [[package]]
 name = "stackable-druid-crd"
-version = "0.7.0"
+version = "0.8.0-nightly"
 dependencies = [
  "semver",
  "serde",
@@ -1698,7 +1698,7 @@ dependencies = [
 
 [[package]]
 name = "stackable-druid-operator"
-version = "0.7.0"
+version = "0.8.0-nightly"
 dependencies = [
  "anyhow",
  "built",
