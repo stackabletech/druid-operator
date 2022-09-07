@@ -6,7 +6,7 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
-- PVCs for data storage, cpu and memory limits are now configurable ([#298]).
+- Cpu and memory limits are now configurable ([#298]).
 
 [#298]: https://github.com/stackabletech/druid-operator/pull/298
 
