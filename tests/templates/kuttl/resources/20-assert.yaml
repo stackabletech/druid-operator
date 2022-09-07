@@ -94,11 +94,11 @@ spec:
         - name: druid
           resources:
             requests:
-              cpu: 200m
-              memory: 2Gi
+              cpu: 300m
+              memory: 3Gi
             limits:
-              cpu: "2"
-              memory: 2Gi
+              cpu: "3"
+              memory: 3Gi
 ---
 apiVersion: apps/v1
 kind: StatefulSet
@@ -127,6 +127,6 @@ commands:
   - script: kubectl get cm -n $NAMESPACE druid-resources-broker-default -o yaml | grep -- '-Xmx1638m' | xargs test ! -z
   - script: kubectl get cm -n $NAMESPACE druid-resources-coordinator-default -o yaml | grep -- '-Xmx1638m' | xargs test ! -z
   - script: kubectl get cm -n $NAMESPACE druid-resources-historical-default -o yaml | grep -- '-Xmx1638m' | xargs test ! -z
-  - script: kubectl get cm -n $NAMESPACE druid-resources-middlemanager-resources-from-role-group -o yaml | grep -- '-Xmx1638m' | xargs test ! -z
   - script: kubectl get cm -n $NAMESPACE druid-resources-middlemanager-resources-from-role -o yaml | grep -- '-Xmx819m' | xargs test ! -z
+  - script: kubectl get cm -n $NAMESPACE druid-resources-middlemanager-resources-from-role-group -o yaml | grep -- '-Xmx2457m' | xargs test ! -z
   - script: kubectl get cm -n $NAMESPACE druid-resources-router-default -o yaml | grep -- '-Xmx1638m' | xargs test ! -z
