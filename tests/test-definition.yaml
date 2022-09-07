@@ -50,3 +50,7 @@ tests:
       - druid
       - hadoop
       - zookeeper
+  - name: resources
+    dimensions:
+      - druid
+      - zookeeper

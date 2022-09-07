@@ -1,0 +1,16 @@
+---
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands:
+  - script: >-
+      helm install minio-druid
+      --namespace $NAMESPACE
+      --set mode=standalone
+      --set replicas=1
+      --set persistence.enabled=false
+      --set buckets[0].name=druid,buckets[0].policy=none
+      --set resources.requests.memory=1Gi
+      --set service.type=NodePort,service.nodePort=null
+      --set consoleService.type=NodePort,consoleService.nodePort=null
+      --repo https://charts.min.io/ minio
+    timeout: 600

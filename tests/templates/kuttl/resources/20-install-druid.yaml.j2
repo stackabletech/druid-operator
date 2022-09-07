@@ -1,0 +1,63 @@
+---
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+timeout: 600
+---
+apiVersion: druid.stackable.tech/v1alpha1
+kind: DruidCluster
+metadata:
+  name: druid-resources
+spec:
+  version: {{ test_scenario['values']['druid'] }}
+  zookeeperConfigMapName: druid-znode
+  metadataStorageDatabase:
+    dbType: derby
+    connString: jdbc:derby://localhost:1527/var/druid/metadata.db;create=true
+    host: localhost
+    port: 1527
+  deepStorage:
+    s3:
+      bucket:
+        inline:
+          bucketName: druid
+          connection:
+            inline:
+              host: minio-druid
+              port: 9000
+              accessStyle: Path
+  brokers:
+    roleGroups:
+      default:
+        replicas: 1
+  coordinators:
+    roleGroups:
+      default:
+        replicas: 1
+  historicals:
+    roleGroups:
+      default:
+        replicas: 1
+  middleManagers:
+    config:
+      resources:
+        cpu:
+          min: 100m
+          max: "1"
+        memory:
+          limit: 1Gi
+    roleGroups:
+      resources-from-role:
+        replicas: 1
+      resources-from-role-group:
+        config:
+          resources:
+            cpu:
+              min: 200m
+              max: "2"
+            memory:
+              limit: 2Gi
+        replicas: 1
+  routers:
+    roleGroups:
+      default:
+        replicas: 1
