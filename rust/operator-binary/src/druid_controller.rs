@@ -149,7 +149,7 @@ pub enum Error {
         "Druid does not support skipping the verification of the tls enabled S3 server"
     ))]
     S3TlsNoVerificationNotSupported,
-    #[snafu(display("could parse Druid role [{role}]"))]
+    #[snafu(display("could not parse Druid role [{role}]"))]
     UnidentifiedDruidRole {
         source: strum::ParseError,
         role: String,
