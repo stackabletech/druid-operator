@@ -1,0 +1,121 @@
+---
+apiVersion: kuttl.dev/v1beta1
+kind: TestAssert
+timeout: 600
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: druid-resources-broker-default
+spec:
+  template:
+    spec:
+      containers:
+        - name: druid
+          resources:
+            requests:
+              cpu: 200m
+              memory: 2Gi
+            limits:
+              cpu: "4"
+              memory: 2Gi
+status:
+  readyReplicas: 1
+  replicas: 1
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: druid-resources-coordinator-default
+spec:
+  template:
+    spec:
+      containers:
+        - name: druid
+          resources:
+            requests:
+              cpu: 200m
+              memory: 2Gi
+            limits:
+              cpu: "4"
+              memory: 2Gi
+status:
+  readyReplicas: 1
+  replicas: 1
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: druid-resources-historical-default
+spec:
+  template:
+    spec:
+      containers:
+        - name: druid
+          resources:
+            requests:
+              cpu: 200m
+              memory: 2Gi
+            limits:
+              cpu: "4"
+              memory: 2Gi
+status:
+  readyReplicas: 1
+  replicas: 1
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: druid-resources-middlemanager-resources-from-role
+spec:
+  template:
+    spec:
+      containers:
+        - name: druid
+          resources:
+            requests:
+              cpu: 100m
+              memory: 1Gi
+            limits:
+              cpu: "1"
+              memory: 1Gi
+status:
+  readyReplicas: 1
+  replicas: 1
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: druid-resources-middlemanager-resources-from-role-group
+spec:
+  template:
+    spec:
+      containers:
+        - name: druid
+          resources:
+            requests:
+              cpu: 300m
+              memory: 3Gi
+            limits:
+              cpu: "3"
+              memory: 3Gi
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: druid-resources-router-default
+spec:
+  template:
+    spec:
+      containers:
+        - name: druid
+          resources:
+            requests:
+              cpu: 200m
+              memory: 2Gi
+            limits:
+              cpu: "4"
+              memory: 2Gi
+status:
+  readyReplicas: 1
+  replicas: 1

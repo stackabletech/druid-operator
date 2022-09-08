@@ -763,30 +763,3 @@ properties:
 ###################################################################################################
 # jvm.config
 ###################################################################################################
-
-###################################################################################################
-# log.properties
-###################################################################################################
-
-  - property: &ioTrino
-      propertyNames:
-        - name: "io.trino"
-          kind:
-            type: "file"
-            file: "log.properties"
-      datatype:
-        type: "string"
-      defaultValues:
-        - fromVersion: "0.0.0"
-          value: "INFO"
-      allowedValues:
-        - "INFO"
-        - "DEBUG"
-        - "WARN"
-        - "ERROR"          
-      roles:
-        - name: "coordinator"
-          required: true
-        - name: "worker"
-          required: true
-      asOfVersion: "0.0.0"

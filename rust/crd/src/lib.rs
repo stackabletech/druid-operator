@@ -1,12 +1,17 @@
 use serde::{Deserialize, Serialize};
 use snafu::{ResultExt, Snafu};
-use stackable_operator::client::Client;
-use stackable_operator::commons::s3::{InlinedS3BucketSpec, S3BucketDef, S3ConnectionSpec};
-use stackable_operator::commons::tls::{CaCert, Tls, TlsServerVerification, TlsVerification};
-use stackable_operator::kube::ResourceExt;
+use stackable_operator::role_utils::RoleGroupRef;
 use stackable_operator::{
-    commons::{opa::OpaConfig, s3::S3ConnectionDef},
-    kube::CustomResource,
+    client::Client,
+    commons::{
+        opa::OpaConfig,
+        resources::{CpuLimits, MemoryLimits, NoRuntimeLimits, Resources},
+        s3::{InlinedS3BucketSpec, S3BucketDef, S3ConnectionDef, S3ConnectionSpec},
+        tls::{CaCert, Tls, TlsServerVerification, TlsVerification},
+    },
+    config::merge::Merge,
+    k8s_openapi::apimachinery::pkg::api::resource::Quantity,
+    kube::{CustomResource, ResourceExt},
     product_config_utils::{ConfigError, Configuration},
     role_utils::Role,
     schemars::{self, JsonSchema},
@@ -105,6 +110,8 @@ pub enum Error {
     },
     #[snafu(display("2 differing s3 connections were given, this is unsupported by Druid"))]
     IncompatibleS3Connections,
+    #[snafu(display("Unknown Druid role found {role}. Should be one of {roles:?}"))]
+    UnknownDruidRole { role: String, roles: Vec<String> },
 }
 
 #[derive(Clone, CustomResource, Debug, Deserialize, JsonSchema, Serialize)]
@@ -331,6 +338,40 @@ impl DruidCluster {
         let s3_storage = self.spec.deep_storage.is_s3();
         s3_ingestion || s3_storage
     }
+
+    /// Retrieve and merge resource configs for role and role groups
+    pub fn resolve_resource_config_for_role_and_rolegroup(
+        &self,
+        role: &DruidRole,
+        rolegroup_ref: &RoleGroupRef<DruidCluster>,
+    ) -> Option<Resources<DruidStorageConfig, NoRuntimeLimits>> {
+        // Initialize the result with all default values as baseline
+        let conf_defaults = DruidConfig::default_resources();
+
+        let role = self.get_role(role);
+
+        // Retrieve role resource config
+        let mut conf_role: Resources<DruidStorageConfig, NoRuntimeLimits> =
+            role.config.config.resources.clone().unwrap_or_default();
+
+        // Retrieve rolegroup specific resource config
+        let mut conf_rolegroup: Resources<DruidStorageConfig, NoRuntimeLimits> = role
+            .role_groups
+            .get(&rolegroup_ref.role_group)
+            .and_then(|rg| rg.config.config.resources.clone())
+            .unwrap_or_default();
+
+        // Merge more specific configs into default config
+        // Hierarchy is:
+        // 1. RoleGroup
+        // 2. Role
+        // 3. Default
+        conf_role.merge(&conf_defaults);
+        conf_rolegroup.merge(&conf_role);
+
+        tracing::debug!("Merged resource config: {:?}", conf_rolegroup);
+        Some(conf_rolegroup)
+    }
 }
 
 #[derive(Clone, Debug, Default, Deserialize, JsonSchema, Serialize)]
@@ -405,9 +446,31 @@ pub struct IngestionSpec {
     pub s3connection: Option<S3ConnectionDef>,
 }
 
-#[derive(Clone, Debug, Deserialize, Eq, JsonSchema, PartialEq, Serialize, Default)]
+#[derive(Clone, Debug, Deserialize, JsonSchema, PartialEq, Serialize, Default)]
 #[serde(rename_all = "camelCase")]
-pub struct DruidConfig {}
+pub struct DruidConfig {
+    pub resources: Option<Resources<DruidStorageConfig, NoRuntimeLimits>>,
+}
+
+impl DruidConfig {
+    fn default_resources() -> Resources<DruidStorageConfig, NoRuntimeLimits> {
+        Resources {
+            cpu: CpuLimits {
+                min: Some(Quantity("200m".to_owned())),
+                max: Some(Quantity("4".to_owned())),
+            },
+            memory: MemoryLimits {
+                limit: Some(Quantity("2Gi".to_owned())),
+                runtime_limits: NoRuntimeLimits {},
+            },
+            storage: DruidStorageConfig {},
+        }
+    }
+}
+
+#[derive(Clone, Debug, Default, Deserialize, Eq, JsonSchema, Merge, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DruidStorageConfig {}
 
 impl Configuration for DruidConfig {
     type Configurable = DruidCluster;
@@ -569,7 +632,9 @@ mod tests {
                 version: "".to_string(),
                 brokers: Role {
                     config: CommonConfiguration {
-                        config: DruidConfig {},
+                        config: DruidConfig {
+                            resources: Some(DruidConfig::default_resources()),
+                        },
                         config_overrides: Default::default(),
                         env_overrides: Default::default(),
                         cli_overrides: Default::default(),
@@ -578,7 +643,9 @@ mod tests {
                 },
                 coordinators: Role {
                     config: CommonConfiguration {
-                        config: DruidConfig {},
+                        config: DruidConfig {
+                            resources: Some(DruidConfig::default_resources()),
+                        },
                         config_overrides: Default::default(),
                         env_overrides: Default::default(),
                         cli_overrides: Default::default(),
@@ -587,7 +654,9 @@ mod tests {
                 },
                 historicals: Role {
                     config: CommonConfiguration {
-                        config: DruidConfig {},
+                        config: DruidConfig {
+                            resources: Some(DruidConfig::default_resources()),
+                        },
                         config_overrides: Default::default(),
                         env_overrides: Default::default(),
                         cli_overrides: Default::default(),
@@ -596,7 +665,9 @@ mod tests {
                 },
                 middle_managers: Role {
                     config: CommonConfiguration {
-                        config: DruidConfig {},
+                        config: DruidConfig {
+                            resources: Some(DruidConfig::default_resources()),
+                        },
                         config_overrides: Default::default(),
                         env_overrides: Default::default(),
                         cli_overrides: Default::default(),
@@ -605,7 +676,9 @@ mod tests {
                 },
                 routers: Role {
                     config: CommonConfiguration {
-                        config: DruidConfig {},
+                        config: DruidConfig {
+                            resources: Some(DruidConfig::default_resources()),
+                        },
                         config_overrides: Default::default(),
                         env_overrides: Default::default(),
                         cli_overrides: Default::default(),
@@ -614,7 +687,9 @@ mod tests {
                         "default".to_string(),
                         RoleGroup {
                             config: CommonConfiguration {
-                                config: DruidConfig {},
+                                config: DruidConfig {
+                                    resources: Some(DruidConfig::default_resources()),
+                                },
                                 config_overrides: Default::default(),
                                 env_overrides: Default::default(),
                                 cli_overrides: Default::default(),

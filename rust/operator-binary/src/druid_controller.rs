@@ -6,11 +6,11 @@ use crate::{
 
 use snafu::{OptionExt, ResultExt, Snafu};
 use stackable_druid_crd::{
-    DeepStorageSpec, DruidCluster, DruidRole, APP_NAME, AUTH_AUTHORIZER_OPA_URI, CERTS_DIR,
-    CONTAINER_HTTP_PORT, CONTAINER_METRICS_PORT, CREDENTIALS_SECRET_PROPERTY,
-    DRUID_CONFIG_DIRECTORY, DRUID_METRICS_PORT, DS_BUCKET, HDFS_CONFIG_DIRECTORY, JVM_CONFIG,
-    LOG4J2_CONFIG, RUNTIME_PROPS, RW_CONFIG_DIRECTORY, S3_ENDPOINT_URL, S3_PATH_STYLE_ACCESS,
-    S3_SECRET_DIR_NAME, ZOOKEEPER_CONNECTION_STRING,
+    DeepStorageSpec, DruidCluster, DruidRole, DruidStorageConfig, APP_NAME,
+    AUTH_AUTHORIZER_OPA_URI, CERTS_DIR, CONTAINER_HTTP_PORT, CONTAINER_METRICS_PORT,
+    CREDENTIALS_SECRET_PROPERTY, DRUID_CONFIG_DIRECTORY, DRUID_METRICS_PORT, DS_BUCKET,
+    HDFS_CONFIG_DIRECTORY, JVM_CONFIG, LOG4J2_CONFIG, RUNTIME_PROPS, RW_CONFIG_DIRECTORY,
+    S3_ENDPOINT_URL, S3_PATH_STYLE_ACCESS, S3_SECRET_DIR_NAME, ZOOKEEPER_CONNECTION_STRING,
 };
 use stackable_operator::{
     builder::{
@@ -19,6 +19,7 @@ use stackable_operator::{
     },
     commons::{
         opa::OpaApiVersion,
+        resources::{NoRuntimeLimits, Resources},
         s3::{S3AccessStyle, S3ConnectionSpec},
         tls::{CaCert, TlsVerification},
     },
@@ -37,6 +38,7 @@ use stackable_operator::{
     },
     labels::{role_group_selector_labels, role_selector_labels},
     logging::controller::ReconcilerError,
+    memory::{to_java_heap_value, BinaryMultiple},
     product_config::{types::PropertyNameKind, ProductConfigManager},
     product_config_utils::{transform_all_roles_to_config, validate_all_roles_and_groups_config},
     role_utils::RoleGroupRef,
@@ -51,6 +53,8 @@ use std::{
 use strum::{EnumDiscriminants, IntoEnumIterator, IntoStaticStr};
 
 const FIELD_MANAGER_SCOPE: &str = "druidcluster";
+
+const JVM_HEAP_FACTOR: f32 = 0.8;
 
 pub struct Ctx {
     pub client: stackable_operator::client::Client,
@@ -145,6 +149,20 @@ pub enum Error {
         "Druid does not support skipping the verification of the tls enabled S3 server"
     ))]
     S3TlsNoVerificationNotSupported,
+    #[snafu(display("could not parse Druid role [{role}]"))]
+    UnidentifiedDruidRole {
+        source: strum::ParseError,
+        role: String,
+    },
+    #[snafu(display("failed to resolve and merge resource config for role and role group"))]
+    FailedToResolveResourceConfig,
+    #[snafu(display("invalid java heap config - missing default or value in crd?"))]
+    InvalidJavaHeapConfig,
+    #[snafu(display("failed to convert java heap config to unit [{unit}]"))]
+    FailedToConvertJavaHeap {
+        source: stackable_operator::error::Error,
+        unit: String,
+    },
 }
 
 type Result<T, E = Error> = std::result::Result<T, E>;
@@ -236,6 +254,10 @@ pub async fn reconcile_druid(druid: Arc<DruidCluster>, ctx: Arc<Ctx>) -> Result<
     .context(InvalidProductConfigSnafu)?;
 
     for (role_name, role_config) in validated_role_config.iter() {
+        let druid_role = DruidRole::from_str(role_name).context(UnidentifiedDruidRoleSnafu {
+            role: role_name.to_string(),
+        })?;
+
         let role_service = build_role_service(role_name, &druid)?;
         client
             .apply_patch(FIELD_MANAGER_SCOPE, &role_service, &role_service)
@@ -248,6 +270,10 @@ pub async fn reconcile_druid(druid: Arc<DruidCluster>, ctx: Arc<Ctx>) -> Result<
                 role_group: rolegroup_name.into(),
             };
 
+            let resources = druid
+                .resolve_resource_config_for_role_and_rolegroup(&druid_role, &rolegroup)
+                .context(FailedToResolveResourceConfigSnafu)?;
+
             let rg_service = build_rolegroup_services(&rolegroup, &druid, rolegroup_config)?;
             let rg_configmap = build_rolegroup_config_map(
                 &rolegroup,
@@ -257,12 +283,14 @@ pub async fn reconcile_druid(druid: Arc<DruidCluster>, ctx: Arc<Ctx>) -> Result<
                 opa_connstr.as_deref(),
                 s3_conn.as_ref(),
                 deep_storage_bucket_name.as_deref(),
+                &resources,
             )?;
             let rg_statefulset = build_rolegroup_statefulset(
                 &rolegroup,
                 &druid,
                 rolegroup_config,
                 s3_conn.as_ref(),
+                &resources,
             )?;
             client
                 .apply_patch(FIELD_MANAGER_SCOPE, &rg_service, &rg_service)
@@ -334,6 +362,7 @@ pub fn build_role_service(role_name: &str, druid: &DruidCluster) -> Result<Servi
     })
 }
 
+#[allow(clippy::too_many_arguments)]
 /// The rolegroup [`ConfigMap`] configures the rolegroup based on the configuration given by the administrator
 fn build_rolegroup_config_map(
     rolegroup: &RoleGroupRef<DruidCluster>,
@@ -343,6 +372,7 @@ fn build_rolegroup_config_map(
     opa_connstr: Option<&str>,
     s3_conn: Option<&S3ConnectionSpec>,
     deep_storage_bucket_name: Option<&str>,
+    resources: &Resources<DruidStorageConfig, NoRuntimeLimits>,
 ) -> Result<ConfigMap> {
     let role = DruidRole::from_str(&rolegroup.role).unwrap();
     let mut cm_conf_data = BTreeMap::new(); // filename -> filecontent
@@ -395,7 +425,20 @@ fn build_rolegroup_config_map(
                 cm_conf_data.insert(RUNTIME_PROPS.to_string(), runtime_properties);
             }
             PropertyNameKind::File(file_name) if file_name == JVM_CONFIG => {
-                let jvm_config = get_jvm_config(&role);
+                let heap_in_mebi = to_java_heap_value(
+                    resources
+                        .memory
+                        .limit
+                        .as_ref()
+                        .context(InvalidJavaHeapConfigSnafu)?,
+                    JVM_HEAP_FACTOR,
+                    BinaryMultiple::Mebi,
+                )
+                .context(FailedToConvertJavaHeapSnafu {
+                    unit: BinaryMultiple::Mebi.to_java_memory_unit(),
+                })?;
+
+                let jvm_config = get_jvm_config(&role, heap_in_mebi);
                 cm_conf_data.insert(JVM_CONFIG.to_string(), jvm_config);
             }
             PropertyNameKind::File(file_name) if file_name == LOG4J2_CONFIG => {
@@ -494,12 +537,15 @@ fn build_rolegroup_statefulset(
     druid: &DruidCluster,
     rolegroup_config: &HashMap<PropertyNameKind, BTreeMap<String, String>>,
     s3_conn: Option<&S3ConnectionSpec>,
+    resources: &Resources<DruidStorageConfig, NoRuntimeLimits>,
 ) -> Result<StatefulSet> {
     // setup
-    let role = DruidRole::from_str(&rolegroup_ref.role).unwrap();
+    let role = DruidRole::from_str(&rolegroup_ref.role).context(UnidentifiedDruidRoleSnafu {
+        role: rolegroup_ref.role.to_string(),
+    })?;
     let druid_version = druid_version(druid)?;
     let rolegroup = druid
-        .get_role(&DruidRole::from_str(&rolegroup_ref.role).unwrap())
+        .get_role(&role)
         .role_groups
         .get(&rolegroup_ref.role_group);
 
@@ -607,6 +653,7 @@ fn build_rolegroup_statefulset(
         ..Default::default()
     };
     cb.readiness_probe(probe);
+    cb.resources(resources.clone().into());
 
     let mut container = cb.build();
     container.image_pull_policy = Some("IfNotPresent".to_string());
