@@ -32,7 +32,7 @@ pub async fn build_discovery_configmaps(
     owner: &impl Resource<DynamicType = ()>,
     druid: &DruidCluster,
 ) -> Result<Vec<ConfigMap>, Error> {
-    let name = owner.name();
+    let name = owner.name_unchecked();
     Ok(vec![build_discovery_configmap(&name, owner, druid)?])
 }
 
