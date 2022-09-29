@@ -382,7 +382,7 @@ Druid uses S3 or HDFS deep storage, so no extra https://kubernetes.io/docs/conce
 // TODO: remove the "nightly" version after the next platform release (current: 22.09)
 include::nightly@home:concepts:stackable_resource_requests.adoc[]
 
-If no resources are configured explicitely, the operator uses following defaults:
+If no resources are configured explicitly, the Druid operator uses following defaults:
 
 [source,yaml]
 ----
