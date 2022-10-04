@@ -552,7 +552,7 @@ fn build_rolegroup_statefulset(
         .get(&rolegroup_ref.role_group);
 
     // init container builder
-    let mut cb = ContainerBuilder::new(APP_NAME);
+    let mut cb = ContainerBuilder::new(APP_NAME).expect("ContainerBuilder not created");
     // init pod builder
     let mut pb = PodBuilder::new();
     pb.metadata_builder(|m| {
