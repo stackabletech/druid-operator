@@ -18,6 +18,7 @@ use stackable_operator::{
         ConfigMapBuilder, ContainerBuilder, ObjectMetaBuilder, PodBuilder,
         PodSecurityContextBuilder, SecretOperatorVolumeSourceBuilder, VolumeBuilder,
     },
+    cluster_resources::ClusterResources,
     commons::{
         opa::OpaApiVersion,
         resources::{NoRuntimeLimits, Resources},
@@ -35,7 +36,7 @@ use stackable_operator::{
     },
     kube::{
         runtime::{controller::Action, reflector::ObjectRef},
-        ResourceExt,
+        Resource, ResourceExt,
     },
     labels::{role_group_selector_labels, role_selector_labels},
     logging::controller::ReconcilerError,
@@ -52,8 +53,6 @@ use std::{
     time::Duration,
 };
 use strum::{EnumDiscriminants, IntoEnumIterator, IntoStaticStr};
-
-const FIELD_MANAGER_SCOPE: &str = "druidcluster";
 
 const JVM_HEAP_FACTOR: f32 = 0.8;
 
@@ -164,6 +163,14 @@ pub enum Error {
         source: stackable_operator::error::Error,
         unit: String,
     },
+    #[snafu(display("failed to create cluster resources"))]
+    CreateClusterResources {
+        source: stackable_operator::error::Error,
+    },
+    #[snafu(display("failed to delete orphaned resources"))]
+    DeleteOrphanedResources {
+        source: stackable_operator::error::Error,
+    },
 }
 
 type Result<T, E = Error> = std::result::Result<T, E>;
@@ -254,14 +261,18 @@ pub async fn reconcile_druid(druid: Arc<DruidCluster>, ctx: Arc<Ctx>) -> Result<
     )
     .context(InvalidProductConfigSnafu)?;
 
+    let mut cluster_resources =
+        ClusterResources::new(APP_NAME, CONTROLLER_NAME, &druid.object_ref(&()))
+            .context(CreateClusterResourcesSnafu)?;
+
     for (role_name, role_config) in validated_role_config.iter() {
         let druid_role = DruidRole::from_str(role_name).context(UnidentifiedDruidRoleSnafu {
             role: role_name.to_string(),
         })?;
 
         let role_service = build_role_service(role_name, &druid)?;
-        client
-            .apply_patch(FIELD_MANAGER_SCOPE, &role_service, &role_service)
+        cluster_resources
+            .add(client, &role_service)
             .await
             .context(ApplyRoleServiceSnafu)?;
         for (rolegroup_name, rolegroup_config) in role_config.iter() {
@@ -293,20 +304,20 @@ pub async fn reconcile_druid(druid: Arc<DruidCluster>, ctx: Arc<Ctx>) -> Result<
                 s3_conn.as_ref(),
                 &resources,
             )?;
-            client
-                .apply_patch(FIELD_MANAGER_SCOPE, &rg_service, &rg_service)
+            cluster_resources
+                .add(client, &rg_service)
                 .await
                 .with_context(|_| ApplyRoleGroupServiceSnafu {
                     rolegroup: rolegroup.clone(),
                 })?;
-            client
-                .apply_patch(FIELD_MANAGER_SCOPE, &rg_configmap, &rg_configmap)
+            cluster_resources
+                .add(client, &rg_configmap)
                 .await
                 .with_context(|_| ApplyRoleGroupConfigSnafu {
                     rolegroup: rolegroup.clone(),
                 })?;
-            client
-                .apply_patch(FIELD_MANAGER_SCOPE, &rg_statefulset, &rg_statefulset)
+            cluster_resources
+                .add(client, &rg_statefulset)
                 .await
                 .with_context(|_| ApplyRoleGroupStatefulSetSnafu {
                     rolegroup: rolegroup.clone(),
@@ -319,11 +330,16 @@ pub async fn reconcile_druid(druid: Arc<DruidCluster>, ctx: Arc<Ctx>) -> Result<
         .await
         .context(BuildDiscoveryConfigSnafu)?
     {
-        client
-            .apply_patch(FIELD_MANAGER_SCOPE, &discovery_cm, &discovery_cm)
+        cluster_resources
+            .add(client, &discovery_cm)
             .await
             .context(ApplyDiscoveryConfigSnafu)?;
     }
+
+    cluster_resources
+        .delete_orphaned_resources(client)
+        .await
+        .context(DeleteOrphanedResourcesSnafu)?;
 
     Ok(Action::await_change())
 }
