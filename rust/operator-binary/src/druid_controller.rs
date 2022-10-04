@@ -6,7 +6,7 @@ use crate::{
 
 use snafu::{OptionExt, ResultExt, Snafu};
 use stackable_druid_crd::{
-    DeepStorageSpec, DruidCluster, DruidRole, DruidStorageConfig, APP_NAME,
+    DeepStorageSpec, DruidCluster, DruidRole, DruidStorageConfig, APP_NAME, CONTROLLER_NAME,
     AUTH_AUTHORIZER_OPA_URI, CERTS_DIR, CONTAINER_HTTP_PORT, CONTAINER_METRICS_PORT,
     CREDENTIALS_SECRET_PROPERTY, DRUID_CONFIG_DIRECTORY, DRUID_METRICS_PORT, DS_BUCKET,
     HDFS_CONFIG_DIRECTORY, JVM_CONFIG, LOG4J2_CONFIG, RUNTIME_PROPS, RW_CONFIG_DIRECTORY,
@@ -341,7 +341,7 @@ pub fn build_role_service(role_name: &str, druid: &DruidCluster) -> Result<Servi
             .name(&role_svc_name)
             .ownerreference_from_resource(druid, None, Some(true))
             .context(ObjectMissingMetadataForOwnerRefSnafu)?
-            .with_recommended_labels(druid, APP_NAME, druid_version(druid)?, role_name, "global")
+            .with_recommended_labels(druid, APP_NAME, druid_version(druid)?, CONTROLLER_NAME, role_name, "global")
             .build(),
         spec: Some(ServiceSpec {
             ports: Some(vec![ServicePort {
@@ -460,6 +460,7 @@ fn build_rolegroup_config_map(
                 druid,
                 APP_NAME,
                 druid_version(druid)?,
+                CONTROLLER_NAME,
                 &rolegroup.role,
                 &rolegroup.role_group,
             )
@@ -495,6 +496,7 @@ fn build_rolegroup_services(
                 druid,
                 APP_NAME,
                 druid_version(druid)?,
+                CONTROLLER_NAME,
                 &rolegroup.role,
                 &rolegroup.role_group,
             )
@@ -558,6 +560,7 @@ fn build_rolegroup_statefulset(
             druid,
             APP_NAME,
             druid_version,
+            CONTROLLER_NAME,
             &rolegroup_ref.role,
             &rolegroup_ref.role_group,
         )
@@ -670,6 +673,7 @@ fn build_rolegroup_statefulset(
                 druid,
                 APP_NAME,
                 druid_version,
+                CONTROLLER_NAME,
                 &rolegroup_ref.role,
                 &rolegroup_ref.role_group,
             )

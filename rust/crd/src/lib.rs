@@ -21,6 +21,7 @@ use std::str::FromStr;
 use strum::{Display, EnumDiscriminants, EnumIter, EnumString, IntoStaticStr};
 
 pub const APP_NAME: &str = "druid";
+pub const CONTROLLER_NAME: &str = "druid-operator";
 
 // config directories
 pub const DRUID_CONFIG_DIRECTORY: &str = "/stackable/config";
