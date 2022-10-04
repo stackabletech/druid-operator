@@ -6,11 +6,12 @@ use crate::{
 
 use snafu::{OptionExt, ResultExt, Snafu};
 use stackable_druid_crd::{
-    DeepStorageSpec, DruidCluster, DruidRole, DruidStorageConfig, APP_NAME, CONTROLLER_NAME,
+    DeepStorageSpec, DruidCluster, DruidRole, DruidStorageConfig, APP_NAME,
     AUTH_AUTHORIZER_OPA_URI, CERTS_DIR, CONTAINER_HTTP_PORT, CONTAINER_METRICS_PORT,
-    CREDENTIALS_SECRET_PROPERTY, DRUID_CONFIG_DIRECTORY, DRUID_METRICS_PORT, DS_BUCKET,
-    HDFS_CONFIG_DIRECTORY, JVM_CONFIG, LOG4J2_CONFIG, RUNTIME_PROPS, RW_CONFIG_DIRECTORY,
-    S3_ENDPOINT_URL, S3_PATH_STYLE_ACCESS, S3_SECRET_DIR_NAME, ZOOKEEPER_CONNECTION_STRING,
+    CONTROLLER_NAME, CREDENTIALS_SECRET_PROPERTY, DRUID_CONFIG_DIRECTORY, DRUID_METRICS_PORT,
+    DS_BUCKET, HDFS_CONFIG_DIRECTORY, JVM_CONFIG, LOG4J2_CONFIG, RUNTIME_PROPS,
+    RW_CONFIG_DIRECTORY, S3_ENDPOINT_URL, S3_PATH_STYLE_ACCESS, S3_SECRET_DIR_NAME,
+    ZOOKEEPER_CONNECTION_STRING,
 };
 use stackable_operator::{
     builder::{
@@ -341,7 +342,14 @@ pub fn build_role_service(role_name: &str, druid: &DruidCluster) -> Result<Servi
             .name(&role_svc_name)
             .ownerreference_from_resource(druid, None, Some(true))
             .context(ObjectMissingMetadataForOwnerRefSnafu)?
-            .with_recommended_labels(druid, APP_NAME, druid_version(druid)?, CONTROLLER_NAME, role_name, "global")
+            .with_recommended_labels(
+                druid,
+                APP_NAME,
+                druid_version(druid)?,
+                CONTROLLER_NAME,
+                role_name,
+                "global",
+            )
             .build(),
         spec: Some(ServiceSpec {
             ports: Some(vec![ServicePort {
