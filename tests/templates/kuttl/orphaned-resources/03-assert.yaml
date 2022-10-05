@@ -3,12 +3,12 @@ apiVersion: kuttl.dev/v1beta1
 kind: TestAssert
 metadata:
   name: update-druid
-timeout: 60
+timeout: 180
 ---
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: derby-druid-broker-newng
+  name: derby-druid-broker-newrg
 status:
   readyReplicas: 1
   replicas: 1
@@ -16,7 +16,7 @@ status:
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: derby-druid-coordinator-newng
+  name: derby-druid-coordinator-newrg
 status:
   readyReplicas: 1
   replicas: 1
@@ -24,7 +24,7 @@ status:
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: derby-druid-historical-newng
+  name: derby-druid-historical-newrg
 status:
   readyReplicas: 1
   replicas: 1
@@ -32,7 +32,7 @@ status:
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: derby-druid-middlemanager-newng
+  name: derby-druid-middlemanager-newrg
 status:
   readyReplicas: 1
   replicas: 1
@@ -40,7 +40,7 @@ status:
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: derby-druid-router-newng
+  name: derby-druid-router-newrg
 status:
   readyReplicas: 1
   replicas: 1
