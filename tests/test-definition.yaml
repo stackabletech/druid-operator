@@ -57,3 +57,8 @@ tests:
     dimensions:
       - druid
       - zookeeper-latest
+  - name: orphaned-resources
+    dimensions:
+      - druid
+      - zookeeper
+      - hadoop

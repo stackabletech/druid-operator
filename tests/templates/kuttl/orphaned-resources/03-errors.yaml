@@ -1,0 +1,25 @@
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: derby-druid-broker-default
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: derby-druid-coordinator-default
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: derby-druid-historical-default
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: derby-druid-middlemanager-default
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: derby-druid-router-default
