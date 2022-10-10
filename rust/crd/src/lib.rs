@@ -21,6 +21,7 @@ use std::str::FromStr;
 use strum::{Display, EnumDiscriminants, EnumIter, EnumString, IntoStaticStr};
 
 pub const APP_NAME: &str = "druid";
+pub const CONTROLLER_NAME: &str = "druid-operator";
 
 // config directories
 pub const DRUID_CONFIG_DIRECTORY: &str = "/stackable/config";
@@ -406,7 +407,7 @@ impl Default for DbType {
     }
 }
 
-#[derive(Clone, Debug, Deserialize, JsonSchema, PartialEq, Serialize, Display)]
+#[derive(Clone, Debug, Deserialize, JsonSchema, PartialEq, Eq, Serialize, Display)]
 #[serde(rename_all = "camelCase")]
 pub enum DeepStorageSpec {
     #[serde(rename = "hdfs")]
@@ -433,7 +434,7 @@ pub struct HdfsDeepStorageSpec {
     pub directory: String,
 }
 
-#[derive(Clone, Debug, Deserialize, JsonSchema, PartialEq, Serialize)]
+#[derive(Clone, Debug, Deserialize, JsonSchema, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct S3DeepStorageSpec {
     pub bucket: S3BucketDef,

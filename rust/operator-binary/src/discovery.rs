@@ -3,7 +3,7 @@
 //! a gateway to the cluster for client queries.
 
 use snafu::{OptionExt, ResultExt, Snafu};
-use stackable_druid_crd::{DruidCluster, DruidRole, APP_NAME};
+use stackable_druid_crd::{DruidCluster, DruidRole, APP_NAME, CONTROLLER_NAME};
 use stackable_operator::{
     builder::{ConfigMapBuilder, ObjectMetaBuilder},
     k8s_openapi::api::core::v1::ConfigMap,
@@ -32,7 +32,7 @@ pub async fn build_discovery_configmaps(
     owner: &impl Resource<DynamicType = ()>,
     druid: &DruidCluster,
 ) -> Result<Vec<ConfigMap>, Error> {
-    let name = owner.name();
+    let name = owner.name_unchecked();
     Ok(vec![build_discovery_configmap(&name, owner, druid)?])
 }
 
@@ -68,6 +68,7 @@ fn build_discovery_configmap(
                     druid,
                     APP_NAME,
                     druid_version(druid).unwrap_or("unknown"),
+                    CONTROLLER_NAME,
                     &DruidRole::Router.to_string(),
                     "discovery",
                 )
