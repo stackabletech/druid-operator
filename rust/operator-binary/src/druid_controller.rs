@@ -171,6 +171,11 @@ pub enum Error {
     DeleteOrphanedResources {
         source: stackable_operator::error::Error,
     },
+    #[snafu(display("failed to create container builder with name [{name}]"))]
+    FailedContainerBuilderCreation {
+        source: stackable_operator::error::Error,
+        name: String,
+    },
 }
 
 type Result<T, E = Error> = std::result::Result<T, E>;
@@ -576,7 +581,8 @@ fn build_rolegroup_statefulset(
         .get(&rolegroup_ref.role_group);
 
     // init container builder
-    let mut cb = ContainerBuilder::new(APP_NAME);
+    let mut cb = ContainerBuilder::new(APP_NAME)
+        .context(FailedContainerBuilderCreationSnafu { name: APP_NAME })?;
     // init pod builder
     let mut pb = PodBuilder::new();
     pb.metadata_builder(|m| {
