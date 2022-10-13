@@ -10,7 +10,7 @@ spec:
         replicas: 1
         config:
           myidOffset: 10
-  version: {{ test_scenario['values']['zookeeper'] }}
+  version: {{ test_scenario['values']['zookeeper-latest'] }}
   stopped: false
 ---
 apiVersion: zookeeper.stackable.tech/v1alpha1

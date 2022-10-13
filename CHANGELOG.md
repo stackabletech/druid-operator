@@ -8,6 +8,7 @@ All notable changes to this project will be documented in this file.
 
 - Cpu and memory limits are now configurable ([#298]).
 - Stale resources are now deleted ([#310]).
+- Support Druid 24.0.0 ([#317]).
 
 ### Changed
 
@@ -15,6 +16,7 @@ All notable changes to this project will be documented in this file.
 
 [#298]: https://github.com/stackabletech/druid-operator/pull/298
 [#310]: https://github.com/stackabletech/druid-operator/pull/310
+[#317]: https://github.com/stackabletech/druid-operator/pull/317
 
 ## [0.7.0] - 2022-09-06
 
