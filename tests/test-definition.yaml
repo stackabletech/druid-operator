@@ -31,29 +31,29 @@ tests:
   - name: authorizer
     dimensions:
       - druid
-      - zookeeper
+      - zookeeper-latest
       - opa
       - hadoop
   - name: ingestion-no-s3-ext
     dimensions:
       - druid
-      - zookeeper
+      - zookeeper-latest
       - hadoop
   - name: ingestion-s3-ext
     dimensions:
       - druid
-      - zookeeper
+      - zookeeper-latest
       - hadoop
   - name: s3-deep-storage
     dimensions:
       - druid
-      - zookeeper
+      - zookeeper-latest
       - s3-use-tls
   - name: hdfs-deep-storage
     dimensions:
       - druid
       - hadoop
-      - zookeeper
+      - zookeeper-latest
   - name: resources
     dimensions:
       - druid
@@ -61,5 +61,5 @@ tests:
   - name: orphaned-resources
     dimensions:
       - druid
-      - zookeeper
+      - zookeeper-latest
       - hadoop
