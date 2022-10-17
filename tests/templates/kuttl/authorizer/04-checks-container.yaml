@@ -1,0 +1,21 @@
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: checks
+  labels:
+    app: checks
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: checks
+  template:
+    metadata:
+      labels:
+        app: checks
+    spec:
+      containers:
+        - name: checks
+          image: docker.stackable.tech/stackable/testing-tools:0.1.0-stackable0.1.0
+          command: ["sleep", "infinity"]

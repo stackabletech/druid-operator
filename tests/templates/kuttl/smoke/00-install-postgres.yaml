@@ -1,0 +1,12 @@
+---
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands:
+  - script: >-
+      helm install druid-postgresql
+      --namespace $NAMESPACE
+      --version 11.0.0
+      --set auth.username=druid
+      --set auth.password=druid
+      --set auth.database=druid
+      --repo https://charts.bitnami.com/bitnami postgresql

@@ -8,15 +8,17 @@ timeout: 600
 apiVersion: druid.stackable.tech/v1alpha1
 kind: DruidCluster
 metadata:
-  name: derby-druid
+  name: druid
 spec:
   version: {{ test_scenario['values']['druid'] }}
   zookeeperConfigMapName: druid-znode
   metadataStorageDatabase:
-    dbType: derby
-    connString: jdbc:derby://localhost:1527/var/druid/metadata.db;create=true
-    host: localhost
-    port: 1527
+    dbType: postgresql
+    connString: jdbc:postgresql://druid-postgresql/druid
+    host: druid-postgresql
+    port: 5432
+    user: druid
+    password: druid
   deepStorage:
     hdfs:
       configMapName: druid-hdfs

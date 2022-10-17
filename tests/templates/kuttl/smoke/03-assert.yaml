@@ -6,7 +6,7 @@ timeout: 600
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: druid-s3-deep-storage-broker-default
+  name: druid-broker-default
 status:
   readyReplicas: 1
   replicas: 1
@@ -14,7 +14,7 @@ status:
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: druid-s3-deep-storage-coordinator-default
+  name: druid-coordinator-default
 status:
   readyReplicas: 1
   replicas: 1
@@ -22,7 +22,7 @@ status:
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: druid-s3-deep-storage-historical-default
+  name: druid-historical-default
 status:
   readyReplicas: 1
   replicas: 1
@@ -30,7 +30,7 @@ status:
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: druid-s3-deep-storage-middlemanager-default
+  name: druid-middlemanager-default
 status:
   readyReplicas: 1
   replicas: 1
@@ -38,7 +38,7 @@ status:
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: druid-s3-deep-storage-router-default
+  name: druid-router-default
 status:
   readyReplicas: 1
   replicas: 1

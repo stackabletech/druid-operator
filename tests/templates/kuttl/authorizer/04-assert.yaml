@@ -1,14 +1,12 @@
 ---
 apiVersion: kuttl.dev/v1beta1
 kind: TestAssert
-metadata:
-  name: authcheck
 timeout: 300
 ---
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: authcheck
+  name: checks
 status:
   readyReplicas: 1
   replicas: 1
