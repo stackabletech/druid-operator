@@ -752,7 +752,9 @@ mod test {
 
     #[test]
     pub fn historical_segment_cache() -> Result<()> {
-        let cluster_cr = std::fs::File::open("test/resources/historical_segment_cache/druid_cluster.yaml").unwrap();
+        let cluster_cr =
+            std::fs::File::open("test/resources/historical_segment_cache/druid_cluster.yaml")
+                .unwrap();
         let druid: DruidCluster = serde_yaml::from_reader(&cluster_cr).unwrap();
         let config_files = vec![
             PropertyNameKind::Env,
@@ -772,8 +774,10 @@ mod test {
 
         let role_config = transform_all_roles_to_config(&druid, roles);
 
-        let product_config_manager =
-            ProductConfigManager::from_yaml_file("test/resources/historical_segment_cache/properties.yaml").unwrap();
+        let product_config_manager = ProductConfigManager::from_yaml_file(
+            "test/resources/historical_segment_cache/properties.yaml",
+        )
+        .unwrap();
 
         let validated_role_config = validate_all_roles_and_groups_config(
             druid_version(&druid)?,
