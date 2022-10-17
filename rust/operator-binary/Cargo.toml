@@ -14,7 +14,7 @@ anyhow = "1.0"
 clap = "3.2"
 fnv = "1.0"
 futures = { version = "0.3", features = ["compat"] }
-indoc = "1.0.6"
+indoc = "1.0.7"
 pin-project = "1.0"
 semver = "1.0"
 serde = "1.0"
