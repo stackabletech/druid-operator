@@ -4,5 +4,3 @@ kind: TestStep
 timeout: 600
 commands:
   - script: kubectl cp -n $NAMESPACE ./healthcheck.py  checks-0:/tmp
-  - script: kubectl cp -n $NAMESPACE ./requirements.txt checks-0:/tmp
-  - script: kubectl exec -n $NAMESPACE checks-0 -- pip install --user -r /tmp/requirements.txt
