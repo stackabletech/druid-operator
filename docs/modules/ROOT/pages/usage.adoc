@@ -79,7 +79,8 @@ spec:
   historicals:
     roleGroups:
       default:
-        config: {}
+        config:
+          segmentCacheSize: 64g
         replicas: 1
   middleManagers:
     roleGroups:
@@ -99,6 +100,10 @@ For a list of available versions please check our https://repo.stackable.tech/#b
 It should generally be safe to simply use the latest image version that is available.
 
 The Router is hosting the web UI, a `NodePort` service is created by the operator to access the web UI. Connect to the `simple-druid-router` `NodePort` service and follow the https://druid.apache.org/docs/latest/tutorials/index.html#step-4-load-data[druid documentation] on how to load and query sample data.
+
+== Historicals configuration
+
+Historical Pods store the segment cache on `emptyDir` node volumes. You can configure the maximum size of this cache with `segmentCacheSize`. The operator will then create volumes by adding 5% free space to specified cache size. The default value of the segment cache is `1g` and a volume size of `1.05g`.
 
 == Using S3
 
