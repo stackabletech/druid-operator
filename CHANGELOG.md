@@ -13,7 +13,7 @@ All notable changes to this project will be documented in this file.
 ### Changed
 
 - `operator-rs` `0.22.0` -> `0.25.2` ([#310])
--  Make `druid.segmentCache.locations` configurable ([#320])
+- Make `druid.segmentCache.locations` configurable ([#320])
 
 [#298]: https://github.com/stackabletech/druid-operator/pull/298
 [#310]: https://github.com/stackabletech/druid-operator/pull/310
