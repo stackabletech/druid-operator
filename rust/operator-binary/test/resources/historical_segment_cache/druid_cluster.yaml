@@ -20,40 +20,27 @@ spec:
   brokers:
     roleGroups:
       default:
-        selector:
-          matchLabels:
-            kubernetes.io/os: linux
         config: {}
         replicas: 1
   coordinators:
     roleGroups:
       default:
-        selector:
-          matchLabels:
-            kubernetes.io/os: linux
         config: {}
         replicas: 1
   historicals:
+    config:
+      segmentCacheSize: 2g
     roleGroups:
       default:
-        selector:
-          matchLabels:
-            kubernetes.io/os: linux
         config: {}
         replicas: 1
   middleManagers:
     roleGroups:
       default:
-        selector:
-          matchLabels:
-            kubernetes.io/os: linux
         config: {}
         replicas: 1
   routers:
     roleGroups:
       default:
-        selector:
-          matchLabels:
-            kubernetes.io/os: linux
         config: {}
         replicas: 1

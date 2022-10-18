@@ -96,6 +96,9 @@ const ENV_S3_ACCESS_KEY: &str = "AWS_ACCESS_KEY_ID";
 const ENV_S3_SECRET_KEY: &str = "AWS_SECRET_ACCESS_KEY";
 const SECRET_KEY_S3_ACCESS_KEY: &str = "accessKey";
 const SECRET_KEY_S3_SECRET_KEY: &str = "secretKey";
+// segment storage
+pub const SC_LOCATIONS: &str = "druid.segmentCache.locations";
+pub const SC_DIRECTORY: &str = "/stackable/var/druid/segment-cache";
 
 #[derive(Snafu, Debug, EnumDiscriminants)]
 #[strum_discriminants(derive(IntoStaticStr))]
@@ -451,6 +454,7 @@ pub struct IngestionSpec {
 #[serde(rename_all = "camelCase")]
 pub struct DruidConfig {
     pub resources: Option<Resources<DruidStorageConfig, NoRuntimeLimits>>,
+    pub segment_cache_size: Option<Quantity>,
 }
 
 impl DruidConfig {
@@ -583,10 +587,11 @@ impl Configuration for DruidConfig {
                     Some(DRUID_METRICS_PORT.to_string()),
                 );
                 // Role-specific config
-                if role == DruidRole::MiddleManager {
-                    // When we start ingestion jobs they will run as new JVM processes.
-                    // We need to set this config to pass the custom truststore not only to the Druid roles but also to the started ingestion jobs.
-                    result.insert(
+                match role {
+                    DruidRole::MiddleManager => {
+                        // When we start ingestion jobs they will run as new JVM processes.
+                        // We need to set this config to pass the custom truststore not only to the Druid roles but also to the started ingestion jobs.
+                        result.insert(
                         INDEXER_JAVA_OPTS.to_string(),
                         Some(build_string_list(&[
                             format!("-Djavax.net.ssl.trustStore={STACKABLE_TRUST_STORE}"),
@@ -594,6 +599,13 @@ impl Configuration for DruidConfig {
                             "-Djavax.net.ssl.trustStoreType=pkcs12".to_string()
                         ]))
                     );
+                    }
+                    DruidRole::Historical => {
+                        if let Some(Quantity(scs)) = &resource.spec.historicals.config.config.segment_cache_size.clone() {
+                            result.insert(SC_LOCATIONS.to_string(), Some(format!( "[{{\"path\":\"/stackable/var/druid/segment-cache\",\"maxSize\":\"{scs}\"}}]")));
+                        }
+                    }
+                    _ => {}
                 }
             }
             LOG4J2_CONFIG => {}
@@ -635,6 +647,7 @@ mod tests {
                     config: CommonConfiguration {
                         config: DruidConfig {
                             resources: Some(DruidConfig::default_resources()),
+                            segment_cache_size: None,
                         },
                         config_overrides: Default::default(),
                         env_overrides: Default::default(),
@@ -646,6 +659,7 @@ mod tests {
                     config: CommonConfiguration {
                         config: DruidConfig {
                             resources: Some(DruidConfig::default_resources()),
+                            segment_cache_size: None,
                         },
                         config_overrides: Default::default(),
                         env_overrides: Default::default(),
@@ -657,6 +671,7 @@ mod tests {
                     config: CommonConfiguration {
                         config: DruidConfig {
                             resources: Some(DruidConfig::default_resources()),
+                            segment_cache_size: None,
                         },
                         config_overrides: Default::default(),
                         env_overrides: Default::default(),
@@ -668,6 +683,7 @@ mod tests {
                     config: CommonConfiguration {
                         config: DruidConfig {
                             resources: Some(DruidConfig::default_resources()),
+                            segment_cache_size: None,
                         },
                         config_overrides: Default::default(),
                         env_overrides: Default::default(),
@@ -679,6 +695,7 @@ mod tests {
                     config: CommonConfiguration {
                         config: DruidConfig {
                             resources: Some(DruidConfig::default_resources()),
+                            segment_cache_size: None,
                         },
                         config_overrides: Default::default(),
                         env_overrides: Default::default(),
@@ -690,6 +707,7 @@ mod tests {
                             config: CommonConfiguration {
                                 config: DruidConfig {
                                     resources: Some(DruidConfig::default_resources()),
+                                    segment_cache_size: None,
                                 },
                                 config_overrides: Default::default(),
                                 env_overrides: Default::default(),

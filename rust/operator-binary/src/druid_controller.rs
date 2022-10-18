@@ -10,7 +10,7 @@ use stackable_druid_crd::{
     AUTH_AUTHORIZER_OPA_URI, CERTS_DIR, CONTAINER_HTTP_PORT, CONTAINER_METRICS_PORT,
     CONTROLLER_NAME, CREDENTIALS_SECRET_PROPERTY, DRUID_CONFIG_DIRECTORY, DRUID_METRICS_PORT,
     DS_BUCKET, HDFS_CONFIG_DIRECTORY, JVM_CONFIG, LOG4J2_CONFIG, RUNTIME_PROPS,
-    RW_CONFIG_DIRECTORY, S3_ENDPOINT_URL, S3_PATH_STYLE_ACCESS, S3_SECRET_DIR_NAME,
+    RW_CONFIG_DIRECTORY, S3_ENDPOINT_URL, S3_PATH_STYLE_ACCESS, S3_SECRET_DIR_NAME, SC_DIRECTORY,
     ZOOKEEPER_CONNECTION_STRING,
 };
 use stackable_operator::{
@@ -675,6 +675,15 @@ fn build_rolegroup_statefulset(
             .build(),
     );
 
+    // segment cache volume for historicals
+    if rolegroup_ref.role == DruidRole::Historical.to_string() {
+        cb.add_volume_mount("segment-cache", SC_DIRECTORY);
+        pb.add_volume(
+            VolumeBuilder::new("segment-cache")
+                .with_empty_dir(Some(""), None)
+                .build(),
+        );
+    }
     // readiness probe
     let probe = Probe {
         tcp_socket: Some(TCPSocketAction {
@@ -748,6 +757,7 @@ pub fn error_policy(_error: &Error, _ctx: Arc<Ctx>) -> Action {
 mod test {
 
     use super::*;
+    use stackable_druid_crd::SC_LOCATIONS;
     use stackable_operator::product_config::ProductConfigManager;
 
     #[test]
@@ -796,19 +806,14 @@ mod test {
                     .unwrap()
                     .get(&PropertyNameKind::File(RUNTIME_PROPS.to_string()))
                     .unwrap();
-                segment_cache_property =
-                    properties.get(&"druid.segmentCache.locations".to_string());
+                segment_cache_property = properties.get(&SC_LOCATIONS.to_string());
                 break;
             }
         }
 
-        assert_eq!(
-            segment_cache_property,
-            Some(
-                &"[{\"path\":\"/stackable/var/druid/segment-cache\",\"maxSize\":\"300g\"}]"
-                    .to_string()
-            )
-        );
+        let expected =
+            "[{\"path\":\"/stackable/var/druid/segment-cache\",\"maxSize\":\"2g\"}]".to_string();
+        assert_eq!(segment_cache_property, Some(&expected));
 
         Ok(())
     }
