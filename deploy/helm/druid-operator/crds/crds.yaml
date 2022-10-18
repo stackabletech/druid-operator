@@ -173,7 +173,18 @@ spec:
                 commonConfig:
                   description: Common cluster wide configuration that can not differ or be overriden on a role or role group level
                   properties:
+                    authentication:
+                      description: Authentication settings for Druid like TLS authentication or LDAP
+                      items:
+                        properties:
+                          authenticationClass:
+                            type: string
+                        required:
+                          - authenticationClass
+                        type: object
+                      type: array
                     authorization:
+                      description: Authorization settings for Druid like OPA
                       nullable: true
                       properties:
                         opa:
@@ -190,6 +201,7 @@ spec:
                         - opa
                       type: object
                     deepStorage:
+                      description: Deep storage settings for Druid like S3 or HDFS
                       oneOf:
                         - required:
                             - hdfs
@@ -333,6 +345,7 @@ spec:
                           type: object
                       type: object
                     ingestion:
+                      description: Ingestion settings for Druid like S3
                       nullable: true
                       properties:
                         s3connection:
@@ -436,6 +449,7 @@ spec:
                           type: object
                       type: object
                     metadataStorageDatabase:
+                      description: Meta storage database like Derby or PostgreSQL
                       properties:
                         connString:
                           type: string
@@ -465,6 +479,7 @@ spec:
                       type: object
                     tls:
                       default: {}
+                      description: TLS encryption settings for Druid
                       properties:
                         internal:
                           default:
@@ -490,8 +505,10 @@ spec:
                           type: object
                       type: object
                     zookeeperConfigMapName:
+                      description: ZooKeeper discovery ConfigMap
                       type: string
                   required:
+                    - authentication
                     - deepStorage
                     - metadataStorageDatabase
                     - zookeeperConfigMapName

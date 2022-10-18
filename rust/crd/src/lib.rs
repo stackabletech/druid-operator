@@ -33,6 +33,28 @@ pub const JVM_CONFIG: &str = "jvm.config";
 pub const RUNTIME_PROPS: &str = "runtime.properties";
 pub const LOG4J2_CONFIG: &str = "log4j2.xml";
 
+// TLS settings
+// - ports
+pub const ENABLE_PLAINTEXT_PORT: &str = "druid.enablePlaintextPort";
+pub const PLAINTEXT_PORT: &str = "druid.plaintextPort";
+pub const ENABLE_TLS_PORT: &str = "druid.enableTlsPort";
+pub const TLS_PORT: &str = "druid.tlsPort";
+// - key and truststores
+//   - server
+pub const SERVER_HTTPS_KEY_STORE_PATH: &str = "druid.server.https.keyStorePath";
+pub const SERVER_HTTPS_KEY_STORE_TYPE: &str = "druid.server.https.keyStoreType";
+pub const SERVER_HTTPS_TRUST_STORE_PATH: &str = "druid.server.https.trustStorePath";
+pub const SERVER_HTTPS_TRUST_STORE_TYPE: &str = "druid.server.https.trustStoreType";
+pub const SERVER_HTTPS_REQUIRE_CLIENT_CERTIFICATE: &str =
+    "druid.server.https.requireClientCertificate";
+pub const SERVER_HTTPS_REQUEST_CLIENT_CERTIFICATE: &str =
+    "druid.server.https.requestClientCertificate";
+//   - client
+pub const CLIENT_HTTPS_KEY_STORE_PATH: &str = "druid.client.https.keyStorePath";
+pub const CLIENT_HTTPS_KEY_STORE_TYPE: &str = "druid.client.https.keyStoreType";
+pub const CLIENT_HTTPS_TRUST_STORE_PATH: &str = "druid.client.https.trustStorePath";
+pub const CLIENT_HTTPS_TRUST_STORE_TYPE: &str = "druid.client.https.trustStoreType";
+//   - store directories
 pub const SYSTEM_TRUST_STORE: &str = "/etc/pki/java/cacerts";
 pub const SYSTEM_TRUST_STORE_PASSWORD: &str = "changeit";
 pub const STACKABLE_TRUST_STORE: &str = "/stackable/truststore.p12";
@@ -149,14 +171,22 @@ pub struct DruidClusterSpec {
 #[derive(Clone, Debug, Deserialize, JsonSchema, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DruidCommonConfig {
+    /// Authentication settings for Druid like TLS authentication or LDAP
+    pub authentication: Vec<DruidAuthentication>,
+    /// Authorization settings for Druid like OPA
     #[serde(skip_serializing_if = "Option::is_none")]
     pub authorization: Option<DruidAuthorization>,
+    /// Deep storage settings for Druid like S3 or HDFS
     pub deep_storage: DeepStorageSpec,
+    /// Ingestion settings for Druid like S3
     #[serde(skip_serializing_if = "Option::is_none")]
     pub ingestion: Option<IngestionSpec>,
+    /// Meta storage database like Derby or PostgreSQL
     pub metadata_storage_database: DatabaseConnectionSpec,
+    /// TLS encryption settings for Druid
     #[serde(default)]
     pub tls: DruidTls,
+    /// ZooKeeper discovery ConfigMap
     pub zookeeper_config_map_name: String,
 }
 
@@ -195,6 +225,12 @@ impl DruidTlsSecretClass {
             secret_class: "tls".to_string(),
         })
     }
+}
+
+#[derive(Clone, Debug, Default, Deserialize, JsonSchema, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DruidAuthentication {
+    pub authentication_class: String,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, JsonSchema, Serialize)]
@@ -242,7 +278,7 @@ impl DruidRole {
         }
     }
 
-    /// Returns the default port for every role, as taken from the sample configs.
+    /// Returns the http port for every role
     pub fn get_http_port(&self) -> u16 {
         match &self {
             DruidRole::Coordinator => 8081,
@@ -250,6 +286,17 @@ impl DruidRole {
             DruidRole::Historical => 8083,
             DruidRole::MiddleManager => 8091,
             DruidRole::Router => 8888,
+        }
+    }
+
+    /// Returns the https port for every role
+    pub fn get_https_port(&self) -> u16 {
+        match &self {
+            DruidRole::Coordinator => 18081,
+            DruidRole::Broker => 18082,
+            DruidRole::Historical => 18083,
+            DruidRole::MiddleManager => 18091,
+            DruidRole::Router => 18888,
         }
     }
 
