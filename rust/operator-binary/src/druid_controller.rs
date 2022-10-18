@@ -6,7 +6,7 @@ use crate::{
 
 use snafu::{OptionExt, ResultExt, Snafu};
 use stackable_druid_crd::{
-    DeepStorageSpec, DruidCluster, DruidRole, DruidStorageConfig, APP_NAME,
+    DeepStorageSpec, DruidAuthorization, DruidCluster, DruidRole, DruidStorageConfig, APP_NAME,
     AUTH_AUTHORIZER_OPA_URI, CERTS_DIR, CONTAINER_HTTP_PORT, CONTAINER_METRICS_PORT,
     CONTROLLER_NAME, CREDENTIALS_SECRET_PROPERTY, DRUID_CONFIG_DIRECTORY, DRUID_METRICS_PORT,
     DS_BUCKET, HDFS_CONFIG_DIRECTORY, JVM_CONFIG, LOG4J2_CONFIG, RUNTIME_PROPS,
@@ -190,7 +190,7 @@ pub async fn reconcile_druid(druid: Arc<DruidCluster>, ctx: Arc<Ctx>) -> Result<
     tracing::info!("Starting reconcile");
     let client = &ctx.client;
 
-    let zk_confmap = druid.spec.zookeeper_config_map_name.clone();
+    let zk_confmap = druid.spec.common_config.zookeeper_config_map_name.clone();
     let zk_connstr = client
         .get::<ConfigMap>(&zk_confmap, druid.namespace().as_deref())
         .await
@@ -204,9 +204,11 @@ pub async fn reconcile_druid(druid: Arc<DruidCluster>, ctx: Arc<Ctx>) -> Result<
         })?;
 
     // Assemble the OPA connection string from the discovery and the given path, if a spec is given.
-    let opa_connstr = if let Some(opa_spec) = &druid.spec.opa {
+    let opa_connstr = if let Some(DruidAuthorization { opa: opa_config }) =
+        &druid.spec.common_config.authorization
+    {
         Some(
-            opa_spec
+            opa_config
                 .full_document_url_from_config_map(
                     client,
                     druid.deref(),
@@ -215,7 +217,7 @@ pub async fn reconcile_druid(druid: Arc<DruidCluster>, ctx: Arc<Ctx>) -> Result<
                 )
                 .await
                 .context(GetOpaConnStringSnafu {
-                    cm_name: opa_spec.config_map_name.clone(),
+                    cm_name: opa_config.config_map_name.clone(),
                 })?,
         )
     } else {
@@ -228,7 +230,7 @@ pub async fn reconcile_druid(druid: Arc<DruidCluster>, ctx: Arc<Ctx>) -> Result<
         .await
         .context(GetS3ConnectionSnafu)?;
 
-    let deep_storage_bucket_name = match &druid.spec.deep_storage {
+    let deep_storage_bucket_name = match &druid.spec.common_config.deep_storage {
         DeepStorageSpec::S3(s3_spec) => {
             s3_spec
                 .bucket
@@ -658,7 +660,7 @@ fn build_rolegroup_statefulset(
     );
 
     // hdfs deep storage mount
-    if let DeepStorageSpec::HDFS(hdfs) = &druid.spec.deep_storage {
+    if let DeepStorageSpec::HDFS(hdfs) = &druid.spec.common_config.deep_storage {
         cb.add_volume_mount("hdfs", HDFS_CONFIG_DIRECTORY);
         pb.add_volume(
             VolumeBuilder::new("hdfs")
