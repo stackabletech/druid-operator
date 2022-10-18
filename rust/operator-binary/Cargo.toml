@@ -24,6 +24,8 @@ snafu = "0.7"
 strum = { version = "0.24", features = ["derive"] }
 tokio = { version = "1.21", features = ["full"] }
 tracing = "0.1"
+lazy_static = "1.4.0"
+regex = "1.6.0"
 
 [build-dependencies]
 built = { version =  "0.5", features = ["chrono", "git2"] }

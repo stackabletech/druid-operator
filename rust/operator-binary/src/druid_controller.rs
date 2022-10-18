@@ -4,6 +4,8 @@ use crate::{
     discovery::{self, build_discovery_configmaps},
 };
 
+use lazy_static::lazy_static;
+use regex::Regex;
 use snafu::{OptionExt, ResultExt, Snafu};
 use stackable_druid_crd::{
     DeepStorageSpec, DruidCluster, DruidConfig, DruidRole, DruidStorageConfig, APP_NAME,
@@ -11,7 +13,7 @@ use stackable_druid_crd::{
     CONTROLLER_NAME, CREDENTIALS_SECRET_PROPERTY, DRUID_CONFIG_DIRECTORY, DRUID_METRICS_PORT,
     DS_BUCKET, HDFS_CONFIG_DIRECTORY, JVM_CONFIG, LOG4J2_CONFIG, RUNTIME_PROPS,
     RW_CONFIG_DIRECTORY, S3_ENDPOINT_URL, S3_PATH_STYLE_ACCESS, S3_SECRET_DIR_NAME, SC_DIRECTORY,
-    ZOOKEEPER_CONNECTION_STRING,
+    SC_LOCATIONS, ZOOKEEPER_CONNECTION_STRING,
 };
 use stackable_operator::{
     builder::{
@@ -32,7 +34,9 @@ use stackable_operator::{
                 ConfigMap, EnvVar, Probe, Service, ServicePort, ServiceSpec, TCPSocketAction,
             },
         },
-        apimachinery::pkg::{apis::meta::v1::LabelSelector, util::intstr::IntOrString},
+        apimachinery::pkg::{
+            api::resource::Quantity, apis::meta::v1::LabelSelector, util::intstr::IntOrString,
+        },
     },
     kube::{
         runtime::{controller::Action, reflector::ObjectRef},
@@ -176,6 +180,12 @@ pub enum Error {
         source: stackable_operator::error::Error,
         name: String,
     },
+    #[snafu(display("no quantity unit (k, m, g, etc.) given for [{value}]"))]
+    NoQuantityUnit { value: String },
+    #[snafu(display("invalid quantity value"))]
+    InvalidQuantityValue { source: std::num::ParseFloatError },
+    #[snafu(display("segment cache location is required but missing"))]
+    NoSegmentCacheLocation,
 }
 
 type Result<T, E = Error> = std::result::Result<T, E>;
@@ -680,7 +690,10 @@ fn build_rolegroup_statefulset(
         cb.add_volume_mount("segment-cache", SC_DIRECTORY);
         pb.add_volume(
             VolumeBuilder::new("segment-cache")
-                .with_empty_dir(Some(""), None)
+                .with_empty_dir(
+                    Some(""),
+                    volume_segment_cache_location_size(rolegroup_config)?,
+                )
                 .build(),
         );
     }
@@ -753,11 +766,50 @@ pub fn error_policy(_error: &Error, _ctx: Arc<Ctx>) -> Action {
     Action::requeue(Duration::from_secs(5))
 }
 
+/// Given the segment cache location configuration, compute the maximum
+/// size of the volume used to store these by adding a 0.5% factor free
+/// space to it.
+pub fn volume_segment_cache_location_size(
+    rolegroup_config: &HashMap<PropertyNameKind, BTreeMap<String, String>>,
+) -> Result<Option<Quantity>> {
+    if let Some(location) = rolegroup_config
+        .get(&PropertyNameKind::File(RUNTIME_PROPS.to_string()))
+        .and_then(|props| props.get(&SC_LOCATIONS.to_string()))
+    {
+        compute_volume_segment_cache_location_size(location)
+    } else {
+        NoSegmentCacheLocationSnafu.fail()?
+    }
+}
+
+pub fn compute_volume_segment_cache_location_size(location: &str) -> Result<Option<Quantity>> {
+    lazy_static! {
+        static ref RE: Regex = Regex::new(r#"^\[\{"path":\s*"/stackable/var/druid/segment-cache","maxSize":\s*"(?P<max_size>[^"]+)"\}\]$"#).unwrap();
+    }
+    if let Some(max_size) = RE
+        .captures(location)
+        .and_then(|cap| cap.name("max_size").map(|m| m.as_str()))
+    {
+        let start_of_unit = max_size
+            .find(|c: char| c != '.' && !c.is_numeric())
+            .context(NoQuantityUnitSnafu {
+                value: max_size.to_owned(),
+            })?;
+        let (value, unit) = max_size.split_at(start_of_unit);
+
+        Ok(Some(Quantity(format!(
+            "{:.2}{unit}",
+            value.parse::<f32>().context(InvalidQuantityValueSnafu)? * 1.05
+        ))))
+    } else {
+        Ok(Some(Quantity("1.05g".to_string())))
+    }
+}
+
 #[cfg(test)]
 mod test {
 
     use super::*;
-    use stackable_druid_crd::SC_LOCATIONS;
     use stackable_operator::product_config::ProductConfigManager;
 
     #[test]
@@ -798,23 +850,45 @@ mod test {
         )
         .context(InvalidProductConfigSnafu)?;
 
-        let mut segment_cache_property = None;
+        let mut default_segment_cache_property = None;
+        let mut secondary_segment_cache_property = None;
         for (role_name, role_config) in validated_role_config.iter() {
             if role_name == &DruidRole::Historical.to_string() {
-                let properties = role_config
+                default_segment_cache_property = role_config
                     .get(&"default".to_string())
                     .unwrap()
                     .get(&PropertyNameKind::File(RUNTIME_PROPS.to_string()))
-                    .unwrap();
-                segment_cache_property = properties.get(&SC_LOCATIONS.to_string());
+                    .unwrap()
+                    .get(&SC_LOCATIONS.to_string());
+
+                secondary_segment_cache_property = role_config
+                    .get(&"secondary".to_string())
+                    .unwrap()
+                    .get(&PropertyNameKind::File(RUNTIME_PROPS.to_string()))
+                    .unwrap()
+                    .get(&SC_LOCATIONS.to_string());
+
                 break;
             }
         }
 
-        let expected =
-            "[{\"path\":\"/stackable/var/druid/segment-cache\",\"maxSize\":\"2g\"}]".to_string();
-        assert_eq!(segment_cache_property, Some(&expected));
+        let expected_default =
+            "[{\"path\":\"/stackable/var/druid/segment-cache\",\"maxSize\":\"3g\"}]".to_string();
+        assert_eq!(default_segment_cache_property, Some(&expected_default));
 
+        let expected_secondary =
+            "[{\"path\":\"/stackable/var/druid/segment-cache\",\"maxSize\":\"4g\"}]".to_string();
+        assert_eq!(secondary_segment_cache_property, Some(&expected_secondary));
+
+        Ok(())
+    }
+
+    #[test]
+    pub fn test_compute_volume_segment_cache_location_size() -> Result<()> {
+        let volume_size = compute_volume_segment_cache_location_size(
+            "[{\"path\":\"/stackable/var/druid/segment-cache\",\"maxSize\":\"3g\"}]",
+        )?;
+        assert_eq!(volume_size, Some(Quantity("3.15g".to_string())));
         Ok(())
     }
 }

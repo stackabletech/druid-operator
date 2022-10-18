@@ -32,8 +32,12 @@ spec:
       segmentCacheSize: 2g
     roleGroups:
       default:
-        config: {}
+        config:
+          segmentCacheSize: 3g
         replicas: 1
+      secondary:
+        config:
+          segmentCacheSize: 4g
   middleManagers:
     roleGroups:
       default:

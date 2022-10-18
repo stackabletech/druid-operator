@@ -601,14 +601,7 @@ impl Configuration for DruidConfig {
                     );
                     }
                     DruidRole::Historical => {
-                        if let Some(Quantity(scs)) = &resource
-                            .spec
-                            .historicals
-                            .config
-                            .config
-                            .segment_cache_size
-                            .clone()
-                        {
+                        if let Some(Quantity(scs)) = &self.segment_cache_size {
                             result.insert(SC_LOCATIONS.to_string(), Some(format!( "[{{\"path\":\"/stackable/var/druid/segment-cache\",\"maxSize\":\"{scs}\"}}]")));
                         }
                     }
