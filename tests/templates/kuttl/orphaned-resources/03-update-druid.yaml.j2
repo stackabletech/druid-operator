@@ -11,16 +11,17 @@ metadata:
   name: derby-druid
 spec:
   version: {{ test_scenario['values']['druid'] }}
-  zookeeperConfigMapName: druid-znode
-  metadataStorageDatabase:
-    dbType: derby
-    connString: jdbc:derby://localhost:1527/var/druid/metadata.db;create=true
-    host: localhost
-    port: 1527
-  deepStorage:
-    hdfs:
-      configMapName: druid-hdfs
-      directory: /druid
+  commonConfig:
+    deepStorage:
+      hdfs:
+        configMapName: druid-hdfs
+        directory: /druid
+    metadataStorageDatabase:
+      dbType: derby
+      connString: jdbc:derby://localhost:1527/var/druid/metadata.db;create=true
+      host: localhost
+      port: 1527
+    zookeeperConfigMapName: druid-znode
   brokers:
     roleGroups:
       default: null

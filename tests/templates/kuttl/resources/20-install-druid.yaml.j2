@@ -9,22 +9,23 @@ metadata:
   name: druid-resources
 spec:
   version: {{ test_scenario['values']['druid'] }}
-  zookeeperConfigMapName: druid-znode
-  metadataStorageDatabase:
-    dbType: derby
-    connString: jdbc:derby://localhost:1527/var/druid/metadata.db;create=true
-    host: localhost
-    port: 1527
-  deepStorage:
-    s3:
-      bucket:
-        inline:
-          bucketName: druid
-          connection:
-            inline:
-              host: minio-druid
-              port: 9000
-              accessStyle: Path
+  commonConfig:
+    deepStorage:
+      s3:
+        bucket:
+          inline:
+            bucketName: druid
+            connection:
+              inline:
+                host: minio-druid
+                port: 9000
+                accessStyle: Path
+    metadataStorageDatabase:
+      dbType: derby
+      connString: jdbc:derby://localhost:1527/var/druid/metadata.db;create=true
+      host: localhost
+      port: 1527
+    zookeeperConfigMapName: druid-znode
   brokers:
     roleGroups:
       default:
