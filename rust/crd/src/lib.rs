@@ -1,3 +1,7 @@
+pub mod tls;
+
+use crate::tls::DruidTls;
+
 use serde::{Deserialize, Serialize};
 use snafu::{ResultExt, Snafu};
 use stackable_operator::role_utils::RoleGroupRef;
@@ -34,12 +38,7 @@ pub const RUNTIME_PROPS: &str = "runtime.properties";
 pub const LOG4J2_CONFIG: &str = "log4j2.xml";
 
 // TLS settings
-// - ports
-pub const ENABLE_PLAINTEXT_PORT: &str = "druid.enablePlaintextPort";
-pub const PLAINTEXT_PORT: &str = "druid.plaintextPort";
-pub const ENABLE_TLS_PORT: &str = "druid.enableTlsPort";
-pub const TLS_PORT: &str = "druid.tlsPort";
-// - key and truststores
+// - key and trust stores
 //   - server
 pub const SERVER_HTTPS_KEY_STORE_PATH: &str = "druid.server.https.keyStorePath";
 pub const SERVER_HTTPS_KEY_STORE_TYPE: &str = "druid.server.https.keyStoreType";
@@ -61,15 +60,10 @@ pub const STACKABLE_TRUST_STORE: &str = "/stackable/truststore.p12";
 pub const STACKABLE_TRUST_STORE_PASSWORD: &str = "changeit";
 pub const CERTS_DIR: &str = "/stackable/certificates/";
 
-// port names
-pub const CONTAINER_HTTP_PORT: &str = "http";
-pub const CONTAINER_METRICS_PORT: &str = "metrics";
-
 /////////////////////////////
 //    CONFIG PROPERTIES    //
 /////////////////////////////
 // plaintext port / HTTP
-pub const PLAINTEXT: &str = "druid.plaintext";
 pub const EXTENSIONS_LOADLIST: &str = "druid.extensions.loadList";
 // extension names
 pub const EXT_S3: &str = "druid-s3-extensions";
@@ -110,7 +104,7 @@ pub const INDEXER_JAVA_OPTS: &str = "druid.indexer.runner.javaOptsArray";
 pub const CREDENTIALS_SECRET_PROPERTY: &str = "credentialsSecret";
 
 pub const PROMETHEUS_PORT: &str = "druid.emitter.prometheus.port";
-pub const DRUID_METRICS_PORT: u16 = 9090;
+pub const METRICS_PORT: u16 = 9090;
 
 // container locations
 pub const S3_SECRET_DIR_NAME: &str = "/stackable/secrets";
@@ -172,6 +166,7 @@ pub struct DruidClusterSpec {
 #[serde(rename_all = "camelCase")]
 pub struct DruidCommonConfig {
     /// Authentication settings for Druid like TLS authentication or LDAP
+    #[serde(default)]
     pub authentication: Vec<DruidAuthentication>,
     /// Authorization settings for Druid like OPA
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -188,43 +183,6 @@ pub struct DruidCommonConfig {
     pub tls: DruidTls,
     /// ZooKeeper discovery ConfigMap
     pub zookeeper_config_map_name: String,
-}
-
-#[derive(Clone, Debug, Default, Deserialize, JsonSchema, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct DruidTls {
-    /// Only affects client connections.
-    /// This setting controls:
-    /// - If TLS encryption is used at all
-    /// - Which cert the servers should use to authenticate themselves against the client
-    #[serde(
-        default = "DruidTlsSecretClass::default",
-        skip_serializing_if = "Option::is_none"
-    )]
-    pub server: Option<DruidTlsSecretClass>,
-    /// Only affects internal communication. Use mutual verification between Druid nodes
-    /// This setting controls:
-    /// - Which cert the servers should use to authenticate themselves against other servers
-    /// - Which ca.crt to use when validating the other server
-    #[serde(
-        default = "DruidTlsSecretClass::default",
-        skip_serializing_if = "Option::is_none"
-    )]
-    pub internal: Option<DruidTlsSecretClass>,
-}
-
-#[derive(Clone, Debug, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct DruidTlsSecretClass {
-    pub secret_class: String,
-}
-
-impl DruidTlsSecretClass {
-    fn default() -> Option<DruidTlsSecretClass> {
-        Some(DruidTlsSecretClass {
-            secret_class: "tls".to_string(),
-        })
-    }
 }
 
 #[derive(Clone, Debug, Default, Deserialize, JsonSchema, Serialize)]
@@ -292,11 +250,11 @@ impl DruidRole {
     /// Returns the https port for every role
     pub fn get_https_port(&self) -> u16 {
         match &self {
-            DruidRole::Coordinator => 18081,
-            DruidRole::Broker => 18082,
-            DruidRole::Historical => 18083,
-            DruidRole::MiddleManager => 18091,
-            DruidRole::Router => 18888,
+            DruidRole::Coordinator => 8281,
+            DruidRole::Broker => 8282,
+            DruidRole::Historical => 8283,
+            DruidRole::MiddleManager => 8291,
+            DruidRole::Router => 9088,
         }
     }
 
@@ -608,11 +566,6 @@ impl Configuration for DruidConfig {
         match file {
             JVM_CONFIG => {}
             RUNTIME_PROPS => {
-                // Plaintext port
-                result.insert(
-                    PLAINTEXT.to_string(),
-                    Some(role.get_http_port().to_string()),
-                );
                 // extensions
                 let mut extensions = vec![
                     String::from(EXT_KAFKA_INDEXING),
@@ -622,6 +575,47 @@ impl Configuration for DruidConfig {
                     String::from(EXT_OPA_AUTHORIZER),
                     String::from(EXT_HDFS),
                 ];
+                // tls
+                let tls: &DruidTls = &resource.spec.common_config.tls;
+                tls.add_tls_extensions(&mut extensions);
+                //tls.add_common_config_properties(&mut result, &role);
+
+                result.insert("druid.enableTlsPort".to_string(), Some("true".to_string()));
+                result.insert(
+                    "druid.enablePlainPort".to_string(),
+                    Some("false".to_string()),
+                );
+
+                result.insert(
+                    "druid.client.https.trustStoreType".to_string(),
+                    Some("pkcs12".to_string()),
+                );
+                result.insert(
+                    "druid.client.https.trustStorePath".to_string(),
+                    Some("/stackable/internal_tls/truststore.p12".to_string()),
+                );
+                result.insert(
+                    "druid.client.https.trustStorePassword".to_string(),
+                    Some("changeit".to_string()),
+                );
+
+                result.insert(
+                    "druid.server.https.certAlias=druid".to_string(),
+                    Some("druid".to_string()),
+                );
+                result.insert(
+                    "druid.server.https.keyStoreType".to_string(),
+                    Some("pkcs12".to_string()),
+                );
+                result.insert(
+                    "druid.server.https.keyStorePath".to_string(),
+                    Some("/stackable/internal_tls/keystore.p12".to_string()),
+                );
+                result.insert(
+                    "druid.server.https.keyStorePassword".to_string(),
+                    Some("changeit".to_string()),
+                );
+
                 // metadata storage
                 let mds = &resource.spec.common_config.metadata_storage_database;
                 match mds.db_type {
@@ -683,10 +677,7 @@ impl Configuration for DruidConfig {
                     Some(build_string_list(&extensions)),
                 );
                 // metrics
-                result.insert(
-                    PROMETHEUS_PORT.to_string(),
-                    Some(DRUID_METRICS_PORT.to_string()),
-                );
+                result.insert(PROMETHEUS_PORT.to_string(), Some(METRICS_PORT.to_string()));
                 // Role-specific config
                 if role == DruidRole::MiddleManager {
                     // When we start ingestion jobs they will run as new JVM processes.

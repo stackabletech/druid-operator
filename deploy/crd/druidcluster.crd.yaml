@@ -358,6 +358,7 @@ spec:
                 description: Common cluster wide configuration that can not differ or be overriden on a role or role group level
                 properties:
                   authentication:
+                    default: []
                     description: Authentication settings for Druid like TLS authentication or LDAP
                     items:
                       properties:
@@ -692,7 +693,6 @@ spec:
                     description: ZooKeeper discovery ConfigMap
                     type: string
                 required:
-                - authentication
                 - deepStorage
                 - metadataStorageDatabase
                 - zookeeperConfigMapName

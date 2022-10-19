@@ -1,0 +1,35 @@
+---
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+metadata:
+  name: druid-hdfs
+timeout: 600
+---
+apiVersion: hdfs.stackable.tech/v1alpha1
+kind: HdfsCluster
+metadata:
+  name: druid-hdfs
+spec:
+  version: {{ test_scenario['values']['hadoop'] }}
+  zookeeperConfigMapName: druid-hdfs-znode
+  dfsReplication: 1
+  nameNodes:
+    roleGroups:
+      default:
+        replicas: 2
+  dataNodes:
+    roleGroups:
+      default:
+        replicas: 1
+  journalNodes:
+    roleGroups:
+      default:
+        replicas: 1
+---
+apiVersion: zookeeper.stackable.tech/v1alpha1
+kind: ZookeeperZnode
+metadata:
+  name: druid-hdfs-znode
+spec:
+  clusterRef:
+    name: druid-zk

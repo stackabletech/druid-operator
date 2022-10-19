@@ -6,17 +6,17 @@ use crate::{
 
 use snafu::{OptionExt, ResultExt, Snafu};
 use stackable_druid_crd::{
-    DeepStorageSpec, DruidAuthorization, DruidCluster, DruidRole, DruidStorageConfig, APP_NAME,
-    AUTH_AUTHORIZER_OPA_URI, CERTS_DIR, CONTAINER_HTTP_PORT, CONTAINER_METRICS_PORT,
-    CONTROLLER_NAME, CREDENTIALS_SECRET_PROPERTY, DRUID_CONFIG_DIRECTORY, DRUID_METRICS_PORT,
-    DS_BUCKET, HDFS_CONFIG_DIRECTORY, JVM_CONFIG, LOG4J2_CONFIG, RUNTIME_PROPS,
-    RW_CONFIG_DIRECTORY, S3_ENDPOINT_URL, S3_PATH_STYLE_ACCESS, S3_SECRET_DIR_NAME,
-    ZOOKEEPER_CONNECTION_STRING,
+    tls::DruidTls, DeepStorageSpec, DruidAuthorization, DruidCluster, DruidRole,
+    DruidStorageConfig, APP_NAME, AUTH_AUTHORIZER_OPA_URI, CERTS_DIR, CONTROLLER_NAME,
+    CREDENTIALS_SECRET_PROPERTY, DRUID_CONFIG_DIRECTORY, DS_BUCKET, HDFS_CONFIG_DIRECTORY,
+    JVM_CONFIG, LOG4J2_CONFIG, RUNTIME_PROPS, RW_CONFIG_DIRECTORY, S3_ENDPOINT_URL,
+    S3_PATH_STYLE_ACCESS, S3_SECRET_DIR_NAME, ZOOKEEPER_CONNECTION_STRING,
 };
 use stackable_operator::{
     builder::{
         ConfigMapBuilder, ContainerBuilder, ObjectMetaBuilder, PodBuilder,
-        PodSecurityContextBuilder, SecretOperatorVolumeSourceBuilder, VolumeBuilder,
+        PodSecurityContextBuilder, SecretOperatorVolumeSourceBuilder, SecurityContextBuilder,
+        VolumeBuilder,
     },
     cluster_resources::ClusterResources,
     commons::{
@@ -28,11 +28,9 @@ use stackable_operator::{
     k8s_openapi::{
         api::{
             apps::v1::{StatefulSet, StatefulSetSpec},
-            core::v1::{
-                ConfigMap, EnvVar, Probe, Service, ServicePort, ServiceSpec, TCPSocketAction,
-            },
+            core::v1::{ConfigMap, EnvVar, Service, ServiceSpec},
         },
-        apimachinery::pkg::{apis::meta::v1::LabelSelector, util::intstr::IntOrString},
+        apimachinery::pkg::apis::meta::v1::LabelSelector,
     },
     kube::{
         runtime::{controller::Action, reflector::ObjectRef},
@@ -45,9 +43,9 @@ use stackable_operator::{
     product_config_utils::{transform_all_roles_to_config, validate_all_roles_and_groups_config},
     role_utils::RoleGroupRef,
 };
-use std::ops::Deref;
 use std::{
     collections::{BTreeMap, HashMap},
+    ops::Deref,
     str::FromStr,
     sync::Arc,
     time::Duration,
@@ -277,7 +275,7 @@ pub async fn reconcile_druid(druid: Arc<DruidCluster>, ctx: Arc<Ctx>) -> Result<
             role: role_name.to_string(),
         })?;
 
-        let role_service = build_role_service(role_name, &druid)?;
+        let role_service = build_role_service(&druid, &druid_role)?;
         cluster_resources
             .add(client, &role_service)
             .await
@@ -293,10 +291,10 @@ pub async fn reconcile_druid(druid: Arc<DruidCluster>, ctx: Arc<Ctx>) -> Result<
                 .resolve_resource_config_for_role_and_rolegroup(&druid_role, &rolegroup)
                 .context(FailedToResolveResourceConfigSnafu)?;
 
-            let rg_service = build_rolegroup_services(&rolegroup, &druid, rolegroup_config)?;
+            let rg_service = build_rolegroup_services(&druid, &rolegroup)?;
             let rg_configmap = build_rolegroup_config_map(
-                &rolegroup,
                 &druid,
+                &rolegroup,
                 rolegroup_config,
                 &zk_connstr,
                 opa_connstr.as_deref(),
@@ -305,8 +303,8 @@ pub async fn reconcile_druid(druid: Arc<DruidCluster>, ctx: Arc<Ctx>) -> Result<
                 &resources,
             )?;
             let rg_statefulset = build_rolegroup_statefulset(
-                &rolegroup,
                 &druid,
+                &rolegroup,
                 rolegroup_config,
                 s3_conn.as_ref(),
                 &resources,
@@ -353,7 +351,8 @@ pub async fn reconcile_druid(druid: Arc<DruidCluster>, ctx: Arc<Ctx>) -> Result<
 
 /// The server-role service is the primary endpoint that should be used by clients that do not perform internal load balancing,
 /// including targets outside of the cluster.
-pub fn build_role_service(role_name: &str, druid: &DruidCluster) -> Result<Service> {
+pub fn build_role_service(druid: &DruidCluster, role: &DruidRole) -> Result<Service> {
+    let role_name = role.to_string();
     let role_svc_name = format!(
         "{}-{}",
         druid.metadata.name.as_ref().unwrap_or(&"druid".to_string()),
@@ -370,22 +369,13 @@ pub fn build_role_service(role_name: &str, druid: &DruidCluster) -> Result<Servi
                 APP_NAME,
                 druid_version(druid)?,
                 CONTROLLER_NAME,
-                role_name,
+                &role_name,
                 "global",
             )
             .build(),
         spec: Some(ServiceSpec {
-            ports: Some(vec![ServicePort {
-                name: Some(CONTAINER_HTTP_PORT.to_string()),
-                port: DruidRole::from_str(role_name)
-                    .unwrap()
-                    .get_http_port()
-                    .into(),
-                target_port: Some(IntOrString::String(CONTAINER_HTTP_PORT.to_string())),
-                protocol: Some("TCP".to_string()),
-                ..ServicePort::default()
-            }]),
-            selector: Some(role_selector_labels(druid, APP_NAME, role_name)),
+            ports: Some(druid.spec.common_config.tls.service_ports(role)),
+            selector: Some(role_selector_labels(druid, APP_NAME, &role_name)),
             type_: Some("NodePort".to_string()),
             ..ServiceSpec::default()
         }),
@@ -396,8 +386,8 @@ pub fn build_role_service(role_name: &str, druid: &DruidCluster) -> Result<Servi
 #[allow(clippy::too_many_arguments)]
 /// The rolegroup [`ConfigMap`] configures the rolegroup based on the configuration given by the administrator
 fn build_rolegroup_config_map(
-    rolegroup: &RoleGroupRef<DruidCluster>,
     druid: &DruidCluster,
+    rolegroup: &RoleGroupRef<DruidCluster>,
     rolegroup_config: &HashMap<PropertyNameKind, BTreeMap<String, String>>,
     zk_connstr: &str,
     opa_connstr: Option<&str>,
@@ -511,9 +501,8 @@ fn build_rolegroup_config_map(
 ///
 /// This is mostly useful for internal communication between peers, or for clients that perform client-side load balancing.
 fn build_rolegroup_services(
-    rolegroup: &RoleGroupRef<DruidCluster>,
     druid: &DruidCluster,
-    _rolegroup_config: &HashMap<PropertyNameKind, BTreeMap<String, String>>,
+    rolegroup: &RoleGroupRef<DruidCluster>,
 ) -> Result<Service> {
     let role = DruidRole::from_str(&rolegroup.role).unwrap();
 
@@ -535,20 +524,7 @@ fn build_rolegroup_services(
             .build(),
         spec: Some(ServiceSpec {
             cluster_ip: Some("None".to_string()),
-            ports: Some(vec![
-                ServicePort {
-                    name: Some(CONTAINER_HTTP_PORT.to_string()),
-                    port: role.get_http_port().into(),
-                    protocol: Some("TCP".to_string()),
-                    ..ServicePort::default()
-                },
-                ServicePort {
-                    name: Some(CONTAINER_METRICS_PORT.to_string()),
-                    port: DRUID_METRICS_PORT.into(),
-                    protocol: Some("TCP".to_string()),
-                    ..ServicePort::default()
-                },
-            ]),
+            ports: Some(druid.spec.common_config.tls.service_ports(&role)),
             selector: Some(role_group_selector_labels(
                 druid,
                 APP_NAME,
@@ -566,13 +542,12 @@ fn build_rolegroup_services(
 ///
 /// The [`Pod`](`stackable_operator::k8s_openapi::api::core::v1::Pod`)s are accessible through the corresponding [`Service`] (from [`build_rolegroup_services`]).
 fn build_rolegroup_statefulset(
-    rolegroup_ref: &RoleGroupRef<DruidCluster>,
     druid: &DruidCluster,
+    rolegroup_ref: &RoleGroupRef<DruidCluster>,
     rolegroup_config: &HashMap<PropertyNameKind, BTreeMap<String, String>>,
     s3_conn: Option<&S3ConnectionSpec>,
     resources: &Resources<DruidStorageConfig, NoRuntimeLimits>,
 ) -> Result<StatefulSet> {
-    // setup
     let role = DruidRole::from_str(&rolegroup_ref.role).context(UnidentifiedDruidRoleSnafu {
         role: rolegroup_ref.role.to_string(),
     })?;
@@ -583,10 +558,25 @@ fn build_rolegroup_statefulset(
         .get(&rolegroup_ref.role_group);
 
     // init container builder
-    let mut cb = ContainerBuilder::new(APP_NAME)
+    let mut cb_prepare = ContainerBuilder::new("prepare")
+        .context(FailedContainerBuilderCreationSnafu { name: "prepare" })?;
+    // druid container builder
+    let mut cb_druid = ContainerBuilder::new(APP_NAME)
         .context(FailedContainerBuilderCreationSnafu { name: APP_NAME })?;
     // init pod builder
     let mut pb = PodBuilder::new();
+
+    let tls_config: &DruidTls = &druid.spec.common_config.tls;
+    tls_config.add_tls_volume_and_volume_mounts(&mut cb_prepare, &mut cb_druid, &mut pb);
+
+    cb_prepare
+        .image("docker.stackable.tech/stackable/tools:0.2.0-stackable0")
+        .command(vec!["/bin/bash".to_string(), "-c".to_string()])
+        .args(vec![tls_config.build_tls_stores_cmd().join(" && ")])
+        .image_pull_policy("IfNotPresent")
+        .security_context(SecurityContextBuilder::run_as_root())
+        .build();
+
     pb.metadata_builder(|m| {
         m.with_recommended_labels(
             druid,
@@ -599,12 +589,12 @@ fn build_rolegroup_statefulset(
     });
 
     // add image
-    cb.image(container_image(druid_version));
+    cb_druid.image(container_image(druid_version));
 
     if let Some(s3_conn) = s3_conn {
         if let Some(credentials) = &s3_conn.credentials {
             pb.add_volume(credentials.to_volume("s3-credentials"));
-            cb.add_volume_mount("s3-credentials", S3_SECRET_DIR_NAME);
+            cb_druid.add_volume_mount("s3-credentials", S3_SECRET_DIR_NAME);
         }
 
         if let Some(tls) = &s3_conn.tls {
@@ -622,7 +612,10 @@ fn build_rolegroup_statefulset(
                                 )
                                 .build();
                             pb.add_volume(volume);
-                            cb.add_volume_mount(&volume_name, format!("{CERTS_DIR}{volume_name}"));
+                            cb_druid.add_volume_mount(
+                                &volume_name,
+                                format!("{CERTS_DIR}{volume_name}"),
+                            );
                         }
                     }
                 }
@@ -631,7 +624,7 @@ fn build_rolegroup_statefulset(
     }
 
     // add command
-    cb.command(role.get_command(s3_conn));
+    cb_druid.command(role.get_command(s3_conn));
 
     // rest of env
     let rest_env = rolegroup_config
@@ -645,14 +638,10 @@ fn build_rolegroup_statefulset(
             ..EnvVar::default()
         })
         .collect::<Vec<_>>();
-    cb.add_env_vars(rest_env);
-
-    // add ports
-    cb.add_container_port(CONTAINER_HTTP_PORT, role.get_http_port().into());
-    cb.add_container_port(CONTAINER_METRICS_PORT, DRUID_METRICS_PORT.into());
+    cb_druid.add_env_vars(rest_env);
 
     // config mount
-    cb.add_volume_mount("config", DRUID_CONFIG_DIRECTORY);
+    cb_druid.add_volume_mount("config", DRUID_CONFIG_DIRECTORY);
     pb.add_volume(
         VolumeBuilder::new("config")
             .with_config_map(rolegroup_ref.object_name())
@@ -661,7 +650,7 @@ fn build_rolegroup_statefulset(
 
     // hdfs deep storage mount
     if let DeepStorageSpec::HDFS(hdfs) = &druid.spec.common_config.deep_storage {
-        cb.add_volume_mount("hdfs", HDFS_CONFIG_DIRECTORY);
+        cb_druid.add_volume_mount("hdfs", HDFS_CONFIG_DIRECTORY);
         pb.add_volume(
             VolumeBuilder::new("hdfs")
                 .with_config_map(&hdfs.config_map_name)
@@ -670,29 +659,20 @@ fn build_rolegroup_statefulset(
     }
 
     // read write config folder
-    cb.add_volume_mount("rwconfig", RW_CONFIG_DIRECTORY);
+    cb_druid.add_volume_mount("rwconfig", RW_CONFIG_DIRECTORY);
     pb.add_volume(
         VolumeBuilder::new("rwconfig")
             .with_empty_dir(Some(""), None)
             .build(),
     );
 
-    // readiness probe
-    let probe = Probe {
-        tcp_socket: Some(TCPSocketAction {
-            port: IntOrString::Int(role.get_http_port().into()),
-            ..Default::default()
-        }),
-        initial_delay_seconds: Some(30),
-        period_seconds: Some(5),
-        ..Default::default()
-    };
-    cb.readiness_probe(probe);
-    cb.resources(resources.clone().into());
+    cb_druid.add_container_ports(tls_config.container_ports(&role));
+    cb_druid.readiness_probe(tls_config.get_probe());
+    cb_druid.liveness_probe(tls_config.get_probe());
+    cb_druid.resources(resources.clone().into());
 
-    let mut container = cb.build();
-    container.image_pull_policy = Some("IfNotPresent".to_string());
-    pb.add_container(container);
+    pb.add_init_container(cb_prepare.build());
+    pb.add_container(cb_druid.build());
     pb.security_context(PodSecurityContextBuilder::new().fs_group(1000).build()); // Needed for secret-operator
 
     Ok(StatefulSet {
