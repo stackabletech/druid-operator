@@ -258,7 +258,7 @@ pub async fn reconcile_druid(druid: Arc<DruidCluster>, ctx: Arc<Ctx>) -> Result<
 
     let role_config = transform_all_roles_to_config(&*druid, roles);
     let validated_role_config = validate_all_roles_and_groups_config(
-        druid_version(&druid)?,
+        druid.version(),
         &role_config.context(ProductConfigTransformSnafu)?,
         &ctx.product_config,
         false,
@@ -367,7 +367,7 @@ pub fn build_role_service(druid: &DruidCluster, role: &DruidRole) -> Result<Serv
             .with_recommended_labels(
                 druid,
                 APP_NAME,
-                druid_version(druid)?,
+                druid.version(),
                 CONTROLLER_NAME,
                 &role_name,
                 "global",
@@ -480,7 +480,7 @@ fn build_rolegroup_config_map(
             .with_recommended_labels(
                 druid,
                 APP_NAME,
-                druid_version(druid)?,
+                druid.version(),
                 CONTROLLER_NAME,
                 &rolegroup.role,
                 &rolegroup.role_group,
@@ -515,7 +515,7 @@ fn build_rolegroup_services(
             .with_recommended_labels(
                 druid,
                 APP_NAME,
-                druid_version(druid)?,
+                druid.version(),
                 CONTROLLER_NAME,
                 &rolegroup.role,
                 &rolegroup.role_group,
@@ -551,7 +551,7 @@ fn build_rolegroup_statefulset(
     let role = DruidRole::from_str(&rolegroup_ref.role).context(UnidentifiedDruidRoleSnafu {
         role: rolegroup_ref.role.to_string(),
     })?;
-    let druid_version = druid_version(druid)?;
+    let druid_version = druid.version();
     let rolegroup = druid
         .get_role(&role)
         .role_groups
@@ -567,7 +567,9 @@ fn build_rolegroup_statefulset(
     let mut pb = PodBuilder::new();
 
     let tls_config: &DruidTls = &druid.spec.common_config.tls;
+    // volume and volume mounts
     tls_config.add_tls_volume_and_volume_mounts(&mut cb_prepare, &mut cb_druid, &mut pb);
+    add_s3_volume_and_volume_mounts(s3_conn, &mut cb_druid, &mut pb)?;
 
     cb_prepare
         .image("docker.stackable.tech/stackable/tools:0.2.0-stackable0")
@@ -577,53 +579,7 @@ fn build_rolegroup_statefulset(
         .security_context(SecurityContextBuilder::run_as_root())
         .build();
 
-    pb.metadata_builder(|m| {
-        m.with_recommended_labels(
-            druid,
-            APP_NAME,
-            druid_version,
-            CONTROLLER_NAME,
-            &rolegroup_ref.role,
-            &rolegroup_ref.role_group,
-        )
-    });
-
-    // add image
     cb_druid.image(container_image(druid_version));
-
-    if let Some(s3_conn) = s3_conn {
-        if let Some(credentials) = &s3_conn.credentials {
-            pb.add_volume(credentials.to_volume("s3-credentials"));
-            cb_druid.add_volume_mount("s3-credentials", S3_SECRET_DIR_NAME);
-        }
-
-        if let Some(tls) = &s3_conn.tls {
-            match &tls.verification {
-                TlsVerification::None {} => return S3TlsNoVerificationNotSupportedSnafu.fail(),
-                TlsVerification::Server(server_verification) => {
-                    match &server_verification.ca_cert {
-                        CaCert::WebPki {} => {}
-                        CaCert::SecretClass(secret_class) => {
-                            let volume_name = format!("{secret_class}-tls-certificate");
-
-                            let volume = VolumeBuilder::new(&volume_name)
-                                .ephemeral(
-                                    SecretOperatorVolumeSourceBuilder::new(secret_class).build(),
-                                )
-                                .build();
-                            pb.add_volume(volume);
-                            cb_druid.add_volume_mount(
-                                &volume_name,
-                                format!("{CERTS_DIR}{volume_name}"),
-                            );
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    // add command
     cb_druid.command(role.get_command(s3_conn));
 
     // rest of env
@@ -660,12 +616,6 @@ fn build_rolegroup_statefulset(
 
     // read write config folder
     cb_druid.add_volume_mount("rwconfig", RW_CONFIG_DIRECTORY);
-    pb.add_volume(
-        VolumeBuilder::new("rwconfig")
-            .with_empty_dir(Some(""), None)
-            .build(),
-    );
-
     cb_druid.add_container_ports(tls_config.container_ports(&role));
     cb_druid.readiness_probe(tls_config.get_probe());
     cb_druid.liveness_probe(tls_config.get_probe());
@@ -673,6 +623,21 @@ fn build_rolegroup_statefulset(
 
     pb.add_init_container(cb_prepare.build());
     pb.add_container(cb_druid.build());
+    pb.metadata_builder(|m| {
+        m.with_recommended_labels(
+            druid,
+            APP_NAME,
+            druid_version,
+            CONTROLLER_NAME,
+            &rolegroup_ref.role,
+            &rolegroup_ref.role_group,
+        )
+    });
+    pb.add_volume(
+        VolumeBuilder::new("rwconfig")
+            .with_empty_dir(Some(""), None)
+            .build(),
+    );
     pb.security_context(PodSecurityContextBuilder::new().fs_group(1000).build()); // Needed for secret-operator
 
     Ok(StatefulSet {
@@ -714,12 +679,48 @@ fn build_rolegroup_statefulset(
     })
 }
 
-fn container_image(version: &str) -> String {
-    format!("docker.stackable.tech/stackable/druid:{}", version)
+fn add_s3_volume_and_volume_mounts(
+    s3_conn: Option<&S3ConnectionSpec>,
+    druid: &mut ContainerBuilder,
+    pod: &mut PodBuilder,
+) -> Result<()> {
+    if let Some(s3_conn) = s3_conn {
+        if let Some(credentials) = &s3_conn.credentials {
+            pod.add_volume(credentials.to_volume("s3-credentials"));
+            druid.add_volume_mount("s3-credentials", S3_SECRET_DIR_NAME);
+        }
+
+        if let Some(tls) = &s3_conn.tls {
+            match &tls.verification {
+                TlsVerification::None {} => return S3TlsNoVerificationNotSupportedSnafu.fail(),
+                TlsVerification::Server(server_verification) => {
+                    match &server_verification.ca_cert {
+                        CaCert::WebPki {} => {}
+                        CaCert::SecretClass(secret_class) => {
+                            let volume_name = format!("{secret_class}-tls-certificate");
+
+                            let volume = VolumeBuilder::new(&volume_name)
+                                .ephemeral(
+                                    SecretOperatorVolumeSourceBuilder::new(secret_class).build(),
+                                )
+                                .build();
+                            pod.add_volume(volume);
+                            druid.add_volume_mount(
+                                &volume_name,
+                                format!("{CERTS_DIR}{volume_name}"),
+                            );
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    Ok(())
 }
 
-pub fn druid_version(druid: &DruidCluster) -> Result<&str> {
-    Ok(&druid.spec.version)
+fn container_image(version: &str) -> String {
+    format!("docker.stackable.tech/stackable/druid:{}", version)
 }
 
 pub fn error_policy(_error: &Error, _ctx: Arc<Ctx>) -> Action {

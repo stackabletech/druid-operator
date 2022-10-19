@@ -308,6 +308,10 @@ impl DruidRole {
 }
 
 impl DruidCluster {
+    pub fn version(&self) -> &str {
+        self.spec.version.as_ref()
+    }
+
     /// The spec for the given Role
     pub fn get_role(&self, role: &DruidRole) -> &Role<DruidConfig> {
         match role {
