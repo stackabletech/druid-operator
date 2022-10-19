@@ -1,8 +1,6 @@
 ---
 apiVersion: kuttl.dev/v1beta1
 kind: TestAssert
-metadata:
-  name: update-druid
 timeout: 180
 ---
 apiVersion: apps/v1

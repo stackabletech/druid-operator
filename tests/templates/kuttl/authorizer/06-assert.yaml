@@ -1,8 +1,0 @@
----
-apiVersion: kuttl.dev/v1beta1
-kind: TestAssert
-metadata:
-  name: install-healthcheck-files
-commands:
-  - script: kubectl exec -n $NAMESPACE authcheck-0 -- python /tmp/authcheck.py
-timeout: 600
