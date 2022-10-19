@@ -1,7 +1,6 @@
 = Usage
 
-Druid requires a Zookeeper to run, as well as a database. If HDFS is used as the backend-storage (so called "deep storage") then the HDFS operator is required as well.
-
+Druid requires a Zookeeper to run, as well as a database. If HDFS is used as the backend-storage (so-called "deep storage") then the HDFS operator is required as well.
 
 == Setup Prerequisites
 
@@ -54,42 +53,38 @@ metadata:
   name: simple-druid
 spec:
   version: 24.0.0-stackable0.1.0
-  zookeeperConfigMapName: simple-zk
-  metadataStorageDatabase:
-    dbType: postgresql
-    connString: jdbc:postgresql://druid-postgresql/druid
-    host: druid-postgresql    # this is the name of the Postgres service
-    port: 5432
-    user: druid
-    password: druid
-  deepStorage:
-    hdfs:
-      configMapName: simple-hdfs
-      directory: /druid
+  commonConfig:
+    deepStorage:
+      hdfs:
+        configMapName: simple-hdfs
+        directory: /druid
+    metadataStorageDatabase:
+      dbType: postgresql
+      connString: jdbc:postgresql://druid-postgresql/druid
+      host: druid-postgresql    # this is the name of the Postgres service
+      port: 5432
+      user: druid
+      password: druid
+    zookeeperConfigMapName: simple-zk
   brokers:
     roleGroups:
       default:
-        config: {}
         replicas: 1
   coordinators:
     roleGroups:
       default:
-        config: {}
         replicas: 1
   historicals:
     roleGroups:
       default:
-        config: {}
         replicas: 1
   middleManagers:
     roleGroups:
       default:
-        config: {}
         replicas: 1
   routers:
     roleGroups:
       default:
-        config: {}
         replicas: 1
 ----
 
@@ -120,11 +115,12 @@ To ingest data from s3, you need to specify at least a host to connect to, but t
 [source,yaml]
 ----
 spec:
-  ingestion:
-    s3connection:
-      host: yourhost.com  # <1>
-      port: 80 # optional <2>
-      credentials: # optional <3>
+  commonConfig:
+    ingestion:
+      s3connection:
+        host: yourhost.com  # <1>
+        port: 80 # optional <2>
+        credentials: # optional <3>
         ...
 ----
 
@@ -139,16 +135,17 @@ Druid can use S3 as a backend for deep storage:
 [source,yaml]
 ----
 spec:
-  deepStorage:
-    s3:
-      bucket:
-        inline:
-          bucketName: my-bucket  # <1>
-          connection:
-            inline:
-              host: test-minio  # <2>
-              port: 9000  # <3>
-              credentials:  # <4>
+  commonConfig:
+    deepStorage:
+      s3:
+        bucket:
+          inline:
+            bucketName: my-bucket  # <1>
+            connection:
+              inline:
+                host: test-minio  # <2>
+                port: 9000  # <3>
+                credentials:  # <4>
                 ...
 ----
 <1> Bucket name.
@@ -161,10 +158,11 @@ It is also possible to configure the bucket connection details as a separate Kub
 [source,yaml]
 ----
 spec:
-  deepStorage:
-    s3:
-      bucket:
-        reference: my-bucket-resource # <1>
+  commonConfig:
+    deepStorage:
+      s3:
+        bucket:
+          reference: my-bucket-resource # <1>
 ----
 <1> Name of the bucket resource with connection details.
 
@@ -242,10 +240,11 @@ Druid can use HDFS as a backend for deep storage:
 [source,yaml]
 ----
 spec:
-  deepStorage:
-    hdfs:
-      configMapName: simple-hdfs # <1>
-      directory: /druid # <2>
+  commonConfig:
+    deepStorage:
+      hdfs:
+        configMapName: simple-hdfs # <1>
+        directory: /druid # <2>
 ...
 ----
 <1> Name of the HDFS cluster discovery config map. Can be supplied manually for a cluster not provided by Stackable. Needs to contain the `core-site.xml` and `hdfs-site.xml`.
@@ -259,9 +258,12 @@ Once you have defined your rules, you need to configure the OPA cluster name and
 
 [source,yaml]
 ----
-opa:
-  configMapName: simple-opa <1>
-  package: my-druid-rules <2>
+spec:
+  commonConfig:
+    authorization:
+      opa:
+        configMapName: simple-opa <1>
+        package: my-druid-rules <2>
 ----
 <1> The name of your OPA cluster (`simple-opa` in this case)
 <2> The RegoRule package to use for policy decisions. The package should contain an `allow` rule. This is optional and will default to the name of the Druid cluster.
