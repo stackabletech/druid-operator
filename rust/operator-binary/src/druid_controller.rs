@@ -570,6 +570,12 @@ fn build_rolegroup_statefulset(
     // volume and volume mounts
     tls_config.add_tls_volume_and_volume_mounts(&mut cb_prepare, &mut cb_druid, &mut pb);
     add_s3_volume_and_volume_mounts(s3_conn, &mut cb_druid, &mut pb)?;
+    add_config_volume_and_volume_mounts(rolegroup_ref, &mut cb_druid, &mut pb);
+    add_hdfs_cm_volume_and_volume_mounts(
+        &druid.spec.common_config.deep_storage,
+        &mut cb_druid,
+        &mut pb,
+    );
 
     cb_prepare
         .image("docker.stackable.tech/stackable/tools:0.2.0-stackable0")
@@ -578,9 +584,6 @@ fn build_rolegroup_statefulset(
         .image_pull_policy("IfNotPresent")
         .security_context(SecurityContextBuilder::run_as_root())
         .build();
-
-    cb_druid.image(container_image(druid_version));
-    cb_druid.command(role.get_command(s3_conn));
 
     // rest of env
     let rest_env = rolegroup_config
@@ -594,28 +597,10 @@ fn build_rolegroup_statefulset(
             ..EnvVar::default()
         })
         .collect::<Vec<_>>();
+
+    cb_druid.image(container_image(druid_version));
+    cb_druid.command(role.get_command(s3_conn));
     cb_druid.add_env_vars(rest_env);
-
-    // config mount
-    cb_druid.add_volume_mount("config", DRUID_CONFIG_DIRECTORY);
-    pb.add_volume(
-        VolumeBuilder::new("config")
-            .with_config_map(rolegroup_ref.object_name())
-            .build(),
-    );
-
-    // hdfs deep storage mount
-    if let DeepStorageSpec::HDFS(hdfs) = &druid.spec.common_config.deep_storage {
-        cb_druid.add_volume_mount("hdfs", HDFS_CONFIG_DIRECTORY);
-        pb.add_volume(
-            VolumeBuilder::new("hdfs")
-                .with_config_map(&hdfs.config_map_name)
-                .build(),
-        );
-    }
-
-    // read write config folder
-    cb_druid.add_volume_mount("rwconfig", RW_CONFIG_DIRECTORY);
     cb_druid.add_container_ports(tls_config.container_ports(&role));
     cb_druid.readiness_probe(tls_config.get_probe());
     cb_druid.liveness_probe(tls_config.get_probe());
@@ -633,11 +618,6 @@ fn build_rolegroup_statefulset(
             &rolegroup_ref.role_group,
         )
     });
-    pb.add_volume(
-        VolumeBuilder::new("rwconfig")
-            .with_empty_dir(Some(""), None)
-            .build(),
-    );
     pb.security_context(PodSecurityContextBuilder::new().fs_group(1000).build()); // Needed for secret-operator
 
     Ok(StatefulSet {
@@ -679,15 +659,50 @@ fn build_rolegroup_statefulset(
     })
 }
 
+fn add_hdfs_cm_volume_and_volume_mounts(
+    deep_storage_spec: &DeepStorageSpec,
+    cb_druid: &mut ContainerBuilder,
+    pb: &mut PodBuilder,
+) {
+    // hdfs deep storage mount
+    if let DeepStorageSpec::HDFS(hdfs) = deep_storage_spec {
+        cb_druid.add_volume_mount("hdfs", HDFS_CONFIG_DIRECTORY);
+        pb.add_volume(
+            VolumeBuilder::new("hdfs")
+                .with_config_map(&hdfs.config_map_name)
+                .build(),
+        );
+    }
+}
+
+fn add_config_volume_and_volume_mounts(
+    rolegroup_ref: &RoleGroupRef<DruidCluster>,
+    cb_druid: &mut ContainerBuilder,
+    pb: &mut PodBuilder,
+) {
+    cb_druid.add_volume_mount("config", DRUID_CONFIG_DIRECTORY);
+    pb.add_volume(
+        VolumeBuilder::new("config")
+            .with_config_map(rolegroup_ref.object_name())
+            .build(),
+    );
+    cb_druid.add_volume_mount("rwconfig", RW_CONFIG_DIRECTORY);
+    pb.add_volume(
+        VolumeBuilder::new("rwconfig")
+            .with_empty_dir(Some(""), None)
+            .build(),
+    );
+}
+
 fn add_s3_volume_and_volume_mounts(
     s3_conn: Option<&S3ConnectionSpec>,
-    druid: &mut ContainerBuilder,
-    pod: &mut PodBuilder,
+    cb_druid: &mut ContainerBuilder,
+    pb: &mut PodBuilder,
 ) -> Result<()> {
     if let Some(s3_conn) = s3_conn {
         if let Some(credentials) = &s3_conn.credentials {
-            pod.add_volume(credentials.to_volume("s3-credentials"));
-            druid.add_volume_mount("s3-credentials", S3_SECRET_DIR_NAME);
+            pb.add_volume(credentials.to_volume("s3-credentials"));
+            cb_druid.add_volume_mount("s3-credentials", S3_SECRET_DIR_NAME);
         }
 
         if let Some(tls) = &s3_conn.tls {
@@ -704,8 +719,8 @@ fn add_s3_volume_and_volume_mounts(
                                     SecretOperatorVolumeSourceBuilder::new(secret_class).build(),
                                 )
                                 .build();
-                            pod.add_volume(volume);
-                            druid.add_volume_mount(
+                            pb.add_volume(volume);
+                            cb_druid.add_volume_mount(
                                 &volume_name,
                                 format!("{CERTS_DIR}{volume_name}"),
                             );
