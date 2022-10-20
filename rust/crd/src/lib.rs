@@ -37,23 +37,7 @@ pub const JVM_CONFIG: &str = "jvm.config";
 pub const RUNTIME_PROPS: &str = "runtime.properties";
 pub const LOG4J2_CONFIG: &str = "log4j2.xml";
 
-// TLS settings
-// - key and trust stores
-//   - server
-pub const SERVER_HTTPS_KEY_STORE_PATH: &str = "druid.server.https.keyStorePath";
-pub const SERVER_HTTPS_KEY_STORE_TYPE: &str = "druid.server.https.keyStoreType";
-pub const SERVER_HTTPS_TRUST_STORE_PATH: &str = "druid.server.https.trustStorePath";
-pub const SERVER_HTTPS_TRUST_STORE_TYPE: &str = "druid.server.https.trustStoreType";
-pub const SERVER_HTTPS_REQUIRE_CLIENT_CERTIFICATE: &str =
-    "druid.server.https.requireClientCertificate";
-pub const SERVER_HTTPS_REQUEST_CLIENT_CERTIFICATE: &str =
-    "druid.server.https.requestClientCertificate";
-//   - client
-pub const CLIENT_HTTPS_KEY_STORE_PATH: &str = "druid.client.https.keyStorePath";
-pub const CLIENT_HTTPS_KEY_STORE_TYPE: &str = "druid.client.https.keyStoreType";
-pub const CLIENT_HTTPS_TRUST_STORE_PATH: &str = "druid.client.https.trustStorePath";
-pub const CLIENT_HTTPS_TRUST_STORE_TYPE: &str = "druid.client.https.trustStoreType";
-//   - store directories
+// store directories
 pub const SYSTEM_TRUST_STORE: &str = "/etc/pki/java/cacerts";
 pub const SYSTEM_TRUST_STORE_PASSWORD: &str = "changeit";
 pub const STACKABLE_TRUST_STORE: &str = "/stackable/truststore.p12";
@@ -63,9 +47,8 @@ pub const CERTS_DIR: &str = "/stackable/certificates/";
 /////////////////////////////
 //    CONFIG PROPERTIES    //
 /////////////////////////////
-// plaintext port / HTTP
+// extensions
 pub const EXTENSIONS_LOADLIST: &str = "druid.extensions.loadList";
-// extension names
 pub const EXT_S3: &str = "druid-s3-extensions";
 pub const EXT_KAFKA_INDEXING: &str = "druid-kafka-indexing-service";
 pub const EXT_DATASKETCHES: &str = "druid-datasketches";
@@ -102,7 +85,7 @@ pub const MD_ST_PASSWORD: &str = "druid.metadata.storage.connector.password";
 pub const INDEXER_JAVA_OPTS: &str = "druid.indexer.runner.javaOptsArray";
 // extra
 pub const CREDENTIALS_SECRET_PROPERTY: &str = "credentialsSecret";
-
+// metrics
 pub const PROMETHEUS_PORT: &str = "druid.emitter.prometheus.port";
 pub const METRICS_PORT: u16 = 9090;
 
@@ -582,43 +565,43 @@ impl Configuration for DruidConfig {
                 // tls
                 let tls: &DruidTls = &resource.spec.common_config.tls;
                 tls.add_tls_extensions(&mut extensions);
-                //tls.add_common_config_properties(&mut result, &role);
+                tls.add_common_config_properties(&mut result, &role);
 
-                result.insert("druid.enableTlsPort".to_string(), Some("true".to_string()));
-                result.insert(
-                    "druid.enablePlainPort".to_string(),
-                    Some("false".to_string()),
-                );
-
-                result.insert(
-                    "druid.client.https.trustStoreType".to_string(),
-                    Some("pkcs12".to_string()),
-                );
-                result.insert(
-                    "druid.client.https.trustStorePath".to_string(),
-                    Some("/stackable/internal_tls/truststore.p12".to_string()),
-                );
-                result.insert(
-                    "druid.client.https.trustStorePassword".to_string(),
-                    Some("changeit".to_string()),
-                );
-
-                result.insert(
-                    "druid.server.https.certAlias=druid".to_string(),
-                    Some("druid".to_string()),
-                );
-                result.insert(
-                    "druid.server.https.keyStoreType".to_string(),
-                    Some("pkcs12".to_string()),
-                );
-                result.insert(
-                    "druid.server.https.keyStorePath".to_string(),
-                    Some("/stackable/internal_tls/keystore.p12".to_string()),
-                );
-                result.insert(
-                    "druid.server.https.keyStorePassword".to_string(),
-                    Some("changeit".to_string()),
-                );
+                // result.insert("druid.enableTlsPort".to_string(), Some("true".to_string()));
+                // result.insert(
+                //     "druid.enablePlainPort".to_string(),
+                //     Some("false".to_string()),
+                // );
+                //
+                // result.insert(
+                //     "druid.client.https.trustStoreType".to_string(),
+                //     Some("pkcs12".to_string()),
+                // );
+                // result.insert(
+                //     "druid.client.https.trustStorePath".to_string(),
+                //     Some("/stackable/internal_tls/truststore.p12".to_string()),
+                // );
+                // result.insert(
+                //     "druid.client.https.trustStorePassword".to_string(),
+                //     Some("changeit".to_string()),
+                // );
+                //
+                // result.insert(
+                //     "druid.server.https.certAlias=druid".to_string(),
+                //     Some("druid".to_string()),
+                // );
+                // result.insert(
+                //     "druid.server.https.keyStoreType".to_string(),
+                //     Some("pkcs12".to_string()),
+                // );
+                // result.insert(
+                //     "druid.server.https.keyStorePath".to_string(),
+                //     Some("/stackable/internal_tls/keystore.p12".to_string()),
+                // );
+                // result.insert(
+                //     "druid.server.https.keyStorePassword".to_string(),
+                //     Some("changeit".to_string()),
+                // );
 
                 // metadata storage
                 let mds = &resource.spec.common_config.metadata_storage_database;

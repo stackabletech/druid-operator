@@ -22,10 +22,15 @@ spec:
       host: localhost
       port: 1527
     tls:
+{% if test_scenario['values']['use-tls'] == 'true' %}
       server:
         secretClass: tls
       internal:
-        secretClass: tls
+        secretClass: tls-internal
+{% else  %}
+      server: null
+      internal: null
+{% endif %}
     zookeeperConfigMapName: druid-znode
   brokers:
     roleGroups:
