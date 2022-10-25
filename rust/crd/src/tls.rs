@@ -190,8 +190,17 @@ impl DruidTls {
                 Some(role.get_http_port().to_string()),
             );
         }
+        // only secure communication
+        else if self.server.is_some() && self.internal.is_some() {
+            config.insert(ENABLE_PLAINTEXT_PORT.to_string(), Some("false".to_string()));
+            config.insert(ENABLE_TLS_PORT.to_string(), Some("true".to_string()));
+            config.insert(
+                TLS_PORT.to_string(),
+                Some(role.get_https_port().to_string()),
+            );
+        }
         // secure and insecure communications
-        else if self.server.is_some() || self.internal.is_some() {
+        else {
             config.insert(ENABLE_PLAINTEXT_PORT.to_string(), Some("true".to_string()));
             config.insert(ENABLE_TLS_PORT.to_string(), Some("true".to_string()));
             config.insert(
@@ -203,33 +212,24 @@ impl DruidTls {
                 Some(role.get_https_port().to_string()),
             );
         }
-        // only secure communication
-        else {
-            config.insert(ENABLE_PLAINTEXT_PORT.to_string(), Some("false".to_string()));
-            config.insert(ENABLE_TLS_PORT.to_string(), Some("true".to_string()));
-            config.insert(
-                TLS_PORT.to_string(),
-                Some(role.get_https_port().to_string()),
-            );
-        }
 
         if self.server.is_some() {
-            config.insert(
-                SERVER_HTTPS_TRUST_STORE_PATH.to_string(),
-                Some(format!("{}/truststore.p12", STACKABLE_SERVER_TLS_DIR)),
-            );
-            config.insert(
-                SERVER_HTTPS_TRUST_STORE_TYPE.to_string(),
-                Some("pkcs12".to_string()),
-            );
-            config.insert(
-                SERVER_HTTPS_TRUST_STORE_PASSWORD.to_string(),
-                Some(TLS_STORE_PASSWORD.to_string()),
-            );
-            config.insert(
-                SERVER_HTTPS_CERT_ALIAS.to_string(),
-                Some(TLS_STORE_ALIAS_NAME.to_string()),
-            );
+            // config.insert(
+            //     SERVER_HTTPS_TRUST_STORE_PATH.to_string(),
+            //     Some(format!("{}/truststore.p12", STACKABLE_SERVER_TLS_DIR)),
+            // );
+            // config.insert(
+            //     SERVER_HTTPS_TRUST_STORE_TYPE.to_string(),
+            //     Some("pkcs12".to_string()),
+            // );
+            // config.insert(
+            //     SERVER_HTTPS_TRUST_STORE_PASSWORD.to_string(),
+            //     Some(TLS_STORE_PASSWORD.to_string()),
+            // );
+            // config.insert(
+            //     SERVER_HTTPS_CERT_ALIAS.to_string(),
+            //     Some(TLS_STORE_ALIAS_NAME.to_string()),
+            // );
         }
 
         if self.internal.is_some() {
@@ -263,14 +263,11 @@ impl DruidTls {
                 SERVER_HTTPS_KEY_STORE_PASSWORD.to_string(),
                 Some(TLS_STORE_PASSWORD.to_string()),
             );
-            config.insert(
-                SERVER_HTTPS_CERT_ALIAS.to_string(),
-                Some(TLS_STORE_ALIAS_NAME.to_string()),
-            );
         }
     }
 
     pub fn build_tls_stores_cmd(&self) -> Vec<String> {
+        let mut command = vec![];
         if self.server.is_some() {
             command.extend(Self::create_key_and_trust_store(
                 STACKABLE_MOUNT_SERVER_TLS_DIR,

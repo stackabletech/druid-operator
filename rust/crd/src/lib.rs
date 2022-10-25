@@ -567,42 +567,6 @@ impl Configuration for DruidConfig {
                 tls.add_tls_extensions(&mut extensions);
                 tls.add_common_config_properties(&mut result, &role);
 
-                // result.insert("druid.enableTlsPort".to_string(), Some("true".to_string()));
-                // result.insert(
-                //     "druid.enablePlainPort".to_string(),
-                //     Some("false".to_string()),
-                // );
-                //
-                // result.insert(
-                //     "druid.client.https.trustStoreType".to_string(),
-                //     Some("pkcs12".to_string()),
-                // );
-                // result.insert(
-                //     "druid.client.https.trustStorePath".to_string(),
-                //     Some("/stackable/internal_tls/truststore.p12".to_string()),
-                // );
-                // result.insert(
-                //     "druid.client.https.trustStorePassword".to_string(),
-                //     Some("changeit".to_string()),
-                // );
-                //
-                // result.insert(
-                //     "druid.server.https.certAlias=druid".to_string(),
-                //     Some("druid".to_string()),
-                // );
-                // result.insert(
-                //     "druid.server.https.keyStoreType".to_string(),
-                //     Some("pkcs12".to_string()),
-                // );
-                // result.insert(
-                //     "druid.server.https.keyStorePath".to_string(),
-                //     Some("/stackable/internal_tls/keystore.p12".to_string()),
-                // );
-                // result.insert(
-                //     "druid.server.https.keyStorePassword".to_string(),
-                //     Some("changeit".to_string()),
-                // );
-
                 // metadata storage
                 let mds = &resource.spec.common_config.metadata_storage_database;
                 match mds.db_type {

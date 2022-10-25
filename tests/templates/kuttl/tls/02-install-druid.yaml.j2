@@ -5,6 +5,19 @@ metadata:
   name: install-druid
 timeout: 600
 ---
+apiVersion: secrets.stackable.tech/v1alpha1
+kind: SecretClass
+metadata:
+  name: tls-internal
+spec:
+  backend:
+    autoTls:
+      ca:
+        secret:
+          name: secret-provisioner-tls-internal-ca
+          namespace: default
+        autoGenerate: true
+---
 apiVersion: druid.stackable.tech/v1alpha1
 kind: DruidCluster
 metadata:
