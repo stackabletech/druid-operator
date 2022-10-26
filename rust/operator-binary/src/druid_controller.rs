@@ -8,7 +8,7 @@ use lazy_static::lazy_static;
 use regex::Regex;
 use snafu::{OptionExt, ResultExt, Snafu};
 use stackable_druid_crd::{
-    DeepStorageSpec, DruidCluster, DruidConfig, DruidRole, DruidStorageConfig, APP_NAME,
+    DeepStorageSpec, DruidCluster, DruidRole, DruidStorageConfig, APP_NAME,
     AUTH_AUTHORIZER_OPA_URI, CERTS_DIR, CONTAINER_HTTP_PORT, CONTAINER_METRICS_PORT,
     CONTROLLER_NAME, CREDENTIALS_SECRET_PROPERTY, DRUID_CONFIG_DIRECTORY, DRUID_METRICS_PORT,
     DS_BUCKET, HDFS_CONFIG_DIRECTORY, JVM_CONFIG, LOG4J2_CONFIG, RUNTIME_PROPS,
@@ -47,7 +47,7 @@ use stackable_operator::{
     memory::{to_java_heap_value, BinaryMultiple},
     product_config::{types::PropertyNameKind, ProductConfigManager},
     product_config_utils::{transform_all_roles_to_config, validate_all_roles_and_groups_config},
-    role_utils::{Role, RoleGroupRef},
+    role_utils::RoleGroupRef,
 };
 use std::ops::Deref;
 use std::{
@@ -56,7 +56,7 @@ use std::{
     sync::Arc,
     time::Duration,
 };
-use strum::{EnumDiscriminants, IntoEnumIterator, IntoStaticStr};
+use strum::{EnumDiscriminants, IntoStaticStr};
 
 const JVM_HEAP_FACTOR: f32 = 0.8;
 
@@ -250,23 +250,7 @@ pub async fn reconcile_druid(druid: Arc<DruidCluster>, ctx: Arc<Ctx>) -> Result<
         _ => None,
     };
 
-    let config_files = vec![
-        PropertyNameKind::Env,
-        PropertyNameKind::File(JVM_CONFIG.to_string()),
-        PropertyNameKind::File(LOG4J2_CONFIG.to_string()),
-        PropertyNameKind::File(RUNTIME_PROPS.to_string()),
-    ];
-
-    let roles = DruidRole::iter()
-        .map(|r| {
-            (
-                r.to_string(),
-                (config_files.clone(), druid.get_role(&r).clone()),
-            )
-        })
-        .collect::<HashMap<String, (Vec<PropertyNameKind>, Role<DruidConfig>)>>();
-
-    let role_config = transform_all_roles_to_config(&*druid, roles);
+    let role_config = transform_all_roles_to_config(&*druid, druid.build_role_properties());
     let validated_role_config = validate_all_roles_and_groups_config(
         druid_version(&druid)?,
         &role_config.context(ProductConfigTransformSnafu)?,
@@ -298,7 +282,7 @@ pub async fn reconcile_druid(druid: Arc<DruidCluster>, ctx: Arc<Ctx>) -> Result<
             };
 
             let resources = druid
-                .resolve_resource_config_for_role_and_rolegroup(&druid_role, &rolegroup)
+                .resources(&druid_role, &rolegroup)
                 .context(FailedToResolveResourceConfigSnafu)?;
 
             let rg_service = build_rolegroup_services(&rolegroup, &druid, rolegroup_config)?;
@@ -585,10 +569,6 @@ fn build_rolegroup_statefulset(
         role: rolegroup_ref.role.to_string(),
     })?;
     let druid_version = druid_version(druid)?;
-    let rolegroup = druid
-        .get_role(&role)
-        .role_groups
-        .get(&rolegroup_ref.role_group);
 
     // init container builder
     let mut cb = ContainerBuilder::new(APP_NAME)
@@ -735,7 +715,7 @@ fn build_rolegroup_statefulset(
             replicas: if druid.spec.stopped.unwrap_or(false) {
                 Some(0)
             } else {
-                rolegroup.and_then(|rg| rg.replicas).map(i32::from)
+                druid.replicas(rolegroup_ref)
             },
             selector: LabelSelector {
                 match_labels: Some(role_group_selector_labels(
@@ -818,23 +798,7 @@ mod test {
             std::fs::File::open("test/resources/historical_segment_cache/druid_cluster.yaml")
                 .unwrap();
         let druid: DruidCluster = serde_yaml::from_reader(&cluster_cr).unwrap();
-        let config_files = vec![
-            PropertyNameKind::Env,
-            PropertyNameKind::File(JVM_CONFIG.to_string()),
-            PropertyNameKind::File(LOG4J2_CONFIG.to_string()),
-            PropertyNameKind::File(RUNTIME_PROPS.to_string()),
-        ];
-
-        let roles = DruidRole::iter()
-            .map(|r| {
-                (
-                    r.to_string(),
-                    (config_files.clone(), druid.get_role(&r).clone()),
-                )
-            })
-            .collect::<HashMap<String, (Vec<PropertyNameKind>, Role<DruidConfig>)>>();
-
-        let role_config = transform_all_roles_to_config(&druid, roles);
+        let role_config = transform_all_roles_to_config(&druid, druid.build_role_properties());
 
         let product_config_manager = ProductConfigManager::from_yaml_file(
             "test/resources/historical_segment_cache/properties.yaml",
