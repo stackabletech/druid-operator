@@ -214,21 +214,34 @@ impl DruidTls {
         }
 
         if self.server.is_some() {
+            config.insert(
+                SERVER_HTTPS_TRUST_STORE_PATH.to_string(),
+                Some(format!("{}/truststore.p12", STACKABLE_SERVER_TLS_DIR)),
+            );
+            config.insert(
+                SERVER_HTTPS_TRUST_STORE_TYPE.to_string(),
+                Some("pkcs12".to_string()),
+            );
+            config.insert(
+                SERVER_HTTPS_TRUST_STORE_PASSWORD.to_string(),
+                Some(TLS_STORE_PASSWORD.to_string()),
+            );
+            config.insert(
+                SERVER_HTTPS_CERT_ALIAS.to_string(),
+                Some(TLS_STORE_ALIAS_NAME.to_string()),
+            );
+            // not working
             // config.insert(
-            //     SERVER_HTTPS_TRUST_STORE_PATH.to_string(),
-            //     Some(format!("{}/truststore.p12", STACKABLE_SERVER_TLS_DIR)),
+            //     CLIENT_HTTPS_KEY_STORE_PATH.to_string(),
+            //     Some(format!("{}/keystore.p12", STACKABLE_SERVER_TLS_DIR)),
             // );
             // config.insert(
-            //     SERVER_HTTPS_TRUST_STORE_TYPE.to_string(),
+            //     CLIENT_HTTPS_KEY_STORE_TYPE.to_string(),
             //     Some("pkcs12".to_string()),
             // );
             // config.insert(
-            //     SERVER_HTTPS_TRUST_STORE_PASSWORD.to_string(),
+            //     CLIENT_HTTPS_KEY_STORE_PASSWORD.to_string(),
             //     Some(TLS_STORE_PASSWORD.to_string()),
-            // );
-            // config.insert(
-            //     SERVER_HTTPS_CERT_ALIAS.to_string(),
-            //     Some(TLS_STORE_ALIAS_NAME.to_string()),
             // );
         }
 
