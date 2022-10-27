@@ -183,7 +183,7 @@ pub enum Error {
     #[snafu(display("no quantity unit (k, m, g, etc.) given for [{value}]"))]
     NoQuantityUnit { value: String },
     #[snafu(display("invalid quantity value"))]
-    InvalidQuantityValue { source: std::num::ParseFloatError },
+    InvalidQuantityValue { source: std::num::ParseIntError },
     #[snafu(display("segment cache location is required but missing"))]
     NoSegmentCacheLocation,
 }
@@ -778,11 +778,11 @@ pub fn compute_volume_segment_cache_location_size(location: &str) -> Result<Opti
         let (value, unit) = max_size.split_at(start_of_unit);
 
         Ok(Some(Quantity(format!(
-            "{:.2}{unit}",
-            value.parse::<f32>().context(InvalidQuantityValueSnafu)? * 1.05
+            "{}{unit}",
+            value.parse::<u16>().context(InvalidQuantityValueSnafu)?
         ))))
     } else {
-        Ok(Some(Quantity("1.05g".to_string())))
+        Ok(Some(Quantity("1g".to_string())))
     }
 }
 
@@ -790,13 +790,32 @@ pub fn compute_volume_segment_cache_location_size(location: &str) -> Result<Opti
 mod test {
 
     use super::*;
+    use rstest::*;
     use stackable_operator::product_config::ProductConfigManager;
 
-    #[test]
-    pub fn historical_segment_cache() -> Result<()> {
-        let cluster_cr =
-            std::fs::File::open("test/resources/historical_segment_cache/druid_cluster.yaml")
-                .unwrap();
+    #[rstest]
+    #[case(
+        "druid_cluster.yaml",
+        "default",
+        "[{\"path\":\"/stackable/var/druid/segment-cache\",\"maxSize\":\"3g\"}]",
+        "3g"
+    )]
+    #[case(
+        "druid_cluster_defaults.yaml",
+        "default",
+        "[{\"path\":\"/stackable/var/druid/segment-cache\",\"maxSize\":\"300g\"}]",
+        "300g"
+    )]
+    pub fn historical_segment_cache(
+        #[case] druid_manifest: &str,
+        #[case] tested_rolegroup_name: &str,
+        #[case] expected_druid_segment_cache_property: &str,
+        #[case] expected_segment_cache_volume_size: &str,
+    ) -> Result<()> {
+        let cluster_cr = std::fs::File::open(format!(
+            "test/resources/historical_segment_cache/{druid_manifest}"
+        ))
+        .unwrap();
         let druid: DruidCluster = serde_yaml::from_reader(&cluster_cr).unwrap();
         let role_config = transform_all_roles_to_config(&druid, druid.build_role_properties());
 
@@ -814,35 +833,69 @@ mod test {
         )
         .context(InvalidProductConfigSnafu)?;
 
-        let mut default_segment_cache_property = None;
-        let mut secondary_segment_cache_property = None;
+        let mut volume_segment_cache_size = Quantity("-1".to_string());
+        let mut druid_segment_cache_property = "invalid".to_string();
+
         for (role_name, role_config) in validated_role_config.iter() {
-            if role_name == &DruidRole::Historical.to_string() {
-                default_segment_cache_property = role_config
-                    .get(&"default".to_string())
-                    .unwrap()
-                    .get(&PropertyNameKind::File(RUNTIME_PROPS.to_string()))
-                    .unwrap()
-                    .get(&SC_LOCATIONS.to_string());
+            for (rolegroup_name, rolegroup_config) in role_config.iter() {
+                if rolegroup_name == tested_rolegroup_name
+                    && role_name == &DruidRole::Historical.to_string()
+                {
+                    let rolegroup_ref = RoleGroupRef {
+                        cluster: ObjectRef::from_obj(&druid),
+                        role: role_name.into(),
+                        role_group: rolegroup_name.clone(),
+                    };
 
-                secondary_segment_cache_property = role_config
-                    .get(&"secondary".to_string())
-                    .unwrap()
-                    .get(&PropertyNameKind::File(RUNTIME_PROPS.to_string()))
-                    .unwrap()
-                    .get(&SC_LOCATIONS.to_string());
+                    let resources = druid
+                        .resources(&DruidRole::Historical, &rolegroup_ref)
+                        .context(FailedToResolveResourceConfigSnafu)?;
 
-                break;
+                    let sts = build_rolegroup_statefulset(
+                        &rolegroup_ref,
+                        &druid,
+                        rolegroup_config,
+                        None,
+                        &resources,
+                    )?;
+
+                    volume_segment_cache_size = sts
+                        .spec
+                        .unwrap()
+                        .template
+                        .spec
+                        .unwrap()
+                        .volumes
+                        .unwrap()
+                        .into_iter()
+                        .find(|v| v.name == "segment-cache")
+                        .unwrap()
+                        .empty_dir
+                        .unwrap()
+                        .size_limit
+                        .unwrap();
+
+                    druid_segment_cache_property = role_config
+                        .get(rolegroup_name)
+                        .unwrap()
+                        .get(&PropertyNameKind::File(RUNTIME_PROPS.to_string()))
+                        .unwrap()
+                        .get(&SC_LOCATIONS.to_string())
+                        .unwrap()
+                        .clone();
+
+                    break;
+                }
             }
         }
-
-        let expected_default =
-            "[{\"path\":\"/stackable/var/druid/segment-cache\",\"maxSize\":\"3g\"}]".to_string();
-        assert_eq!(default_segment_cache_property, Some(&expected_default));
-
-        let expected_secondary =
-            "[{\"path\":\"/stackable/var/druid/segment-cache\",\"maxSize\":\"4g\"}]".to_string();
-        assert_eq!(secondary_segment_cache_property, Some(&expected_secondary));
+        assert_eq!(
+            druid_segment_cache_property,
+            expected_druid_segment_cache_property
+        );
+        assert_eq!(
+            volume_segment_cache_size,
+            Quantity(expected_segment_cache_volume_size.to_string())
+        );
 
         Ok(())
     }
@@ -852,7 +905,7 @@ mod test {
         let volume_size = compute_volume_segment_cache_location_size(
             "[{\"path\":\"/stackable/var/druid/segment-cache\",\"maxSize\":\"3g\"}]",
         )?;
-        assert_eq!(volume_size, Some(Quantity("3.15g".to_string())));
+        assert_eq!(volume_size, Some(Quantity("3g".to_string())));
         Ok(())
     }
 }

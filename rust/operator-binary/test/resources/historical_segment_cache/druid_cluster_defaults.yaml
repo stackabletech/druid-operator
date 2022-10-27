@@ -3,7 +3,7 @@ apiVersion: druid.stackable.tech/v1alpha1
 kind: DruidCluster
 metadata:
   name: psql-druid
-  uid: test-uid
+  uid: test-uid ### needed for ownerreference_from_resource() to succeed
 spec:
   version: 24.0.0-stackable0.1.0
   zookeeperConfigMapName: psql-druid-znode
@@ -21,31 +21,22 @@ spec:
   brokers:
     roleGroups:
       default:
-        config: {}
         replicas: 1
   coordinators:
     roleGroups:
       default:
-        config: {}
         replicas: 1
   historicals:
-    config:
-      segmentCacheSize: 2g
     roleGroups:
       default:
-        config:
-          segmentCacheSize: 3g
         replicas: 1
       secondary:
-        config:
-          segmentCacheSize: 4g
+        replicas: 1
   middleManagers:
     roleGroups:
       default:
-        config: {}
         replicas: 1
   routers:
     roleGroups:
       default:
-        config: {}
         replicas: 1
