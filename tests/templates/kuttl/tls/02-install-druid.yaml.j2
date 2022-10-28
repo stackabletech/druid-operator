@@ -4,21 +4,6 @@ kind: TestStep
 metadata:
   name: install-druid
 timeout: 600
-{% if test_scenario['values']['use-tls'] == 'true' %}
----
-apiVersion: secrets.stackable.tech/v1alpha1
-kind: SecretClass
-metadata:
-  name: tls-internal
-spec:
-  backend:
-    autoTls:
-      ca:
-        secret:
-          name: secret-provisioner-tls-internal-ca
-          namespace: default
-        autoGenerate: true
-{% endif %}
 ---
 apiVersion: druid.stackable.tech/v1alpha1
 kind: DruidCluster
@@ -40,11 +25,8 @@ spec:
 {% if test_scenario['values']['use-tls'] == 'true' %}
       server:
         secretClass: tls
-      internal:
-        secretClass: tls-internal
 {% else  %}
       server: null
-      internal: null
 {% endif %}
     zookeeperConfigMapName: druid-znode
   brokers:

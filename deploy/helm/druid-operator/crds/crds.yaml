@@ -482,21 +482,10 @@ spec:
                       default: {}
                       description: TLS encryption settings for Druid
                       properties:
-                        internal:
-                          default:
-                            secretClass: tls
-                          description: "Only affects internal communication. Use mutual verification between Druid nodes This setting controls: - Which cert the servers should use to authenticate themselves against other servers - Which ca.crt to use when validating the other server"
-                          nullable: true
-                          properties:
-                            secretClass:
-                              type: string
-                          required:
-                            - secretClass
-                          type: object
                         server:
                           default:
                             secretClass: tls
-                          description: "Only affects client connections. This setting controls: - If TLS encryption is used at all - Which cert the servers should use to authenticate themselves against the client"
+                          description: "Only affects client connections. This setting controls: - If TLS encryption is used at all - Which cert the servers should use to authenticate themselves against the client Important: This currently will activate encrypted internal druid communication as well!"
                           nullable: true
                           properties:
                             secretClass:

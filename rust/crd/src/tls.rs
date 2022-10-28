@@ -28,6 +28,7 @@ pub const CLIENT_HTTPS_TRUST_STORE_PATH: &str = "druid.client.https.trustStorePa
 pub const CLIENT_HTTPS_TRUST_STORE_TYPE: &str = "druid.client.https.trustStoreType";
 pub const CLIENT_HTTPS_TRUST_STORE_PASSWORD: &str = "druid.client.https.trustStorePassword";
 pub const CLIENT_HTTPS_CERT_ALIAS: &str = "druid.client.https.certAlias";
+pub const CLIENT_HTTPS_CERT_ALIAS_NAME: &str = "druid-client";
 // Server side TLS
 pub const SERVER_HTTPS_KEY_STORE_PATH: &str = "druid.server.https.keyStorePath";
 pub const SERVER_HTTPS_KEY_STORE_TYPE: &str = "druid.server.https.keyStoreType";
@@ -36,16 +37,17 @@ pub const SERVER_HTTPS_TRUST_STORE_PATH: &str = "druid.server.https.trustStorePa
 pub const SERVER_HTTPS_TRUST_STORE_TYPE: &str = "druid.server.https.trustStoreType";
 pub const SERVER_HTTPS_TRUST_STORE_PASSWORD: &str = "druid.server.https.trustStorePassword";
 pub const SERVER_HTTPS_CERT_ALIAS: &str = "druid.server.https.certAlias";
-// directories
-pub const STACKABLE_SERVER_TLS_DIR: &str = "/stackable/server_tls";
-pub const STACKABLE_INTERNAL_TLS_DIR: &str = "/stackable/internal_tls";
-pub const STACKABLE_MOUNT_SERVER_TLS_DIR: &str = "/stackable/mount_server_tls";
-pub const STACKABLE_MOUNT_INTERNAL_TLS_DIR: &str = "/stackable/mount_internal_tls";
-
+pub const SERVER_HTTPS_CERT_ALIAS_NAME: &str = "druid-server";
+// Misc TLS
 const DEFAULT_TLS_SECRET_CLASS: &str = "tls";
 const SIMPLE_CLIENT_SSL_CONTEXT: &str = "simple-client-sslcontext";
-const TLS_STORE_ALIAS_NAME: &str = "druid";
 const TLS_STORE_PASSWORD: &str = "changeit";
+// directories
+pub const STACKABLE_SERVER_TLS_DIR: &str = "/stackable/server_tls";
+pub const STACKABLE_CLIENT_TLS_DIR: &str = "/stackable/client_tls";
+pub const STACKABLE_SHARED_TLS_DIR: &str = "/stackable/tls";
+pub const STACKABLE_MOUNT_SERVER_TLS_DIR: &str = "/stackable/mount_server_tls";
+pub const STACKABLE_MOUNT_CLIENT_TLS_DIR: &str = "/stackable/mount_client_tls";
 
 #[derive(Clone, Debug, Default, Deserialize, JsonSchema, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -54,20 +56,21 @@ pub struct DruidTls {
     /// This setting controls:
     /// - If TLS encryption is used at all
     /// - Which cert the servers should use to authenticate themselves against the client
+    /// Important: This currently will activate encrypted internal druid communication as well!
     #[serde(
         default = "DruidTlsSecretClass::default_secret_class",
         skip_serializing_if = "Option::is_none"
     )]
     pub server: Option<DruidTlsSecretClass>,
-    /// Only affects internal communication. Use mutual verification between Druid nodes
-    /// This setting controls:
-    /// - Which cert the servers should use to authenticate themselves against other servers
-    /// - Which ca.crt to use when validating the other server
-    #[serde(
-        default = "DruidTlsSecretClass::default_secret_class",
-        skip_serializing_if = "Option::is_none"
-    )]
-    pub internal: Option<DruidTlsSecretClass>,
+    // /// Only affects internal communication. Use mutual verification between Druid nodes
+    // /// This setting controls:
+    // /// - Which cert the servers should use to authenticate themselves against other servers
+    // /// - Which ca.crt to use when validating the other server
+    // #[serde(
+    //     default = "DruidTlsSecretClass::default_secret_class",
+    //     skip_serializing_if = "Option::is_none"
+    // )]
+    // pub internal: Option<DruidTlsSecretClass>,
 }
 
 impl DruidTls {
@@ -98,23 +101,17 @@ impl DruidTls {
     fn exposed_ports(&self, role: &DruidRole) -> Vec<(String, u16)> {
         let mut ports = vec![(METRICS_PORT_NAME.to_string(), METRICS_PORT)];
 
-        match (self.server.is_some(), self.server.is_some()) {
-            // only plaintext
-            (false, false) => ports.push((PLAINTEXT_PORT_NAME.to_string(), role.get_http_port())),
-            // plaintext and tls
-            (true, false) | (false, true) => {
-                ports.push((PLAINTEXT_PORT_NAME.to_string(), role.get_http_port()));
-                ports.push((TLS_PORT_NAME.to_string(), role.get_https_port()));
-            }
-            // only tls
-            (true, true) => ports.push((TLS_PORT_NAME.to_string(), role.get_https_port())),
+        if self.server.is_none() {
+            ports.push((PLAINTEXT_PORT_NAME.to_string(), role.get_http_port()))
+        } else {
+            ports.push((TLS_PORT_NAME.to_string(), role.get_https_port()))
         }
 
         ports
     }
 
     pub fn get_probe(&self) -> Probe {
-        let port = if self.server.is_some() || self.internal.is_some() {
+        let port = if self.server.is_some() {
             IntOrString::String(TLS_PORT_NAME.to_string())
         } else {
             IntOrString::String(PLAINTEXT_PORT_NAME.to_string())
@@ -152,25 +149,11 @@ impl DruidTls {
                     .build(),
             );
         }
-
-        if let Some(internal_tls) = &self.internal {
-            prepare.add_volume_mount("internal-tls-mount", STACKABLE_MOUNT_INTERNAL_TLS_DIR);
-            druid.add_volume_mount("internal-tls-mount", STACKABLE_MOUNT_INTERNAL_TLS_DIR);
-            pod.add_volume(Self::create_tls_volume("internal-tls-mount", internal_tls));
-
-            prepare.add_volume_mount("internal-tls", STACKABLE_INTERNAL_TLS_DIR);
-            druid.add_volume_mount("internal-tls", STACKABLE_INTERNAL_TLS_DIR);
-            pod.add_volume(
-                VolumeBuilder::new("internal-tls")
-                    .with_empty_dir(Some(""), None)
-                    .build(),
-            );
-        }
     }
 
     /// Add required TLS extensions
     pub fn add_tls_extensions(&self, extensions: &mut Vec<String>) {
-        if self.server.is_some() || self.internal.is_some() {
+        if self.server.is_some() {
             extensions.push(SIMPLE_CLIENT_SSL_CONTEXT.to_string());
         }
     }
@@ -182,7 +165,7 @@ impl DruidTls {
         role: &DruidRole,
     ) {
         // no secure communication
-        if self.server.is_none() && self.internal.is_none() {
+        if self.server.is_none() {
             config.insert(ENABLE_PLAINTEXT_PORT.to_string(), Some("true".to_string()));
             config.insert(ENABLE_TLS_PORT.to_string(), Some("false".to_string()));
             config.insert(
@@ -191,22 +174,9 @@ impl DruidTls {
             );
         }
         // only secure communication
-        else if self.server.is_some() && self.internal.is_some() {
+        else {
             config.insert(ENABLE_PLAINTEXT_PORT.to_string(), Some("false".to_string()));
             config.insert(ENABLE_TLS_PORT.to_string(), Some("true".to_string()));
-            config.insert(
-                TLS_PORT.to_string(),
-                Some(role.get_https_port().to_string()),
-            );
-        }
-        // secure and insecure communications
-        else {
-            config.insert(ENABLE_PLAINTEXT_PORT.to_string(), Some("true".to_string()));
-            config.insert(ENABLE_TLS_PORT.to_string(), Some("true".to_string()));
-            config.insert(
-                PLAINTEXT_PORT.to_string(),
-                Some(role.get_http_port().to_string()),
-            );
             config.insert(
                 TLS_PORT.to_string(),
                 Some(role.get_https_port().to_string()),
@@ -215,22 +185,50 @@ impl DruidTls {
 
         if self.server.is_some() {
             config.insert(
-                SERVER_HTTPS_TRUST_STORE_PATH.to_string(),
+                CLIENT_HTTPS_TRUST_STORE_PATH.to_string(),
                 Some(format!("{}/truststore.p12", STACKABLE_SERVER_TLS_DIR)),
             );
             config.insert(
-                SERVER_HTTPS_TRUST_STORE_TYPE.to_string(),
+                CLIENT_HTTPS_TRUST_STORE_TYPE.to_string(),
                 Some("pkcs12".to_string()),
             );
             config.insert(
-                SERVER_HTTPS_TRUST_STORE_PASSWORD.to_string(),
+                CLIENT_HTTPS_TRUST_STORE_PASSWORD.to_string(),
                 Some(TLS_STORE_PASSWORD.to_string()),
             );
+
             config.insert(
-                SERVER_HTTPS_CERT_ALIAS.to_string(),
-                Some(TLS_STORE_ALIAS_NAME.to_string()),
+                SERVER_HTTPS_KEY_STORE_PATH.to_string(),
+                Some(format!("{}/keystore.p12", STACKABLE_SERVER_TLS_DIR)),
             );
-            // not working
+            config.insert(
+                SERVER_HTTPS_KEY_STORE_TYPE.to_string(),
+                Some("pkcs12".to_string()),
+            );
+            config.insert(
+                SERVER_HTTPS_KEY_STORE_PASSWORD.to_string(),
+                Some(TLS_STORE_PASSWORD.to_string()),
+            );
+
+            // authentication test
+            // config.insert(
+            //     "druid.server.https.requireClientCertificate".to_string(),
+            //     Some("true".to_string()),
+            // );
+            // does not work -> bad certificate???
+            // config.insert(
+            //     SERVER_HTTPS_TRUST_STORE_PATH.to_string(),
+            //     Some(format!("{}/truststore.p12", STACKABLE_SERVER_TLS_DIR)),
+            // );
+            // config.insert(
+            //     SERVER_HTTPS_TRUST_STORE_TYPE.to_string(),
+            //     Some("pkcs12".to_string()),
+            // );
+            // config.insert(
+            //     SERVER_HTTPS_TRUST_STORE_PASSWORD.to_string(),
+            //     Some(TLS_STORE_PASSWORD.to_string()),
+            // );
+            // not working -> getKeyEngine null pointer exception...
             // config.insert(
             //     CLIENT_HTTPS_KEY_STORE_PATH.to_string(),
             //     Some(format!("{}/keystore.p12", STACKABLE_SERVER_TLS_DIR)),
@@ -243,62 +241,24 @@ impl DruidTls {
             //     CLIENT_HTTPS_KEY_STORE_PASSWORD.to_string(),
             //     Some(TLS_STORE_PASSWORD.to_string()),
             // );
-        }
-
-        if self.internal.is_some() {
-            // client truststore for internal communication
-            config.insert(
-                CLIENT_HTTPS_TRUST_STORE_PATH.to_string(),
-                Some(format!("{}/truststore.p12", STACKABLE_INTERNAL_TLS_DIR)),
-            );
-            config.insert(
-                CLIENT_HTTPS_TRUST_STORE_TYPE.to_string(),
-                Some("pkcs12".to_string()),
-            );
-            config.insert(
-                CLIENT_HTTPS_TRUST_STORE_PASSWORD.to_string(),
-                Some(TLS_STORE_PASSWORD.to_string()),
-            );
-            config.insert(
-                CLIENT_HTTPS_CERT_ALIAS.to_string(),
-                Some(TLS_STORE_ALIAS_NAME.to_string()),
-            );
-            // server keystore for internal communication
-            config.insert(
-                SERVER_HTTPS_KEY_STORE_PATH.to_string(),
-                Some(format!("{}/keystore.p12", STACKABLE_INTERNAL_TLS_DIR)),
-            );
-            config.insert(
-                SERVER_HTTPS_KEY_STORE_TYPE.to_string(),
-                Some("pkcs12".to_string()),
-            );
-            config.insert(
-                SERVER_HTTPS_KEY_STORE_PASSWORD.to_string(),
-                Some(TLS_STORE_PASSWORD.to_string()),
-            );
+            // config.insert(
+            //     CLIENT_HTTPS_CERT_ALIAS.to_string(),
+            //     Some(SERVER_HTTPS_CERT_ALIAS_NAME.to_string()),
+            // );
         }
     }
 
+    /// Create init container command to create key and trust stores
     pub fn build_tls_stores_cmd(&self) -> Vec<String> {
         let mut command = vec![];
         if self.server.is_some() {
             command.extend(Self::create_key_and_trust_store(
                 STACKABLE_MOUNT_SERVER_TLS_DIR,
                 STACKABLE_SERVER_TLS_DIR,
-                TLS_STORE_ALIAS_NAME,
+                SERVER_HTTPS_CERT_ALIAS_NAME,
                 TLS_STORE_PASSWORD,
             ));
             command.extend(Self::chown_and_chmod(STACKABLE_SERVER_TLS_DIR));
-        }
-
-        if self.internal.is_some() {
-            command.extend(Self::create_key_and_trust_store(
-                STACKABLE_MOUNT_INTERNAL_TLS_DIR,
-                STACKABLE_INTERNAL_TLS_DIR,
-                TLS_STORE_ALIAS_NAME,
-                TLS_STORE_PASSWORD,
-            ));
-            command.extend(Self::chown_and_chmod(STACKABLE_INTERNAL_TLS_DIR));
         }
 
         command
@@ -308,19 +268,31 @@ impl DruidTls {
     /// by the secret operator.
     fn create_key_and_trust_store(
         cert_directory: &str,
-        stackable_cert_directory: &str,
+        stackable_tls_directory: &str,
         alias_name: &str,
         store_password: &str,
     ) -> Vec<String> {
         vec![
-            format!("echo [{stackable_cert_directory}] Cleaning up truststore - just in case"),
-            format!("rm -f {stackable_cert_directory}/truststore.p12"),
-            format!("echo [{stackable_cert_directory}] Creating truststore"),
-            format!("keytool -importcert -file {cert_directory}/ca.crt -keystore {stackable_cert_directory}/truststore.p12 -storetype pkcs12 -noprompt -alias {alias_name} -storepass {store_password}"),
-            format!("echo [{stackable_cert_directory}] Creating certificate chain"),
-            format!("cat {cert_directory}/ca.crt {cert_directory}/tls.crt > {stackable_cert_directory}/chain.crt"),
-            format!("echo [{stackable_cert_directory}] Creating keystore"),
-            format!("openssl pkcs12 -export -in {stackable_cert_directory}/chain.crt -inkey {cert_directory}/tls.key -out {stackable_cert_directory}/keystore.p12 --passout pass:{store_password}")
+            format!("echo [{stackable_tls_directory}] Cleaning up truststore - just in case"),
+            format!("rm -f {stackable_tls_directory}/truststore.p12"),
+            format!("echo [{stackable_tls_directory}] Creating truststore"),
+            format!("keytool -importcert -file {cert_directory}/ca.crt -keystore {stackable_tls_directory}/truststore.p12 -storetype pkcs12 -noprompt -alias {alias_name} -storepass {store_password}"),
+            format!("echo [{stackable_tls_directory}] Creating certificate chain"),
+            format!("cat {cert_directory}/ca.crt {cert_directory}/tls.crt > {stackable_tls_directory}/chain.crt"),
+            format!("echo [{stackable_tls_directory}] Creating keystore"),
+            format!("openssl pkcs12 -export -in {stackable_tls_directory}/chain.crt -inkey {cert_directory}/tls.key -out {stackable_tls_directory}/keystore.p12 --passout pass:{store_password} -name {alias_name}")
+        ]
+    }
+
+    pub fn add_cert_to_stackable_truststore(
+        source_directory: &str,
+        destination_directory: &str,
+        alias_name: &str,
+        store_password: &str,
+    ) -> Vec<String> {
+        vec![
+            format!("echo [{destination_directory}] Adding cert from {source_directory} to truststore {destination_directory}/truststore.p12"),
+            format!("keytool -importcert -file {source_directory}/ca.crt -keystore {destination_directory}/truststore.p12 -storetype pkcs12 -noprompt -alias {alias_name} -storepass {store_password}"),
         ]
     }
 
