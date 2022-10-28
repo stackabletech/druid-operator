@@ -8,7 +8,7 @@ use lazy_static::lazy_static;
 use regex::Regex;
 use snafu::{OptionExt, ResultExt, Snafu};
 use stackable_druid_crd::{
-    DeepStorageSpec, DruidCluster, DruidRole, DruidStorageConfig, APP_NAME,
+    resource::RoleResourceEnum, DeepStorageSpec, DruidCluster, DruidRole, APP_NAME,
     AUTH_AUTHORIZER_OPA_URI, CERTS_DIR, CONTAINER_HTTP_PORT, CONTAINER_METRICS_PORT,
     CONTROLLER_NAME, CREDENTIALS_SECRET_PROPERTY, DRUID_CONFIG_DIRECTORY, DRUID_METRICS_PORT,
     DS_BUCKET, HDFS_CONFIG_DIRECTORY, JVM_CONFIG, LOG4J2_CONFIG, RUNTIME_PROPS,
@@ -23,7 +23,6 @@ use stackable_operator::{
     cluster_resources::ClusterResources,
     commons::{
         opa::OpaApiVersion,
-        resources::{NoRuntimeLimits, Resources},
         s3::{S3AccessStyle, S3ConnectionSpec},
         tls::{CaCert, TlsVerification},
     },
@@ -283,7 +282,9 @@ pub async fn reconcile_druid(druid: Arc<DruidCluster>, ctx: Arc<Ctx>) -> Result<
 
             let resources = druid
                 .resources(&druid_role, &rolegroup)
-                .context(FailedToResolveResourceConfigSnafu)?;
+                .map_err(|_| Error::FailedToResolveResourceConfig)?;
+            // TODO: why doesn't this compile?
+            //.context(FailedToResolveResourceConfigSnafu)?;
 
             let rg_service = build_rolegroup_services(&rolegroup, &druid, rolegroup_config)?;
             let rg_configmap = build_rolegroup_config_map(
@@ -395,7 +396,7 @@ fn build_rolegroup_config_map(
     opa_connstr: Option<&str>,
     s3_conn: Option<&S3ConnectionSpec>,
     deep_storage_bucket_name: Option<&str>,
-    resources: &Resources<DruidStorageConfig, NoRuntimeLimits>,
+    resources: &RoleResourceEnum,
 ) -> Result<ConfigMap> {
     let role = DruidRole::from_str(&rolegroup.role).unwrap();
     let mut cm_conf_data = BTreeMap::new(); // filename -> filecontent
@@ -450,7 +451,7 @@ fn build_rolegroup_config_map(
             PropertyNameKind::File(file_name) if file_name == JVM_CONFIG => {
                 let heap_in_mebi = to_java_heap_value(
                     resources
-                        .memory
+                        .as_memory_limits()
                         .limit
                         .as_ref()
                         .context(InvalidJavaHeapConfigSnafu)?,
@@ -562,7 +563,7 @@ fn build_rolegroup_statefulset(
     druid: &DruidCluster,
     rolegroup_config: &HashMap<PropertyNameKind, BTreeMap<String, String>>,
     s3_conn: Option<&S3ConnectionSpec>,
-    resources: &Resources<DruidStorageConfig, NoRuntimeLimits>,
+    resources: &RoleResourceEnum,
 ) -> Result<StatefulSet> {
     // setup
     let role = DruidRole::from_str(&rolegroup_ref.role).context(UnidentifiedDruidRoleSnafu {
@@ -688,7 +689,7 @@ fn build_rolegroup_statefulset(
         ..Default::default()
     };
     cb.readiness_probe(probe);
-    cb.resources(resources.clone().into());
+    cb.resources(resources.as_resource_requirements());
 
     let mut container = cb.build();
     container.image_pull_policy = Some("IfNotPresent".to_string());
@@ -793,6 +794,28 @@ mod test {
     use rstest::*;
     use stackable_operator::product_config::ProductConfigManager;
 
+    #[derive(Snafu, Debug, EnumDiscriminants)]
+    #[strum_discriminants(derive(IntoStaticStr))]
+    #[allow(clippy::enum_variant_names)]
+    pub enum Error {
+        #[snafu(display("controller error"))]
+        Controller { source: super::Error },
+        #[snafu(display("product config error"))]
+        ProductConfig {
+            source: stackable_operator::product_config::error::Error,
+        },
+        #[snafu(display("product config utils error"))]
+        ProductConfigUtils {
+            source: stackable_operator::product_config_utils::ConfigError,
+        },
+        #[snafu(display("operator framework error"))]
+        OperatorFramework {
+            source: stackable_operator::error::Error,
+        },
+        #[snafu(display("resource error"))]
+        CrdResource, // { source: stackable_druid_crd::resource::Error },
+    }
+
     #[rstest]
     #[case(
         "druid_cluster.yaml",
@@ -811,7 +834,7 @@ mod test {
         #[case] tested_rolegroup_name: &str,
         #[case] expected_druid_segment_cache_property: &str,
         #[case] expected_segment_cache_volume_size: &str,
-    ) -> Result<()> {
+    ) -> Result<(), Error> {
         let cluster_cr = std::fs::File::open(format!(
             "test/resources/historical_segment_cache/{druid_manifest}"
         ))
@@ -822,16 +845,16 @@ mod test {
         let product_config_manager = ProductConfigManager::from_yaml_file(
             "test/resources/historical_segment_cache/properties.yaml",
         )
-        .unwrap();
+        .context(ProductConfigSnafu)?;
 
         let validated_role_config = validate_all_roles_and_groups_config(
-            druid_version(&druid)?,
-            &role_config.context(ProductConfigTransformSnafu)?,
+            druid_version(&druid).context(ControllerSnafu)?,
+            &role_config.context(ProductConfigUtilsSnafu)?,
             &product_config_manager,
             false,
             false,
         )
-        .context(InvalidProductConfigSnafu)?;
+        .context(OperatorFrameworkSnafu)?;
 
         let mut volume_segment_cache_size = Quantity("-1".to_string());
         let mut druid_segment_cache_property = "invalid".to_string();
@@ -849,7 +872,9 @@ mod test {
 
                     let resources = druid
                         .resources(&DruidRole::Historical, &rolegroup_ref)
-                        .context(FailedToResolveResourceConfigSnafu)?;
+                        .map_err(|_| Error::CrdResource)?;
+                    // TODO: why doesn't this compile?
+                    //.context(CrdResourceSnafu)?;
 
                     let sts = build_rolegroup_statefulset(
                         &rolegroup_ref,
@@ -857,7 +882,8 @@ mod test {
                         rolegroup_config,
                         None,
                         &resources,
-                    )?;
+                    )
+                    .context(ControllerSnafu)?;
 
                     volume_segment_cache_size = sts
                         .spec
