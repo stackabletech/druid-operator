@@ -2,7 +2,7 @@ use crate::storage;
 use lazy_static::lazy_static;
 use snafu::Snafu;
 use stackable_operator::{
-    commons::resources::{CpuLimits, MemoryLimits, NoRuntimeLimits, PvcConfig, Resources},
+    commons::resources::{CpuLimits, MemoryLimits, NoRuntimeLimits, Resources},
     config::merge::Merge,
     k8s_openapi::{
         api::core::v1::ResourceRequirements, apimachinery::pkg::api::resource::Quantity,
@@ -41,7 +41,7 @@ pub enum Error {
 
 /// Merge resources from left to right: first > second > third.
 /// Return a copy of the merged struct.
-pub fn merge(
+pub fn try_merge(
     first: Option<&mut RoleResourceEnum>,
     second: Option<&mut RoleResourceEnum>,
     third: Option<&mut RoleResourceEnum>,
@@ -55,18 +55,18 @@ pub fn merge(
         1 => Ok(some[0].clone()),
         2 => {
             let mut tmp = some[0].clone();
-            maybe_merge(&mut tmp, some[1])
+            try_merge_private(&mut tmp, some[1])
         }
         3 => {
             let mut tmp = some[0].clone();
-            tmp = maybe_merge(&mut tmp, some[1])?;
-            maybe_merge(&mut tmp, some[2])
+            tmp = try_merge_private(&mut tmp, some[1])?;
+            try_merge_private(&mut tmp, some[2])
         }
         _ => Err(Error::ResourceMergeFailure),
     }
 }
 
-fn maybe_merge(
+fn try_merge_private(
     ra: &mut RoleResourceEnum,
     rb: &RoleResourceEnum,
 ) -> Result<RoleResourceEnum, Error> {
@@ -107,11 +107,7 @@ lazy_static! {
                 runtime_limits: NoRuntimeLimits {},
             },
             storage: storage::HistoricalStorage {
-                segment_cache: PvcConfig {
-                    capacity: Some(Quantity("1g".to_string())),
-                    storage_class: None,
-                    selectors: None,
-                },
+                segment_cache_size: Some(Quantity("1g".to_string())),
             },
         };
 }

@@ -14,7 +14,6 @@ use stackable_operator::{
         s3::{InlinedS3BucketSpec, S3BucketDef, S3ConnectionDef, S3ConnectionSpec},
         tls::{CaCert, Tls, TlsServerVerification, TlsVerification},
     },
-    k8s_openapi::apimachinery::pkg::api::resource::Quantity,
     kube::{CustomResource, ResourceExt},
     product_config_utils::{ConfigError, Configuration},
     role_utils::Role,
@@ -529,7 +528,7 @@ impl DruidCluster {
         let mut role_resources = self.role_resources(role);
         let mut default_resources = self.default_resources(role);
 
-        let result = resource::merge(
+        let result = resource::try_merge(
             default_resources.as_mut(),
             role_resources.as_mut(),
             rg_resources.as_mut(),
@@ -754,7 +753,6 @@ pub struct RouterConfig {
 #[serde(rename_all = "camelCase")]
 pub struct HistoricalConfig {
     pub resources: Option<Resources<storage::HistoricalStorage, NoRuntimeLimits>>,
-    pub segment_cache_size: Option<Quantity>,
 }
 
 impl MiddleManagerConfig {
@@ -844,14 +842,16 @@ impl Configuration for HistoricalConfig {
     ) -> Result<BTreeMap<String, Option<String>>, ConfigError> {
         let mut result = resource.common_compute_files(role_name, file)?;
 
-        if let Some(Quantity(scs)) = &self.segment_cache_size {
+        if let Some(Resources { storage, .. }) = &self.resources.as_ref() {
+            let max_size = storage.segment_cache_max_size();
             result.insert(
                 SC_LOCATIONS.to_string(),
                 Some(format!(
-                    "[{{\"path\":\"/stackable/var/druid/segment-cache\",\"maxSize\":\"{scs}\"}}]"
+                    "[{{\"path\":\"{SC_DIRECTORY}\",\"maxSize\":\"{max_size}\"}}]"
                 )),
             );
         }
+
         Ok(result)
     }
 }
