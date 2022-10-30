@@ -1,6 +1,0 @@
----
-apiVersion: kuttl.dev/v1beta1
-kind: TestAssert
-commands:
-timeout: 300
-  - script: kubectl exec -n $NAMESPACE druid-checks-0 -- /tmp/check-tls.sh

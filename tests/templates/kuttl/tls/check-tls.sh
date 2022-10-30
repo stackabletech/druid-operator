@@ -1,17 +1,65 @@
 #!/usr/bin/env bash
-# Usage: check-tls.sh namespace
+# Usage: check-tls.sh namespace protocol
 
 NAMESPACE=$1
-HOST=https://derby-druid-router-default-0.derby-druid-router-default.${NAMESPACE}.svc.cluster.local:9088/status/health
+PROTOCOL=$2
 
-# should work with insecure
-curl -X 'GET' --insecure $HOST
-# should not work without insecure
+if [[ $PROTOCOL == "http" ]]
+then
+  HOST=${PROTOCOL}://derby-druid-router-default-0.derby-druid-router-default.${NAMESPACE}.svc.cluster.local:8888/status/health
 
-curl -X 'GET' --insecure $HOST
+  # should work
+  echo "Test non TLS access"
+  if [[ $(curl -X 'GET' $HOST &> /dev/null) == "true" ]]
+  then
+    echo "[SUCCESS] Could establish connection to unprotected server!"
+  else
+    echo "[ERROR] Could not establish connection to unprotected server! Something went wrong..."
+    exit 1
+  fi
+fi
 
-# should work without insecure but with certificate
-curl -X 'GET' $HOST --cacert /tmp/tls/ca.crt
+if [[ $PROTOCOL == "https" ]]
+then
+  HOST=${PROTOCOL}://derby-druid-router-default-0.derby-druid-router-default.${NAMESPACE}.svc.cluster.local:9088/status/health
 
-# should not work with wrong certificate
-curl -X 'GET' $HOST --cacert /tmp/tls/bad_ca.crt
+  # Should not work without --insecure
+  echo "Test TLS without insecure access"
+  if [[ $(curl -X 'GET' $HOST &> /dev/null) == "true" ]]
+  then
+    echo "[ERROR] Could establish connection to untrusted server. Should not be happening!"
+    exit 1
+  else
+    echo "[SUCCESS] Could not establish connection to untrusted server!"
+  fi
+
+  # should work with insecure
+  echo "Test TLS with insecure access"
+  if ! curl -X 'GET' --insecure $HOST &> /dev/null
+  then
+    echo "[ERROR] Could not establish connection to server. Should not be happening!"
+    exit 1
+  else
+    echo "[SUCCESS] Could establish connection to server disregarding certificate!"
+  fi
+
+  # should work without insecure but with certificate
+  echo "Test TLS with trusted certificate"
+  if ! curl -X 'GET' $HOST --cacert /tmp/tls/ca.crt &> /dev/null
+  then
+    echo "[ERROR] Could not establish connection to server with trusted certificate. Should not be happening!"
+    exit 1
+  else
+    echo "[SUCCESS] Could establish connection to server with trusted certificate!"
+  fi
+
+  # should not work with wrong certificate
+  echo "Test TLS with untrusted certificate"
+  if curl -X 'GET' $HOST --cacert /tmp/tls/untrusted-ca.crt &> /dev/null
+  then
+    echo "[ERROR] Could establish connection to server with untrusted certificate. Should not be happening!"
+    exit 1
+  else
+    echo "[SUCCESS] Could not establish connection to server with untrusted certificate!"
+  fi
+fi
