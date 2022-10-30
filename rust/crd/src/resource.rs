@@ -35,8 +35,10 @@ impl RoleResourceEnum {
 #[strum_discriminants(derive(IntoStaticStr))]
 #[allow(clippy::enum_variant_names)]
 pub enum Error {
-    #[snafu(display("failed to merge resources"))]
-    ResourceMergeFailure,
+    #[snafu(display("no resources available for merging"))]
+    NoResourcesToMerge,
+    #[snafu(display("cannot merge storage types of different roles"))]
+    IncompatibleStorageMerging,
 }
 
 /// Merge resources from left to right: first > second > third.
@@ -62,7 +64,7 @@ pub fn try_merge(
             tmp = try_merge_private(some[1], &tmp)?;
             try_merge_private(some[2], &tmp)
         }
-        _ => Err(Error::ResourceMergeFailure),
+        _ => Err(Error::NoResourcesToMerge),
     }
 }
 
@@ -79,7 +81,7 @@ fn try_merge_private(
             a.merge(b);
             Ok(RoleResourceEnum::Historical(a.clone()))
         }
-        _ => Err(Error::ResourceMergeFailure),
+        _ => Err(Error::IncompatibleStorageMerging),
     }
 }
 
@@ -244,6 +246,35 @@ mod test {
             },
         })),
      )]
+    #[case(
+        Some(RoleResourceEnum::Historical(Resources {
+            cpu: CpuLimits {
+                min: Some(Quantity("200m".to_owned())),
+                max: Some(Quantity("4".to_owned())),
+            },
+            memory: MemoryLimits {
+                limit: Some(Quantity("2Gi".to_owned())),
+                runtime_limits: NoRuntimeLimits {},
+            },
+            storage: storage::HistoricalStorage {
+                segment_cache_size_gb: Some(1),
+            },
+        })),
+        Some(RoleResourceEnum::Druid(Resources {
+            cpu: CpuLimits {
+                min: Some(Quantity("200m".to_owned())),
+                max: Some(Quantity("4".to_owned())),
+            },
+            memory: MemoryLimits {
+                limit: Some(Quantity("2Gi".to_owned())),
+                runtime_limits: NoRuntimeLimits {},
+            },
+            storage: storage::DruidStorage { },
+        })),
+        None,
+        Err(Error::IncompatibleStorageMerging),
+     )]
+    #[case(None, None, None, Err(Error::NoResourcesToMerge))]
     pub fn test_try_merge(
         #[case] mut first: Option<RoleResourceEnum>,
         #[case] mut second: Option<RoleResourceEnum>,

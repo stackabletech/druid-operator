@@ -726,7 +726,7 @@ data:
             type: "string"
           defaultValues:
             - fromVersion: "0.0.0"
-              value: "[{\"path\":\"/stackable/var/druid/segment-cache\",\"maxSize\":\"1g\"}]"
+              value: "[{\"path\":\"/stackable/var/druid/segment-cache\",\"maxSize\":\"900m\"}]"
           roles:
             - name: "broker"
               required: false

@@ -780,6 +780,12 @@ mod test {
         "3g"
     )]
     #[case(
+        "druid_cluster.yaml",
+        "secondary",
+        "[{\"path\":\"/stackable/var/druid/segment-cache\",\"maxSize\":\"1843m\"}]",
+        "2g"
+    )]
+    #[case(
         "druid_cluster_defaults.yaml",
         "default",
         "[{\"path\":\"/stackable/var/druid/segment-cache\",\"maxSize\":\"900m\"}]",

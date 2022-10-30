@@ -50,6 +50,9 @@ spec:
             storage:
               segmentCacheSizeGb: 3
         replicas: 1
+      secondary:
+        config: {}
+        replicas: 1
   middleManagers:
     roleGroups:
       default:
