@@ -102,6 +102,7 @@ const SECRET_KEY_S3_SECRET_KEY: &str = "secretKey";
 // segment storage
 pub const SC_LOCATIONS: &str = "druid.segmentCache.locations";
 pub const SC_DIRECTORY: &str = "/stackable/var/druid/segment-cache";
+pub const SC_VOLUME_NAME: &str = "segment-cache";
 
 #[derive(Snafu, Debug, EnumDiscriminants)]
 #[strum_discriminants(derive(IntoStaticStr))]

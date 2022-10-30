@@ -746,7 +746,7 @@ mod test {
 
     use super::*;
     use rstest::*;
-    use stackable_druid_crd::SC_LOCATIONS;
+    use stackable_druid_crd::{SC_LOCATIONS, SC_VOLUME_NAME};
     use stackable_operator::k8s_openapi::apimachinery::pkg::api::resource::Quantity;
     use stackable_operator::product_config::ProductConfigManager;
 
@@ -856,7 +856,7 @@ mod test {
                         .volumes
                         .unwrap()
                         .into_iter()
-                        .find(|v| v.name == "segment-cache")
+                        .find(|v| v.name == SC_VOLUME_NAME)
                         .unwrap()
                         .empty_dir
                         .unwrap()

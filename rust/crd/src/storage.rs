@@ -5,7 +5,7 @@ use stackable_operator::schemars::{self, JsonSchema};
 
 use serde::{Deserialize, Serialize};
 
-use crate::SC_DIRECTORY;
+use crate::{SC_DIRECTORY, SC_VOLUME_NAME};
 
 /// Storage configuration used by all roles except historical
 #[derive(Clone, Debug, Default, Deserialize, Eq, JsonSchema, Merge, PartialEq, Serialize)]
@@ -25,9 +25,9 @@ impl HistoricalStorage {
             Some(v) => v,
             _ => 1,
         };
-        cb.add_volume_mount("segment-cache", SC_DIRECTORY);
+        cb.add_volume_mount(SC_VOLUME_NAME, SC_DIRECTORY);
         pb.add_volume(
-            VolumeBuilder::new("segment-cache")
+            VolumeBuilder::new(SC_VOLUME_NAME)
                 .with_empty_dir(Some(""), Some(Quantity(format!("{}g", volume_size))))
                 .build(),
         );
