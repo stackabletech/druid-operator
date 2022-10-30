@@ -728,31 +728,36 @@ pub struct IngestionSpec {
 #[derive(Clone, Debug, Deserialize, JsonSchema, PartialEq, Serialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct BrokerConfig {
-    pub resources: Option<Resources<storage::DruidStorage, NoRuntimeLimits>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    resources: Option<Resources<storage::DruidStorage, NoRuntimeLimits>>,
 }
 
 #[derive(Clone, Debug, Deserialize, JsonSchema, PartialEq, Serialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct CoordinatorConfig {
-    pub resources: Option<Resources<storage::DruidStorage, NoRuntimeLimits>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    resources: Option<Resources<storage::DruidStorage, NoRuntimeLimits>>,
 }
 
 #[derive(Clone, Debug, Deserialize, JsonSchema, PartialEq, Serialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct MiddleManagerConfig {
-    pub resources: Option<Resources<storage::DruidStorage, NoRuntimeLimits>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    resources: Option<Resources<storage::DruidStorage, NoRuntimeLimits>>,
 }
 
 #[derive(Clone, Debug, Deserialize, JsonSchema, PartialEq, Serialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct RouterConfig {
-    pub resources: Option<Resources<storage::DruidStorage, NoRuntimeLimits>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    resources: Option<Resources<storage::DruidStorage, NoRuntimeLimits>>,
 }
 
 #[derive(Clone, Debug, Deserialize, JsonSchema, PartialEq, Serialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct HistoricalConfig {
-    pub resources: Option<Resources<storage::HistoricalStorage, NoRuntimeLimits>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    resources: Option<Resources<storage::HistoricalStorage, NoRuntimeLimits>>,
 }
 
 impl MiddleManagerConfig {

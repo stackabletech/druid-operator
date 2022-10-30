@@ -30,15 +30,26 @@ spec:
         replicas: 1
   historicals:
     config:
-      segmentCacheSize: 2g
+      resources:
+        cpu:
+          min: '200m'
+          max: '4'
+        memory:
+          limit: '2Gi'
+        storage:
+          segmentCacheSizeGb: 2
     roleGroups:
       default:
         config:
-          segmentCacheSize: 3g
+          resources:
+            cpu:
+              min: '200m'
+              max: '4'
+            memory:
+              limit: '2Gi'
+            storage:
+              segmentCacheSizeGb: 3
         replicas: 1
-      secondary:
-        config:
-          segmentCacheSize: 4g
   middleManagers:
     roleGroups:
       default:

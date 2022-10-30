@@ -10,7 +10,7 @@ use stackable_operator::{
 };
 use strum::{EnumDiscriminants, IntoStaticStr};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum RoleResourceEnum {
     Druid(Resources<storage::DruidStorage, NoRuntimeLimits>),
     Historical(Resources<storage::HistoricalStorage, NoRuntimeLimits>),
@@ -31,7 +31,7 @@ impl RoleResourceEnum {
     }
 }
 
-#[derive(Snafu, Debug, EnumDiscriminants)]
+#[derive(Snafu, Debug, EnumDiscriminants, PartialEq, Eq)]
 #[strum_discriminants(derive(IntoStaticStr))]
 #[allow(clippy::enum_variant_names)]
 pub enum Error {
@@ -46,7 +46,7 @@ pub fn try_merge(
     second: Option<&mut RoleResourceEnum>,
     third: Option<&mut RoleResourceEnum>,
 ) -> Result<RoleResourceEnum, Error> {
-    let some = [first, second, third]
+    let mut some = [first, second, third]
         .into_iter()
         .flatten()
         .collect::<Vec<&mut RoleResourceEnum>>();
@@ -54,13 +54,13 @@ pub fn try_merge(
     match some.len() {
         1 => Ok(some[0].clone()),
         2 => {
-            let mut tmp = some[0].clone();
-            try_merge_private(&mut tmp, some[1])
+            let tmp = some[0].clone();
+            try_merge_private(some[1], &tmp)
         }
         3 => {
             let mut tmp = some[0].clone();
-            tmp = try_merge_private(&mut tmp, some[1])?;
-            try_merge_private(&mut tmp, some[2])
+            tmp = try_merge_private(some[1], &tmp)?;
+            try_merge_private(some[2], &tmp)
         }
         _ => Err(Error::ResourceMergeFailure),
     }
@@ -107,7 +107,151 @@ lazy_static! {
                 runtime_limits: NoRuntimeLimits {},
             },
             storage: storage::HistoricalStorage {
-                segment_cache_size: Some(Quantity("1g".to_string())),
+                segment_cache_size_gb: Some(1),
             },
         };
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use rstest::*;
+
+    #[rstest]
+    #[case(
+        Some(RoleResourceEnum::Historical(Resources {
+            cpu: CpuLimits {
+                min: Some(Quantity("200m".to_owned())),
+                max: Some(Quantity("4".to_owned())),
+            },
+            memory: MemoryLimits {
+                limit: Some(Quantity("2Gi".to_owned())),
+                runtime_limits: NoRuntimeLimits {},
+            },
+            storage: storage::HistoricalStorage {
+                segment_cache_size_gb: Some(1),
+            },
+        })),
+        None,
+        None,
+        Ok(RoleResourceEnum::Historical(Resources {
+            cpu: CpuLimits {
+                min: Some(Quantity("200m".to_owned())),
+                max: Some(Quantity("4".to_owned())),
+            },
+            memory: MemoryLimits {
+                limit: Some(Quantity("2Gi".to_owned())),
+                runtime_limits: NoRuntimeLimits {},
+            },
+            storage: storage::HistoricalStorage {
+                segment_cache_size_gb: Some(1),
+            },
+        })),
+     )]
+    #[case(
+        Some(RoleResourceEnum::Historical(Resources {
+            cpu: CpuLimits {
+                min: Some(Quantity("200m".to_owned())),
+                max: Some(Quantity("4".to_owned())),
+            },
+            memory: MemoryLimits {
+                limit: Some(Quantity("2Gi".to_owned())),
+                runtime_limits: NoRuntimeLimits {},
+            },
+            storage: storage::HistoricalStorage {
+                segment_cache_size_gb: Some(1),
+            },
+        })),
+        Some(RoleResourceEnum::Historical(Resources {
+            cpu: CpuLimits {
+                min: Some(Quantity("200m".to_owned())),
+                max: Some(Quantity("4".to_owned())),
+            },
+            memory: MemoryLimits {
+                limit: Some(Quantity("2Gi".to_owned())),
+                runtime_limits: NoRuntimeLimits {},
+            },
+            storage: storage::HistoricalStorage {
+                segment_cache_size_gb: Some(2),
+            },
+        })),
+        None,
+        Ok(RoleResourceEnum::Historical(Resources {
+            cpu: CpuLimits {
+                min: Some(Quantity("200m".to_owned())),
+                max: Some(Quantity("4".to_owned())),
+            },
+            memory: MemoryLimits {
+                limit: Some(Quantity("2Gi".to_owned())),
+                runtime_limits: NoRuntimeLimits {},
+            },
+            storage: storage::HistoricalStorage {
+                segment_cache_size_gb: Some(2),
+            },
+        })),
+     )]
+    #[case(
+        Some(RoleResourceEnum::Historical(Resources {
+            cpu: CpuLimits {
+                min: Some(Quantity("200m".to_owned())),
+                max: Some(Quantity("4".to_owned())),
+            },
+            memory: MemoryLimits {
+                limit: Some(Quantity("2Gi".to_owned())),
+                runtime_limits: NoRuntimeLimits {},
+            },
+            storage: storage::HistoricalStorage {
+                segment_cache_size_gb: Some(1),
+            },
+        })),
+        Some(RoleResourceEnum::Historical(Resources {
+            cpu: CpuLimits {
+                min: Some(Quantity("200m".to_owned())),
+                max: Some(Quantity("4".to_owned())),
+            },
+            memory: MemoryLimits {
+                limit: Some(Quantity("2Gi".to_owned())),
+                runtime_limits: NoRuntimeLimits {},
+            },
+            storage: storage::HistoricalStorage {
+                segment_cache_size_gb: Some(2),
+            },
+        })),
+        Some(RoleResourceEnum::Historical(Resources {
+            cpu: CpuLimits {
+                min: Some(Quantity("200m".to_owned())),
+                max: Some(Quantity("4".to_owned())),
+            },
+            memory: MemoryLimits {
+                limit: Some(Quantity("2Gi".to_owned())),
+                runtime_limits: NoRuntimeLimits {},
+            },
+            storage: storage::HistoricalStorage {
+                segment_cache_size_gb: Some(3),
+            },
+        })),
+        Ok(RoleResourceEnum::Historical(Resources {
+            cpu: CpuLimits {
+                min: Some(Quantity("200m".to_owned())),
+                max: Some(Quantity("4".to_owned())),
+            },
+            memory: MemoryLimits {
+                limit: Some(Quantity("2Gi".to_owned())),
+                runtime_limits: NoRuntimeLimits {},
+            },
+            storage: storage::HistoricalStorage {
+                segment_cache_size_gb: Some(3),
+            },
+        })),
+     )]
+    pub fn test_try_merge(
+        #[case] mut first: Option<RoleResourceEnum>,
+        #[case] mut second: Option<RoleResourceEnum>,
+        #[case] mut third: Option<RoleResourceEnum>,
+        #[case] expected: Result<RoleResourceEnum, Error>,
+    ) {
+        let got = try_merge(first.as_mut(), second.as_mut(), third.as_mut());
+
+        assert_eq!(expected, got);
+    }
 }

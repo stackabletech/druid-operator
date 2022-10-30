@@ -22,21 +22,27 @@ spec:
     roleGroups:
       default:
         replicas: 1
+        config: {}
   coordinators:
     roleGroups:
       default:
         replicas: 1
+        config: {}
   historicals:
     roleGroups:
       default:
         replicas: 1
+        config: {}
       secondary:
         replicas: 1
+        config: {}
   middleManagers:
     roleGroups:
       default:
         replicas: 1
+        config: {}
   routers:
     roleGroups:
       default:
         replicas: 1
+        config: {}
