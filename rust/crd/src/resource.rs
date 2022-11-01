@@ -68,6 +68,7 @@ pub fn try_merge(
     }
 }
 
+/// Merges `rb` into `ra`, i.e. `ra` has precedence over `rb`.
 fn try_merge_private(
     ra: &mut RoleResourceEnum,
     rb: &RoleResourceEnum,
