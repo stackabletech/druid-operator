@@ -100,7 +100,15 @@ spec:
         selector:
           matchLabels:
             kubernetes.io/os: linux
-        config: {}
+        config:
+          resources:
+            cpu:
+              min: '200m'
+              max: '4'
+            memory:
+              limit: '2Gi'
+            storage:
+              segmentCacheSizeGb: 2
         replicas: 1
   middleManagers:
     roleGroups:

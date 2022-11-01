@@ -777,19 +777,19 @@ mod test {
         "druid_cluster.yaml",
         "default",
         "[{\"path\":\"/stackable/var/druid/segment-cache\",\"maxSize\":\"2765m\"}]",
-        "3g"
+        "3G"
     )]
     #[case(
         "druid_cluster.yaml",
         "secondary",
         "[{\"path\":\"/stackable/var/druid/segment-cache\",\"maxSize\":\"1843m\"}]",
-        "2g"
+        "2G"
     )]
     #[case(
         "druid_cluster_defaults.yaml",
         "default",
         "[{\"path\":\"/stackable/var/druid/segment-cache\",\"maxSize\":\"900m\"}]",
-        "1g"
+        "1G"
     )]
     pub fn historical_segment_cache(
         #[case] druid_manifest: &str,

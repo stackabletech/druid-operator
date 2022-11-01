@@ -28,7 +28,7 @@ impl HistoricalStorage {
         cb.add_volume_mount(SC_VOLUME_NAME, SC_DIRECTORY);
         pb.add_volume(
             VolumeBuilder::new(SC_VOLUME_NAME)
-                .with_empty_dir(Some(""), Some(Quantity(format!("{}g", volume_size))))
+                .with_empty_dir(Some(""), Some(Quantity(format!("{}G", volume_size))))
                 .build(),
         );
     }
