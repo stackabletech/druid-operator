@@ -1,7 +1,9 @@
-use stackable_operator::builder::{ContainerBuilder, PodBuilder, VolumeBuilder};
-use stackable_operator::config::merge::Merge;
-use stackable_operator::k8s_openapi::apimachinery::pkg::api::resource::Quantity;
-use stackable_operator::schemars::{self, JsonSchema};
+use stackable_operator::{
+    builder::{ContainerBuilder, PodBuilder, VolumeBuilder},
+    config::merge::Merge,
+    k8s_openapi::apimachinery::pkg::api::resource::Quantity,
+    schemars::{self, JsonSchema},
+};
 
 use serde::{Deserialize, Serialize};
 
