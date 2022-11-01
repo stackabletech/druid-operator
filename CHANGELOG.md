@@ -9,7 +9,7 @@ All notable changes to this project will be documented in this file.
 - Cpu and memory limits are now configurable ([#298]).
 - Stale resources are now deleted ([#310]).
 - Support Druid 24.0.0 ([#317]).
-- Added `segmentCacheSizeGb` to make segment cache (` the max size of `druid.segmentCache.locations`) configurable ([#320])
+- Added `segmentCacheSizeGb` to make segment cache (the max size of `druid.segmentCache.locations`) configurable ([#320])
 - Refactor role configuration with per role structs like `BrokerConfig`, `HistoricalConfig`, etc ([#320])
 - Added `HistoricalStorge` and `DruidStorage` (as catch-all storage configuration) ([#320])
 

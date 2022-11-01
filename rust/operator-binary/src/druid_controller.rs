@@ -154,7 +154,7 @@ pub enum Error {
         role: String,
     },
     #[snafu(display("failed to resolve and merge resource config for role and role group"))]
-    FailedToResolveResourceConfig,
+    FailedToResolveResourceConfig { source: stackable_druid_crd::Error },
     #[snafu(display("invalid java heap config - missing default or value in crd?"))]
     InvalidJavaHeapConfig,
     #[snafu(display("failed to convert java heap config to unit [{unit}]"))]
@@ -280,9 +280,7 @@ pub async fn reconcile_druid(druid: Arc<DruidCluster>, ctx: Arc<Ctx>) -> Result<
 
             let resources = druid
                 .resources(&druid_role, &rolegroup)
-                .map_err(|_| Error::FailedToResolveResourceConfig)?;
-            // TODO: why doesn't this compile?
-            //.context(FailedToResolveResourceConfigSnafu)?;
+                .context(FailedToResolveResourceConfigSnafu)?;
 
             let rg_service = build_rolegroup_services(&rolegroup, &druid, rolegroup_config)?;
             let rg_configmap = build_rolegroup_config_map(
@@ -769,7 +767,7 @@ mod test {
             source: stackable_operator::error::Error,
         },
         #[snafu(display("resource error"))]
-        CrdResource, // { source: stackable_druid_crd::resource::Error },
+        CrdResource { source: stackable_druid_crd::Error },
     }
 
     #[rstest]
@@ -834,9 +832,7 @@ mod test {
 
                     let resources = druid
                         .resources(&DruidRole::Historical, &rolegroup_ref)
-                        .map_err(|_| Error::CrdResource)?;
-                    // TODO: why doesn't this compile?
-                    //.context(CrdResourceSnafu)?;
+                        .context(CrdResourceSnafu)?;
 
                     let sts = build_rolegroup_statefulset(
                         &rolegroup_ref,
