@@ -33,8 +33,7 @@ impl HistoricalStorage {
         );
     }
 
-    /// This cannot fail (i.e. return Result) and must return always return a valid
-    /// quantity.
+    /// This cannot fail (i.e. return Result) and must always return a valid quantity.
     /// It computes the maximum segment cache size as 90% of the volume size.
     pub fn segment_cache_max_size(&self) -> String {
         if let Some(volume_size) = self.segment_cache_size_gb {
