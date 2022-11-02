@@ -10,7 +10,7 @@ then
 
   # should work
   echo "Test non TLS access"
-  if [[ $(curl -X 'GET' $HOST &> /dev/null) == "true" ]]
+  if [[ $(curl $HOST &> /dev/null) == "true" ]]
   then
     echo "[SUCCESS] Could establish connection to unprotected server!"
   else
@@ -25,7 +25,7 @@ then
 
   # Should not work without --insecure
   echo "Test TLS without insecure access"
-  if [[ $(curl -X 'GET' $HOST &> /dev/null) == "true" ]]
+  if [[ $(curl $HOST &> /dev/null) == "true" ]]
   then
     echo "[ERROR] Could establish connection to untrusted server. Should not be happening!"
     exit 1
@@ -35,7 +35,7 @@ then
 
   # should work with insecure
   echo "Test TLS with insecure access"
-  if ! curl -X 'GET' --insecure $HOST &> /dev/null
+  if ! curl --insecure $HOST &> /dev/null
   then
     echo "[ERROR] Could not establish connection to server. Should not be happening!"
     exit 1
@@ -45,7 +45,7 @@ then
 
   # should work without insecure but with certificate
   echo "Test TLS with trusted certificate"
-  if ! curl -X 'GET' $HOST --cacert /tmp/tls/ca.crt &> /dev/null
+  if ! curl $HOST --cacert /tmp/tls/ca.crt &> /dev/null
   then
     echo "[ERROR] Could not establish connection to server with trusted certificate. Should not be happening!"
     exit 1
@@ -55,7 +55,7 @@ then
 
   # should not work with wrong certificate
   echo "Test TLS with untrusted certificate"
-  if curl -X 'GET' $HOST --cacert /tmp/tls/untrusted-ca.crt &> /dev/null
+  if curl $HOST --cacert /tmp/tls/untrusted-ca.crt &> /dev/null
   then
     echo "[ERROR] Could establish connection to server with untrusted certificate. Should not be happening!"
     exit 1

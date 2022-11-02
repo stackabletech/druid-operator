@@ -359,14 +359,9 @@ spec:
                 properties:
                   authentication:
                     default: []
-                    description: Authentication settings for Druid like TLS authentication or LDAP
+                    description: Authentication class settings for Druid like TLS authentication or LDAP
                     items:
-                      properties:
-                        authenticationClass:
-                          type: string
-                      required:
-                      - authenticationClass
-                      type: object
+                      type: string
                     type: array
                   authorization:
                     description: Authorization settings for Druid like OPA
@@ -669,7 +664,7 @@ spec:
                       server:
                         default:
                           secretClass: tls
-                        description: 'Only affects client connections. This setting controls: - If TLS encryption is used at all - Which cert the servers should use to authenticate themselves against the client Important: This currently will activate encrypted internal druid communication as well!'
+                        description: 'Only affects client connections. This setting controls: - If TLS encryption is used at all - Which cert the servers should use to authenticate themselves against the client Important: This will activate encrypted internal druid communication as well!'
                         nullable: true
                         properties:
                           secretClass:

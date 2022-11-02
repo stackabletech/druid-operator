@@ -46,6 +46,72 @@ status:
 apiVersion: v1
 kind: Service
 metadata:
+  name: derby-druid-coordinator
+spec:
+  ports:
+    - name: metrics
+      port: 9090
+      protocol: TCP
+      targetPort: 9090
+{% if test_scenario['values']['use-tls'] == 'false' %}
+    - name: http
+      port: 8081
+      protocol: TCP
+      targetPort: 8081
+{% else %}
+    - name: https
+      port: 8281
+      protocol: TCP
+      targetPort: 8281
+{% endif %}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: derby-druid-middlemanager
+spec:
+  ports:
+    - name: metrics
+      port: 9090
+      protocol: TCP
+      targetPort: 9090
+{% if test_scenario['values']['use-tls'] == 'false' %}
+    - name: http
+      port: 8091
+      protocol: TCP
+      targetPort: 8091
+{% else %}
+    - name: https
+      port: 8291
+      protocol: TCP
+      targetPort: 8291
+{% endif %}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: derby-druid-historical
+spec:
+  ports:
+    - name: metrics
+      port: 9090
+      protocol: TCP
+      targetPort: 9090
+{% if test_scenario['values']['use-tls'] == 'false' %}
+    - name: http
+      port: 8083
+      protocol: TCP
+      targetPort: 8083
+{% else %}
+    - name: https
+      port: 8283
+      protocol: TCP
+      targetPort: 8283
+{% endif %}
+---
+apiVersion: v1
+kind: Service
+metadata:
   name: derby-druid-router
 spec:
   ports:
@@ -63,4 +129,26 @@ spec:
       port: 9088
       protocol: TCP
       targetPort: 9088
+{% endif %}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: derby-druid-broker
+spec:
+  ports:
+    - name: metrics
+      port: 9090
+      protocol: TCP
+      targetPort: 9090
+{% if test_scenario['values']['use-tls'] == 'false' %}
+    - name: http
+      port: 8082
+      protocol: TCP
+      targetPort: 8082
+{% else %}
+    - name: https
+      port: 8282
+      protocol: TCP
+      targetPort: 8282
 {% endif %}

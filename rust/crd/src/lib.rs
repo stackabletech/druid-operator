@@ -1,3 +1,4 @@
+pub mod authentication;
 pub mod tls;
 
 use crate::tls::DruidTls;
@@ -148,9 +149,9 @@ pub struct DruidClusterSpec {
 #[derive(Clone, Debug, Deserialize, JsonSchema, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DruidCommonConfig {
-    /// Authentication settings for Druid like TLS authentication or LDAP
+    /// Authentication class settings for Druid like TLS authentication or LDAP
     #[serde(default)]
-    pub authentication: Vec<DruidAuthentication>,
+    pub authentication: Vec<String>,
     /// Authorization settings for Druid like OPA
     #[serde(skip_serializing_if = "Option::is_none")]
     pub authorization: Option<DruidAuthorization>,
@@ -166,12 +167,6 @@ pub struct DruidCommonConfig {
     pub tls: DruidTls,
     /// ZooKeeper discovery ConfigMap
     pub zookeeper_config_map_name: String,
-}
-
-#[derive(Clone, Debug, Default, Deserialize, JsonSchema, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct DruidAuthentication {
-    pub authentication_class: String,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, JsonSchema, Serialize)]
@@ -282,6 +277,9 @@ impl DruidRole {
             self.get_process_name(),
             RW_CONFIG_DIRECTORY,
         ));
+
+        //shell_cmd.push(format!("tail -f /dev/null"));
+
         vec![
             "/bin/sh".to_string(),
             "-c".to_string(),

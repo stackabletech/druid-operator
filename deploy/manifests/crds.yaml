@@ -176,14 +176,9 @@ spec:
                   properties:
                     authentication:
                       default: []
-                      description: Authentication settings for Druid like TLS authentication or LDAP
+                      description: Authentication class settings for Druid like TLS authentication or LDAP
                       items:
-                        properties:
-                          authenticationClass:
-                            type: string
-                        required:
-                          - authenticationClass
-                        type: object
+                        type: string
                       type: array
                     authorization:
                       description: Authorization settings for Druid like OPA

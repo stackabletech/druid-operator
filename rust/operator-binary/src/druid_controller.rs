@@ -6,11 +6,14 @@ use crate::{
 
 use snafu::{OptionExt, ResultExt, Snafu};
 use stackable_druid_crd::{
-    tls::DruidTls, DeepStorageSpec, DruidAuthorization, DruidCluster, DruidRole,
-    DruidStorageConfig, APP_NAME, AUTH_AUTHORIZER_OPA_URI, CERTS_DIR, CONTROLLER_NAME,
-    CREDENTIALS_SECRET_PROPERTY, DRUID_CONFIG_DIRECTORY, DS_BUCKET, HDFS_CONFIG_DIRECTORY,
-    JVM_CONFIG, LOG4J2_CONFIG, RUNTIME_PROPS, RW_CONFIG_DIRECTORY, S3_ENDPOINT_URL,
-    S3_PATH_STYLE_ACCESS, S3_SECRET_DIR_NAME, ZOOKEEPER_CONNECTION_STRING,
+    authentication,
+    authentication::{DruidAuthentication, DruidAuthenticationConfig},
+    tls::DruidTls,
+    DeepStorageSpec, DruidAuthorization, DruidCluster, DruidRole, DruidStorageConfig, APP_NAME,
+    AUTH_AUTHORIZER_OPA_URI, CERTS_DIR, CONTROLLER_NAME, CREDENTIALS_SECRET_PROPERTY,
+    DRUID_CONFIG_DIRECTORY, DS_BUCKET, HDFS_CONFIG_DIRECTORY, JVM_CONFIG, LOG4J2_CONFIG,
+    RUNTIME_PROPS, RW_CONFIG_DIRECTORY, S3_ENDPOINT_URL, S3_PATH_STYLE_ACCESS, S3_SECRET_DIR_NAME,
+    ZOOKEEPER_CONNECTION_STRING,
 };
 use stackable_operator::{
     builder::{
@@ -174,6 +177,8 @@ pub enum Error {
         source: stackable_operator::error::Error,
         name: String,
     },
+    #[snafu(display("invalid authentication configuration"))]
+    InvalidAuthenticationConfig { source: authentication::Error },
 }
 
 type Result<T, E = Error> = std::result::Result<T, E>;
@@ -240,6 +245,11 @@ pub async fn reconcile_druid(druid: Arc<DruidCluster>, ctx: Arc<Ctx>) -> Result<
         _ => None,
     };
 
+    // Get possible authentication methods
+    let authentication_config = DruidAuthentication::resolve(client, &druid)
+        .await
+        .context(InvalidAuthenticationConfigSnafu)?;
+
     let mut roles = HashMap::new();
 
     let config_files = vec![
@@ -301,6 +311,7 @@ pub async fn reconcile_druid(druid: Arc<DruidCluster>, ctx: Arc<Ctx>) -> Result<
                 s3_conn.as_ref(),
                 deep_storage_bucket_name.as_deref(),
                 &resources,
+                &authentication_config,
             )?;
             let rg_statefulset = build_rolegroup_statefulset(
                 &druid,
@@ -308,6 +319,7 @@ pub async fn reconcile_druid(druid: Arc<DruidCluster>, ctx: Arc<Ctx>) -> Result<
                 rolegroup_config,
                 s3_conn.as_ref(),
                 &resources,
+                &authentication_config,
             )?;
             cluster_resources
                 .add(client, &rg_service)
@@ -394,6 +406,7 @@ fn build_rolegroup_config_map(
     s3_conn: Option<&S3ConnectionSpec>,
     deep_storage_bucket_name: Option<&str>,
     resources: &Resources<DruidStorageConfig, NoRuntimeLimits>,
+    authentication: &Vec<DruidAuthenticationConfig>,
 ) -> Result<ConfigMap> {
     let role = DruidRole::from_str(&rolegroup.role).unwrap();
     let mut cm_conf_data = BTreeMap::new(); // filename -> filecontent
@@ -438,6 +451,10 @@ fn build_rolegroup_config_map(
                     DS_BUCKET.to_string(),
                     deep_storage_bucket_name.map(str::to_string),
                 );
+                for auth in authentication {
+                    auth.add_common_config_properties(&mut transformed_config);
+                }
+
                 let runtime_properties =
                     stackable_operator::product_config::writer::to_java_properties_string(
                         transformed_config.iter(),
@@ -547,6 +564,7 @@ fn build_rolegroup_statefulset(
     rolegroup_config: &HashMap<PropertyNameKind, BTreeMap<String, String>>,
     s3_conn: Option<&S3ConnectionSpec>,
     resources: &Resources<DruidStorageConfig, NoRuntimeLimits>,
+    authentication: &Vec<DruidAuthenticationConfig>,
 ) -> Result<StatefulSet> {
     let role = DruidRole::from_str(&rolegroup_ref.role).context(UnidentifiedDruidRoleSnafu {
         role: rolegroup_ref.role.to_string(),
@@ -577,10 +595,20 @@ fn build_rolegroup_statefulset(
         &mut pb,
     );
 
+    let mut init_command: Vec<String> = tls_config.build_tls_stores_cmd();
+    for auth_method in authentication {
+        auth_method.add_authentication_volume_and_volume_mounts(
+            &mut cb_prepare,
+            &mut cb_druid,
+            &mut pb,
+        );
+        init_command.extend(auth_method.build_authentication_cmd());
+    }
+
     cb_prepare
         .image("docker.stackable.tech/stackable/tools:0.2.0-stackable0")
         .command(vec!["/bin/bash".to_string(), "-c".to_string()])
-        .args(vec![tls_config.build_tls_stores_cmd().join(" && ")])
+        .args(vec![init_command.join(" && ")])
         .image_pull_policy("IfNotPresent")
         .security_context(SecurityContextBuilder::run_as_root())
         .build();
