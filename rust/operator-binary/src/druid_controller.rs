@@ -595,7 +595,9 @@ fn build_rolegroup_statefulset(
         &mut pb,
     );
 
+    // tls
     let mut init_command: Vec<String> = tls_config.build_tls_stores_cmd();
+    // possible client auth
     for auth_method in authentication {
         auth_method.add_authentication_volume_and_volume_mounts(
             &mut cb_prepare,

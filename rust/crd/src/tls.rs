@@ -195,6 +195,11 @@ impl DruidTls {
                 Some(TLS_STORE_PASSWORD.to_string()),
             );
             config.insert(
+                CLIENT_HTTPS_CERT_ALIAS.to_string(),
+                Some(CLIENT_HTTPS_CERT_ALIAS_NAME.to_string()),
+            );
+
+            config.insert(
                 SERVER_HTTPS_KEY_STORE_PATH.to_string(),
                 Some(format!("{}/keystore.p12", STACKABLE_SERVER_TLS_DIR)),
             );
@@ -205,10 +210,6 @@ impl DruidTls {
             config.insert(
                 SERVER_HTTPS_KEY_STORE_PASSWORD.to_string(),
                 Some(TLS_STORE_PASSWORD.to_string()),
-            );
-            config.insert(
-                SERVER_HTTPS_CERT_ALIAS.to_string(),
-                Some(SERVER_HTTPS_CERT_ALIAS_NAME.to_string()),
             );
         }
     }

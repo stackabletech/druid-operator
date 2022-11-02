@@ -1,9 +1,9 @@
 use crate::tls::{
     add_cert_to_trust_store_cmd, add_key_pair_to_key_store_cmd, chown_and_chmod, create_tls_volume,
     CLIENT_HTTPS_CERT_ALIAS, CLIENT_HTTPS_CERT_ALIAS_NAME, CLIENT_HTTPS_KEY_STORE_PASSWORD,
-    CLIENT_HTTPS_KEY_STORE_PATH, CLIENT_HTTPS_KEY_STORE_TYPE, SERVER_HTTPS_TRUST_STORE_PASSWORD,
-    SERVER_HTTPS_TRUST_STORE_PATH, SERVER_HTTPS_TRUST_STORE_TYPE, STACKABLE_SERVER_TLS_DIR,
-    TLS_STORE_PASSWORD,
+    CLIENT_HTTPS_KEY_STORE_PATH, CLIENT_HTTPS_KEY_STORE_TYPE, SERVER_HTTPS_CERT_ALIAS,
+    SERVER_HTTPS_CERT_ALIAS_NAME, SERVER_HTTPS_TRUST_STORE_PASSWORD, SERVER_HTTPS_TRUST_STORE_PATH,
+    SERVER_HTTPS_TRUST_STORE_TYPE, STACKABLE_SERVER_TLS_DIR, TLS_STORE_PASSWORD,
 };
 use crate::DruidCluster;
 
@@ -152,10 +152,10 @@ impl DruidAuthenticationConfig {
                     CLIENT_HTTPS_KEY_STORE_PASSWORD.to_string(),
                     Some(TLS_STORE_PASSWORD.to_string()),
                 );
-                config.insert(
-                    CLIENT_HTTPS_CERT_ALIAS.to_string(),
-                    Some(CLIENT_HTTPS_CERT_ALIAS_NAME.to_string()),
-                );
+                // config.insert(
+                //     CLIENT_HTTPS_CERT_ALIAS.to_string(),
+                //     Some(CLIENT_HTTPS_CERT_ALIAS_NAME.to_string()),
+                // );
                 // This is required because the server will send its pod ip which is not in the SANs of the certificates
                 config.insert(
                     CLIENT_HTTPS_VALIDATE_HOST_NAMES.to_string(),
@@ -204,6 +204,11 @@ impl DruidAuthenticationConfig {
                 config.insert(
                     SERVER_HTTPS_VALIDATE_HOST_NAMES.to_string(),
                     Some("false".to_string()),
+                );
+
+                config.insert(
+                    SERVER_HTTPS_CERT_ALIAS.to_string(),
+                    Some(SERVER_HTTPS_CERT_ALIAS_NAME.to_string()),
                 );
             }
         }

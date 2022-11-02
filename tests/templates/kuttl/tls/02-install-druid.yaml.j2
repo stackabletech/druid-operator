@@ -4,6 +4,30 @@ kind: TestStep
 metadata:
   name: install-druid
 timeout: 600
+{% if test_scenario['values']['use-tls'] == 'true' and test_scenario['values']['use-tls-auth'] == 'true' %}
+---
+apiVersion: secrets.stackable.tech/v1alpha1
+kind: SecretClass
+metadata:
+  name: druid-tls-auth
+spec:
+  backend:
+    autoTls:
+      ca:
+        secret:
+          name: secret-provisioner-druid-tls-auth-ca
+          namespace: default
+        autoGenerate: true
+---
+apiVersion: authentication.stackable.tech/v1alpha1
+kind: AuthenticationClass
+metadata:
+  name: druid-tls-auth-class
+spec:
+  provider:
+    tls:
+      clientCertSecretClass: druid-tls-auth
+{% endif %}
 ---
 apiVersion: druid.stackable.tech/v1alpha1
 kind: DruidCluster
@@ -12,6 +36,10 @@ metadata:
 spec:
   version: {{ test_scenario['values']['druid'] }}
   commonConfig:
+{% if test_scenario['values']['use-tls'] == 'true' and test_scenario['values']['use-tls-auth'] == 'true' %}
+    authentication:
+      - druid-tls-auth-class
+{% endif %}
     deepStorage:
       hdfs:
         configMapName: druid-hdfs
