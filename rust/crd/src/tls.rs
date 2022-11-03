@@ -196,10 +196,6 @@ impl DruidTls {
                 CLIENT_HTTPS_TRUST_STORE_PASSWORD.to_string(),
                 Some(TLS_STORE_PASSWORD.to_string()),
             );
-            config.insert(
-                CLIENT_HTTPS_CERT_ALIAS.to_string(),
-                Some(CLIENT_HTTPS_CERT_ALIAS_NAME.to_string()),
-            );
 
             config.insert(
                 SERVER_HTTPS_KEY_STORE_PATH.to_string(),
@@ -212,6 +208,10 @@ impl DruidTls {
             config.insert(
                 SERVER_HTTPS_KEY_STORE_PASSWORD.to_string(),
                 Some(TLS_STORE_PASSWORD.to_string()),
+            );
+            config.insert(
+                SERVER_HTTPS_CERT_ALIAS.to_string(),
+                Some(SERVER_HTTPS_CERT_ALIAS_NAME.to_string()),
             );
         }
     }
@@ -284,7 +284,7 @@ pub fn add_key_pair_to_key_store_cmd(
         format!("keytool -importkeystore -srckeystore {key_store_directory}/keystore_{alias_name}.p12 -srcstoretype pkcs12 -srcstorepass {store_password} -destkeystore {key_store_directory}/keystore.p12 -deststoretype pkcs12 -deststorepass {store_password}"),
         // Delete the temporary keystore
         format!("echo [{key_store_directory}] Removing temporary [{key_store_directory}/keystore_{alias_name}.p12"),
-        format!("rm {key_store_directory}/keystore_{alias_name}.p12")
+        format!("rm -f {key_store_directory}/keystore_{alias_name}.p12")
     ]
 }
 
