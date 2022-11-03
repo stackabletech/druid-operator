@@ -963,12 +963,6 @@ spec:
                                 type: object
                             type: object
                           storage:
-                            properties:
-                              segmentCacheSizeGb:
-                                format: uint16
-                                minimum: 0.0
-                                nullable: true
-                                type: integer
                             type: object
                         type: object
                     type: object
@@ -1115,12 +1109,6 @@ spec:
                                       type: object
                                   type: object
                                 storage:
-                                  properties:
-                                    segmentCacheSizeGb:
-                                      format: uint16
-                                      minimum: 0.0
-                                      nullable: true
-                                      type: integer
                                   type: object
                               type: object
                           type: object

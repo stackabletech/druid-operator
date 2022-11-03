@@ -109,9 +109,7 @@ lazy_static! {
                 limit: Some(Quantity("2Gi".to_owned())),
                 runtime_limits: NoRuntimeLimits {},
             },
-            storage: storage::HistoricalStorage {
-                segment_cache_size_gb: Some(1),
-            },
+            storage: storage::HistoricalStorage {},
         };
 }
 
@@ -132,7 +130,6 @@ mod test {
                 runtime_limits: NoRuntimeLimits {},
             },
             storage: storage::HistoricalStorage {
-                segment_cache_size_gb: Some(1),
             },
         })),
         None,
@@ -147,7 +144,6 @@ mod test {
                 runtime_limits: NoRuntimeLimits {},
             },
             storage: storage::HistoricalStorage {
-                segment_cache_size_gb: Some(1),
             },
         })),
      )]
@@ -162,7 +158,6 @@ mod test {
                 runtime_limits: NoRuntimeLimits {},
             },
             storage: storage::HistoricalStorage {
-                segment_cache_size_gb: Some(1),
             },
         })),
         Some(RoleResourceEnum::Historical(Resources {
@@ -175,7 +170,6 @@ mod test {
                 runtime_limits: NoRuntimeLimits {},
             },
             storage: storage::HistoricalStorage {
-                segment_cache_size_gb: Some(2),
             },
         })),
         None,
@@ -189,7 +183,6 @@ mod test {
                 runtime_limits: NoRuntimeLimits {},
             },
             storage: storage::HistoricalStorage {
-                segment_cache_size_gb: Some(2),
             },
         })),
      )]
@@ -204,7 +197,6 @@ mod test {
                 runtime_limits: NoRuntimeLimits {},
             },
             storage: storage::HistoricalStorage {
-                segment_cache_size_gb: Some(1),
             },
         })),
         Some(RoleResourceEnum::Historical(Resources {
@@ -217,7 +209,6 @@ mod test {
                 runtime_limits: NoRuntimeLimits {},
             },
             storage: storage::HistoricalStorage {
-                segment_cache_size_gb: Some(2),
             },
         })),
         Some(RoleResourceEnum::Historical(Resources {
@@ -230,7 +221,6 @@ mod test {
                 runtime_limits: NoRuntimeLimits {},
             },
             storage: storage::HistoricalStorage {
-                segment_cache_size_gb: Some(3),
             },
         })),
         Ok(RoleResourceEnum::Historical(Resources {
@@ -243,7 +233,6 @@ mod test {
                 runtime_limits: NoRuntimeLimits {},
             },
             storage: storage::HistoricalStorage {
-                segment_cache_size_gb: Some(3),
             },
         })),
      )]
@@ -258,7 +247,6 @@ mod test {
                 runtime_limits: NoRuntimeLimits {},
             },
             storage: storage::HistoricalStorage {
-                segment_cache_size_gb: Some(1),
             },
         })),
         Some(RoleResourceEnum::Druid(Resources {

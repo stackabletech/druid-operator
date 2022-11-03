@@ -9,9 +9,8 @@ All notable changes to this project will be documented in this file.
 - Cpu and memory limits are now configurable ([#298]).
 - Stale resources are now deleted ([#310]).
 - Support Druid 24.0.0 ([#317]).
-- Added `segmentCacheSizeGb` to make segment cache (the max size of `druid.segmentCache.locations`) configurable ([#320])
-- Refactor role configuration with per role structs like `BrokerConfig`, `HistoricalConfig`, etc ([#320])
-- Added `HistoricalStorge` and `DruidStorage` (as catch-all storage configuration) ([#320])
+- Refactor role configuration with per role structs like `BrokerConfig`, `HistoricalConfig`, etc ([#321])
+- Added `HistoricalStorge` and `DruidStorage` (as catch-all storage configuration) ([#321])
 
 ### Changed
 
@@ -20,7 +19,7 @@ All notable changes to this project will be documented in this file.
 [#298]: https://github.com/stackabletech/druid-operator/pull/298
 [#310]: https://github.com/stackabletech/druid-operator/pull/310
 [#317]: https://github.com/stackabletech/druid-operator/pull/317
-[#320]: https://github.com/stackabletech/druid-operator/pull/320
+[#321]: https://github.com/stackabletech/druid-operator/pull/321
 
 ## [0.7.0] - 2022-09-06
 

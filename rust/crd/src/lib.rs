@@ -846,19 +846,7 @@ impl Configuration for HistoricalConfig {
         role_name: &str,
         file: &str,
     ) -> Result<BTreeMap<String, Option<String>>, ConfigError> {
-        let mut result = resource.common_compute_files(role_name, file)?;
-
-        if let Some(Resources { storage, .. }) = &self.resources.as_ref() {
-            let max_size = storage.segment_cache_max_size();
-            result.insert(
-                SC_LOCATIONS.to_string(),
-                Some(format!(
-                    "[{{\"path\":\"{SC_DIRECTORY}\",\"maxSize\":\"{max_size}\"}}]"
-                )),
-            );
-        }
-
-        Ok(result)
+        resource.common_compute_files(role_name, file)
     }
 }
 
