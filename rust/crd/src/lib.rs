@@ -143,12 +143,12 @@ pub struct DruidClusterSpec {
     pub middle_managers: Role<DruidConfig>,
     pub routers: Role<DruidConfig>,
     /// Common cluster wide configuration that can not differ or be overriden on a role or role group level
-    pub common_config: DruidCommonConfig,
+    pub cluster_config: DruidClusterConfig,
 }
 
 #[derive(Clone, Debug, Deserialize, JsonSchema, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct DruidCommonConfig {
+pub struct DruidClusterConfig {
     /// Authentication class settings for Druid like TLS authentication or LDAP
     #[serde(default)]
     pub authentication: Vec<String>,
@@ -327,7 +327,7 @@ impl DruidCluster {
         // retrieve connection for ingestion (can be None)
         let ingestion_conn = if let Some(ic) = self
             .spec
-            .common_config
+            .cluster_config
             .ingestion
             .as_ref()
             .and_then(|is| is.s3connection.as_ref())
@@ -342,7 +342,7 @@ impl DruidCluster {
         };
 
         // retrieve connection for deep storage (can be None)
-        let storage_conn = match &self.spec.common_config.deep_storage {
+        let storage_conn = match &self.spec.cluster_config.deep_storage {
             DeepStorageSpec::S3(s3_spec) => {
                 let inlined_bucket: InlinedS3BucketSpec = s3_spec
                     .bucket
@@ -377,12 +377,12 @@ impl DruidCluster {
     pub fn uses_s3(&self) -> bool {
         let s3_ingestion = self
             .spec
-            .common_config
+            .cluster_config
             .ingestion
             .as_ref()
             .and_then(|spec| spec.s3connection.as_ref())
             .is_some();
-        let s3_storage = self.spec.common_config.deep_storage.is_s3();
+        let s3_storage = self.spec.cluster_config.deep_storage.is_s3();
         s3_ingestion || s3_storage
     }
 
@@ -561,12 +561,12 @@ impl Configuration for DruidConfig {
                     String::from(EXT_HDFS),
                 ];
                 // tls
-                let tls: &DruidTls = &resource.spec.common_config.tls;
+                let tls: &DruidTls = &resource.spec.cluster_config.tls;
                 tls.add_tls_extensions(&mut extensions);
-                tls.add_common_config_properties(&mut result, &role);
+                tls.add_cluster_config_properties(&mut result, &role);
 
                 // metadata storage
-                let mds = &resource.spec.common_config.metadata_storage_database;
+                let mds = &resource.spec.cluster_config.metadata_storage_database;
                 match mds.db_type {
                     DbType::Derby => {} // no additional extensions required
                     DbType::Postgresql => extensions.push(EXT_PSQL_MD_ST.to_string()),
@@ -591,7 +591,7 @@ impl Configuration for DruidConfig {
                 }
                 // OPA
                 if let Some(DruidAuthorization { opa: _ }) =
-                    &resource.spec.common_config.authorization
+                    &resource.spec.cluster_config.authorization
                 {
                     result.insert(
                         AUTH_AUTHORIZERS.to_string(),
@@ -606,9 +606,9 @@ impl Configuration for DruidConfig {
                 // deep storage
                 result.insert(
                     DS_TYPE.to_string(),
-                    Some(resource.spec.common_config.deep_storage.to_string()),
+                    Some(resource.spec.cluster_config.deep_storage.to_string()),
                 );
-                match &resource.spec.common_config.deep_storage {
+                match &resource.spec.cluster_config.deep_storage {
                     DeepStorageSpec::HDFS(hdfs) => {
                         result.insert(DS_DIRECTORY.to_string(), Some(hdfs.directory.to_string()));
                     }

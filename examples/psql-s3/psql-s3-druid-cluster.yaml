@@ -44,7 +44,7 @@ metadata:
   name: psql-s3-druid
 spec:
   version: 24.0.0-stackable0.1.0
-  commonConfig:
+  clusterConfig:
     deepStorage:
       s3:
         bucket:

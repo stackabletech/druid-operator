@@ -35,7 +35,7 @@ metadata:
   name: derby-druid
 spec:
   version: {{ test_scenario['values']['druid'] }}
-  commonConfig:
+  clusterConfig:
 {% if test_scenario['values']['use-tls'] == 'true' and test_scenario['values']['use-tls-auth'] == 'true' %}
     authentication:
       - druid-tls-auth-class

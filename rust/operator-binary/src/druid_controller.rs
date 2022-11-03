@@ -193,7 +193,7 @@ pub async fn reconcile_druid(druid: Arc<DruidCluster>, ctx: Arc<Ctx>) -> Result<
     tracing::info!("Starting reconcile");
     let client = &ctx.client;
 
-    let zk_confmap = druid.spec.common_config.zookeeper_config_map_name.clone();
+    let zk_confmap = druid.spec.cluster_config.zookeeper_config_map_name.clone();
     let zk_connstr = client
         .get::<ConfigMap>(&zk_confmap, druid.namespace().as_deref())
         .await
@@ -208,7 +208,7 @@ pub async fn reconcile_druid(druid: Arc<DruidCluster>, ctx: Arc<Ctx>) -> Result<
 
     // Assemble the OPA connection string from the discovery and the given path, if a spec is given.
     let opa_connstr = if let Some(DruidAuthorization { opa: opa_config }) =
-        &druid.spec.common_config.authorization
+        &druid.spec.cluster_config.authorization
     {
         Some(
             opa_config
@@ -233,7 +233,7 @@ pub async fn reconcile_druid(druid: Arc<DruidCluster>, ctx: Arc<Ctx>) -> Result<
         .await
         .context(GetS3ConnectionSnafu)?;
 
-    let deep_storage_bucket_name = match &druid.spec.common_config.deep_storage {
+    let deep_storage_bucket_name = match &druid.spec.cluster_config.deep_storage {
         DeepStorageSpec::S3(s3_spec) => {
             s3_spec
                 .bucket
@@ -386,7 +386,7 @@ pub fn build_role_service(druid: &DruidCluster, role: &DruidRole) -> Result<Serv
             )
             .build(),
         spec: Some(ServiceSpec {
-            ports: Some(druid.spec.common_config.tls.service_ports(role)),
+            ports: Some(druid.spec.cluster_config.tls.service_ports(role)),
             selector: Some(role_selector_labels(druid, APP_NAME, &role_name)),
             type_: Some("NodePort".to_string()),
             ..ServiceSpec::default()
@@ -452,7 +452,7 @@ fn build_rolegroup_config_map(
                     deep_storage_bucket_name.map(str::to_string),
                 );
                 for auth in authentication {
-                    auth.add_common_config_properties(&mut transformed_config);
+                    auth.add_cluster_config_properties(&mut transformed_config);
                 }
 
                 let runtime_properties =
@@ -541,7 +541,7 @@ fn build_rolegroup_services(
             .build(),
         spec: Some(ServiceSpec {
             cluster_ip: Some("None".to_string()),
-            ports: Some(druid.spec.common_config.tls.service_ports(&role)),
+            ports: Some(druid.spec.cluster_config.tls.service_ports(&role)),
             selector: Some(role_group_selector_labels(
                 druid,
                 APP_NAME,
@@ -584,13 +584,13 @@ fn build_rolegroup_statefulset(
     // init pod builder
     let mut pb = PodBuilder::new();
 
-    let tls_config: &DruidTls = &druid.spec.common_config.tls;
+    let tls_config: &DruidTls = &druid.spec.cluster_config.tls;
     // volume and volume mounts
     tls_config.add_tls_volume_and_volume_mounts(&mut cb_prepare, &mut cb_druid, &mut pb);
     add_s3_volume_and_volume_mounts(s3_conn, &mut cb_druid, &mut pb)?;
     add_config_volume_and_volume_mounts(rolegroup_ref, &mut cb_druid, &mut pb);
     add_hdfs_cm_volume_and_volume_mounts(
-        &druid.spec.common_config.deep_storage,
+        &druid.spec.cluster_config.deep_storage,
         &mut cb_druid,
         &mut pb,
     );

@@ -170,7 +170,7 @@ spec:
                   required:
                     - roleGroups
                   type: object
-                commonConfig:
+                clusterConfig:
                   description: Common cluster wide configuration that can not differ or be overriden on a role or role group level
                   properties:
                     authentication:
@@ -480,7 +480,7 @@ spec:
                         server:
                           default:
                             secretClass: tls
-                          description: "Only affects client connections. This setting controls: - If TLS encryption is used at all - Which cert the servers should use to authenticate themselves against the client Important: This currently will activate encrypted internal druid communication as well!"
+                          description: "Only affects client connections. This setting controls: - If TLS encryption is used at all - Which cert the servers should use to authenticate themselves against the client Important: This will activate encrypted internal druid communication as well!"
                           nullable: true
                           properties:
                             secretClass:
@@ -1090,7 +1090,7 @@ spec:
                   type: string
               required:
                 - brokers
-                - commonConfig
+                - clusterConfig
                 - coordinators
                 - historicals
                 - middleManagers

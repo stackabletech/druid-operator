@@ -31,7 +31,7 @@ metadata:
   name: druid-s3-deep-storage
 spec:
   version: {{ test_scenario['values']['druid'] }}
-  commonConfig:
+  clusterConfig:
     deepStorage:
       s3:
         bucket:

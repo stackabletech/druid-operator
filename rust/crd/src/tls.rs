@@ -39,9 +39,11 @@ pub const SERVER_HTTPS_TRUST_STORE_PASSWORD: &str = "druid.server.https.trustSto
 pub const SERVER_HTTPS_CERT_ALIAS: &str = "druid.server.https.certAlias";
 pub const SERVER_HTTPS_CERT_ALIAS_NAME: &str = "server";
 // Misc TLS
+pub const TLS_STORE_PASSWORD: &str = "changeit";
+pub const TLS_STORE_TYPE: &str = "pkcs12";
 const DEFAULT_TLS_SECRET_CLASS: &str = "tls";
 const SIMPLE_CLIENT_SSL_CONTEXT: &str = "simple-client-sslcontext";
-pub const TLS_STORE_PASSWORD: &str = "changeit";
+
 // directories
 pub const STACKABLE_SERVER_TLS_DIR: &str = "/stackable/server_tls";
 pub const STACKABLE_CLIENT_TLS_DIR: &str = "/stackable/client_tls";
@@ -157,7 +159,7 @@ impl DruidTls {
     }
 
     /// Add required TLS ports, trust/key store properties
-    pub fn add_common_config_properties(
+    pub fn add_cluster_config_properties(
         &self,
         config: &mut BTreeMap<String, Option<String>>,
         role: &DruidRole,
@@ -188,7 +190,7 @@ impl DruidTls {
             );
             config.insert(
                 CLIENT_HTTPS_TRUST_STORE_TYPE.to_string(),
-                Some("pkcs12".to_string()),
+                Some(TLS_STORE_TYPE.to_string()),
             );
             config.insert(
                 CLIENT_HTTPS_TRUST_STORE_PASSWORD.to_string(),
@@ -205,7 +207,7 @@ impl DruidTls {
             );
             config.insert(
                 SERVER_HTTPS_KEY_STORE_TYPE.to_string(),
-                Some("pkcs12".to_string()),
+                Some(TLS_STORE_TYPE.to_string()),
             );
             config.insert(
                 SERVER_HTTPS_KEY_STORE_PASSWORD.to_string(),

@@ -11,7 +11,7 @@ metadata:
   name: derby-druid
 spec:
   version: {{ test_scenario['values']['druid'] }}
-  commonConfig:
+  clusterConfig:
     authorization:
       opa:
         configMapName: test-opa

@@ -354,7 +354,7 @@ spec:
                 required:
                 - roleGroups
                 type: object
-              commonConfig:
+              clusterConfig:
                 description: Common cluster wide configuration that can not differ or be overriden on a role or role group level
                 properties:
                   authentication:
@@ -2018,7 +2018,7 @@ spec:
                 type: string
             required:
             - brokers
-            - commonConfig
+            - clusterConfig
             - coordinators
             - historicals
             - middleManagers

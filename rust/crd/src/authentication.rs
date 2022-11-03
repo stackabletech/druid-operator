@@ -3,7 +3,7 @@ use crate::tls::{
     CLIENT_HTTPS_CERT_ALIAS, CLIENT_HTTPS_CERT_ALIAS_NAME, CLIENT_HTTPS_KEY_STORE_PASSWORD,
     CLIENT_HTTPS_KEY_STORE_PATH, CLIENT_HTTPS_KEY_STORE_TYPE, SERVER_HTTPS_CERT_ALIAS,
     SERVER_HTTPS_CERT_ALIAS_NAME, SERVER_HTTPS_TRUST_STORE_PASSWORD, SERVER_HTTPS_TRUST_STORE_PATH,
-    SERVER_HTTPS_TRUST_STORE_TYPE, STACKABLE_SERVER_TLS_DIR, TLS_STORE_PASSWORD,
+    SERVER_HTTPS_TRUST_STORE_TYPE, STACKABLE_SERVER_TLS_DIR, TLS_STORE_PASSWORD, TLS_STORE_TYPE,
 };
 use crate::DruidCluster;
 
@@ -45,7 +45,7 @@ pub enum Error {
         authentication_class: ObjectRef<AuthenticationClass>,
     },
     #[snafu(display(
-        "TLS encryption is deactivated. This is required for any authentication mechanism. Please set proper values in [spec.commonConfig.tls.server.secretClass]"
+        "TLS encryption is deactivated. This is required for any authentication mechanism. Please set proper values in [spec.clusterConfig.tls.server.secretClass]"
     ))]
     TlsNotActivated,
 }
@@ -64,13 +64,13 @@ impl DruidAuthentication {
         druid: &DruidCluster,
     ) -> Result<Vec<DruidAuthenticationConfig>, Error> {
         // Do not allow authentication without TLS activated
-        if druid.spec.common_config.tls.server.is_none() {
+        if druid.spec.cluster_config.tls.server.is_none() {
             return Err(Error::TlsNotActivated);
         }
 
         let mut druid_authentication_config: Vec<DruidAuthenticationConfig> = vec![];
 
-        for authentication_class_name in &druid.spec.common_config.authentication {
+        for authentication_class_name in &druid.spec.cluster_config.authentication {
             let authentication_class =
                 AuthenticationClass::resolve(client, authentication_class_name)
                     .await
@@ -137,7 +137,7 @@ impl DruidAuthenticationConfig {
     }
 
     /// Add required authentication settings to the druid configuration
-    pub fn add_common_config_properties(&self, config: &mut BTreeMap<String, Option<String>>) {
+    pub fn add_cluster_config_properties(&self, config: &mut BTreeMap<String, Option<String>>) {
         match &self {
             DruidAuthenticationConfig::Tls(_) => {
                 config.insert(
@@ -146,7 +146,7 @@ impl DruidAuthenticationConfig {
                 );
                 config.insert(
                     CLIENT_HTTPS_KEY_STORE_TYPE.to_string(),
-                    Some("pkcs12".to_string()),
+                    Some(TLS_STORE_TYPE.to_string()),
                 );
                 config.insert(
                     CLIENT_HTTPS_KEY_STORE_PASSWORD.to_string(),
@@ -194,7 +194,7 @@ impl DruidAuthenticationConfig {
                 );
                 config.insert(
                     SERVER_HTTPS_TRUST_STORE_TYPE.to_string(),
-                    Some("pkcs12".to_string()),
+                    Some(TLS_STORE_TYPE.to_string()),
                 );
                 config.insert(
                     SERVER_HTTPS_TRUST_STORE_PASSWORD.to_string(),
@@ -231,7 +231,6 @@ impl DruidAuthenticationConfig {
                     CLIENT_HTTPS_CERT_ALIAS_NAME,
                     TLS_STORE_PASSWORD,
                 ));
-                command.extend(chown_and_chmod(STACKABLE_SERVER_TLS_DIR));
             }
         }
 

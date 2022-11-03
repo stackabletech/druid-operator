@@ -53,7 +53,7 @@ metadata:
   name: simple-druid
 spec:
   version: 24.0.0-stackable0.1.0
-  commonConfig:
+  clusterConfig:
     deepStorage:
       hdfs:
         configMapName: simple-hdfs
@@ -115,7 +115,7 @@ To ingest data from s3, you need to specify at least a host to connect to, but t
 [source,yaml]
 ----
 spec:
-  commonConfig:
+  clusterConfig:
     ingestion:
       s3connection:
         host: yourhost.com  # <1>
@@ -135,7 +135,7 @@ Druid can use S3 as a backend for deep storage:
 [source,yaml]
 ----
 spec:
-  commonConfig:
+  clusterConfig:
     deepStorage:
       s3:
         bucket:
@@ -158,7 +158,7 @@ It is also possible to configure the bucket connection details as a separate Kub
 [source,yaml]
 ----
 spec:
-  commonConfig:
+  clusterConfig:
     deepStorage:
       s3:
         bucket:
@@ -240,7 +240,7 @@ Druid can use HDFS as a backend for deep storage:
 [source,yaml]
 ----
 spec:
-  commonConfig:
+  clusterConfig:
     deepStorage:
       hdfs:
         configMapName: simple-hdfs # <1>
@@ -259,7 +259,7 @@ Once you have defined your rules, you need to configure the OPA cluster name and
 [source,yaml]
 ----
 spec:
-  commonConfig:
+  clusterConfig:
     authorization:
       opa:
         configMapName: simple-opa <1>
