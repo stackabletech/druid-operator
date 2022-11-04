@@ -10,7 +10,7 @@ All notable changes to this project will be documented in this file.
 - Stale resources are now deleted ([#310]).
 - Support Druid 24.0.0 ([#317]).
 - Refactor role configuration with per role structs like `BrokerConfig`, `HistoricalConfig`, etc ([#332])
-- Added `HistoricalStorge` and `DruidStorage` (as catch-all storage configuration) ([#332])
+- Added `HistoricalStorage` and `DruidStorage` (as catch-all storage configuration) ([#332])
 
 ### Changed
 
