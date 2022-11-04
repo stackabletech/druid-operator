@@ -15,7 +15,7 @@ then
   then
     echo "[SUCCESS] Could establish connection to unprotected server!"
   else
-    echo "[ERROR] Could not establish connection to unprotected server! Something went wrong..."
+    echo "[ERROR] Could not establish connection to unprotected server! Should not be happening!"
     exit 1
   fi
 fi

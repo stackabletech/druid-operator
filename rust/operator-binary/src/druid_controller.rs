@@ -5,15 +5,13 @@ use crate::{
 };
 
 use snafu::{OptionExt, ResultExt, Snafu};
+use stackable_druid_crd::tls::DruidTlsSettings;
 use stackable_druid_crd::{
-    authentication,
-    authentication::{DruidAuthentication, DruidAuthenticationConfig},
-    tls::DruidTls,
-    DeepStorageSpec, DruidAuthorization, DruidCluster, DruidRole, DruidStorageConfig, APP_NAME,
-    AUTH_AUTHORIZER_OPA_URI, CERTS_DIR, CONTROLLER_NAME, CREDENTIALS_SECRET_PROPERTY,
-    DRUID_CONFIG_DIRECTORY, DS_BUCKET, HDFS_CONFIG_DIRECTORY, JVM_CONFIG, LOG4J2_CONFIG,
-    RUNTIME_PROPS, RW_CONFIG_DIRECTORY, S3_ENDPOINT_URL, S3_PATH_STYLE_ACCESS, S3_SECRET_DIR_NAME,
-    ZOOKEEPER_CONNECTION_STRING,
+    authentication, authentication::DruidAuthentication, tls, DeepStorageSpec, DruidAuthorization,
+    DruidCluster, DruidRole, DruidStorageConfig, APP_NAME, AUTH_AUTHORIZER_OPA_URI, CERTS_DIR,
+    CONTROLLER_NAME, CREDENTIALS_SECRET_PROPERTY, DRUID_CONFIG_DIRECTORY, DS_BUCKET,
+    HDFS_CONFIG_DIRECTORY, JVM_CONFIG, LOG4J2_CONFIG, RUNTIME_PROPS, RW_CONFIG_DIRECTORY,
+    S3_ENDPOINT_URL, S3_PATH_STYLE_ACCESS, S3_SECRET_DIR_NAME, ZOOKEEPER_CONNECTION_STRING,
 };
 use stackable_operator::{
     builder::{
@@ -179,6 +177,8 @@ pub enum Error {
     },
     #[snafu(display("invalid authentication configuration"))]
     InvalidAuthenticationConfig { source: authentication::Error },
+    #[snafu(display("invalid tls configuration"))]
+    InvalidTlsConfig { source: tls::Error },
 }
 
 type Result<T, E = Error> = std::result::Result<T, E>;
@@ -246,23 +246,44 @@ pub async fn reconcile_druid(druid: Arc<DruidCluster>, ctx: Arc<Ctx>) -> Result<
     };
 
     // Get possible authentication methods
-    let authentication_config = DruidAuthentication::resolve(client, &druid)
+    let resolved_authentication_config = DruidAuthentication::resolve(client, &druid)
         .await
         .context(InvalidAuthenticationConfigSnafu)?;
 
+    let mut tls_authentication_config = None;
+    let mut authentication_config = vec![];
+    // Remove a TLS provider if available. The TLS provider must be treated in combination
+    // with TLS encryption. Retain all other authentication providers.
+    for auth_conf in resolved_authentication_config.into_iter() {
+        if auth_conf.is_tls_auth() {
+            tls_authentication_config = Some(auth_conf);
+        } else {
+            authentication_config.push(auth_conf);
+        }
+    }
+
+    // Extract TLS encryption and TLS auth provider if available
+    let druid_tls_settings = DruidTlsSettings {
+        encryption: druid.spec.cluster_config.tls.clone(),
+        // There can currently only be one TLS authentication config, so if we find it we can just
+        // take ownership.
+        authentication: tls_authentication_config,
+    };
+
     let mut roles = HashMap::new();
-
-    let config_files = vec![
-        PropertyNameKind::Env,
-        PropertyNameKind::File(JVM_CONFIG.to_string()),
-        PropertyNameKind::File(LOG4J2_CONFIG.to_string()),
-        PropertyNameKind::File(RUNTIME_PROPS.to_string()),
-    ];
-
     for role in DruidRole::iter() {
         roles.insert(
             role.to_string(),
-            (config_files.clone(), druid.get_role(&role).clone()),
+            (
+                vec![
+                    PropertyNameKind::Env,
+                    PropertyNameKind::File(JVM_CONFIG.to_string()),
+                    PropertyNameKind::File(LOG4J2_CONFIG.to_string()),
+                    PropertyNameKind::File(RUNTIME_PROPS.to_string()),
+                ]
+                .clone(),
+                druid.get_role(&role).clone(),
+            ),
         );
     }
 
@@ -285,7 +306,7 @@ pub async fn reconcile_druid(druid: Arc<DruidCluster>, ctx: Arc<Ctx>) -> Result<
             role: role_name.to_string(),
         })?;
 
-        let role_service = build_role_service(&druid, &druid_role)?;
+        let role_service = build_role_service(&druid, &druid_role, &druid_tls_settings)?;
         cluster_resources
             .add(client, &role_service)
             .await
@@ -301,7 +322,7 @@ pub async fn reconcile_druid(druid: Arc<DruidCluster>, ctx: Arc<Ctx>) -> Result<
                 .resolve_resource_config_for_role_and_rolegroup(&druid_role, &rolegroup)
                 .context(FailedToResolveResourceConfigSnafu)?;
 
-            let rg_service = build_rolegroup_services(&druid, &rolegroup)?;
+            let rg_service = build_rolegroup_services(&druid, &rolegroup, &druid_tls_settings)?;
             let rg_configmap = build_rolegroup_config_map(
                 &druid,
                 &rolegroup,
@@ -311,7 +332,7 @@ pub async fn reconcile_druid(druid: Arc<DruidCluster>, ctx: Arc<Ctx>) -> Result<
                 s3_conn.as_ref(),
                 deep_storage_bucket_name.as_deref(),
                 &resources,
-                &authentication_config,
+                &druid_tls_settings,
             )?;
             let rg_statefulset = build_rolegroup_statefulset(
                 &druid,
@@ -319,7 +340,7 @@ pub async fn reconcile_druid(druid: Arc<DruidCluster>, ctx: Arc<Ctx>) -> Result<
                 rolegroup_config,
                 s3_conn.as_ref(),
                 &resources,
-                &authentication_config,
+                &druid_tls_settings,
             )?;
             cluster_resources
                 .add(client, &rg_service)
@@ -363,7 +384,11 @@ pub async fn reconcile_druid(druid: Arc<DruidCluster>, ctx: Arc<Ctx>) -> Result<
 
 /// The server-role service is the primary endpoint that should be used by clients that do not perform internal load balancing,
 /// including targets outside of the cluster.
-pub fn build_role_service(druid: &DruidCluster, role: &DruidRole) -> Result<Service> {
+pub fn build_role_service(
+    druid: &DruidCluster,
+    role: &DruidRole,
+    tls_settings: &DruidTlsSettings,
+) -> Result<Service> {
     let role_name = role.to_string();
     let role_svc_name = format!(
         "{}-{}",
@@ -386,7 +411,7 @@ pub fn build_role_service(druid: &DruidCluster, role: &DruidRole) -> Result<Serv
             )
             .build(),
         spec: Some(ServiceSpec {
-            ports: Some(druid.spec.cluster_config.tls.service_ports(role)),
+            ports: Some(tls_settings.service_ports(role)),
             selector: Some(role_selector_labels(druid, APP_NAME, &role_name)),
             type_: Some("NodePort".to_string()),
             ..ServiceSpec::default()
@@ -406,7 +431,7 @@ fn build_rolegroup_config_map(
     s3_conn: Option<&S3ConnectionSpec>,
     deep_storage_bucket_name: Option<&str>,
     resources: &Resources<DruidStorageConfig, NoRuntimeLimits>,
-    authentication: &Vec<DruidAuthenticationConfig>,
+    tls_settings: &DruidTlsSettings,
 ) -> Result<ConfigMap> {
     let role = DruidRole::from_str(&rolegroup.role).unwrap();
     let mut cm_conf_data = BTreeMap::new(); // filename -> filecontent
@@ -452,9 +477,8 @@ fn build_rolegroup_config_map(
                     deep_storage_bucket_name.map(str::to_string),
                 );
 
-                for auth in authentication {
-                    auth.add_authentication_config_properties(&mut transformed_config);
-                }
+                // add tls encryption / auth properties
+                tls_settings.add_tls_config_properties(&mut transformed_config, &role);
 
                 let runtime_properties =
                     stackable_operator::product_config::writer::to_java_properties_string(
@@ -521,6 +545,7 @@ fn build_rolegroup_config_map(
 fn build_rolegroup_services(
     druid: &DruidCluster,
     rolegroup: &RoleGroupRef<DruidCluster>,
+    tls_settings: &DruidTlsSettings,
 ) -> Result<Service> {
     let role = DruidRole::from_str(&rolegroup.role).unwrap();
 
@@ -542,7 +567,7 @@ fn build_rolegroup_services(
             .build(),
         spec: Some(ServiceSpec {
             cluster_ip: Some("None".to_string()),
-            ports: Some(druid.spec.cluster_config.tls.service_ports(&role)),
+            ports: Some(tls_settings.service_ports(&role)),
             selector: Some(role_group_selector_labels(
                 druid,
                 APP_NAME,
@@ -565,7 +590,7 @@ fn build_rolegroup_statefulset(
     rolegroup_config: &HashMap<PropertyNameKind, BTreeMap<String, String>>,
     s3_conn: Option<&S3ConnectionSpec>,
     resources: &Resources<DruidStorageConfig, NoRuntimeLimits>,
-    authentication: &Vec<DruidAuthenticationConfig>,
+    tls_settings: &DruidTlsSettings,
 ) -> Result<StatefulSet> {
     let role = DruidRole::from_str(&rolegroup_ref.role).context(UnidentifiedDruidRoleSnafu {
         role: rolegroup_ref.role.to_string(),
@@ -585,9 +610,10 @@ fn build_rolegroup_statefulset(
     // init pod builder
     let mut pb = PodBuilder::new();
 
-    let tls_config: &DruidTls = &druid.spec.cluster_config.tls;
     // volume and volume mounts
-    tls_config.add_tls_volume_and_volume_mounts(&mut cb_prepare, &mut cb_druid, &mut pb);
+    tls_settings
+        .add_tls_volume_and_volume_mounts(&mut cb_prepare, &mut cb_druid, &mut pb)
+        .context(InvalidTlsConfigSnafu)?;
     add_s3_volume_and_volume_mounts(s3_conn, &mut cb_druid, &mut pb)?;
     add_config_volume_and_volume_mounts(rolegroup_ref, &mut cb_druid, &mut pb);
     add_hdfs_cm_volume_and_volume_mounts(
@@ -596,22 +622,12 @@ fn build_rolegroup_statefulset(
         &mut pb,
     );
 
-    // tls
-    let mut init_command: Vec<String> = tls_config.build_tls_stores_cmd();
-    // possible client auth
-    for auth_method in authentication {
-        auth_method.add_authentication_volume_and_volume_mounts(
-            &mut cb_prepare,
-            &mut cb_druid,
-            &mut pb,
-        );
-        init_command.extend(auth_method.build_authentication_cmd());
-    }
+    let prepare_container_command = tls_settings.build_tls_key_stores_cmd();
 
     cb_prepare
         .image("docker.stackable.tech/stackable/tools:0.2.0-stackable0")
         .command(vec!["/bin/bash".to_string(), "-c".to_string()])
-        .args(vec![init_command.join(" && ")])
+        .args(vec![prepare_container_command.join(" && ")])
         .image_pull_policy("IfNotPresent")
         .security_context(SecurityContextBuilder::run_as_root())
         .build();
@@ -632,9 +648,9 @@ fn build_rolegroup_statefulset(
     cb_druid.image(container_image(druid_version));
     cb_druid.command(role.get_command(s3_conn));
     cb_druid.add_env_vars(rest_env);
-    cb_druid.add_container_ports(tls_config.container_ports(&role));
-    cb_druid.readiness_probe(tls_config.get_probe());
-    cb_druid.liveness_probe(tls_config.get_probe());
+    cb_druid.add_container_ports(tls_settings.container_ports(&role));
+    cb_druid.readiness_probe(tls_settings.get_probe());
+    cb_druid.liveness_probe(tls_settings.get_probe());
     cb_druid.resources(resources.clone().into());
 
     pb.add_init_container(cb_prepare.build());

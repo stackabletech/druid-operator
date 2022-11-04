@@ -666,14 +666,16 @@ spec:
                     - port
                     type: object
                   tls:
-                    default: {}
+                    default:
+                      secretClass: tls
                     description: TLS encryption settings for Druid
+                    nullable: true
                     properties:
                       secretClass:
-                        default: tls
                         description: 'Only affects client connections. This setting controls: - If TLS encryption is used at all - Which cert the servers should use to authenticate themselves against the client Important: This will activate encrypted internal druid communication as well!'
-                        nullable: true
                         type: string
+                    required:
+                    - secretClass
                     type: object
                   zookeeperConfigMapName:
                     description: ZooKeeper discovery ConfigMap

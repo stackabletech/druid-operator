@@ -8,7 +8,6 @@ pub fn get_jvm_config(role: &DruidRole, heap_in_mebi: u32) -> String {
       -Dfile.encoding=UTF-8
       -Djava.io.tmpdir=/tmp
       -Djava.util.logging.manager=org.apache.logging.log4j.jul.LogManager
-      -Djavax.net.debug=\"ssl,handshake,trustmanager\"
       -XX:+UseG1GC
       -XX:+ExitOnOutOfMemoryError
       -Djavax.net.ssl.trustStore={STACKABLE_TRUST_STORE}
