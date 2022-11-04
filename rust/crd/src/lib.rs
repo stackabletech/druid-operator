@@ -1,22 +1,25 @@
+pub mod resource;
+pub mod storage;
+
 use serde::{Deserialize, Serialize};
 use snafu::{ResultExt, Snafu};
+
+use stackable_operator::product_config::types::PropertyNameKind;
 use stackable_operator::role_utils::RoleGroupRef;
 use stackable_operator::{
     client::Client,
     commons::{
         opa::OpaConfig,
-        resources::{CpuLimits, MemoryLimits, NoRuntimeLimits, Resources},
+        resources::{NoRuntimeLimits, Resources},
         s3::{InlinedS3BucketSpec, S3BucketDef, S3ConnectionDef, S3ConnectionSpec},
         tls::{CaCert, Tls, TlsServerVerification, TlsVerification},
     },
-    config::merge::Merge,
-    k8s_openapi::apimachinery::pkg::api::resource::Quantity,
     kube::{CustomResource, ResourceExt},
     product_config_utils::{ConfigError, Configuration},
     role_utils::Role,
     schemars::{self, JsonSchema},
 };
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 use std::str::FromStr;
 use strum::{Display, EnumDiscriminants, EnumIter, EnumString, IntoStaticStr};
 
@@ -96,6 +99,10 @@ const ENV_S3_ACCESS_KEY: &str = "AWS_ACCESS_KEY_ID";
 const ENV_S3_SECRET_KEY: &str = "AWS_SECRET_ACCESS_KEY";
 const SECRET_KEY_S3_ACCESS_KEY: &str = "accessKey";
 const SECRET_KEY_S3_SECRET_KEY: &str = "secretKey";
+// segment storage
+pub const SC_LOCATIONS: &str = "druid.segmentCache.locations";
+pub const SC_DIRECTORY: &str = "/stackable/var/druid/segment-cache";
+pub const SC_VOLUME_NAME: &str = "segment-cache";
 
 #[derive(Snafu, Debug, EnumDiscriminants)]
 #[strum_discriminants(derive(IntoStaticStr))]
@@ -113,6 +120,8 @@ pub enum Error {
     IncompatibleS3Connections,
     #[snafu(display("Unknown Druid role found {role}. Should be one of {roles:?}"))]
     UnknownDruidRole { role: String, roles: Vec<String> },
+    #[snafu(display("failed to merge resource definitions"))]
+    ResourceMerge { source: resource::Error },
 }
 
 #[derive(Clone, CustomResource, Debug, Deserialize, JsonSchema, Serialize)]
@@ -137,11 +146,11 @@ pub struct DruidClusterSpec {
     pub stopped: Option<bool>,
     /// Desired Druid version
     pub version: String,
-    pub brokers: Role<DruidConfig>,
-    pub coordinators: Role<DruidConfig>,
-    pub historicals: Role<DruidConfig>,
-    pub middle_managers: Role<DruidConfig>,
-    pub routers: Role<DruidConfig>,
+    pub brokers: Role<BrokerConfig>,
+    pub coordinators: Role<CoordinatorConfig>,
+    pub historicals: Role<HistoricalConfig>,
+    pub middle_managers: Role<MiddleManagerConfig>,
+    pub routers: Role<RouterConfig>,
     pub metadata_storage_database: DatabaseConnectionSpec,
     pub deep_storage: DeepStorageSpec,
     pub ingestion: Option<IngestionSpec>,
@@ -249,15 +258,185 @@ impl DruidRole {
 }
 
 impl DruidCluster {
-    /// The spec for the given Role
-    pub fn get_role(&self, role: &DruidRole) -> &Role<DruidConfig> {
-        match role {
-            DruidRole::Coordinator => &self.spec.coordinators,
-            DruidRole::Broker => &self.spec.brokers,
-            DruidRole::MiddleManager => &self.spec.middle_managers,
-            DruidRole::Historical => &self.spec.historicals,
-            DruidRole::Router => &self.spec.routers,
+    pub fn common_compute_files(
+        &self,
+        role_name: &str,
+        file: &str,
+    ) -> Result<BTreeMap<String, Option<String>>, ConfigError> {
+        let role = DruidRole::from_str(role_name).unwrap();
+
+        let mut result = BTreeMap::new();
+        match file {
+            JVM_CONFIG => {}
+            RUNTIME_PROPS => {
+                // Plaintext port
+                result.insert(
+                    PLAINTEXT.to_string(),
+                    Some(role.get_http_port().to_string()),
+                );
+                // extensions
+                let mut extensions = vec![
+                    String::from(EXT_KAFKA_INDEXING),
+                    String::from(EXT_DATASKETCHES),
+                    String::from(PROMETHEUS_EMITTER),
+                    String::from(EXT_BASIC_SECURITY),
+                    String::from(EXT_OPA_AUTHORIZER),
+                    String::from(EXT_HDFS),
+                ];
+                // metadata storage
+                let mds = self.spec.metadata_storage_database.clone();
+                match mds.db_type {
+                    DbType::Derby => {} // no additional extensions required
+                    DbType::Postgresql => extensions.push(EXT_PSQL_MD_ST.to_string()),
+                    DbType::Mysql => extensions.push(EXT_MYSQL_MD_ST.to_string()),
+                }
+                result.insert(MD_ST_TYPE.to_string(), Some(mds.db_type.to_string()));
+                result.insert(
+                    MD_ST_CONNECT_URI.to_string(),
+                    Some(mds.conn_string.to_string()),
+                );
+                result.insert(MD_ST_HOST.to_string(), Some(mds.host.to_string()));
+                result.insert(MD_ST_PORT.to_string(), Some(mds.port.to_string()));
+                if let Some(user) = &mds.user {
+                    result.insert(MD_ST_USER.to_string(), Some(user.to_string()));
+                }
+                if let Some(password) = &mds.password {
+                    result.insert(MD_ST_PASSWORD.to_string(), Some(password.to_string()));
+                }
+                // s3
+                if self.uses_s3() {
+                    extensions.push(EXT_S3.to_string());
+                }
+                // OPA
+                if let Some(_opa) = self.spec.opa.clone() {
+                    result.insert(
+                        AUTH_AUTHORIZERS.to_string(),
+                        Some(AUTH_AUTHORIZERS_VALUE.to_string()),
+                    );
+                    result.insert(
+                        AUTH_AUTHORIZER_OPA_TYPE.to_string(),
+                        Some(AUTH_AUTHORIZER_OPA_TYPE_VALUE.to_string()),
+                    );
+                    // The opaUri still needs to be set, but that requires a discovery config map and is handled in the druid_controller.rs
+                }
+                // deep storage
+                result.insert(
+                    DS_TYPE.to_string(),
+                    Some(self.spec.deep_storage.to_string()),
+                );
+                match self.spec.deep_storage.clone() {
+                    DeepStorageSpec::HDFS(hdfs) => {
+                        result.insert(DS_DIRECTORY.to_string(), Some(hdfs.directory));
+                    }
+                    DeepStorageSpec::S3(s3_spec) => {
+                        if let Some(key) = &s3_spec.base_key {
+                            result.insert(DS_BASE_KEY.to_string(), Some(key.to_string()));
+                        }
+                        // bucket information (name, connection) needs to be resolved first,
+                        // that is done directly in the controller
+                    }
+                }
+                // other
+                result.insert(
+                    EXTENSIONS_LOADLIST.to_string(),
+                    Some(build_string_list(&extensions)),
+                );
+                // metrics
+                result.insert(
+                    PROMETHEUS_PORT.to_string(),
+                    Some(DRUID_METRICS_PORT.to_string()),
+                );
+            }
+            LOG4J2_CONFIG => {}
+            _ => {}
         }
+
+        Ok(result)
+    }
+
+    pub fn replicas(&self, rolegroup_ref: &RoleGroupRef<DruidCluster>) -> Option<i32> {
+        match DruidRole::from_str(rolegroup_ref.role.as_str()).unwrap() {
+            DruidRole::Broker => self
+                .spec
+                .brokers
+                .role_groups
+                .get(&rolegroup_ref.role_group)
+                .and_then(|rg| rg.replicas)
+                .map(i32::from),
+            DruidRole::MiddleManager => self
+                .spec
+                .middle_managers
+                .role_groups
+                .get(&rolegroup_ref.role_group)
+                .and_then(|rg| rg.replicas)
+                .map(i32::from),
+            DruidRole::Coordinator => self
+                .spec
+                .coordinators
+                .role_groups
+                .get(&rolegroup_ref.role_group)
+                .and_then(|rg| rg.replicas)
+                .map(i32::from),
+            DruidRole::Historical => self
+                .spec
+                .historicals
+                .role_groups
+                .get(&rolegroup_ref.role_group)
+                .and_then(|rg| rg.replicas)
+                .map(i32::from),
+            DruidRole::Router => self
+                .spec
+                .routers
+                .role_groups
+                .get(&rolegroup_ref.role_group)
+                .and_then(|rg| rg.replicas)
+                .map(i32::from),
+        }
+    }
+
+    pub fn build_role_properties(
+        &self,
+    ) -> HashMap<
+        String,
+        (
+            Vec<PropertyNameKind>,
+            Role<impl Configuration<Configurable = DruidCluster>>,
+        ),
+    > {
+        let config_files = vec![
+            PropertyNameKind::Env,
+            PropertyNameKind::File(JVM_CONFIG.to_string()),
+            PropertyNameKind::File(LOG4J2_CONFIG.to_string()),
+            PropertyNameKind::File(RUNTIME_PROPS.to_string()),
+        ];
+
+        vec![
+            (
+                DruidRole::Broker.to_string(),
+                (config_files.clone(), self.spec.brokers.clone().erase()),
+            ),
+            (
+                DruidRole::Historical.to_string(),
+                (config_files.clone(), self.spec.historicals.clone().erase()),
+            ),
+            (
+                DruidRole::Router.to_string(),
+                (config_files.clone(), self.spec.routers.clone().erase()),
+            ),
+            (
+                DruidRole::MiddleManager.to_string(),
+                (
+                    config_files.clone(),
+                    self.spec.middle_managers.clone().erase(),
+                ),
+            ),
+            (
+                DruidRole::Coordinator.to_string(),
+                (config_files, self.spec.coordinators.clone().erase()),
+            ),
+        ]
+        .into_iter()
+        .collect()
     }
 
     /// The name of the role-level load-balanced Kubernetes `Service`
@@ -341,37 +520,132 @@ impl DruidCluster {
     }
 
     /// Retrieve and merge resource configs for role and role groups
-    pub fn resolve_resource_config_for_role_and_rolegroup(
+    pub fn resources(
         &self,
         role: &DruidRole,
         rolegroup_ref: &RoleGroupRef<DruidCluster>,
-    ) -> Option<Resources<DruidStorageConfig, NoRuntimeLimits>> {
-        // Initialize the result with all default values as baseline
-        let conf_defaults = DruidConfig::default_resources();
+    ) -> Result<resource::RoleResource, Error> {
+        resource::try_merge(&[
+            self.default_resources(role),
+            self.role_resources(role),
+            self.rolegroup_resources(role, rolegroup_ref),
+        ])
+        .context(ResourceMergeSnafu)
+    }
 
-        let role = self.get_role(role);
+    fn default_resources(&self, role: &DruidRole) -> Option<resource::RoleResource> {
+        match role {
+            DruidRole::Broker => Some(resource::RoleResource::Druid(
+                BrokerConfig::default_resources(),
+            )),
+            DruidRole::Coordinator => Some(resource::RoleResource::Druid(
+                CoordinatorConfig::default_resources(),
+            )),
+            DruidRole::Historical => Some(resource::RoleResource::Historical(
+                HistoricalConfig::default_resources(),
+            )),
+            DruidRole::MiddleManager => Some(resource::RoleResource::Druid(
+                MiddleManagerConfig::default_resources(),
+            )),
+            DruidRole::Router => Some(resource::RoleResource::Druid(
+                RouterConfig::default_resources(),
+            )),
+        }
+    }
 
-        // Retrieve role resource config
-        let mut conf_role: Resources<DruidStorageConfig, NoRuntimeLimits> =
-            role.config.config.resources.clone().unwrap_or_default();
+    fn role_resources(&self, role: &DruidRole) -> Option<resource::RoleResource> {
+        match role {
+            DruidRole::Broker => self
+                .spec
+                .brokers
+                .clone()
+                .config
+                .config
+                .resources
+                .map(resource::RoleResource::Druid),
+            DruidRole::Coordinator => self
+                .spec
+                .coordinators
+                .clone()
+                .config
+                .config
+                .resources
+                .map(resource::RoleResource::Druid),
+            DruidRole::Historical => self
+                .spec
+                .historicals
+                .clone()
+                .config
+                .config
+                .resources
+                .map(resource::RoleResource::Historical),
+            DruidRole::MiddleManager => self
+                .spec
+                .middle_managers
+                .clone()
+                .config
+                .config
+                .resources
+                .map(resource::RoleResource::Druid),
+            DruidRole::Router => self
+                .spec
+                .routers
+                .clone()
+                .config
+                .config
+                .resources
+                .map(resource::RoleResource::Druid),
+        }
+    }
 
-        // Retrieve rolegroup specific resource config
-        let mut conf_rolegroup: Resources<DruidStorageConfig, NoRuntimeLimits> = role
-            .role_groups
-            .get(&rolegroup_ref.role_group)
-            .and_then(|rg| rg.config.config.resources.clone())
-            .unwrap_or_default();
-
-        // Merge more specific configs into default config
-        // Hierarchy is:
-        // 1. RoleGroup
-        // 2. Role
-        // 3. Default
-        conf_role.merge(&conf_defaults);
-        conf_rolegroup.merge(&conf_role);
-
-        tracing::debug!("Merged resource config: {:?}", conf_rolegroup);
-        Some(conf_rolegroup)
+    fn rolegroup_resources(
+        &self,
+        role: &DruidRole,
+        rolegroup_ref: &RoleGroupRef<DruidCluster>,
+    ) -> Option<resource::RoleResource> {
+        match role {
+            DruidRole::Broker => self
+                .spec
+                .brokers
+                .clone()
+                .role_groups
+                .get(&rolegroup_ref.role_group)
+                .map(|rg| &rg.config.config)
+                .and_then(|rg| rg.resources.clone())
+                .map(resource::RoleResource::Druid),
+            DruidRole::Coordinator => self
+                .spec
+                .coordinators
+                .role_groups
+                .get(&rolegroup_ref.role_group)
+                .map(|rg| &rg.config.config)
+                .and_then(|rg| rg.resources.clone())
+                .map(resource::RoleResource::Druid),
+            DruidRole::MiddleManager => self
+                .spec
+                .middle_managers
+                .role_groups
+                .get(&rolegroup_ref.role_group)
+                .map(|rg| &rg.config.config)
+                .and_then(|rg| rg.resources.clone())
+                .map(resource::RoleResource::Druid),
+            DruidRole::Historical => self
+                .spec
+                .historicals
+                .role_groups
+                .get(&rolegroup_ref.role_group)
+                .map(|rg| &rg.config.config)
+                .and_then(|rg| rg.resources.clone())
+                .map(resource::RoleResource::Historical),
+            DruidRole::Router => self
+                .spec
+                .routers
+                .role_groups
+                .get(&rolegroup_ref.role_group)
+                .map(|rg| &rg.config.config)
+                .and_then(|rg| rg.resources.clone())
+                .map(resource::RoleResource::Druid),
+        }
     }
 }
 
@@ -449,31 +723,69 @@ pub struct IngestionSpec {
 
 #[derive(Clone, Debug, Deserialize, JsonSchema, PartialEq, Serialize, Default)]
 #[serde(rename_all = "camelCase")]
-pub struct DruidConfig {
-    pub resources: Option<Resources<DruidStorageConfig, NoRuntimeLimits>>,
+pub struct BrokerConfig {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    resources: Option<Resources<storage::DruidStorage, NoRuntimeLimits>>,
 }
 
-impl DruidConfig {
-    fn default_resources() -> Resources<DruidStorageConfig, NoRuntimeLimits> {
-        Resources {
-            cpu: CpuLimits {
-                min: Some(Quantity("200m".to_owned())),
-                max: Some(Quantity("4".to_owned())),
-            },
-            memory: MemoryLimits {
-                limit: Some(Quantity("2Gi".to_owned())),
-                runtime_limits: NoRuntimeLimits {},
-            },
-            storage: DruidStorageConfig {},
-        }
+#[derive(Clone, Debug, Deserialize, JsonSchema, PartialEq, Serialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct CoordinatorConfig {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    resources: Option<Resources<storage::DruidStorage, NoRuntimeLimits>>,
+}
+
+#[derive(Clone, Debug, Deserialize, JsonSchema, PartialEq, Serialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct MiddleManagerConfig {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    resources: Option<Resources<storage::DruidStorage, NoRuntimeLimits>>,
+}
+
+#[derive(Clone, Debug, Deserialize, JsonSchema, PartialEq, Serialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct RouterConfig {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    resources: Option<Resources<storage::DruidStorage, NoRuntimeLimits>>,
+}
+
+#[derive(Clone, Debug, Deserialize, JsonSchema, PartialEq, Serialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct HistoricalConfig {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    resources: Option<Resources<storage::HistoricalStorage, NoRuntimeLimits>>,
+}
+
+impl MiddleManagerConfig {
+    pub fn default_resources() -> Resources<storage::DruidStorage, NoRuntimeLimits> {
+        resource::DEFAULT_RESOURCES.clone()
     }
 }
 
-#[derive(Clone, Debug, Default, Deserialize, Eq, JsonSchema, Merge, PartialEq, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct DruidStorageConfig {}
+impl CoordinatorConfig {
+    pub fn default_resources() -> Resources<storage::DruidStorage, NoRuntimeLimits> {
+        resource::DEFAULT_RESOURCES.clone()
+    }
+}
+impl RouterConfig {
+    pub fn default_resources() -> Resources<storage::DruidStorage, NoRuntimeLimits> {
+        resource::DEFAULT_RESOURCES.clone()
+    }
+}
 
-impl Configuration for DruidConfig {
+impl BrokerConfig {
+    pub fn default_resources() -> Resources<storage::DruidStorage, NoRuntimeLimits> {
+        resource::DEFAULT_RESOURCES.clone()
+    }
+}
+
+impl HistoricalConfig {
+    pub fn default_resources() -> Resources<storage::HistoricalStorage, NoRuntimeLimits> {
+        resource::HISTORICAL_RESOURCES.clone()
+    }
+}
+
+impl Configuration for BrokerConfig {
     type Configurable = DruidCluster;
 
     fn compute_env(
@@ -499,108 +811,136 @@ impl Configuration for DruidConfig {
         role_name: &str,
         file: &str,
     ) -> Result<BTreeMap<String, Option<String>>, ConfigError> {
-        let role = DruidRole::from_str(role_name).unwrap();
+        resource.common_compute_files(role_name, file)
+    }
+}
 
-        let mut result = BTreeMap::new();
-        match file {
-            JVM_CONFIG => {}
-            RUNTIME_PROPS => {
-                // Plaintext port
-                result.insert(
-                    PLAINTEXT.to_string(),
-                    Some(role.get_http_port().to_string()),
-                );
-                // extensions
-                let mut extensions = vec![
-                    String::from(EXT_KAFKA_INDEXING),
-                    String::from(EXT_DATASKETCHES),
-                    String::from(PROMETHEUS_EMITTER),
-                    String::from(EXT_BASIC_SECURITY),
-                    String::from(EXT_OPA_AUTHORIZER),
-                    String::from(EXT_HDFS),
-                ];
-                // metadata storage
-                let mds = &resource.spec.metadata_storage_database;
-                match mds.db_type {
-                    DbType::Derby => {} // no additional extensions required
-                    DbType::Postgresql => extensions.push(EXT_PSQL_MD_ST.to_string()),
-                    DbType::Mysql => extensions.push(EXT_MYSQL_MD_ST.to_string()),
-                }
-                result.insert(MD_ST_TYPE.to_string(), Some(mds.db_type.to_string()));
-                result.insert(
-                    MD_ST_CONNECT_URI.to_string(),
-                    Some(mds.conn_string.to_string()),
-                );
-                result.insert(MD_ST_HOST.to_string(), Some(mds.host.to_string()));
-                result.insert(MD_ST_PORT.to_string(), Some(mds.port.to_string()));
-                if let Some(user) = &mds.user {
-                    result.insert(MD_ST_USER.to_string(), Some(user.to_string()));
-                }
-                if let Some(password) = &mds.password {
-                    result.insert(MD_ST_PASSWORD.to_string(), Some(password.to_string()));
-                }
-                // s3
-                if resource.uses_s3() {
-                    extensions.push(EXT_S3.to_string());
-                }
-                // OPA
-                if let Some(_opa) = &resource.spec.opa {
-                    result.insert(
-                        AUTH_AUTHORIZERS.to_string(),
-                        Some(AUTH_AUTHORIZERS_VALUE.to_string()),
-                    );
-                    result.insert(
-                        AUTH_AUTHORIZER_OPA_TYPE.to_string(),
-                        Some(AUTH_AUTHORIZER_OPA_TYPE_VALUE.to_string()),
-                    );
-                    // The opaUri still needs to be set, but that requires a discovery config map and is handled in the druid_controller.rs
-                }
-                // deep storage
-                result.insert(
-                    DS_TYPE.to_string(),
-                    Some(resource.spec.deep_storage.to_string()),
-                );
-                match &resource.spec.deep_storage {
-                    DeepStorageSpec::HDFS(hdfs) => {
-                        result.insert(DS_DIRECTORY.to_string(), Some(hdfs.directory.to_string()));
-                    }
-                    DeepStorageSpec::S3(s3_spec) => {
-                        if let Some(key) = &s3_spec.base_key {
-                            result.insert(DS_BASE_KEY.to_string(), Some(key.to_string()));
-                        }
-                        // bucket information (name, connection) needs to be resolved first,
-                        // that is done directly in the controller
-                    }
-                }
-                // other
-                result.insert(
-                    EXTENSIONS_LOADLIST.to_string(),
-                    Some(build_string_list(&extensions)),
-                );
-                // metrics
-                result.insert(
-                    PROMETHEUS_PORT.to_string(),
-                    Some(DRUID_METRICS_PORT.to_string()),
-                );
-                // Role-specific config
-                if role == DruidRole::MiddleManager {
-                    // When we start ingestion jobs they will run as new JVM processes.
-                    // We need to set this config to pass the custom truststore not only to the Druid roles but also to the started ingestion jobs.
-                    result.insert(
-                        INDEXER_JAVA_OPTS.to_string(),
-                        Some(build_string_list(&[
-                            format!("-Djavax.net.ssl.trustStore={STACKABLE_TRUST_STORE}"),
-                            format!("-Djavax.net.ssl.trustStorePassword={STACKABLE_TRUST_STORE_PASSWORD}"),
-                            "-Djavax.net.ssl.trustStoreType=pkcs12".to_string()
-                        ]))
-                    );
-                }
-            }
-            LOG4J2_CONFIG => {}
-            _ => {}
-        }
+impl Configuration for HistoricalConfig {
+    type Configurable = DruidCluster;
 
+    fn compute_env(
+        &self,
+        _resource: &Self::Configurable,
+        _role_name: &str,
+    ) -> Result<BTreeMap<String, Option<String>>, ConfigError> {
+        let mut _result = BTreeMap::new();
+        Ok(_result)
+    }
+
+    fn compute_cli(
+        &self,
+        _resource: &Self::Configurable,
+        _role_name: &str,
+    ) -> Result<BTreeMap<String, Option<String>>, ConfigError> {
+        Ok(BTreeMap::new())
+    }
+
+    fn compute_files(
+        &self,
+        resource: &Self::Configurable,
+        role_name: &str,
+        file: &str,
+    ) -> Result<BTreeMap<String, Option<String>>, ConfigError> {
+        resource.common_compute_files(role_name, file)
+    }
+}
+
+impl Configuration for RouterConfig {
+    type Configurable = DruidCluster;
+
+    fn compute_env(
+        &self,
+        _resource: &Self::Configurable,
+        _role_name: &str,
+    ) -> Result<BTreeMap<String, Option<String>>, ConfigError> {
+        let mut _result = BTreeMap::new();
+        Ok(_result)
+    }
+
+    fn compute_cli(
+        &self,
+        _resource: &Self::Configurable,
+        _role_name: &str,
+    ) -> Result<BTreeMap<String, Option<String>>, ConfigError> {
+        Ok(BTreeMap::new())
+    }
+
+    fn compute_files(
+        &self,
+        resource: &Self::Configurable,
+        role_name: &str,
+        file: &str,
+    ) -> Result<BTreeMap<String, Option<String>>, ConfigError> {
+        resource.common_compute_files(role_name, file)
+    }
+}
+
+impl Configuration for MiddleManagerConfig {
+    type Configurable = DruidCluster;
+
+    fn compute_env(
+        &self,
+        _resource: &Self::Configurable,
+        _role_name: &str,
+    ) -> Result<BTreeMap<String, Option<String>>, ConfigError> {
+        let mut _result = BTreeMap::new();
+        Ok(_result)
+    }
+
+    fn compute_cli(
+        &self,
+        _resource: &Self::Configurable,
+        _role_name: &str,
+    ) -> Result<BTreeMap<String, Option<String>>, ConfigError> {
+        Ok(BTreeMap::new())
+    }
+
+    fn compute_files(
+        &self,
+        resource: &Self::Configurable,
+        role_name: &str,
+        file: &str,
+    ) -> Result<BTreeMap<String, Option<String>>, ConfigError> {
+        let mut result = resource.common_compute_files(role_name, file)?;
+        result.insert(
+            INDEXER_JAVA_OPTS.to_string(),
+            Some(build_string_list(&[
+                format!("-Djavax.net.ssl.trustStore={STACKABLE_TRUST_STORE}"),
+                format!("-Djavax.net.ssl.trustStorePassword={STACKABLE_TRUST_STORE_PASSWORD}"),
+                "-Djavax.net.ssl.trustStoreType=pkcs12".to_string(),
+            ])),
+        );
         Ok(result)
+    }
+}
+
+impl Configuration for CoordinatorConfig {
+    type Configurable = DruidCluster;
+
+    fn compute_env(
+        &self,
+        _resource: &Self::Configurable,
+        _role_name: &str,
+    ) -> Result<BTreeMap<String, Option<String>>, ConfigError> {
+        let mut _result = BTreeMap::new();
+        Ok(_result)
+    }
+
+    fn compute_cli(
+        &self,
+        _resource: &Self::Configurable,
+        _role_name: &str,
+    ) -> Result<BTreeMap<String, Option<String>>, ConfigError> {
+        Ok(BTreeMap::new())
+    }
+
+    fn compute_files(
+        &self,
+        resource: &Self::Configurable,
+        role_name: &str,
+        file: &str,
+    ) -> Result<BTreeMap<String, Option<String>>, ConfigError> {
+        resource.common_compute_files(role_name, file)
     }
 }
 
@@ -619,101 +959,12 @@ fn build_string_list(strings: &[String]) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::DeepStorageSpec::HDFS;
-    use stackable_operator::role_utils::CommonConfiguration;
-    use stackable_operator::role_utils::RoleGroup;
-    use std::collections::HashMap;
 
     #[test]
     fn test_service_name_generation() {
-        let mut cluster = DruidCluster::new(
-            "testcluster",
-            DruidClusterSpec {
-                stopped: None,
-                version: "".to_string(),
-                brokers: Role {
-                    config: CommonConfiguration {
-                        config: DruidConfig {
-                            resources: Some(DruidConfig::default_resources()),
-                        },
-                        config_overrides: Default::default(),
-                        env_overrides: Default::default(),
-                        cli_overrides: Default::default(),
-                    },
-                    role_groups: Default::default(),
-                },
-                coordinators: Role {
-                    config: CommonConfiguration {
-                        config: DruidConfig {
-                            resources: Some(DruidConfig::default_resources()),
-                        },
-                        config_overrides: Default::default(),
-                        env_overrides: Default::default(),
-                        cli_overrides: Default::default(),
-                    },
-                    role_groups: Default::default(),
-                },
-                historicals: Role {
-                    config: CommonConfiguration {
-                        config: DruidConfig {
-                            resources: Some(DruidConfig::default_resources()),
-                        },
-                        config_overrides: Default::default(),
-                        env_overrides: Default::default(),
-                        cli_overrides: Default::default(),
-                    },
-                    role_groups: Default::default(),
-                },
-                middle_managers: Role {
-                    config: CommonConfiguration {
-                        config: DruidConfig {
-                            resources: Some(DruidConfig::default_resources()),
-                        },
-                        config_overrides: Default::default(),
-                        env_overrides: Default::default(),
-                        cli_overrides: Default::default(),
-                    },
-                    role_groups: Default::default(),
-                },
-                routers: Role {
-                    config: CommonConfiguration {
-                        config: DruidConfig {
-                            resources: Some(DruidConfig::default_resources()),
-                        },
-                        config_overrides: Default::default(),
-                        env_overrides: Default::default(),
-                        cli_overrides: Default::default(),
-                    },
-                    role_groups: [(
-                        "default".to_string(),
-                        RoleGroup {
-                            config: CommonConfiguration {
-                                config: DruidConfig {
-                                    resources: Some(DruidConfig::default_resources()),
-                                },
-                                config_overrides: Default::default(),
-                                env_overrides: Default::default(),
-                                cli_overrides: Default::default(),
-                            },
-                            replicas: Some(1),
-                            selector: None,
-                        },
-                    )]
-                    .into_iter()
-                    .collect::<HashMap<_, _>>(),
-                },
-                metadata_storage_database: Default::default(),
-                deep_storage: HDFS(HdfsDeepStorageSpec {
-                    config_map_name: "simple-hdfs".to_string(),
-                    directory: "/path/to/dir".to_string(),
-                }),
-                ingestion: Default::default(),
-                zookeeper_config_map_name: Default::default(),
-                opa: Default::default(),
-            },
-        );
-
-        cluster.metadata.namespace = Some("default".to_string());
+        let cluster_cr =
+            std::fs::File::open("test/resources/role_service/druid_cluster.yaml").unwrap();
+        let cluster: DruidCluster = serde_yaml::from_reader(&cluster_cr).unwrap();
 
         assert_eq!(cluster.metadata.name, Some("testcluster".to_string()));
 

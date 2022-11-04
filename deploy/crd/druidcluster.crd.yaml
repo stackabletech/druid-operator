@@ -152,6 +152,7 @@ spec:
                                 type: object
                             type: object
                           storage:
+                            description: Storage configuration used by all roles except historical
                             type: object
                         type: object
                     type: object
@@ -298,6 +299,7 @@ spec:
                                       type: object
                                   type: object
                                 storage:
+                                  description: Storage configuration used by all roles except historical
                                   type: object
                               type: object
                           type: object
@@ -484,6 +486,7 @@ spec:
                                 type: object
                             type: object
                           storage:
+                            description: Storage configuration used by all roles except historical
                             type: object
                         type: object
                     type: object
@@ -630,6 +633,7 @@ spec:
                                       type: object
                                   type: object
                                 storage:
+                                  description: Storage configuration used by all roles except historical
                                   type: object
                               type: object
                           type: object
@@ -1422,6 +1426,7 @@ spec:
                                 type: object
                             type: object
                           storage:
+                            description: Storage configuration used by all roles except historical
                             type: object
                         type: object
                     type: object
@@ -1568,6 +1573,7 @@ spec:
                                       type: object
                                   type: object
                                 storage:
+                                  description: Storage configuration used by all roles except historical
                                   type: object
                               type: object
                           type: object
@@ -1765,6 +1771,7 @@ spec:
                                 type: object
                             type: object
                           storage:
+                            description: Storage configuration used by all roles except historical
                             type: object
                         type: object
                     type: object
@@ -1911,6 +1918,7 @@ spec:
                                       type: object
                                   type: object
                                 storage:
+                                  description: Storage configuration used by all roles except historical
                                   type: object
                               type: object
                           type: object

@@ -6,7 +6,7 @@ use crate::{
 
 use snafu::{OptionExt, ResultExt, Snafu};
 use stackable_druid_crd::{
-    DeepStorageSpec, DruidCluster, DruidRole, DruidStorageConfig, APP_NAME,
+    resource::RoleResource, DeepStorageSpec, DruidCluster, DruidRole, APP_NAME,
     AUTH_AUTHORIZER_OPA_URI, CERTS_DIR, CONTAINER_HTTP_PORT, CONTAINER_METRICS_PORT,
     CONTROLLER_NAME, CREDENTIALS_SECRET_PROPERTY, DRUID_CONFIG_DIRECTORY, DRUID_METRICS_PORT,
     DS_BUCKET, HDFS_CONFIG_DIRECTORY, JVM_CONFIG, LOG4J2_CONFIG, RUNTIME_PROPS,
@@ -21,7 +21,6 @@ use stackable_operator::{
     cluster_resources::ClusterResources,
     commons::{
         opa::OpaApiVersion,
-        resources::{NoRuntimeLimits, Resources},
         s3::{S3AccessStyle, S3ConnectionSpec},
         tls::{CaCert, TlsVerification},
     },
@@ -52,7 +51,7 @@ use std::{
     sync::Arc,
     time::Duration,
 };
-use strum::{EnumDiscriminants, IntoEnumIterator, IntoStaticStr};
+use strum::{EnumDiscriminants, IntoStaticStr};
 
 const JVM_HEAP_FACTOR: f32 = 0.8;
 
@@ -155,7 +154,7 @@ pub enum Error {
         role: String,
     },
     #[snafu(display("failed to resolve and merge resource config for role and role group"))]
-    FailedToResolveResourceConfig,
+    FailedToResolveResourceConfig { source: stackable_druid_crd::Error },
     #[snafu(display("invalid java heap config - missing default or value in crd?"))]
     InvalidJavaHeapConfig,
     #[snafu(display("failed to convert java heap config to unit [{unit}]"))]
@@ -176,6 +175,14 @@ pub enum Error {
         source: stackable_operator::error::Error,
         name: String,
     },
+    #[snafu(display("no quantity unit (k, m, g, etc.) given for [{value}]"))]
+    NoQuantityUnit { value: String },
+    #[snafu(display("invalid quantity value"))]
+    InvalidQuantityValue { source: std::num::ParseIntError },
+    #[snafu(display("segment cache location is required but missing"))]
+    NoSegmentCacheLocation,
+    #[snafu(display("role group and resource type mismatch. this is a programming error."))]
+    RoleResourceMismatch,
 }
 
 type Result<T, E = Error> = std::result::Result<T, E>;
@@ -240,23 +247,7 @@ pub async fn reconcile_druid(druid: Arc<DruidCluster>, ctx: Arc<Ctx>) -> Result<
         _ => None,
     };
 
-    let mut roles = HashMap::new();
-
-    let config_files = vec![
-        PropertyNameKind::Env,
-        PropertyNameKind::File(JVM_CONFIG.to_string()),
-        PropertyNameKind::File(LOG4J2_CONFIG.to_string()),
-        PropertyNameKind::File(RUNTIME_PROPS.to_string()),
-    ];
-
-    for role in DruidRole::iter() {
-        roles.insert(
-            role.to_string(),
-            (config_files.clone(), druid.get_role(&role).clone()),
-        );
-    }
-
-    let role_config = transform_all_roles_to_config(&*druid, roles);
+    let role_config = transform_all_roles_to_config(&*druid, druid.build_role_properties());
     let validated_role_config = validate_all_roles_and_groups_config(
         druid_version(&druid)?,
         &role_config.context(ProductConfigTransformSnafu)?,
@@ -288,7 +279,7 @@ pub async fn reconcile_druid(druid: Arc<DruidCluster>, ctx: Arc<Ctx>) -> Result<
             };
 
             let resources = druid
-                .resolve_resource_config_for_role_and_rolegroup(&druid_role, &rolegroup)
+                .resources(&druid_role, &rolegroup)
                 .context(FailedToResolveResourceConfigSnafu)?;
 
             let rg_service = build_rolegroup_services(&rolegroup, &druid, rolegroup_config)?;
@@ -401,7 +392,7 @@ fn build_rolegroup_config_map(
     opa_connstr: Option<&str>,
     s3_conn: Option<&S3ConnectionSpec>,
     deep_storage_bucket_name: Option<&str>,
-    resources: &Resources<DruidStorageConfig, NoRuntimeLimits>,
+    resources: &RoleResource,
 ) -> Result<ConfigMap> {
     let role = DruidRole::from_str(&rolegroup.role).unwrap();
     let mut cm_conf_data = BTreeMap::new(); // filename -> filecontent
@@ -456,7 +447,7 @@ fn build_rolegroup_config_map(
             PropertyNameKind::File(file_name) if file_name == JVM_CONFIG => {
                 let heap_in_mebi = to_java_heap_value(
                     resources
-                        .memory
+                        .as_memory_limits()
                         .limit
                         .as_ref()
                         .context(InvalidJavaHeapConfigSnafu)?,
@@ -568,17 +559,13 @@ fn build_rolegroup_statefulset(
     druid: &DruidCluster,
     rolegroup_config: &HashMap<PropertyNameKind, BTreeMap<String, String>>,
     s3_conn: Option<&S3ConnectionSpec>,
-    resources: &Resources<DruidStorageConfig, NoRuntimeLimits>,
+    resources: &RoleResource,
 ) -> Result<StatefulSet> {
     // setup
     let role = DruidRole::from_str(&rolegroup_ref.role).context(UnidentifiedDruidRoleSnafu {
         role: rolegroup_ref.role.to_string(),
     })?;
     let druid_version = druid_version(druid)?;
-    let rolegroup = druid
-        .get_role(&role)
-        .role_groups
-        .get(&rolegroup_ref.role_group);
 
     // init container builder
     let mut cb = ContainerBuilder::new(APP_NAME)
@@ -686,7 +673,7 @@ fn build_rolegroup_statefulset(
         ..Default::default()
     };
     cb.readiness_probe(probe);
-    cb.resources(resources.clone().into());
+    cb.resources(resources.as_resource_requirements());
 
     let mut container = cb.build();
     container.image_pull_policy = Some("IfNotPresent".to_string());
@@ -713,7 +700,7 @@ fn build_rolegroup_statefulset(
             replicas: if druid.spec.stopped.unwrap_or(false) {
                 Some(0)
             } else {
-                rolegroup.and_then(|rg| rg.replicas).map(i32::from)
+                druid.replicas(rolegroup_ref)
             },
             selector: LabelSelector {
                 match_labels: Some(role_group_selector_labels(
