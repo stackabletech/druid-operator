@@ -6,7 +6,7 @@ use crate::{
 
 use snafu::{OptionExt, ResultExt, Snafu};
 use stackable_druid_crd::{
-    resource::RoleResourceEnum, DeepStorageSpec, DruidCluster, DruidRole, APP_NAME,
+    resource::RoleResource, DeepStorageSpec, DruidCluster, DruidRole, APP_NAME,
     AUTH_AUTHORIZER_OPA_URI, CERTS_DIR, CONTAINER_HTTP_PORT, CONTAINER_METRICS_PORT,
     CONTROLLER_NAME, CREDENTIALS_SECRET_PROPERTY, DRUID_CONFIG_DIRECTORY, DRUID_METRICS_PORT,
     DS_BUCKET, HDFS_CONFIG_DIRECTORY, JVM_CONFIG, LOG4J2_CONFIG, RUNTIME_PROPS,
@@ -392,7 +392,7 @@ fn build_rolegroup_config_map(
     opa_connstr: Option<&str>,
     s3_conn: Option<&S3ConnectionSpec>,
     deep_storage_bucket_name: Option<&str>,
-    resources: &RoleResourceEnum,
+    resources: &RoleResource,
 ) -> Result<ConfigMap> {
     let role = DruidRole::from_str(&rolegroup.role).unwrap();
     let mut cm_conf_data = BTreeMap::new(); // filename -> filecontent
@@ -559,7 +559,7 @@ fn build_rolegroup_statefulset(
     druid: &DruidCluster,
     rolegroup_config: &HashMap<PropertyNameKind, BTreeMap<String, String>>,
     s3_conn: Option<&S3ConnectionSpec>,
-    resources: &RoleResourceEnum,
+    resources: &RoleResource,
 ) -> Result<StatefulSet> {
     // setup
     let role = DruidRole::from_str(&rolegroup_ref.role).context(UnidentifiedDruidRoleSnafu {

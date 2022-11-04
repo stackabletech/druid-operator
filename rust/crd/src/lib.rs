@@ -524,7 +524,7 @@ impl DruidCluster {
         &self,
         role: &DruidRole,
         rolegroup_ref: &RoleGroupRef<DruidCluster>,
-    ) -> Result<resource::RoleResourceEnum, Error> {
+    ) -> Result<resource::RoleResource, Error> {
         let mut rg_resources = self.rolegroup_resources(role, rolegroup_ref);
         let mut role_resources = self.role_resources(role);
         let mut default_resources = self.default_resources(role);
@@ -538,27 +538,27 @@ impl DruidCluster {
         result.context(ResourceMergeSnafu)
     }
 
-    fn default_resources(&self, role: &DruidRole) -> Option<resource::RoleResourceEnum> {
+    fn default_resources(&self, role: &DruidRole) -> Option<resource::RoleResource> {
         match role {
-            DruidRole::Broker => Some(resource::RoleResourceEnum::Druid(
+            DruidRole::Broker => Some(resource::RoleResource::Druid(
                 BrokerConfig::default_resources(),
             )),
-            DruidRole::Coordinator => Some(resource::RoleResourceEnum::Druid(
+            DruidRole::Coordinator => Some(resource::RoleResource::Druid(
                 CoordinatorConfig::default_resources(),
             )),
-            DruidRole::Historical => Some(resource::RoleResourceEnum::Historical(
+            DruidRole::Historical => Some(resource::RoleResource::Historical(
                 HistoricalConfig::default_resources(),
             )),
-            DruidRole::MiddleManager => Some(resource::RoleResourceEnum::Druid(
+            DruidRole::MiddleManager => Some(resource::RoleResource::Druid(
                 MiddleManagerConfig::default_resources(),
             )),
-            DruidRole::Router => Some(resource::RoleResourceEnum::Druid(
+            DruidRole::Router => Some(resource::RoleResource::Druid(
                 RouterConfig::default_resources(),
             )),
         }
     }
 
-    fn role_resources(&self, role: &DruidRole) -> Option<resource::RoleResourceEnum> {
+    fn role_resources(&self, role: &DruidRole) -> Option<resource::RoleResource> {
         match role {
             DruidRole::Broker => self
                 .spec
@@ -567,7 +567,7 @@ impl DruidCluster {
                 .config
                 .config
                 .resources
-                .map(resource::RoleResourceEnum::Druid),
+                .map(resource::RoleResource::Druid),
             DruidRole::Coordinator => self
                 .spec
                 .coordinators
@@ -575,7 +575,7 @@ impl DruidCluster {
                 .config
                 .config
                 .resources
-                .map(resource::RoleResourceEnum::Druid),
+                .map(resource::RoleResource::Druid),
             DruidRole::Historical => self
                 .spec
                 .historicals
@@ -583,7 +583,7 @@ impl DruidCluster {
                 .config
                 .config
                 .resources
-                .map(resource::RoleResourceEnum::Historical),
+                .map(resource::RoleResource::Historical),
             DruidRole::MiddleManager => self
                 .spec
                 .middle_managers
@@ -591,7 +591,7 @@ impl DruidCluster {
                 .config
                 .config
                 .resources
-                .map(resource::RoleResourceEnum::Druid),
+                .map(resource::RoleResource::Druid),
             DruidRole::Router => self
                 .spec
                 .routers
@@ -599,7 +599,7 @@ impl DruidCluster {
                 .config
                 .config
                 .resources
-                .map(resource::RoleResourceEnum::Druid),
+                .map(resource::RoleResource::Druid),
         }
     }
 
@@ -607,7 +607,7 @@ impl DruidCluster {
         &self,
         role: &DruidRole,
         rolegroup_ref: &RoleGroupRef<DruidCluster>,
-    ) -> Option<resource::RoleResourceEnum> {
+    ) -> Option<resource::RoleResource> {
         match role {
             DruidRole::Broker => self
                 .spec
@@ -617,7 +617,7 @@ impl DruidCluster {
                 .get(&rolegroup_ref.role_group)
                 .map(|rg| &rg.config.config)
                 .and_then(|rg| rg.resources.clone())
-                .map(resource::RoleResourceEnum::Druid),
+                .map(resource::RoleResource::Druid),
             DruidRole::Coordinator => self
                 .spec
                 .coordinators
@@ -625,7 +625,7 @@ impl DruidCluster {
                 .get(&rolegroup_ref.role_group)
                 .map(|rg| &rg.config.config)
                 .and_then(|rg| rg.resources.clone())
-                .map(resource::RoleResourceEnum::Druid),
+                .map(resource::RoleResource::Druid),
             DruidRole::MiddleManager => self
                 .spec
                 .middle_managers
@@ -633,7 +633,7 @@ impl DruidCluster {
                 .get(&rolegroup_ref.role_group)
                 .map(|rg| &rg.config.config)
                 .and_then(|rg| rg.resources.clone())
-                .map(resource::RoleResourceEnum::Druid),
+                .map(resource::RoleResource::Druid),
             DruidRole::Historical => self
                 .spec
                 .historicals
@@ -641,7 +641,7 @@ impl DruidCluster {
                 .get(&rolegroup_ref.role_group)
                 .map(|rg| &rg.config.config)
                 .and_then(|rg| rg.resources.clone())
-                .map(resource::RoleResourceEnum::Historical),
+                .map(resource::RoleResource::Historical),
             DruidRole::Router => self
                 .spec
                 .routers
@@ -649,7 +649,7 @@ impl DruidCluster {
                 .get(&rolegroup_ref.role_group)
                 .map(|rg| &rg.config.config)
                 .and_then(|rg| rg.resources.clone())
-                .map(resource::RoleResourceEnum::Druid),
+                .map(resource::RoleResource::Druid),
         }
     }
 }

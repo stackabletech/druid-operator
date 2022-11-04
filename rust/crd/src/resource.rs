@@ -11,12 +11,12 @@ use stackable_operator::{
 use strum::{EnumDiscriminants, IntoStaticStr};
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum RoleResourceEnum {
+pub enum RoleResource {
     Druid(Resources<storage::DruidStorage, NoRuntimeLimits>),
     Historical(Resources<storage::HistoricalStorage, NoRuntimeLimits>),
 }
 
-impl RoleResourceEnum {
+impl RoleResource {
     pub fn as_resource_requirements(&self) -> ResourceRequirements {
         match self {
             Self::Druid(r) => r.clone().into(),
@@ -44,14 +44,14 @@ pub enum Error {
 /// Merge resources from left to right: first > second > third.
 /// Return a copy of the merged struct.
 pub fn try_merge(
-    first: Option<&mut RoleResourceEnum>,
-    second: Option<&mut RoleResourceEnum>,
-    third: Option<&mut RoleResourceEnum>,
-) -> Result<RoleResourceEnum, Error> {
+    first: Option<&mut RoleResource>,
+    second: Option<&mut RoleResource>,
+    third: Option<&mut RoleResource>,
+) -> Result<RoleResource, Error> {
     let mut some = [first, second, third]
         .into_iter()
         .flatten()
-        .collect::<Vec<&mut RoleResourceEnum>>();
+        .collect::<Vec<&mut RoleResource>>();
 
     match some.len() {
         1 => Ok(some[0].clone()),
@@ -69,18 +69,15 @@ pub fn try_merge(
 }
 
 /// Merges `rb` into `ra`, i.e. `ra` has precedence over `rb`.
-fn try_merge_private(
-    ra: &mut RoleResourceEnum,
-    rb: &RoleResourceEnum,
-) -> Result<RoleResourceEnum, Error> {
+fn try_merge_private(ra: &mut RoleResource, rb: &RoleResource) -> Result<RoleResource, Error> {
     match (ra, rb) {
-        (RoleResourceEnum::Druid(a), RoleResourceEnum::Druid(b)) => {
+        (RoleResource::Druid(a), RoleResource::Druid(b)) => {
             a.merge(b);
-            Ok(RoleResourceEnum::Druid(a.clone()))
+            Ok(RoleResource::Druid(a.clone()))
         }
-        (RoleResourceEnum::Historical(a), RoleResourceEnum::Historical(b)) => {
+        (RoleResource::Historical(a), RoleResource::Historical(b)) => {
             a.merge(b);
-            Ok(RoleResourceEnum::Historical(a.clone()))
+            Ok(RoleResource::Historical(a.clone()))
         }
         _ => Err(Error::IncompatibleStorageMerging),
     }
@@ -120,7 +117,7 @@ mod test {
 
     #[rstest]
     #[case(
-        Some(RoleResourceEnum::Historical(Resources {
+        Some(RoleResource::Historical(Resources {
             cpu: CpuLimits {
                 min: Some(Quantity("200m".to_owned())),
                 max: Some(Quantity("4".to_owned())),
@@ -134,7 +131,7 @@ mod test {
         })),
         None,
         None,
-        Ok(RoleResourceEnum::Historical(Resources {
+        Ok(RoleResource::Historical(Resources {
             cpu: CpuLimits {
                 min: Some(Quantity("200m".to_owned())),
                 max: Some(Quantity("4".to_owned())),
@@ -148,7 +145,7 @@ mod test {
         })),
      )]
     #[case(
-        Some(RoleResourceEnum::Historical(Resources {
+        Some(RoleResource::Historical(Resources {
             cpu: CpuLimits {
                 min: Some(Quantity("200m".to_owned())),
                 max: Some(Quantity("4".to_owned())),
@@ -160,7 +157,7 @@ mod test {
             storage: storage::HistoricalStorage {
             },
         })),
-        Some(RoleResourceEnum::Historical(Resources {
+        Some(RoleResource::Historical(Resources {
             cpu: CpuLimits {
                 min: Some(Quantity("200m".to_owned())),
                 max: Some(Quantity("4".to_owned())),
@@ -173,7 +170,7 @@ mod test {
             },
         })),
         None,
-        Ok(RoleResourceEnum::Historical(Resources {
+        Ok(RoleResource::Historical(Resources {
             cpu: CpuLimits {
                 min: Some(Quantity("200m".to_owned())),
                 max: Some(Quantity("4".to_owned())),
@@ -187,7 +184,7 @@ mod test {
         })),
      )]
     #[case(
-        Some(RoleResourceEnum::Historical(Resources {
+        Some(RoleResource::Historical(Resources {
             cpu: CpuLimits {
                 min: Some(Quantity("200m".to_owned())),
                 max: Some(Quantity("4".to_owned())),
@@ -199,7 +196,7 @@ mod test {
             storage: storage::HistoricalStorage {
             },
         })),
-        Some(RoleResourceEnum::Historical(Resources {
+        Some(RoleResource::Historical(Resources {
             cpu: CpuLimits {
                 min: Some(Quantity("200m".to_owned())),
                 max: Some(Quantity("4".to_owned())),
@@ -211,7 +208,7 @@ mod test {
             storage: storage::HistoricalStorage {
             },
         })),
-        Some(RoleResourceEnum::Historical(Resources {
+        Some(RoleResource::Historical(Resources {
             cpu: CpuLimits {
                 min: Some(Quantity("200m".to_owned())),
                 max: Some(Quantity("4".to_owned())),
@@ -223,7 +220,7 @@ mod test {
             storage: storage::HistoricalStorage {
             },
         })),
-        Ok(RoleResourceEnum::Historical(Resources {
+        Ok(RoleResource::Historical(Resources {
             cpu: CpuLimits {
                 min: Some(Quantity("200m".to_owned())),
                 max: Some(Quantity("4".to_owned())),
@@ -237,7 +234,7 @@ mod test {
         })),
      )]
     #[case(
-        Some(RoleResourceEnum::Historical(Resources {
+        Some(RoleResource::Historical(Resources {
             cpu: CpuLimits {
                 min: Some(Quantity("200m".to_owned())),
                 max: Some(Quantity("4".to_owned())),
@@ -249,7 +246,7 @@ mod test {
             storage: storage::HistoricalStorage {
             },
         })),
-        Some(RoleResourceEnum::Druid(Resources {
+        Some(RoleResource::Druid(Resources {
             cpu: CpuLimits {
                 min: Some(Quantity("200m".to_owned())),
                 max: Some(Quantity("4".to_owned())),
@@ -265,10 +262,10 @@ mod test {
      )]
     #[case(None, None, None, Err(Error::NoResourcesToMerge))]
     pub fn test_try_merge(
-        #[case] mut first: Option<RoleResourceEnum>,
-        #[case] mut second: Option<RoleResourceEnum>,
-        #[case] mut third: Option<RoleResourceEnum>,
-        #[case] expected: Result<RoleResourceEnum, Error>,
+        #[case] mut first: Option<RoleResource>,
+        #[case] mut second: Option<RoleResource>,
+        #[case] mut third: Option<RoleResource>,
+        #[case] expected: Result<RoleResource, Error>,
     ) {
         let got = try_merge(first.as_mut(), second.as_mut(), third.as_mut());
 
