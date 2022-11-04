@@ -525,17 +525,12 @@ impl DruidCluster {
         role: &DruidRole,
         rolegroup_ref: &RoleGroupRef<DruidCluster>,
     ) -> Result<resource::RoleResource, Error> {
-        let mut rg_resources = self.rolegroup_resources(role, rolegroup_ref);
-        let mut role_resources = self.role_resources(role);
-        let mut default_resources = self.default_resources(role);
-
-        let result = resource::try_merge(
-            default_resources.as_mut(),
-            role_resources.as_mut(),
-            rg_resources.as_mut(),
-        );
-
-        result.context(ResourceMergeSnafu)
+        resource::try_merge(&[
+            self.default_resources(role),
+            self.role_resources(role),
+            self.rolegroup_resources(role, rolegroup_ref),
+        ])
+        .context(ResourceMergeSnafu)
     }
 
     fn default_resources(&self, role: &DruidRole) -> Option<resource::RoleResource> {

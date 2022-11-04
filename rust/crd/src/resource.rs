@@ -41,31 +41,17 @@ pub enum Error {
     IncompatibleStorageMerging,
 }
 
-/// Merge resources from left to right: first > second > third.
+/// Merge resources from beginning to end of the array: element 0 > element 1 > element 2.
 /// Return a copy of the merged struct.
-pub fn try_merge(
-    first: Option<&mut RoleResource>,
-    second: Option<&mut RoleResource>,
-    third: Option<&mut RoleResource>,
-) -> Result<RoleResource, Error> {
-    let mut some = [first, second, third]
-        .into_iter()
-        .flatten()
-        .collect::<Vec<&mut RoleResource>>();
+pub fn try_merge(resources: &[Option<RoleResource>]) -> Result<RoleResource, Error> {
+    let mut resources = resources.iter().flatten();
+    let mut result = resources.next().ok_or(Error::NoResourcesToMerge)?.clone();
 
-    match some.len() {
-        1 => Ok(some[0].clone()),
-        2 => {
-            let tmp = some[0].clone();
-            try_merge_private(some[1], &tmp)
-        }
-        3 => {
-            let mut tmp = some[0].clone();
-            tmp = try_merge_private(some[1], &tmp)?;
-            try_merge_private(some[2], &tmp)
-        }
-        _ => Err(Error::NoResourcesToMerge),
+    for resource in resources {
+        try_merge_private(&mut result, resource)?;
     }
+
+    Ok(result)
 }
 
 /// Merges `rb` into `ra`, i.e. `ra` has precedence over `rb`.
@@ -262,12 +248,12 @@ mod test {
      )]
     #[case(None, None, None, Err(Error::NoResourcesToMerge))]
     pub fn test_try_merge(
-        #[case] mut first: Option<RoleResource>,
-        #[case] mut second: Option<RoleResource>,
-        #[case] mut third: Option<RoleResource>,
+        #[case] first: Option<RoleResource>,
+        #[case] second: Option<RoleResource>,
+        #[case] third: Option<RoleResource>,
         #[case] expected: Result<RoleResource, Error>,
     ) {
-        let got = try_merge(first.as_mut(), second.as_mut(), third.as_mut());
+        let got = try_merge(&[first, second, third]);
 
         assert_eq!(expected, got);
     }
