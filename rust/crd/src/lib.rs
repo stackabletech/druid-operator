@@ -3,6 +3,7 @@ pub mod tls;
 
 use crate::tls::DruidTls;
 
+use crate::authentication::DruidAuthentication;
 use serde::{Deserialize, Serialize};
 use snafu::{ResultExt, Snafu};
 use stackable_operator::role_utils::RoleGroupRef;
@@ -151,7 +152,7 @@ pub struct DruidClusterSpec {
 pub struct DruidClusterConfig {
     /// Authentication class settings for Druid like TLS authentication or LDAP
     #[serde(default)]
-    pub authentication: Vec<String>,
+    pub authentication: Option<DruidAuthentication>,
     /// Authorization settings for Druid like OPA
     #[serde(skip_serializing_if = "Option::is_none")]
     pub authorization: Option<DruidAuthorization>,

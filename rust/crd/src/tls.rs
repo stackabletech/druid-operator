@@ -28,7 +28,7 @@ pub const CLIENT_HTTPS_TRUST_STORE_PATH: &str = "druid.client.https.trustStorePa
 pub const CLIENT_HTTPS_TRUST_STORE_TYPE: &str = "druid.client.https.trustStoreType";
 pub const CLIENT_HTTPS_TRUST_STORE_PASSWORD: &str = "druid.client.https.trustStorePassword";
 pub const CLIENT_HTTPS_CERT_ALIAS: &str = "druid.client.https.certAlias";
-pub const CLIENT_HTTPS_CERT_ALIAS_NAME: &str = "client";
+pub const TLS_AUTH_ALIAS_NAME: &str = "client-tls-auth";
 // Server side TLS
 pub const SERVER_HTTPS_KEY_STORE_PATH: &str = "druid.server.https.keyStorePath";
 pub const SERVER_HTTPS_KEY_STORE_TYPE: &str = "druid.server.https.keyStoreType";
@@ -37,7 +37,7 @@ pub const SERVER_HTTPS_TRUST_STORE_PATH: &str = "druid.server.https.trustStorePa
 pub const SERVER_HTTPS_TRUST_STORE_TYPE: &str = "druid.server.https.trustStoreType";
 pub const SERVER_HTTPS_TRUST_STORE_PASSWORD: &str = "druid.server.https.trustStorePassword";
 pub const SERVER_HTTPS_CERT_ALIAS: &str = "druid.server.https.certAlias";
-pub const SERVER_HTTPS_CERT_ALIAS_NAME: &str = "server";
+pub const TLS_ALIAS_NAME: &str = "tls";
 // Misc TLS
 pub const TLS_STORE_PASSWORD: &str = "changeit";
 pub const TLS_STORE_TYPE: &str = "pkcs12";
@@ -45,11 +45,8 @@ const DEFAULT_TLS_SECRET_CLASS: &str = "tls";
 const SIMPLE_CLIENT_SSL_CONTEXT: &str = "simple-client-sslcontext";
 
 // directories
-pub const STACKABLE_SERVER_TLS_DIR: &str = "/stackable/server_tls";
-pub const STACKABLE_CLIENT_TLS_DIR: &str = "/stackable/client_tls";
-pub const STACKABLE_SHARED_TLS_DIR: &str = "/stackable/tls";
-pub const STACKABLE_MOUNT_SERVER_TLS_DIR: &str = "/stackable/mount_server_tls";
-pub const STACKABLE_MOUNT_CLIENT_TLS_DIR: &str = "/stackable/mount_client_tls";
+pub const STACKABLE_MOUNT_TLS_DIR: &str = "/stackable/tls";
+pub const STACKABLE_TLS_DIR: &str = "/stackable/tls";
 
 #[derive(Clone, Debug, Default, Deserialize, JsonSchema, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -61,13 +58,16 @@ pub struct DruidTls {
     /// Important: This will activate encrypted internal druid communication as well!
     // TODO: Separating internal and server TLS is currently not possible. Internal communication
     //   happens via the HTTPS port. Even if both HTTPS and HTTP port are enabled, Druid clients
-    //   will default to using TLS. That is why we need shared key and trust stores to allow
-    //   druid internal communication and external client communication.
+    //   will default to using TLS.
     #[serde(
-        default = "DruidTlsSecretClass::default_secret_class",
+        default = "default_secret_class",
         skip_serializing_if = "Option::is_none"
     )]
-    pub server: Option<DruidTlsSecretClass>,
+    pub secret_class: Option<String>,
+}
+
+fn default_secret_class() -> Option<String> {
+    Some(DEFAULT_TLS_SECRET_CLASS.to_string())
 }
 
 impl DruidTls {
@@ -98,7 +98,7 @@ impl DruidTls {
     fn exposed_ports(&self, role: &DruidRole) -> Vec<(String, u16)> {
         let mut ports = vec![(METRICS_PORT_NAME.to_string(), METRICS_PORT)];
 
-        if self.server.is_none() {
+        if self.secret_class.is_none() {
             ports.push((PLAINTEXT_PORT_NAME.to_string(), role.get_http_port()))
         } else {
             ports.push((TLS_PORT_NAME.to_string(), role.get_https_port()))
@@ -108,7 +108,7 @@ impl DruidTls {
     }
 
     pub fn get_probe(&self) -> Probe {
-        let port = if self.server.is_some() {
+        let port = if self.secret_class.is_some() {
             IntOrString::String(TLS_PORT_NAME.to_string())
         } else {
             IntOrString::String(PLAINTEXT_PORT_NAME.to_string())
@@ -133,18 +133,15 @@ impl DruidTls {
         druid: &mut ContainerBuilder,
         pod: &mut PodBuilder,
     ) {
-        if let Some(server_tls) = &self.server {
-            prepare.add_volume_mount("server-tls-mount", STACKABLE_MOUNT_SERVER_TLS_DIR);
-            druid.add_volume_mount("server-tls-mount", STACKABLE_MOUNT_SERVER_TLS_DIR);
-            pod.add_volume(create_tls_volume(
-                "server-tls-mount",
-                &server_tls.secret_class,
-            ));
+        if let Some(secret_class) = &self.secret_class {
+            prepare.add_volume_mount("tls-mount", STACKABLE_MOUNT_TLS_DIR);
+            druid.add_volume_mount("tls-mount", STACKABLE_MOUNT_TLS_DIR);
+            pod.add_volume(create_tls_volume("tls-mount", secret_class));
 
-            prepare.add_volume_mount("server-tls", STACKABLE_SERVER_TLS_DIR);
-            druid.add_volume_mount("server-tls", STACKABLE_SERVER_TLS_DIR);
+            prepare.add_volume_mount("tls", STACKABLE_TLS_DIR);
+            druid.add_volume_mount("tls", STACKABLE_TLS_DIR);
             pod.add_volume(
-                VolumeBuilder::new("server-tls")
+                VolumeBuilder::new("tls")
                     .with_empty_dir(Some(""), None)
                     .build(),
             );
@@ -153,7 +150,7 @@ impl DruidTls {
 
     /// Add required TLS extensions
     pub fn add_tls_extensions(&self, extensions: &mut Vec<String>) {
-        if self.server.is_some() {
+        if self.secret_class.is_some() {
             extensions.push(SIMPLE_CLIENT_SSL_CONTEXT.to_string());
         }
     }
@@ -164,8 +161,19 @@ impl DruidTls {
         config: &mut BTreeMap<String, Option<String>>,
         role: &DruidRole,
     ) {
+        if self.secret_class.is_some() {
+            self.add_tls_port_config_properties(config, role);
+            Self::add_tls_config_properties(config, STACKABLE_TLS_DIR, TLS_ALIAS_NAME);
+        }
+    }
+
+    pub fn add_tls_port_config_properties(
+        &self,
+        config: &mut BTreeMap<String, Option<String>>,
+        role: &DruidRole,
+    ) {
         // no secure communication
-        if self.server.is_none() {
+        if self.secret_class.is_none() {
             config.insert(ENABLE_PLAINTEXT_PORT.to_string(), Some("true".to_string()));
             config.insert(ENABLE_TLS_PORT.to_string(), Some("false".to_string()));
             config.insert(
@@ -182,58 +190,61 @@ impl DruidTls {
                 Some(role.get_https_port().to_string()),
             );
         }
+    }
 
-        if self.server.is_some() {
-            config.insert(
-                CLIENT_HTTPS_TRUST_STORE_PATH.to_string(),
-                Some(format!("{}/truststore.p12", STACKABLE_SERVER_TLS_DIR)),
-            );
-            config.insert(
-                CLIENT_HTTPS_TRUST_STORE_TYPE.to_string(),
-                Some(TLS_STORE_TYPE.to_string()),
-            );
-            config.insert(
-                CLIENT_HTTPS_TRUST_STORE_PASSWORD.to_string(),
-                Some(TLS_STORE_PASSWORD.to_string()),
-            );
+    pub fn add_tls_config_properties(
+        config: &mut BTreeMap<String, Option<String>>,
+        store_directory: &str,
+        store_alias: &str,
+    ) {
+        config.insert(
+            CLIENT_HTTPS_TRUST_STORE_PATH.to_string(),
+            Some(format!("{}/truststore.p12", store_directory)),
+        );
+        config.insert(
+            CLIENT_HTTPS_TRUST_STORE_TYPE.to_string(),
+            Some(TLS_STORE_TYPE.to_string()),
+        );
+        config.insert(
+            CLIENT_HTTPS_TRUST_STORE_PASSWORD.to_string(),
+            Some(TLS_STORE_PASSWORD.to_string()),
+        );
 
-            config.insert(
-                SERVER_HTTPS_KEY_STORE_PATH.to_string(),
-                Some(format!("{}/keystore.p12", STACKABLE_SERVER_TLS_DIR)),
-            );
-            config.insert(
-                SERVER_HTTPS_KEY_STORE_TYPE.to_string(),
-                Some(TLS_STORE_TYPE.to_string()),
-            );
-            config.insert(
-                SERVER_HTTPS_KEY_STORE_PASSWORD.to_string(),
-                Some(TLS_STORE_PASSWORD.to_string()),
-            );
-            config.insert(
-                SERVER_HTTPS_CERT_ALIAS.to_string(),
-                Some(SERVER_HTTPS_CERT_ALIAS_NAME.to_string()),
-            );
-        }
+        config.insert(
+            SERVER_HTTPS_KEY_STORE_PATH.to_string(),
+            Some(format!("{}/keystore.p12", store_directory)),
+        );
+        config.insert(
+            SERVER_HTTPS_KEY_STORE_TYPE.to_string(),
+            Some(TLS_STORE_TYPE.to_string()),
+        );
+        config.insert(
+            SERVER_HTTPS_KEY_STORE_PASSWORD.to_string(),
+            Some(TLS_STORE_PASSWORD.to_string()),
+        );
+        config.insert(
+            SERVER_HTTPS_CERT_ALIAS.to_string(),
+            Some(store_alias.to_string()),
+        );
     }
 
     /// Create init container command to create key and trust stores
     pub fn build_tls_stores_cmd(&self) -> Vec<String> {
         let mut command = vec![];
-        if self.server.is_some() {
+        if self.secret_class.is_some() {
             command.extend(add_cert_to_trust_store_cmd(
-                STACKABLE_MOUNT_SERVER_TLS_DIR,
-                STACKABLE_SERVER_TLS_DIR,
-                SERVER_HTTPS_CERT_ALIAS_NAME,
+                STACKABLE_MOUNT_TLS_DIR,
+                STACKABLE_TLS_DIR,
+                TLS_ALIAS_NAME,
                 TLS_STORE_PASSWORD,
-                true,
             ));
             command.extend(add_key_pair_to_key_store_cmd(
-                STACKABLE_MOUNT_SERVER_TLS_DIR,
-                STACKABLE_SERVER_TLS_DIR,
-                SERVER_HTTPS_CERT_ALIAS_NAME,
+                STACKABLE_MOUNT_TLS_DIR,
+                STACKABLE_TLS_DIR,
+                TLS_ALIAS_NAME,
                 TLS_STORE_PASSWORD,
             ));
-            command.extend(chown_and_chmod(STACKABLE_SERVER_TLS_DIR));
+            command.extend(chown_and_chmod(STACKABLE_TLS_DIR));
         }
 
         command
@@ -246,19 +257,14 @@ pub fn add_cert_to_trust_store_cmd(
     trust_store_directory: &str,
     alias_name: &str,
     store_password: &str,
-    delete_before: bool,
 ) -> Vec<String> {
     let mut command = vec![];
-
-    if delete_before {
-        command.push(format!(
-            "echo [{trust_store_directory}] Cleaning up truststore - just in case"
-        ));
-        command.push(format!("rm -f {trust_store_directory}/truststore.p12"));
-    }
-
     command.push(format!(
-        "echo [{trust_store_directory}] Creating truststore"
+        "echo Cleaning up truststore [{trust_store_directory}/truststore.p12] - just in case"
+    ));
+    command.push(format!("rm -f {trust_store_directory}/truststore.p12"));
+    command.push(format!(
+        "echo Creating truststore [{trust_store_directory}/truststore.p12]"
     ));
     command.push(format!("keytool -importcert -file {cert_directory}/ca.crt -keystore {trust_store_directory}/truststore.p12 -storetype pkcs12 -alias {alias_name} -storepass {store_password} -noprompt"));
 
@@ -273,18 +279,10 @@ pub fn add_key_pair_to_key_store_cmd(
     store_password: &str,
 ) -> Vec<String> {
     vec![
-        format!("echo [{cert_directory}] Creating certificate chain"),
-        format!("cat {cert_directory}/ca.crt {cert_directory}/tls.crt > {cert_directory}/chain.crt"),
-        // We have add the key cert pair via openssl to a temporary (keystore_<alias>.p12) PKCS12 keystore first, to add multiple key pairs (e.g. for TLS and client authentication)
-        // Using this command twice will simply override any existing entries
-        format!("echo [{key_store_directory}] Creating temporary [{key_store_directory}/keystore_{alias_name}.p12]"),
-        format!("openssl pkcs12 -export -in {cert_directory}/chain.crt -inkey {cert_directory}/tls.key -out {key_store_directory}/keystore_{alias_name}.p12 --passout pass:{store_password} -name {alias_name}"),
-        // We have to add the temporary keystore to our final keystore using keytool
-        format!("echo [{key_store_directory}] Adding temporary [{key_store_directory}/keystore_{alias_name}].p12 to [{key_store_directory}/keystore.p12]"),
-        format!("keytool -importkeystore -srckeystore {key_store_directory}/keystore_{alias_name}.p12 -srcstoretype pkcs12 -srcstorepass {store_password} -destkeystore {key_store_directory}/keystore.p12 -deststoretype pkcs12 -deststorepass {store_password}"),
-        // Delete the temporary keystore
-        format!("echo [{key_store_directory}] Removing temporary [{key_store_directory}/keystore_{alias_name}.p12"),
-        format!("rm -f {key_store_directory}/keystore_{alias_name}.p12")
+        format!("echo Creating certificate chain [{key_store_directory}/chain.crt]"),
+        format!("cat {cert_directory}/ca.crt {cert_directory}/tls.crt > {key_store_directory}/chain.crt"),
+        format!("echo Creating keystore [{key_store_directory}/keystore.p12]"),
+        format!("openssl pkcs12 -export -in {key_store_directory}/chain.crt -inkey {cert_directory}/tls.key -out {key_store_directory}/keystore.p12 --passout pass:{store_password} -name {alias_name}"),
     ]
 }
 
@@ -297,6 +295,7 @@ pub fn chown_and_chmod(directory: &str) -> Vec<String> {
     ]
 }
 
+/// Create an ephemeral TLS volume
 pub fn create_tls_volume(volume_name: &str, tls_secret_class: &str) -> Volume {
     VolumeBuilder::new(volume_name)
         .ephemeral(
@@ -306,18 +305,4 @@ pub fn create_tls_volume(volume_name: &str, tls_secret_class: &str) -> Volume {
                 .build(),
         )
         .build()
-}
-
-#[derive(Clone, Debug, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct DruidTlsSecretClass {
-    pub secret_class: String,
-}
-
-impl DruidTlsSecretClass {
-    fn default_secret_class() -> Option<DruidTlsSecretClass> {
-        Some(DruidTlsSecretClass {
-            secret_class: DEFAULT_TLS_SECRET_CLASS.to_string(),
-        })
-    }
 }

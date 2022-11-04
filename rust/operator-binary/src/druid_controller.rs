@@ -451,8 +451,9 @@ fn build_rolegroup_config_map(
                     DS_BUCKET.to_string(),
                     deep_storage_bucket_name.map(str::to_string),
                 );
+
                 for auth in authentication {
-                    auth.add_cluster_config_properties(&mut transformed_config);
+                    auth.add_authentication_config_properties(&mut transformed_config);
                 }
 
                 let runtime_properties =

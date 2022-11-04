@@ -38,7 +38,8 @@ spec:
   clusterConfig:
 {% if test_scenario['values']['use-tls'] == 'true' and test_scenario['values']['use-tls-auth'] == 'true' %}
     authentication:
-      - druid-tls-auth-class
+      tls:
+        authenticationClass: druid-tls-auth-class
 {% endif %}
     deepStorage:
       hdfs:
@@ -49,12 +50,11 @@ spec:
       connString: jdbc:derby://localhost:1527/var/druid/metadata.db;create=true
       host: localhost
       port: 1527
-    tls:
 {% if test_scenario['values']['use-tls'] == 'true' %}
-      server:
-        secretClass: tls
+    tls:
+      secretClass: tls
 {% else  %}
-      server: null
+    tls: null
 {% endif %}
     zookeeperConfigMapName: druid-znode
   brokers:
