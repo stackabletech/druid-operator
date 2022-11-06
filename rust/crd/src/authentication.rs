@@ -1,4 +1,4 @@
-use crate::{DruidCluster};
+use crate::DruidCluster;
 
 use serde::{Deserialize, Serialize};
 use snafu::{ResultExt, Snafu};
@@ -26,10 +26,6 @@ pub enum Error {
         authentication_class_provider: String,
         authentication_class: ObjectRef<AuthenticationClass>,
     },
-    #[snafu(display(
-        "TLS encryption is deactivated. This is required for any authentication mechanism. Please set proper values in [spec.clusterConfig.tls.server.secretClass]"
-    ))]
-    TlsNotActivated,
 }
 
 #[derive(Clone, Debug, Deserialize, JsonSchema, Serialize)]
@@ -50,12 +46,6 @@ impl DruidAuthentication {
         client: &Client,
         druid: &DruidCluster,
     ) -> Result<Vec<DruidAuthenticationConfig>, Error> {
-        // TODO: what to do?
-        // Do not allow authentication without TLS activated
-        if druid.spec.cluster_config.tls.is_none() {
-            return Err(Error::TlsNotActivated);
-        }
-
         let mut druid_authentication_config: Vec<DruidAuthenticationConfig> = vec![];
 
         if let Some(DruidAuthentication {

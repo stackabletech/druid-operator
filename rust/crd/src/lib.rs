@@ -432,18 +432,22 @@ impl DruidCluster {
         Some(conf_rolegroup)
     }
 
-    // Determines if the cluster should be encrypted via TLS
-    pub fn tls_encryption_enabled(&self) -> bool {
-        self.spec.cluster_config.tls.is_some()
-    }
-
-    // Determine if the cluster should be encrypted and authenticated via TLS
-    pub fn tls_authentication_enabled(&self) -> bool {
-        if let Some(DruidAuthentication { tls: Some(_) }) = &self.spec.cluster_config.authentication
-        {
-            return true;
+    // Determines if the cluster should be encrypted / authenticated via TLS
+    pub fn tls_enabled(&self) -> bool {
+        // TLS encryption
+        if self.spec.cluster_config.tls.is_some() {
+            true
         }
-        false
+        // TLS authentication with provided AuthenticationClass
+        else if let Some(DruidAuthentication { tls: Some(_) }) =
+            &self.spec.cluster_config.authentication
+        {
+            true
+        }
+        // No TLS required
+        else {
+            false
+        }
     }
 }
 
@@ -584,9 +588,11 @@ impl Configuration for DruidConfig {
                     String::from(EXT_BASIC_SECURITY),
                     String::from(EXT_OPA_AUTHORIZER),
                     String::from(EXT_HDFS),
-                    // TODO: depend on TLS encryption / auth?
-                    String::from(EXT_SIMPLE_CLIENT_SSL_CONTEXT),
                 ];
+
+                if resource.tls_enabled() {
+                    extensions.push(String::from(EXT_SIMPLE_CLIENT_SSL_CONTEXT));
+                }
 
                 // metadata storage
                 let mds = &resource.spec.cluster_config.metadata_storage_database;

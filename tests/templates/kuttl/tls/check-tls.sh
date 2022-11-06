@@ -10,12 +10,12 @@ then
   HOST=http://derby-druid-router-default-0.derby-druid-router-default.${NAMESPACE}.svc.cluster.local:8888/status/health
 
   # should work
-  echo "Test non TLS access"
+  echo "Test unsecured access"
   if curl $HOST &> /dev/null
   then
-    echo "[SUCCESS] Could establish connection to unprotected server!"
+    echo "[SUCCESS] Could establish connection to unsecured server!"
   else
-    echo "[ERROR] Could not establish connection to unprotected server! Should not be happening!"
+    echo "[ERROR] Could not establish connection to unsecured server! Should not be happening!"
     exit 1
   fi
 fi
@@ -26,7 +26,7 @@ then
   HOST=https://derby-druid-router-default-0.derby-druid-router-default.${NAMESPACE}.svc.cluster.local:9088/status/health
 
   # should not work without --insecure
-  echo "Test TLS without insecure access"
+  echo "Test TLS without trusted CA and without insecure access"
   if curl $HOST &> /dev/null
   then
     echo "[ERROR] Could establish connection to untrusted server. Should not be happening!"
@@ -36,7 +36,7 @@ then
   fi
 
   # should work with insecure
-  echo "Test TLS with insecure access"
+  echo "Test TLS without trusted CA but with insecure access"
   if curl --insecure $HOST &> /dev/null
   then
     echo "[SUCCESS] Could establish connection to server disregarding certificate!"
