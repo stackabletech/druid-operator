@@ -22,6 +22,14 @@ dimensions:
     values:
       - "true"
       - "false"
+  - name: use-tls
+    values:
+      - "true"
+      - "false"
+  - name: use-tls-auth
+    values:
+      - "true"
+      - "false"
 tests:
   - name: smoke
     dimensions:
@@ -68,3 +76,5 @@ tests:
       - druid
       - zookeeper-latest
       - hadoop
+      - use-tls
+      - use-tls-auth
