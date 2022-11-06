@@ -250,7 +250,67 @@ spec:
 <1> Name of the HDFS cluster discovery config map. Can be supplied manually for a cluster not provided by Stackable. Needs to contain the `core-site.xml` and `hdfs-site.xml`.
 <2> The directory where to store the druid data.
 
-== Using Open Policy Agent (OPA) for Authorization
+== Security
+
+The Druid cluster can be secured and protected in multiple ways.
+
+=== Encryption
+
+TLS encryption is supported for internal cluster communication (e.g. between Broker and Coordinator) as well as for external communication (e.g. between the Browser and the Router Web UI).
+
+[source,yaml]
+----
+spec:
+  clusterConfig:
+    tls:
+      secretClass: tls # <1>
+----
+<1> Name of the `SecretClass` that is used to encrypt communication.
+
+IMPORTANT: A Stackable Druid cluster is always encrypted per default. In order to disable this default behavior you can set `spec.clusterConfig.tls: null`.
+
+=== Authentication
+
+==== TLS
+
+The access to the Druid cluster can be limited by configuring client authentication (mutual TLS) for all participants. This means that clients (e.g. the Browser or a Broker) have to authenticate themselves with valid certificates in order to communicate with the Druid cluster.
+
+[source,yaml]
+----
+spec:
+  clusterConfig:
+    authentication:
+      tls:
+        authenticationClass: druid-tls-auth # <1>
+----
+<1> Name of the `AuthenticationClass` that is used to encrypt and authenticate communication.
+
+IMPORTANT: The TLS `AuthenticationClass` and its respective `SecretClass` will always take precedence over the TLS encryption `SecretClass` (if provided).
+
+The `AuthenticationClass` may or may not have a `SecretClass` configured:
+[source,yaml]
+----
+---
+apiVersion: authentication.stackable.tech/v1alpha1
+kind: AuthenticationClass
+metadata:
+  name: druid-mtls-authentication-class
+spec:
+  provider:
+    # Option 1
+    tls:
+      clientCertSecretClass: druid-mtls # <1>
+    # Option 2
+    tls: null # <2>
+----
+<1> If a client `SecretClass` is provided in the `AuthenticationClass` (here `druid-mtls`), these certificates will be used for encryption and authentication.
+<2> If no client `SecretClass` is provided in the `AuthenticationClass`, the `spec.clusterConfig.tls.secretClass` will be used for encryption and authentication. It cannot be explicitly set to null in this case.
+
+==== LDAP
+
+Currently not supported.
+
+=== Authorization with Open Policy Agent (OPA)
 
 Druid can connect to an Open Policy Agent (OPA) instance for authorization policy decisions. You need to run an OPA instance to connect to, for which we refer to the https://docs.stackable.tech/opa/index.html[OPA Operator docs]. How you can write RegoRules for Druid is explained <<_defining_regorules, below>>.
 
