@@ -16,12 +16,12 @@ use strum::{EnumDiscriminants, IntoStaticStr};
 #[derive(Snafu, Debug, EnumDiscriminants)]
 #[strum_discriminants(derive(IntoStaticStr))]
 pub enum Error {
-    #[snafu(display("Failed to retrieve AuthenticationClass {authentication_class}"))]
+    #[snafu(display("Failed to retrieve AuthenticationClass [{authentication_class}]"))]
     AuthenticationClassRetrieval {
         source: stackable_operator::error::Error,
         authentication_class: ObjectRef<AuthenticationClass>,
     },
-    #[snafu(display("The Trino Operator doesn't support the AuthenticationClass provider {authentication_class_provider} from AuthenticationClass {authentication_class} yet"))]
+    #[snafu(display("The Druid operator doesn't support the AuthenticationClass provider [{authentication_class_provider}] from AuthenticationClass [{authentication_class}]"))]
     AuthenticationClassProviderNotSupported {
         authentication_class_provider: String,
         authentication_class: ObjectRef<AuthenticationClass>,
