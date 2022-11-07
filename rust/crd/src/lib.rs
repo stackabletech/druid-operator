@@ -526,9 +526,9 @@ impl DruidCluster {
         rolegroup_ref: &RoleGroupRef<DruidCluster>,
     ) -> Result<resource::RoleResource, Error> {
         resource::try_merge(&[
-            self.default_resources(role),
-            self.role_resources(role),
             self.rolegroup_resources(role, rolegroup_ref),
+            self.role_resources(role),
+            self.default_resources(role),
         ])
         .context(ResourceMergeSnafu)
     }
@@ -958,6 +958,14 @@ fn build_string_list(strings: &[String]) -> String {
 
 #[cfg(test)]
 mod tests {
+    use stackable_operator::{
+        commons::resources::{CpuLimits, MemoryLimits},
+        k8s_openapi::apimachinery::pkg::api::resource::Quantity,
+        kube::runtime::reflector::ObjectRef,
+    };
+
+    use crate::resource::RoleResource;
+
     use super::*;
 
     #[test]
@@ -977,5 +985,64 @@ mod tests {
             cluster.role_service_fqdn(&DruidRole::Router),
             Some("testcluster-router.default.svc.cluster.local".to_string())
         )
+    }
+
+    #[test]
+    fn test_resource_merge() -> Result<(), Error> {
+        let cluster_cr =
+            std::fs::File::open("test/resources/resource_merge/druid_cluster.yaml").unwrap();
+        let cluster: DruidCluster = serde_yaml::from_reader(&cluster_cr).unwrap();
+
+        let resources_from_role_group = RoleGroupRef {
+            cluster: ObjectRef::from_obj(&cluster),
+            role: "middle_managers".into(),
+            role_group: "resources-from-role-group".into(),
+        };
+        if let RoleResource::Druid(middlemanager_resources_from_rg) =
+            cluster.resources(&DruidRole::MiddleManager, &resources_from_role_group)?
+        {
+            let expected = Resources {
+                cpu: CpuLimits {
+                    min: Some(Quantity("300m".to_owned())),
+                    max: Some(Quantity("3".to_owned())),
+                },
+                memory: MemoryLimits {
+                    limit: Some(Quantity("3Gi".to_owned())),
+                    runtime_limits: NoRuntimeLimits {},
+                },
+                storage: storage::DruidStorage {},
+            };
+
+            assert_eq!(middlemanager_resources_from_rg, expected);
+        } else {
+            panic!("No role group named [resources-from-role-group] found");
+        }
+
+        let resources_from_role = RoleGroupRef {
+            cluster: ObjectRef::from_obj(&cluster),
+            role: "middle_managers".into(),
+            role_group: "resources-from-role".into(),
+        };
+        if let RoleResource::Druid(middlemanager_resources_from_rg) =
+            cluster.resources(&DruidRole::MiddleManager, &resources_from_role)?
+        {
+            let expected = Resources {
+                cpu: CpuLimits {
+                    min: Some(Quantity("100m".to_owned())),
+                    max: Some(Quantity("1".to_owned())),
+                },
+                memory: MemoryLimits {
+                    limit: Some(Quantity("1Gi".to_owned())),
+                    runtime_limits: NoRuntimeLimits {},
+                },
+                storage: storage::DruidStorage {},
+            };
+
+            assert_eq!(middlemanager_resources_from_rg, expected);
+        } else {
+            panic!("No role group named [resources-from-role] found");
+        }
+
+        Ok(())
     }
 }
