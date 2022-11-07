@@ -9,6 +9,8 @@ All notable changes to this project will be documented in this file.
 - Cpu and memory limits are now configurable ([#298]).
 - Stale resources are now deleted ([#310]).
 - Support Druid 24.0.0 ([#317]).
+- Refactor role configuration with per role structs like `BrokerConfig`, `HistoricalConfig`, etc ([#332])
+- Added `HistoricalStorage` and `DruidStorage` (as catch-all storage configuration) ([#332])
 - BREAKING: Support for TLS encryption (activated per default -> port changes) and TLS authentication ([#333]).
 - BREAKING: Reworked top level configuration. Deep storage, Ingestion spec, discovery config maps etc. are now subfields of `spec.clusterConfig` instead of being top level under `spec` ([#333]).
 
@@ -19,6 +21,7 @@ All notable changes to this project will be documented in this file.
 [#298]: https://github.com/stackabletech/druid-operator/pull/298
 [#310]: https://github.com/stackabletech/druid-operator/pull/310
 [#317]: https://github.com/stackabletech/druid-operator/pull/317
+[#332]: https://github.com/stackabletech/druid-operator/pull/332
 [#333]: https://github.com/stackabletech/druid-operator/pull/333
 
 ## [0.7.0] - 2022-09-06
