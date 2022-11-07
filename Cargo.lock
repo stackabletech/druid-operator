@@ -1815,7 +1815,7 @@ dependencies = [
 
 [[package]]
 name = "stackable-druid-crd"
-version = "0.8.0-nightly"
+version = "0.9.0-nightly"
 dependencies = [
  "lazy_static",
  "rstest",
@@ -1831,7 +1831,7 @@ dependencies = [
 
 [[package]]
 name = "stackable-druid-operator"
-version = "0.8.0-nightly"
+version = "0.9.0-nightly"
 dependencies = [
  "anyhow",
  "built",

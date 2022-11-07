@@ -773,4 +773,4 @@ metadata:
   labels:
     app.kubernetes.io/name: druid-operator
     app.kubernetes.io/instance: druid-operator
-    app.kubernetes.io/version: "0.8.0-nightly"
+    app.kubernetes.io/version: "0.9.0-nightly"
