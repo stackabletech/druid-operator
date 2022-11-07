@@ -698,21 +698,17 @@ impl DruidCluster {
         }
     }
 
-    // Determines if the cluster should be encrypted / authenticated via TLS
+    /// Determines if the cluster should be encrypted / authenticated via TLS
     pub fn tls_enabled(&self) -> bool {
         // TLS encryption
         if self.spec.cluster_config.tls.is_some() {
             true
-        }
-        // TLS authentication with provided AuthenticationClass
-        else if let Some(DruidAuthentication { tls: Some(_) }) =
-            &self.spec.cluster_config.authentication
-        {
-            true
-        }
-        // No TLS required
-        else {
-            false
+        } else {
+            // TLS authentication with provided AuthenticationClass or no TLS required?
+            matches!(
+                &self.spec.cluster_config.authentication,
+                Some(DruidAuthentication { tls: Some(_) })
+            )
         }
     }
 }

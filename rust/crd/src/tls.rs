@@ -146,14 +146,13 @@ impl DruidTlsSettings {
             // This is a bad configuration (TLS auth required, but certificates are neither provided in the AuthenticationClass nor in the TLS encryption SecretClass
             else {
                 return Err(Error::InvalidTlsConfiguration {
-                    reason: format!("TLS client authentication is required but no certificates are provided in the `spec.cluster_config.authentication.tls.authenticationClass` \
-                                     or in the `spec.cluster_config.tls.secretClass` encryption settings")
+                    reason: "TLS client authentication is required but no certificates are provided in the \
+                             `spec.cluster_config.authentication.tls.authenticationClass` \
+                             or in the `spec.cluster_config.tls.secretClass` encryption settings".to_string()
                 });
             }
-        } else if let Some(tls) = &self.encryption {
-            Some(&tls.secret_class)
         } else {
-            None
+            self.encryption.as_ref().map(|tls| &tls.secret_class)
         };
 
         if let Some(secret_class) = secret_class {
