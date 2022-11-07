@@ -340,21 +340,31 @@ impl DruidTlsSettings {
         command
     }
 
-    pub fn get_probe(&self) -> Probe {
-        let port = if self.encryption.is_some() || self.authentication.is_some() {
-            IntOrString::String(TLS_PORT_NAME.to_string())
-        } else {
-            IntOrString::String(PLAINTEXT_PORT_NAME.to_string())
-        };
+    pub fn get_tcp_socket_probe(
+        &self,
+        initial_delay_seconds: i32,
+        period_seconds: i32,
+        failure_threshold: i32,
+    ) -> Probe {
+        let port = self.get_port_name();
 
         Probe {
             tcp_socket: Some(TCPSocketAction {
                 port,
                 ..Default::default()
             }),
-            initial_delay_seconds: Some(30),
-            period_seconds: Some(5),
+            initial_delay_seconds: Some(initial_delay_seconds),
+            period_seconds: Some(period_seconds),
+            failure_threshold: Some(failure_threshold),
             ..Default::default()
+        }
+    }
+
+    fn get_port_name(&self) -> IntOrString {
+        if self.encryption.is_some() || self.authentication.is_some() {
+            IntOrString::String(TLS_PORT_NAME.to_string())
+        } else {
+            IntOrString::String(PLAINTEXT_PORT_NAME.to_string())
         }
     }
 }

@@ -8,7 +8,7 @@ use snafu::{OptionExt, ResultExt, Snafu};
 use stackable_druid_crd::tls::DruidTlsSettings;
 use stackable_druid_crd::{
     authentication, authentication::DruidAuthentication, resource::RoleResource, tls,
-    DeepStorageSpec, DruidAuthorization, DruidCluster, DruidRole, DruidStorageConfig, APP_NAME,
+    DeepStorageSpec, DruidAuthorization, DruidCluster, DruidRole, APP_NAME,
     AUTH_AUTHORIZER_OPA_URI, CERTS_DIR, CONTROLLER_NAME, CREDENTIALS_SECRET_PROPERTY,
     DRUID_CONFIG_DIRECTORY, DS_BUCKET, HDFS_CONFIG_DIRECTORY, JVM_CONFIG, LOG4J2_CONFIG,
     RUNTIME_PROPS, RW_CONFIG_DIRECTORY, S3_ENDPOINT_URL, S3_PATH_STYLE_ACCESS, S3_SECRET_DIR_NAME,
@@ -278,24 +278,6 @@ pub async fn reconcile_druid(druid: Arc<DruidCluster>, ctx: Arc<Ctx>) -> Result<
         authentication: tls_authentication_config,
     };
 
-    let mut roles = HashMap::new();
-    for role in DruidRole::iter() {
-        roles.insert(
-            role.to_string(),
-            (
-                vec![
-                    PropertyNameKind::Env,
-                    PropertyNameKind::File(JVM_CONFIG.to_string()),
-                    PropertyNameKind::File(LOG4J2_CONFIG.to_string()),
-                    PropertyNameKind::File(RUNTIME_PROPS.to_string()),
-                ]
-                .clone(),
-                druid.get_role(&role).clone(),
-            ),
-        );
-    }
-
-    let role_config = transform_all_roles_to_config(&*druid, roles);
     let role_config = transform_all_roles_to_config(&*druid, druid.build_role_properties());
     let validated_role_config = validate_all_roles_and_groups_config(
         druid.version(),
@@ -605,10 +587,6 @@ fn build_rolegroup_statefulset(
         role: rolegroup_ref.role.to_string(),
     })?;
     let druid_version = druid.version();
-    let rolegroup = druid
-        .get_role(&role)
-        .role_groups
-        .get(&rolegroup_ref.role_group);
 
     // init container builder
     let mut cb_prepare = ContainerBuilder::new("prepare")
@@ -659,8 +637,8 @@ fn build_rolegroup_statefulset(
     cb_druid.image_pull_policy("IfNotPresent");
     cb_druid.add_env_vars(rest_env);
     cb_druid.add_container_ports(tls_settings.container_ports(&role));
-    cb_druid.readiness_probe(tls_settings.get_probe());
-    cb_druid.liveness_probe(tls_settings.get_probe());
+    cb_druid.readiness_probe(tls_settings.get_tcp_socket_probe(30, 5, 5));
+    cb_druid.liveness_probe(tls_settings.get_tcp_socket_probe(30, 5, 5));
     cb_druid.resources(resources.as_resource_requirements());
 
     pb.add_init_container(cb_prepare.build());
