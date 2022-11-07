@@ -7,18 +7,20 @@ metadata:
   uid: test-resource-merge
 spec:
   version: 24.0.0-stackable0.1.0
-  zookeeperConfigMapName: psql-druid-znode
-  metadataStorageDatabase:
-    dbType: postgresql
-    connString: jdbc:postgresql://druid-postgresql/druid
-    host: druid-postgresql
-    port: 5432
-    user: druid
-    password: druid
-  deepStorage:
-    hdfs:
-      configMapName: simple-hdfs
-      directory: /druid
+  clusterConfig:
+    deepStorage:
+      hdfs:
+        configMapName: simple-hdfs
+        directory: /druid
+    metadataStorageDatabase:
+      dbType: postgresql
+      connString: jdbc:postgresql://druid-postgresql/druid
+      host: druid-postgresql
+      port: 5432
+      user: druid
+      password: druid
+    tls: null
+    zookeeperConfigMapName: psql-druid-znode
   brokers:
     roleGroups:
       default:
