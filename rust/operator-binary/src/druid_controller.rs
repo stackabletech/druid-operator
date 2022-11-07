@@ -637,8 +637,12 @@ fn build_rolegroup_statefulset(
     cb_druid.image_pull_policy("IfNotPresent");
     cb_druid.add_env_vars(rest_env);
     cb_druid.add_container_ports(tls_settings.container_ports(&role));
-    cb_druid.readiness_probe(tls_settings.get_tcp_socket_probe(30, 5, 5));
-    cb_druid.liveness_probe(tls_settings.get_tcp_socket_probe(30, 5, 5));
+    // 10s * 30 = 300s to come up
+    cb_druid.startup_probe(tls_settings.get_tcp_socket_probe(30, 10, 30, 3));
+    // 10s * 1 = 10s to get removed from service
+    cb_druid.readiness_probe(tls_settings.get_tcp_socket_probe(10, 10, 1, 3));
+    // 10s * 3 = 30s to be restarted
+    cb_druid.liveness_probe(tls_settings.get_tcp_socket_probe(10, 10, 3, 3));
     cb_druid.resources(resources.as_resource_requirements());
 
     pb.add_init_container(cb_prepare.build());

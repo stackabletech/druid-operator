@@ -8,8 +8,6 @@ use crate::tls::DruidTls;
 
 use serde::{Deserialize, Serialize};
 use snafu::{ResultExt, Snafu};
-use stackable_operator::product_config::types::PropertyNameKind;
-use stackable_operator::role_utils::RoleGroupRef;
 use stackable_operator::{
     client::Client,
     commons::{
@@ -19,12 +17,15 @@ use stackable_operator::{
         tls::{CaCert, Tls, TlsServerVerification, TlsVerification},
     },
     kube::{CustomResource, ResourceExt},
+    product_config::types::PropertyNameKind,
     product_config_utils::{ConfigError, Configuration},
-    role_utils::Role,
+    role_utils::{Role, RoleGroupRef},
     schemars::{self, JsonSchema},
 };
-use std::collections::{BTreeMap, HashMap};
-use std::str::FromStr;
+use std::{
+    collections::{BTreeMap, HashMap},
+    str::FromStr,
+};
 use strum::{Display, EnumDiscriminants, EnumIter, EnumString, IntoStaticStr};
 
 pub const APP_NAME: &str = "druid";

@@ -345,8 +345,13 @@ impl DruidTlsSettings {
         initial_delay_seconds: i32,
         period_seconds: i32,
         failure_threshold: i32,
+        timeout_seconds: i32,
     ) -> Probe {
-        let port = self.get_port_name();
+        let port = if self.encryption.is_some() || self.authentication.is_some() {
+            IntOrString::String(TLS_PORT_NAME.to_string())
+        } else {
+            IntOrString::String(PLAINTEXT_PORT_NAME.to_string())
+        };
 
         Probe {
             tcp_socket: Some(TCPSocketAction {
@@ -356,15 +361,8 @@ impl DruidTlsSettings {
             initial_delay_seconds: Some(initial_delay_seconds),
             period_seconds: Some(period_seconds),
             failure_threshold: Some(failure_threshold),
+            timeout_seconds: Some(timeout_seconds),
             ..Default::default()
-        }
-    }
-
-    fn get_port_name(&self) -> IntOrString {
-        if self.encryption.is_some() || self.authentication.is_some() {
-            IntOrString::String(TLS_PORT_NAME.to_string())
-        } else {
-            IntOrString::String(PLAINTEXT_PORT_NAME.to_string())
         }
     }
 }

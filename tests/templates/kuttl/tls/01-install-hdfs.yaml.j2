@@ -5,6 +5,14 @@ metadata:
   name: druid-hdfs
 timeout: 600
 ---
+apiVersion: zookeeper.stackable.tech/v1alpha1
+kind: ZookeeperZnode
+metadata:
+  name: druid-hdfs-znode
+spec:
+  clusterRef:
+    name: druid-zk
+---
 apiVersion: hdfs.stackable.tech/v1alpha1
 kind: HdfsCluster
 metadata:
@@ -25,11 +33,3 @@ spec:
     roleGroups:
       default:
         replicas: 1
----
-apiVersion: zookeeper.stackable.tech/v1alpha1
-kind: ZookeeperZnode
-metadata:
-  name: druid-hdfs-znode
-spec:
-  clusterRef:
-    name: druid-zk
