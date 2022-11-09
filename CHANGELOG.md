@@ -6,13 +6,13 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
-- Updated stackable image versions ([#xxx]).
+- Updated stackable image versions ([#339]).
 
 ### Removed
 
-- Retired support for 0.22.1 as it is not build anymore via the docker actions ([#xxx]).
+- Retired support for 0.22.1 as it is not build anymore via the docker actions ([#339]).
 
-[#xxx]: https://github.com/stackabletech/druid-operator/pull/xxx
+[#339]: https://github.com/stackabletech/druid-operator/pull/339
 
 ## [0.8.0] - 2022-11-07
 
