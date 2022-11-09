@@ -47,7 +47,7 @@ kind: DruidCluster
 metadata:
   name: psql-s3-druid
 spec:
-  version: 24.0.0-stackable0.1.0
+  version: 24.0.0-stackable0.2.0
   zookeeperConfigMapName: simple-druid-znode
   metadataStorageDatabase:
     dbType: postgresql
