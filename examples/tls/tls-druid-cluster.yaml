@@ -1,4 +1,44 @@
 ---
+apiVersion: zookeeper.stackable.tech/v1alpha1
+kind: ZookeeperCluster
+metadata:
+  name: druid-zk
+spec:
+  version: 3.8.0-stackable0.8.0
+  servers:
+    roleGroups:
+      default:
+        replicas: 1
+---
+apiVersion: zookeeper.stackable.tech/v1alpha1
+kind: ZookeeperZnode
+metadata:
+  name: druid-hdfs-znode
+spec:
+  clusterRef:
+    name: druid-zk
+---
+apiVersion: hdfs.stackable.tech/v1alpha1
+kind: HdfsCluster
+metadata:
+  name: druid-hdfs
+spec:
+  version: 3.3.3-stackable0.1.0
+  zookeeperConfigMapName: druid-hdfs-znode
+  dfsReplication: 1
+  nameNodes:
+    roleGroups:
+      default:
+        replicas: 2
+  dataNodes:
+    roleGroups:
+      default:
+        replicas: 1
+  journalNodes:
+    roleGroups:
+      default:
+        replicas: 1
+---
 apiVersion: secrets.stackable.tech/v1alpha1
 kind: SecretClass
 metadata:
@@ -20,6 +60,14 @@ spec:
   provider:
     tls:
       clientCertSecretClass: druid-mtls
+---
+apiVersion: zookeeper.stackable.tech/v1alpha1
+kind: ZookeeperZnode
+metadata:
+  name: druid-znode
+spec:
+  clusterRef:
+    name: druid-zk
 ---
 apiVersion: druid.stackable.tech/v1alpha1
 kind: DruidCluster
