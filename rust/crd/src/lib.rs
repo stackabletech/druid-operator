@@ -312,7 +312,6 @@ impl DruidCluster {
 
     pub fn common_compute_files(
         &self,
-        _role_name: &str,
         file: &str,
     ) -> Result<BTreeMap<String, Option<String>>, ConfigError> {
         let mut result = BTreeMap::new();
@@ -871,10 +870,10 @@ impl Configuration for BrokerConfig {
     fn compute_files(
         &self,
         resource: &Self::Configurable,
-        role_name: &str,
+        _role_name: &str,
         file: &str,
     ) -> Result<BTreeMap<String, Option<String>>, ConfigError> {
-        resource.common_compute_files(role_name, file)
+        resource.common_compute_files(file)
     }
 }
 
@@ -901,10 +900,10 @@ impl Configuration for HistoricalConfig {
     fn compute_files(
         &self,
         resource: &Self::Configurable,
-        role_name: &str,
+        _role_name: &str,
         file: &str,
     ) -> Result<BTreeMap<String, Option<String>>, ConfigError> {
-        resource.common_compute_files(role_name, file)
+        resource.common_compute_files(file)
     }
 }
 
@@ -931,10 +930,10 @@ impl Configuration for RouterConfig {
     fn compute_files(
         &self,
         resource: &Self::Configurable,
-        role_name: &str,
+        _role_name: &str,
         file: &str,
     ) -> Result<BTreeMap<String, Option<String>>, ConfigError> {
-        resource.common_compute_files(role_name, file)
+        resource.common_compute_files(file)
     }
 }
 
@@ -961,10 +960,10 @@ impl Configuration for MiddleManagerConfig {
     fn compute_files(
         &self,
         resource: &Self::Configurable,
-        role_name: &str,
+        _role_name: &str,
         file: &str,
     ) -> Result<BTreeMap<String, Option<String>>, ConfigError> {
-        let mut result = resource.common_compute_files(role_name, file)?;
+        let mut result = resource.common_compute_files(file)?;
         result.insert(
             INDEXER_JAVA_OPTS.to_string(),
             Some(build_string_list(&[
@@ -1000,10 +999,10 @@ impl Configuration for CoordinatorConfig {
     fn compute_files(
         &self,
         resource: &Self::Configurable,
-        role_name: &str,
+        _role_name: &str,
         file: &str,
     ) -> Result<BTreeMap<String, Option<String>>, ConfigError> {
-        resource.common_compute_files(role_name, file)
+        resource.common_compute_files(file)
     }
 }
 
