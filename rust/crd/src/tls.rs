@@ -203,8 +203,9 @@ impl DruidTlsSettings {
         config: &mut BTreeMap<String, Option<String>>,
         role: &DruidRole,
     ) {
+        self.add_tls_port_config_properties(config, role);
+
         if self.encryption.is_some() || self.authentication.is_some() {
-            self.add_tls_port_config_properties(config, role);
             Self::add_tls_encryption_config_properties(config, STACKABLE_TLS_DIR, TLS_ALIAS_NAME);
         }
 
@@ -420,4 +421,169 @@ pub fn create_tls_volume(volume_name: &str, tls_secret_class: &str) -> Volume {
                 .build(),
         )
         .build()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::DEFAULT_TLS_SECRET_CLASS;
+    use stackable_operator::commons::tls::TlsAuthenticationProvider;
+
+    #[test]
+    fn test_add_tls_config_properties_no_encryption_no_authentication() {
+        let tls_settings_encryption = DruidTlsSettings {
+            encryption: None,
+            authentication: None,
+        };
+
+        let mut config = BTreeMap::new();
+        let role = DruidRole::Router;
+        let port = role.get_http_port().to_string();
+        tls_settings_encryption.add_tls_config_properties(&mut config, &role);
+
+        let check = vec![
+            (ENABLE_PLAINTEXT_PORT, "true"),
+            (ENABLE_TLS_PORT, "false"),
+            (PLAINTEXT_PORT, &port),
+        ];
+
+        for (key, value) in check {
+            assert_eq!(config.get(key).unwrap().as_deref(), Some(value));
+        }
+    }
+
+    #[test]
+    fn test_add_tls_config_properties_only_encryption() {
+        let tls_settings_encryption = DruidTlsSettings {
+            encryption: Some(DruidTls {
+                secret_class: DEFAULT_TLS_SECRET_CLASS.to_string(),
+            }),
+            authentication: None,
+        };
+
+        let mut config = BTreeMap::new();
+        let role = DruidRole::Router;
+        let port = role.get_https_port().to_string();
+        let truststore_path = format!("{}/truststore.p12", STACKABLE_TLS_DIR);
+        let keystore_path = format!("{}/keystore.p12", STACKABLE_TLS_DIR);
+
+        tls_settings_encryption.add_tls_config_properties(&mut config, &role);
+
+        let check = vec![
+            (ENABLE_PLAINTEXT_PORT, "false"),
+            (ENABLE_TLS_PORT, "true"),
+            (TLS_PORT, &port),
+            (CLIENT_HTTPS_TRUST_STORE_PATH, &truststore_path),
+            (CLIENT_HTTPS_TRUST_STORE_TYPE, TLS_STORE_TYPE),
+            (CLIENT_HTTPS_TRUST_STORE_PASSWORD, TLS_STORE_PASSWORD),
+            (SERVER_HTTPS_KEY_STORE_PATH, &keystore_path),
+            (SERVER_HTTPS_KEY_STORE_TYPE, TLS_STORE_TYPE),
+            (SERVER_HTTPS_KEY_STORE_PASSWORD, TLS_STORE_PASSWORD),
+            (SERVER_HTTPS_CERT_ALIAS, TLS_ALIAS_NAME),
+        ];
+
+        for (key, value) in check {
+            assert_eq!(config.get(key).unwrap().as_deref(), Some(value));
+        }
+    }
+
+    #[test]
+    fn test_add_tls_config_properties_only_authentication() {
+        let tls_settings_encryption = DruidTlsSettings {
+            encryption: None,
+            authentication: Some(DruidAuthenticationConfig::Tls(TlsAuthenticationProvider {
+                client_cert_secret_class: Some(DEFAULT_TLS_SECRET_CLASS.to_string()),
+            })),
+        };
+
+        let mut config = BTreeMap::new();
+        let role = DruidRole::Router;
+        let port = role.get_https_port().to_string();
+        let truststore_path = format!("{}/truststore.p12", STACKABLE_TLS_DIR);
+        let keystore_path = format!("{}/keystore.p12", STACKABLE_TLS_DIR);
+
+        tls_settings_encryption.add_tls_config_properties(&mut config, &role);
+
+        let check = vec![
+            (ENABLE_PLAINTEXT_PORT, "false"),
+            (ENABLE_TLS_PORT, "true"),
+            (TLS_PORT, &port),
+            // tls
+            (CLIENT_HTTPS_TRUST_STORE_PATH, &truststore_path),
+            (CLIENT_HTTPS_TRUST_STORE_TYPE, TLS_STORE_TYPE),
+            (CLIENT_HTTPS_TRUST_STORE_PASSWORD, TLS_STORE_PASSWORD),
+            (SERVER_HTTPS_KEY_STORE_PATH, &keystore_path),
+            (SERVER_HTTPS_KEY_STORE_TYPE, TLS_STORE_TYPE),
+            (SERVER_HTTPS_KEY_STORE_PASSWORD, TLS_STORE_PASSWORD),
+            (SERVER_HTTPS_CERT_ALIAS, TLS_ALIAS_NAME),
+            // auth
+            (CLIENT_HTTPS_KEY_STORE_PATH, &keystore_path),
+            (CLIENT_HTTPS_KEY_STORE_TYPE, TLS_STORE_TYPE),
+            (CLIENT_HTTPS_KEY_STORE_PASSWORD, TLS_STORE_PASSWORD),
+            (CLIENT_HTTPS_KEY_MANAGER_PASSWORD, TLS_STORE_PASSWORD),
+            (CLIENT_HTTPS_CERT_ALIAS, TLS_ALIAS_NAME),
+            (CLIENT_HTTPS_VALIDATE_HOST_NAMES, "false"),
+            (SERVER_HTTPS_TRUST_STORE_PATH, &truststore_path),
+            (SERVER_HTTPS_TRUST_STORE_TYPE, TLS_STORE_TYPE),
+            (SERVER_HTTPS_TRUST_STORE_PASSWORD, TLS_STORE_PASSWORD),
+            (SERVER_HTTPS_CERT_ALIAS, TLS_ALIAS_NAME),
+            (SERVER_HTTPS_REQUIRE_CLIENT_CERTIFICATE, "true"),
+            (SERVER_HTTPS_VALIDATE_HOST_NAMES, "false"),
+        ];
+
+        for (key, value) in check {
+            assert_eq!(config.get(key).unwrap().as_deref(), Some(value));
+        }
+    }
+
+    #[test]
+    fn test_add_tls_config_properties_encryptioon_and_authentication() {
+        let tls_settings_encryption = DruidTlsSettings {
+            encryption: Some(DruidTls {
+                secret_class: DEFAULT_TLS_SECRET_CLASS.to_string(),
+            }),
+            authentication: Some(DruidAuthenticationConfig::Tls(TlsAuthenticationProvider {
+                client_cert_secret_class: Some(DEFAULT_TLS_SECRET_CLASS.to_string()),
+            })),
+        };
+
+        let mut config = BTreeMap::new();
+        let role = DruidRole::Router;
+        let port = role.get_https_port().to_string();
+        let truststore_path = format!("{}/truststore.p12", STACKABLE_TLS_DIR);
+        let keystore_path = format!("{}/keystore.p12", STACKABLE_TLS_DIR);
+
+        tls_settings_encryption.add_tls_config_properties(&mut config, &role);
+
+        let check = vec![
+            (ENABLE_PLAINTEXT_PORT, "false"),
+            (ENABLE_TLS_PORT, "true"),
+            (TLS_PORT, &port),
+            // tls
+            (CLIENT_HTTPS_TRUST_STORE_PATH, &truststore_path),
+            (CLIENT_HTTPS_TRUST_STORE_TYPE, TLS_STORE_TYPE),
+            (CLIENT_HTTPS_TRUST_STORE_PASSWORD, TLS_STORE_PASSWORD),
+            (SERVER_HTTPS_KEY_STORE_PATH, &keystore_path),
+            (SERVER_HTTPS_KEY_STORE_TYPE, TLS_STORE_TYPE),
+            (SERVER_HTTPS_KEY_STORE_PASSWORD, TLS_STORE_PASSWORD),
+            (SERVER_HTTPS_CERT_ALIAS, TLS_ALIAS_NAME),
+            // auth
+            (CLIENT_HTTPS_KEY_STORE_PATH, &keystore_path),
+            (CLIENT_HTTPS_KEY_STORE_TYPE, TLS_STORE_TYPE),
+            (CLIENT_HTTPS_KEY_STORE_PASSWORD, TLS_STORE_PASSWORD),
+            (CLIENT_HTTPS_KEY_MANAGER_PASSWORD, TLS_STORE_PASSWORD),
+            (CLIENT_HTTPS_CERT_ALIAS, TLS_ALIAS_NAME),
+            (CLIENT_HTTPS_VALIDATE_HOST_NAMES, "false"),
+            (SERVER_HTTPS_TRUST_STORE_PATH, &truststore_path),
+            (SERVER_HTTPS_TRUST_STORE_TYPE, TLS_STORE_TYPE),
+            (SERVER_HTTPS_TRUST_STORE_PASSWORD, TLS_STORE_PASSWORD),
+            (SERVER_HTTPS_CERT_ALIAS, TLS_ALIAS_NAME),
+            (SERVER_HTTPS_REQUIRE_CLIENT_CERTIFICATE, "true"),
+            (SERVER_HTTPS_VALIDATE_HOST_NAMES, "false"),
+        ];
+
+        for (key, value) in check {
+            assert_eq!(config.get(key).unwrap().as_deref(), Some(value));
+        }
+    }
 }
