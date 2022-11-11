@@ -769,7 +769,7 @@ fn add_s3_volume_and_volume_mounts(
                             pb.add_volume(volume);
                             cb_druid.add_volume_mount(
                                 &volume_name,
-                                format!("{CERTS_DIR}{volume_name}"),
+                                format!("{CERTS_DIR}/{volume_name}"),
                             );
                         }
                     }

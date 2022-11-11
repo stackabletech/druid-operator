@@ -48,7 +48,7 @@ pub const SYSTEM_TRUST_STORE: &str = "/etc/pki/java/cacerts";
 pub const SYSTEM_TRUST_STORE_PASSWORD: &str = "changeit";
 pub const STACKABLE_TRUST_STORE: &str = "/stackable/truststore.p12";
 pub const STACKABLE_TRUST_STORE_PASSWORD: &str = "changeit";
-pub const CERTS_DIR: &str = "/stackable/certificates/";
+pub const CERTS_DIR: &str = "/stackable/certificates";
 
 /////////////////////////////
 //    CONFIG PROPERTIES    //
@@ -270,7 +270,7 @@ impl DruidRole {
                     }),
             }) = &s3_connection.tls
             {
-                shell_cmd.push(format!("keytool -importcert -file /stackable/certificates/{secret_class}-tls-certificate/ca.crt -alias stackable-{secret_class} -keystore {STACKABLE_TRUST_STORE} -storepass {STACKABLE_TRUST_STORE_PASSWORD} -noprompt"));
+                shell_cmd.push(format!("keytool -importcert -file {CERTS_DIR}/{secret_class}-tls-certificate/ca.crt -alias stackable-{secret_class} -keystore {STACKABLE_TRUST_STORE} -storepass {STACKABLE_TRUST_STORE_PASSWORD} -noprompt"));
             }
 
             if s3_connection.credentials.is_some() {

@@ -537,7 +537,7 @@ mod tests {
     }
 
     #[test]
-    fn test_add_tls_config_properties_encryptioon_and_authentication() {
+    fn test_add_tls_config_properties_encryption_and_authentication() {
         let tls_settings_encryption = DruidTlsSettings {
             encryption: Some(DruidTls {
                 secret_class: DEFAULT_TLS_SECRET_CLASS.to_string(),

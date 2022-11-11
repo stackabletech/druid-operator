@@ -265,7 +265,7 @@ spec:
     tls:
       secretClass: tls # <1>
 ----
-<1> Name of the `SecretClass` that is used to encrypt communication.
+<1> Name of the `SecretClass` that is used to encrypt internal and external communication.
 
 IMPORTANT: A Stackable Druid cluster is always encrypted per default. In order to disable this default behavior you can set `spec.clusterConfig.tls: null`.
 
@@ -273,7 +273,7 @@ IMPORTANT: A Stackable Druid cluster is always encrypted per default. In order t
 
 ==== TLS
 
-The access to the Druid cluster can be limited by configuring client authentication (mutual TLS) for all participants. This means that clients (e.g. the Browser or a Broker) have to authenticate themselves with valid certificates in order to communicate with the Druid cluster.
+The access to the Druid cluster can be limited by configuring client authentication (mutual TLS) for all participants. This means that processes acting as internal clients (e.g. a Broker) or external clients (e.g. a Browser) have to authenticate themselves with valid certificates in order to communicate with the Druid cluster.
 
 [source,yaml]
 ----
