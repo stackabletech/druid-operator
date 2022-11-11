@@ -2,7 +2,6 @@
 dimensions:
   - name: druid
     values:
-      - 0.22.1-authorizer0.1.0-stackable0.2.0
       - 0.23.0-stackable0.1.0
       - 24.0.0-stackable0.1.0
   - name: zookeeper
@@ -75,6 +74,5 @@ tests:
     dimensions:
       - druid
       - zookeeper-latest
-      - hadoop
       - use-tls
       - use-tls-auth
