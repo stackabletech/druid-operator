@@ -271,7 +271,7 @@ mod test {
             NoRuntimeLimitsFragment,
         },
         k8s_openapi::apimachinery::pkg::api::resource::Quantity,
-        //        kube::runtime::reflector::ObjectRef,
+        kube::runtime::reflector::ObjectRef,
     };
 
     #[rstest]
@@ -448,9 +448,8 @@ mod test {
         }
     }
 
-    /*
     #[test]
-    fn test_resource_merge() -> Result<(), Error> {
+    fn test_resources() -> Result<(), Error> {
         let cluster_cr =
             std::fs::File::open("test/resources/resource_merge/druid_cluster.yaml").unwrap();
         let cluster: DruidCluster = serde_yaml::from_reader(&cluster_cr).unwrap();
@@ -460,19 +459,21 @@ mod test {
             role: "middle_managers".into(),
             role_group: "resources-from-role-group".into(),
         };
-        if let RoleResourceFragment::Druid(middlemanager_resources_from_rg) =
-            resources(&cluster,&DruidRole::MiddleManager, &resources_from_role_group)?
-        {
-            let expected = ResourcesFragment {
-                cpu: CpuLimitsFragment {
+        if let RoleResource::Druid(middlemanager_resources_from_rg) = resources(
+            &cluster,
+            &DruidRole::MiddleManager,
+            &resources_from_role_group,
+        )? {
+            let expected = Resources {
+                cpu: CpuLimits {
                     min: Some(Quantity("300m".to_owned())),
                     max: Some(Quantity("3".to_owned())),
                 },
-                memory: MemoryLimitsFragment {
+                memory: MemoryLimits {
                     limit: Some(Quantity("3Gi".to_owned())),
-                    runtime_limits: NoRuntimeLimitsFragment {},
+                    runtime_limits: NoRuntimeLimits {},
                 },
-                storage: storage::DruidStorageFragment {},
+                storage: storage::DruidStorage {},
             };
 
             assert_eq!(middlemanager_resources_from_rg, expected);
@@ -485,19 +486,19 @@ mod test {
             role: "middle_managers".into(),
             role_group: "resources-from-role".into(),
         };
-        if let RoleResourceFragment::Druid(middlemanager_resources_from_rg) =
-            cluster.resources(&DruidRole::MiddleManager, &resources_from_role)?
+        if let RoleResource::Druid(middlemanager_resources_from_rg) =
+            resources(&cluster, &DruidRole::MiddleManager, &resources_from_role)?
         {
-            let expected = ResourcesFragment {
-                cpu: CpuLimitsFragment {
+            let expected = Resources {
+                cpu: CpuLimits {
                     min: Some(Quantity("100m".to_owned())),
                     max: Some(Quantity("1".to_owned())),
                 },
-                memory: MemoryLimitsFragment {
+                memory: MemoryLimits {
                     limit: Some(Quantity("1Gi".to_owned())),
-                    runtime_limits: NoRuntimeLimitsFragment {},
+                    runtime_limits: NoRuntimeLimits {},
                 },
-                storage: storage::DruidStorageFragment {},
+                storage: storage::DruidStorage {},
             };
 
             assert_eq!(middlemanager_resources_from_rg, expected);
@@ -507,5 +508,4 @@ mod test {
 
         Ok(())
     }
-    */
 }
