@@ -392,36 +392,6 @@ mod test {
             },
         }),
      )]
-    /*
-    #[case(
-        Some(RoleResource::Historical(Resources {
-            cpu: CpuLimits {
-                min: Some(Quantity("200m".to_owned())),
-                max: Some(Quantity("4".to_owned())),
-            },
-            memory: MemoryLimits {
-                limit: Some(Quantity("2Gi".to_owned())),
-                runtime_limits: NoRuntimeLimits {},
-            },
-            storage: storage::HistoricalStorage {
-            },
-        })),
-        Some(RoleResource::Druid(Resources {
-            cpu: CpuLimits {
-                min: Some(Quantity("200m".to_owned())),
-                max: Some(Quantity("4".to_owned())),
-            },
-            memory: MemoryLimits {
-                limit: Some(Quantity("2Gi".to_owned())),
-                runtime_limits: NoRuntimeLimits {},
-            },
-            storage: storage::DruidStorage { },
-        })),
-        None,
-        Err(Error::IncompatibleStorageMerging),
-     )]
-    #[case(None, None, None, Err(Error::NoResourcesToMerge))]
-      */
     fn test_try_merge_ok(
         #[case] first: Option<RoleResourceFragment>,
         #[case] second: Option<RoleResourceFragment>,
@@ -431,6 +401,51 @@ mod test {
         let got = try_merge(&[first, second, third]);
 
         assert_eq!(expected, got.unwrap());
+    }
+
+    #[rstest]
+    #[case(
+        Some(RoleResourceFragment::HistoricalFragment(ResourcesFragment {
+            cpu: CpuLimitsFragment  {
+                min: Some(Quantity("200m".to_owned())),
+                max: Some(Quantity("4".to_owned())),
+            },
+            memory: MemoryLimitsFragment  {
+                limit: Some(Quantity("2Gi".to_owned())),
+                runtime_limits: NoRuntimeLimitsFragment  {},
+            },
+            storage: storage::HistoricalStorageFragment  {
+            },
+        })),
+        Some(RoleResourceFragment ::DruidFragment (ResourcesFragment  {
+            cpu: CpuLimitsFragment  {
+                min: Some(Quantity("200m".to_owned())),
+                max: Some(Quantity("4".to_owned())),
+            },
+            memory: MemoryLimitsFragment  {
+                limit: Some(Quantity("2Gi".to_owned())),
+                runtime_limits: NoRuntimeLimitsFragment {},
+            },
+            storage: storage::DruidStorageFragment  { },
+        })),
+        None,
+        Error::IncompatibleStorageMerging,
+     )]
+    #[case(None, None, None, Error::NoResourcesToMerge)]
+    fn test_try_merge_err(
+        #[case] first: Option<RoleResourceFragment>,
+        #[case] second: Option<RoleResourceFragment>,
+        #[case] third: Option<RoleResourceFragment>,
+        #[case] expected: Error,
+    ) {
+        let got = try_merge(&[first, second, third]);
+
+        // Poor man's assert_eq since Error cannot derive PartialEq
+        match (expected, got.err().unwrap()) {
+            (Error::IncompatibleStorageMerging, Error::IncompatibleStorageMerging) => (),
+            (Error::NoResourcesToMerge, Error::NoResourcesToMerge) => (),
+            _ => panic!("something went wrong here"),
+        }
     }
 
     /*
