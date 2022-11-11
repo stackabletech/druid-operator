@@ -25,7 +25,7 @@ spec:
           volumeMounts:
             - mountPath: /tmp/tls
               name: tls
-{% if test_scenario['values']['use-tls'] == 'true' and test_scenario['values']['use-tls-auth'] %}
+{% if test_scenario['values']['use-tls'] == 'true' and test_scenario['values']['use-tls-auth'] == 'true' %}
             - mountPath: /tmp/tls_auth
               name: tls-auth
 {% endif %}
@@ -46,7 +46,7 @@ spec:
                 storageClassName: secrets.stackable.tech
                 volumeMode: Filesystem
           name: tls
-{% if test_scenario['values']['use-tls'] == 'true' and test_scenario['values']['use-tls-auth'] %}
+{% if test_scenario['values']['use-tls'] == 'true' and test_scenario['values']['use-tls-auth'] == 'true' %}
         - ephemeral:
             volumeClaimTemplate:
               metadata:
