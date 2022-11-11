@@ -5,14 +5,14 @@ use crate::{
 };
 
 use snafu::{OptionExt, ResultExt, Snafu};
+use stackable_druid_crd::resource::{self, RoleResource};
 use stackable_druid_crd::tls::DruidTlsSettings;
 use stackable_druid_crd::{
-    authentication, authentication::DruidAuthentication, resource::RoleResource, tls,
-    DeepStorageSpec, DruidAuthorization, DruidCluster, DruidRole, APP_NAME,
-    AUTH_AUTHORIZER_OPA_URI, CERTS_DIR, CONTROLLER_NAME, CREDENTIALS_SECRET_PROPERTY,
-    DRUID_CONFIG_DIRECTORY, DS_BUCKET, HDFS_CONFIG_DIRECTORY, JVM_CONFIG, LOG4J2_CONFIG,
-    RUNTIME_PROPS, RW_CONFIG_DIRECTORY, S3_ENDPOINT_URL, S3_PATH_STYLE_ACCESS, S3_SECRET_DIR_NAME,
-    ZOOKEEPER_CONNECTION_STRING,
+    authentication, authentication::DruidAuthentication, tls, DeepStorageSpec, DruidAuthorization,
+    DruidCluster, DruidRole, APP_NAME, AUTH_AUTHORIZER_OPA_URI, CERTS_DIR, CONTROLLER_NAME,
+    CREDENTIALS_SECRET_PROPERTY, DRUID_CONFIG_DIRECTORY, DS_BUCKET, HDFS_CONFIG_DIRECTORY,
+    JVM_CONFIG, LOG4J2_CONFIG, RUNTIME_PROPS, RW_CONFIG_DIRECTORY, S3_ENDPOINT_URL,
+    S3_PATH_STYLE_ACCESS, S3_SECRET_DIR_NAME, ZOOKEEPER_CONNECTION_STRING,
 };
 use stackable_operator::{
     builder::{
@@ -35,7 +35,7 @@ use stackable_operator::{
     },
     kube::{
         runtime::{controller::Action, reflector::ObjectRef},
-        Resource, ResourceExt,
+        Resource,
     },
     labels::{role_group_selector_labels, role_selector_labels},
     logging::controller::ReconcilerError,
@@ -154,7 +154,9 @@ pub enum Error {
         role: String,
     },
     #[snafu(display("failed to resolve and merge resource config for role and role group"))]
-    FailedToResolveResourceConfig { source: stackable_druid_crd::Error },
+    FailedToResolveResourceConfig {
+        source: stackable_druid_crd::resource::Error,
+    },
     #[snafu(display("invalid java heap config - missing default or value in crd?"))]
     InvalidJavaHeapConfig,
     #[snafu(display("failed to convert java heap config to unit [{unit}]"))]
@@ -187,6 +189,8 @@ pub enum Error {
     InvalidAuthenticationConfig { source: authentication::Error },
     #[snafu(display("invalid tls configuration"))]
     InvalidTlsConfig { source: tls::Error },
+    #[snafu(display("object defines no namespace"))]
+    ObjectHasNoNamespace,
 }
 
 type Result<T, E = Error> = std::result::Result<T, E>;
@@ -200,10 +204,15 @@ impl ReconcilerError for Error {
 pub async fn reconcile_druid(druid: Arc<DruidCluster>, ctx: Arc<Ctx>) -> Result<Action> {
     tracing::info!("Starting reconcile");
     let client = &ctx.client;
+    let namespace = &druid
+        .metadata
+        .namespace
+        .clone()
+        .with_context(|| ObjectHasNoNamespaceSnafu {})?;
 
     let zk_confmap = druid.spec.cluster_config.zookeeper_config_map_name.clone();
     let zk_connstr = client
-        .get::<ConfigMap>(&zk_confmap, druid.namespace().as_deref())
+        .get::<ConfigMap>(&zk_confmap, namespace)
         .await
         .context(GetZookeeperConnStringConfigMapSnafu {
             cm_name: zk_confmap.clone(),
@@ -245,7 +254,7 @@ pub async fn reconcile_druid(druid: Arc<DruidCluster>, ctx: Arc<Ctx>) -> Result<
         DeepStorageSpec::S3(s3_spec) => {
             s3_spec
                 .bucket
-                .resolve(client, druid.namespace().as_deref())
+                .resolve(client, namespace)
                 .await
                 .context(GetDeepStorageBucketSnafu)?
                 .bucket_name
@@ -309,8 +318,7 @@ pub async fn reconcile_druid(druid: Arc<DruidCluster>, ctx: Arc<Ctx>) -> Result<
                 role_group: rolegroup_name.into(),
             };
 
-            let resources = druid
-                .resources(&druid_role, &rolegroup)
+            let resources = resource::resources(&druid, &druid_role, &rolegroup)
                 .context(FailedToResolveResourceConfigSnafu)?;
 
             let rg_service = build_rolegroup_services(&druid, &rolegroup, &druid_tls_settings)?;
@@ -777,6 +785,6 @@ fn container_image(version: &str) -> String {
     format!("docker.stackable.tech/stackable/druid:{}", version)
 }
 
-pub fn error_policy(_error: &Error, _ctx: Arc<Ctx>) -> Action {
-    Action::requeue(Duration::from_secs(5))
+pub fn error_policy(_obj: Arc<DruidCluster>, _error: &Error, _ctx: Arc<Ctx>) -> Action {
+    Action::requeue(Duration::from_secs(10))
 }
