@@ -1,4 +1,4 @@
-use crate::storage;
+use crate::storage::{self, FreePercentageEmptyDirFragment};
 use crate::{DruidCluster, DruidRole};
 use lazy_static::lazy_static;
 use snafu::{ResultExt, Snafu};
@@ -102,7 +102,9 @@ lazy_static! {
                 limit: Some(Quantity("2Gi".to_owned())),
                 runtime_limits: NoRuntimeLimitsFragment {},
             },
-            storage: storage::HistoricalStorageFragment {},
+            storage: storage::HistoricalStorageFragment {
+                segment_cache: FreePercentageEmptyDirFragment::default(),
+            },
         };
 }
 
@@ -268,6 +270,8 @@ fn try_merge_private(
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate::storage::FreePercentageEmptyDir;
+
     use rstest::*;
     use stackable_operator::{
         commons::resources::{
@@ -290,6 +294,7 @@ mod test {
                 runtime_limits: NoRuntimeLimitsFragment{},
             },
             storage: storage::HistoricalStorageFragment{
+                segment_cache: FreePercentageEmptyDirFragment::default(),
             },
         })),
         None,
@@ -304,6 +309,7 @@ mod test {
                 runtime_limits: NoRuntimeLimits{},
             },
             storage: storage::HistoricalStorage{
+                segment_cache: FreePercentageEmptyDir::default(),
             },
         }),
      )]
@@ -318,6 +324,7 @@ mod test {
                 runtime_limits: NoRuntimeLimitsFragment  {},
             },
             storage: storage::HistoricalStorageFragment  {
+                segment_cache: FreePercentageEmptyDirFragment::default(),
             },
         })),
         Some(RoleResourceFragment::HistoricalFragment(ResourcesFragment  {
@@ -330,6 +337,7 @@ mod test {
                 runtime_limits: NoRuntimeLimitsFragment {},
             },
             storage: storage::HistoricalStorageFragment {
+                segment_cache: FreePercentageEmptyDirFragment::default(),
             },
         })),
         None,
@@ -343,6 +351,7 @@ mod test {
                 runtime_limits: NoRuntimeLimits {},
             },
             storage: storage::HistoricalStorage {
+                segment_cache: FreePercentageEmptyDir::default(),
             },
         }),
      )]
@@ -357,6 +366,7 @@ mod test {
                 runtime_limits: NoRuntimeLimitsFragment  {},
             },
             storage: storage::HistoricalStorageFragment  {
+                segment_cache: FreePercentageEmptyDirFragment::default(),
             },
         })),
         Some(RoleResourceFragment::HistoricalFragment (ResourcesFragment  {
@@ -369,6 +379,7 @@ mod test {
                 runtime_limits: NoRuntimeLimitsFragment  {},
             },
             storage: storage::HistoricalStorageFragment  {
+                segment_cache: FreePercentageEmptyDirFragment::default(),
             },
         })),
         Some(RoleResourceFragment::HistoricalFragment (ResourcesFragment  {
@@ -381,6 +392,7 @@ mod test {
                 runtime_limits: NoRuntimeLimitsFragment  {},
             },
             storage: storage::HistoricalStorageFragment  {
+                segment_cache: FreePercentageEmptyDirFragment::default(),
             },
         })),
         RoleResource::Historical(Resources {
@@ -393,6 +405,7 @@ mod test {
                 runtime_limits: NoRuntimeLimits {},
             },
             storage: storage::HistoricalStorage {
+                segment_cache: FreePercentageEmptyDir::default(),
             },
         }),
      )]
@@ -419,6 +432,7 @@ mod test {
                 runtime_limits: NoRuntimeLimitsFragment  {},
             },
             storage: storage::HistoricalStorageFragment  {
+                segment_cache: FreePercentageEmptyDirFragment::default(),
             },
         })),
         Some(RoleResourceFragment ::DruidFragment (ResourcesFragment  {
