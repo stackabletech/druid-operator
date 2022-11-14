@@ -35,7 +35,7 @@ pub enum Error {
     },
 }
 
-/// The sole puprose of this enum is to handle merging. It's needed because currently
+/// The sole purpose of this enum is to handle merging. It's needed because currently
 /// the operator-rs 0.26.1 doesn't handle fragment enum merging.
 #[derive(Debug, Clone, PartialEq)]
 enum RoleResourceFragment {
