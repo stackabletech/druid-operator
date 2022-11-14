@@ -49,15 +49,16 @@ pub enum RoleResource {
     Historical(Resources<storage::HistoricalStorage, NoRuntimeLimits>),
 }
 
-impl From<RoleResourceFragment> for RoleResource {
-    fn from(rrf: RoleResourceFragment) -> Self {
+impl TryFrom<RoleResourceFragment> for RoleResource {
+    type Error = Error;
+    fn try_from(rrf: RoleResourceFragment) -> Result<Self, Error> {
         match rrf {
-            RoleResourceFragment::DruidFragment(fragment) => {
-                RoleResource::Druid(fragment::validate(fragment).unwrap()) // this succeeds because the actual validation has happened in try_merge
-            }
-            RoleResourceFragment::HistoricalFragment(fragment) => {
-                RoleResource::Historical(fragment::validate(fragment).unwrap())
-            }
+            RoleResourceFragment::DruidFragment(fragment) => Ok(RoleResource::Druid(
+                fragment::validate(fragment).with_context(|_| ResourceValidationSnafu)?,
+            )),
+            RoleResourceFragment::HistoricalFragment(fragment) => Ok(RoleResource::Historical(
+                fragment::validate(fragment).with_context(|_| ResourceValidationSnafu)?,
+            )),
         }
     }
 }
@@ -236,7 +237,7 @@ fn try_merge(resources: &[Option<RoleResourceFragment>]) -> Result<RoleResource,
         try_merge_private(&mut result, resource)?;
     }
 
-    Ok(RoleResource::from(result))
+    RoleResource::try_from(result)
 }
 
 /// Merges `rb` into `ra`, i.e. `ra` has precedence over `rb`.

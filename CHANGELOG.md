@@ -4,15 +4,15 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
-### Changed
-
-- Updated stackable image versions ([#339]).
-- Upgrade to `operator-rs` `0.26.1` ([#340])
-
 ### Added
 
 - BREAKING: Support for TLS encryption (activated per default -> port changes) and TLS authentication ([#333]).
 - BREAKING: Reworked top level configuration. Deep storage, Ingestion spec, discovery config maps etc. are now subfields of `spec.clusterConfig` instead of being top level under `spec` ([#333]).
+
+### Changed
+
+- Updated stackable image versions ([#339]).
+- Upgrade to `operator-rs` `0.26.1` ([#340])
 
 ### Removed
 
