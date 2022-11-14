@@ -7,12 +7,13 @@ use crate::authentication::DruidAuthentication;
 use crate::tls::DruidTls;
 
 use serde::{Deserialize, Serialize};
-use snafu::{ResultExt, Snafu};
+use snafu::{OptionExt, ResultExt, Snafu};
+use stackable_operator::commons::resources::ResourcesFragment;
 use stackable_operator::{
     client::Client,
     commons::{
         opa::OpaConfig,
-        resources::{NoRuntimeLimits, Resources},
+        resources::NoRuntimeLimits,
         s3::{InlinedS3BucketSpec, S3BucketDef, S3ConnectionDef, S3ConnectionSpec},
         tls::{CaCert, Tls, TlsServerVerification, TlsVerification},
     },
@@ -122,8 +123,8 @@ pub enum Error {
     IncompatibleS3Connections,
     #[snafu(display("Unknown Druid role found {role}. Should be one of {roles:?}"))]
     UnknownDruidRole { role: String, roles: Vec<String> },
-    #[snafu(display("failed to merge resource definitions"))]
-    ResourceMerge { source: resource::Error },
+    #[snafu(display("missing namespace for resource {name}"))]
+    MissingNamespace { name: String },
 }
 
 #[derive(Clone, CustomResource, Debug, Deserialize, JsonSchema, Serialize)]
@@ -515,9 +516,16 @@ impl DruidCluster {
             .and_then(|is| is.s3connection.as_ref())
         {
             Some(
-                ic.resolve(client, self.namespace().as_deref())
-                    .await
-                    .context(ResolveS3ConnectionSnafu)?,
+                ic.resolve(
+                    client,
+                    self.namespace()
+                        .context(MissingNamespaceSnafu {
+                            name: &self.name_unchecked(),
+                        })?
+                        .as_ref(),
+                )
+                .await
+                .context(ResolveS3ConnectionSnafu)?,
             )
         } else {
             None
@@ -528,7 +536,14 @@ impl DruidCluster {
             DeepStorageSpec::S3(s3_spec) => {
                 let inlined_bucket: InlinedS3BucketSpec = s3_spec
                     .bucket
-                    .resolve(client, self.namespace().as_deref())
+                    .resolve(
+                        client,
+                        self.namespace()
+                            .context(MissingNamespaceSnafu {
+                                name: &self.name_unchecked(),
+                            })?
+                            .as_ref(),
+                    )
                     .await
                     .context(ResolveS3BucketSnafu)?;
                 inlined_bucket.connection
@@ -566,135 +581,6 @@ impl DruidCluster {
             .is_some();
         let s3_storage = self.spec.cluster_config.deep_storage.is_s3();
         s3_ingestion || s3_storage
-    }
-
-    /// Retrieve and merge resource configs for role and role groups
-    pub fn resources(
-        &self,
-        role: &DruidRole,
-        rolegroup_ref: &RoleGroupRef<DruidCluster>,
-    ) -> Result<resource::RoleResource, Error> {
-        resource::try_merge(&[
-            self.rolegroup_resources(role, rolegroup_ref),
-            self.role_resources(role),
-            self.default_resources(role),
-        ])
-        .context(ResourceMergeSnafu)
-    }
-
-    fn default_resources(&self, role: &DruidRole) -> Option<resource::RoleResource> {
-        match role {
-            DruidRole::Broker => Some(resource::RoleResource::Druid(
-                BrokerConfig::default_resources(),
-            )),
-            DruidRole::Coordinator => Some(resource::RoleResource::Druid(
-                CoordinatorConfig::default_resources(),
-            )),
-            DruidRole::Historical => Some(resource::RoleResource::Historical(
-                HistoricalConfig::default_resources(),
-            )),
-            DruidRole::MiddleManager => Some(resource::RoleResource::Druid(
-                MiddleManagerConfig::default_resources(),
-            )),
-            DruidRole::Router => Some(resource::RoleResource::Druid(
-                RouterConfig::default_resources(),
-            )),
-        }
-    }
-
-    fn role_resources(&self, role: &DruidRole) -> Option<resource::RoleResource> {
-        match role {
-            DruidRole::Broker => self
-                .spec
-                .brokers
-                .clone()
-                .config
-                .config
-                .resources
-                .map(resource::RoleResource::Druid),
-            DruidRole::Coordinator => self
-                .spec
-                .coordinators
-                .clone()
-                .config
-                .config
-                .resources
-                .map(resource::RoleResource::Druid),
-            DruidRole::Historical => self
-                .spec
-                .historicals
-                .clone()
-                .config
-                .config
-                .resources
-                .map(resource::RoleResource::Historical),
-            DruidRole::MiddleManager => self
-                .spec
-                .middle_managers
-                .clone()
-                .config
-                .config
-                .resources
-                .map(resource::RoleResource::Druid),
-            DruidRole::Router => self
-                .spec
-                .routers
-                .clone()
-                .config
-                .config
-                .resources
-                .map(resource::RoleResource::Druid),
-        }
-    }
-
-    fn rolegroup_resources(
-        &self,
-        role: &DruidRole,
-        rolegroup_ref: &RoleGroupRef<DruidCluster>,
-    ) -> Option<resource::RoleResource> {
-        match role {
-            DruidRole::Broker => self
-                .spec
-                .brokers
-                .clone()
-                .role_groups
-                .get(&rolegroup_ref.role_group)
-                .map(|rg| &rg.config.config)
-                .and_then(|rg| rg.resources.clone())
-                .map(resource::RoleResource::Druid),
-            DruidRole::Coordinator => self
-                .spec
-                .coordinators
-                .role_groups
-                .get(&rolegroup_ref.role_group)
-                .map(|rg| &rg.config.config)
-                .and_then(|rg| rg.resources.clone())
-                .map(resource::RoleResource::Druid),
-            DruidRole::MiddleManager => self
-                .spec
-                .middle_managers
-                .role_groups
-                .get(&rolegroup_ref.role_group)
-                .map(|rg| &rg.config.config)
-                .and_then(|rg| rg.resources.clone())
-                .map(resource::RoleResource::Druid),
-            DruidRole::Historical => self
-                .spec
-                .historicals
-                .role_groups
-                .get(&rolegroup_ref.role_group)
-                .map(|rg| &rg.config.config)
-                .and_then(|rg| rg.resources.clone())
-                .map(resource::RoleResource::Historical),
-            DruidRole::Router => self
-                .spec
-                .routers
-                .role_groups
-                .get(&rolegroup_ref.role_group)
-                .map(|rg| &rg.config.config)
-                .and_then(|rg| rg.resources.clone())
-                .map(resource::RoleResource::Druid),
-        }
     }
 
     /// Determines if the cluster should be encrypted / authenticated via TLS
@@ -783,68 +669,34 @@ pub struct IngestionSpec {
     pub s3connection: Option<S3ConnectionDef>,
 }
 
-#[derive(Clone, Debug, Deserialize, JsonSchema, PartialEq, Serialize, Default)]
+#[derive(Clone, Debug, Default, Deserialize, JsonSchema, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct BrokerConfig {
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    resources: Option<Resources<storage::DruidStorage, NoRuntimeLimits>>,
+    resources: Option<ResourcesFragment<storage::DruidStorage, NoRuntimeLimits>>,
 }
 
-#[derive(Clone, Debug, Deserialize, JsonSchema, PartialEq, Serialize, Default)]
+#[derive(Clone, Debug, Default, Deserialize, JsonSchema, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CoordinatorConfig {
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    resources: Option<Resources<storage::DruidStorage, NoRuntimeLimits>>,
+    resources: Option<ResourcesFragment<storage::DruidStorage, NoRuntimeLimits>>,
 }
 
-#[derive(Clone, Debug, Deserialize, JsonSchema, PartialEq, Serialize, Default)]
+#[derive(Clone, Debug, Default, Deserialize, JsonSchema, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct MiddleManagerConfig {
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    resources: Option<Resources<storage::DruidStorage, NoRuntimeLimits>>,
+    resources: Option<ResourcesFragment<storage::DruidStorage, NoRuntimeLimits>>,
 }
 
-#[derive(Clone, Debug, Deserialize, JsonSchema, PartialEq, Serialize, Default)]
+#[derive(Clone, Debug, Default, Deserialize, JsonSchema, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RouterConfig {
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    resources: Option<Resources<storage::DruidStorage, NoRuntimeLimits>>,
+    resources: Option<ResourcesFragment<storage::DruidStorage, NoRuntimeLimits>>,
 }
 
-#[derive(Clone, Debug, Deserialize, JsonSchema, PartialEq, Serialize, Default)]
+#[derive(Clone, Debug, Default, Deserialize, JsonSchema, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct HistoricalConfig {
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    resources: Option<Resources<storage::HistoricalStorage, NoRuntimeLimits>>,
-}
-
-impl MiddleManagerConfig {
-    pub fn default_resources() -> Resources<storage::DruidStorage, NoRuntimeLimits> {
-        resource::DEFAULT_RESOURCES.clone()
-    }
-}
-
-impl CoordinatorConfig {
-    pub fn default_resources() -> Resources<storage::DruidStorage, NoRuntimeLimits> {
-        resource::DEFAULT_RESOURCES.clone()
-    }
-}
-impl RouterConfig {
-    pub fn default_resources() -> Resources<storage::DruidStorage, NoRuntimeLimits> {
-        resource::DEFAULT_RESOURCES.clone()
-    }
-}
-
-impl BrokerConfig {
-    pub fn default_resources() -> Resources<storage::DruidStorage, NoRuntimeLimits> {
-        resource::DEFAULT_RESOURCES.clone()
-    }
-}
-
-impl HistoricalConfig {
-    pub fn default_resources() -> Resources<storage::HistoricalStorage, NoRuntimeLimits> {
-        resource::HISTORICAL_RESOURCES.clone()
-    }
+    resources: Option<ResourcesFragment<storage::HistoricalStorage, NoRuntimeLimits>>,
 }
 
 impl Configuration for BrokerConfig {
@@ -1020,14 +872,8 @@ fn build_string_list(strings: &[String]) -> String {
 
 #[cfg(test)]
 mod tests {
-    use crate::resource::RoleResource;
 
     use super::*;
-    use stackable_operator::{
-        commons::resources::{CpuLimits, MemoryLimits},
-        k8s_openapi::apimachinery::pkg::api::resource::Quantity,
-        kube::runtime::reflector::ObjectRef,
-    };
 
     #[test]
     fn test_service_name_generation() {
@@ -1046,65 +892,6 @@ mod tests {
             cluster.role_service_fqdn(&DruidRole::Router),
             Some("testcluster-router.default.svc.cluster.local".to_string())
         )
-    }
-
-    #[test]
-    fn test_resource_merge() -> Result<(), Error> {
-        let cluster_cr =
-            std::fs::File::open("test/resources/resource_merge/druid_cluster.yaml").unwrap();
-        let cluster: DruidCluster = serde_yaml::from_reader(&cluster_cr).unwrap();
-
-        let resources_from_role_group = RoleGroupRef {
-            cluster: ObjectRef::from_obj(&cluster),
-            role: "middle_managers".into(),
-            role_group: "resources-from-role-group".into(),
-        };
-        if let RoleResource::Druid(middlemanager_resources_from_rg) =
-            cluster.resources(&DruidRole::MiddleManager, &resources_from_role_group)?
-        {
-            let expected = Resources {
-                cpu: CpuLimits {
-                    min: Some(Quantity("300m".to_owned())),
-                    max: Some(Quantity("3".to_owned())),
-                },
-                memory: MemoryLimits {
-                    limit: Some(Quantity("3Gi".to_owned())),
-                    runtime_limits: NoRuntimeLimits {},
-                },
-                storage: storage::DruidStorage {},
-            };
-
-            assert_eq!(middlemanager_resources_from_rg, expected);
-        } else {
-            panic!("No role group named [resources-from-role-group] found");
-        }
-
-        let resources_from_role = RoleGroupRef {
-            cluster: ObjectRef::from_obj(&cluster),
-            role: "middle_managers".into(),
-            role_group: "resources-from-role".into(),
-        };
-        if let RoleResource::Druid(middlemanager_resources_from_rg) =
-            cluster.resources(&DruidRole::MiddleManager, &resources_from_role)?
-        {
-            let expected = Resources {
-                cpu: CpuLimits {
-                    min: Some(Quantity("100m".to_owned())),
-                    max: Some(Quantity("1".to_owned())),
-                },
-                memory: MemoryLimits {
-                    limit: Some(Quantity("1Gi".to_owned())),
-                    runtime_limits: NoRuntimeLimits {},
-                },
-                storage: storage::DruidStorage {},
-            };
-
-            assert_eq!(middlemanager_resources_from_rg, expected);
-        } else {
-            panic!("No role group named [resources-from-role] found");
-        }
-
-        Ok(())
     }
 
     #[test]
