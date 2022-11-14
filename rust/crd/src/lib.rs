@@ -8,7 +8,6 @@ use crate::tls::DruidTls;
 
 use serde::{Deserialize, Serialize};
 use snafu::{OptionExt, ResultExt, Snafu};
-
 use stackable_operator::commons::resources::ResourcesFragment;
 use stackable_operator::{
     client::Client,

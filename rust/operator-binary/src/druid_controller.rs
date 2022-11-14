@@ -786,5 +786,5 @@ fn container_image(version: &str) -> String {
 }
 
 pub fn error_policy(_obj: Arc<DruidCluster>, _error: &Error, _ctx: Arc<Ctx>) -> Action {
-    Action::requeue(Duration::from_secs(10))
+    Action::requeue(Duration::from_secs(5))
 }
