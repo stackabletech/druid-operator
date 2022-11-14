@@ -29,9 +29,9 @@ data:
 
     properties:
 
-      - property: &plaintext
+      - property: &plaintextPort
           propertyNames:
-            - name: "druid.plaintext"
+            - name: "druid.plaintextPort"
               kind:
                 type: "file"
                 file: "runtime.properties"
@@ -42,15 +42,39 @@ data:
             unit: *unitPort
           roles:
             - name: "broker"
-              required: true
+              required: false
             - name: "coordinator"
-              required: true
+              required: false
             - name: "historical"
-              required: true
+              required: false
             - name: "middleManager"
-              required: true
+              required: false
             - name: "router"
-              required: true
+              required: false
+          asOfVersion: "0.0.0"
+
+      - property: &tlsPort
+          propertyNames:
+            - name: "druid.tlsPort"
+              kind:
+                type: "file"
+                file: "runtime.properties"
+          datatype:
+            type: "integer"
+            min: "1"
+            max: "65535"
+            unit: *unitPort
+          roles:
+            - name: "broker"
+              required: false
+            - name: "coordinator"
+              required: false
+            - name: "historical"
+              required: false
+            - name: "middleManager"
+              required: false
+            - name: "router"
+              required: false
           asOfVersion: "0.0.0"
 
       - property: &startupLoggingLogProperties

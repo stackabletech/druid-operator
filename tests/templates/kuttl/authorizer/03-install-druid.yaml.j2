@@ -11,19 +11,22 @@ metadata:
   name: derby-druid
 spec:
   version: {{ test_scenario['values']['druid'] }}
-  zookeeperConfigMapName: druid-znode
-  opa:
-    configMapName: test-opa
-    package: druid
-  metadataStorageDatabase:
-    dbType: derby
-    connString: jdbc:derby://localhost:1527/var/druid/metadata.db;create=true
-    host: localhost
-    port: 1527
-  deepStorage:
-    hdfs:
-      configMapName: druid-hdfs
-      directory: /druid
+  clusterConfig:
+    authorization:
+      opa:
+        configMapName: test-opa
+        package: druid
+    deepStorage:
+      hdfs:
+        configMapName: druid-hdfs
+        directory: /druid
+    metadataStorageDatabase:
+      dbType: derby
+      connString: jdbc:derby://localhost:1527/var/druid/metadata.db;create=true
+      host: localhost
+      port: 1527
+    tls: null
+    zookeeperConfigMapName: druid-znode
   brokers:
     configOverrides:
       runtime.properties:
@@ -50,10 +53,6 @@ spec:
         druid.escalator.authorizerName: OpaAuthorizer
     roleGroups:
       default:
-        selector:
-          matchLabels:
-            kubernetes.io/os: linux
-        config: {}
         replicas: 1
   coordinators:
     configOverrides:
@@ -81,10 +80,6 @@ spec:
         druid.escalator.authorizerName: OpaAuthorizer
     roleGroups:
       default:
-        selector:
-          matchLabels:
-            kubernetes.io/os: linux
-        config: {}
         replicas: 1
   historicals:
     configOverrides:
@@ -112,10 +107,6 @@ spec:
         druid.escalator.authorizerName: OpaAuthorizer
     roleGroups:
       default:
-        selector:
-          matchLabels:
-            kubernetes.io/os: linux
-        config: {}
         replicas: 1
   middleManagers:
     configOverrides:
@@ -143,10 +134,6 @@ spec:
         druid.escalator.authorizerName: OpaAuthorizer
     roleGroups:
       default:
-        selector:
-          matchLabels:
-            kubernetes.io/os: linux
-        config: {}
         replicas: 1
   routers:
     configOverrides:
@@ -174,8 +161,4 @@ spec:
         druid.escalator.authorizerName: OpaAuthorizer
     roleGroups:
       default:
-        selector:
-          matchLabels:
-            kubernetes.io/os: linux
-        config: {}
         replicas: 1

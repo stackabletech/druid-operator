@@ -1,0 +1,154 @@
+---
+apiVersion: kuttl.dev/v1beta1
+kind: TestAssert
+timeout: 600
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: derby-druid-broker-default
+status:
+  readyReplicas: 1
+  replicas: 1
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: derby-druid-coordinator-default
+status:
+  readyReplicas: 1
+  replicas: 1
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: derby-druid-historical-default
+status:
+  readyReplicas: 1
+  replicas: 1
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: derby-druid-middlemanager-default
+status:
+  readyReplicas: 1
+  replicas: 1
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: derby-druid-router-default
+status:
+  readyReplicas: 1
+  replicas: 1
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: derby-druid-coordinator
+spec:
+  ports:
+    - name: metrics
+      port: 9090
+      protocol: TCP
+      targetPort: 9090
+{% if test_scenario['values']['use-tls'] == 'false' %}
+    - name: http
+      port: 8081
+      protocol: TCP
+      targetPort: 8081
+{% else %}
+    - name: https
+      port: 8281
+      protocol: TCP
+      targetPort: 8281
+{% endif %}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: derby-druid-middlemanager
+spec:
+  ports:
+    - name: metrics
+      port: 9090
+      protocol: TCP
+      targetPort: 9090
+{% if test_scenario['values']['use-tls'] == 'false' %}
+    - name: http
+      port: 8091
+      protocol: TCP
+      targetPort: 8091
+{% else %}
+    - name: https
+      port: 8291
+      protocol: TCP
+      targetPort: 8291
+{% endif %}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: derby-druid-historical
+spec:
+  ports:
+    - name: metrics
+      port: 9090
+      protocol: TCP
+      targetPort: 9090
+{% if test_scenario['values']['use-tls'] == 'false' %}
+    - name: http
+      port: 8083
+      protocol: TCP
+      targetPort: 8083
+{% else %}
+    - name: https
+      port: 8283
+      protocol: TCP
+      targetPort: 8283
+{% endif %}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: derby-druid-router
+spec:
+  ports:
+    - name: metrics
+      port: 9090
+      protocol: TCP
+      targetPort: 9090
+{% if test_scenario['values']['use-tls'] == 'false' %}
+    - name: http
+      port: 8888
+      protocol: TCP
+      targetPort: 8888
+{% else %}
+    - name: https
+      port: 9088
+      protocol: TCP
+      targetPort: 9088
+{% endif %}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: derby-druid-broker
+spec:
+  ports:
+    - name: metrics
+      port: 9090
+      protocol: TCP
+      targetPort: 9090
+{% if test_scenario['values']['use-tls'] == 'false' %}
+    - name: http
+      port: 8082
+      protocol: TCP
+      targetPort: 8082
+{% else %}
+    - name: https
+      port: 8282
+      protocol: TCP
+      targetPort: 8282
+{% endif %}
