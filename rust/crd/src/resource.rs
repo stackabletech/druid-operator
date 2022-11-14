@@ -1,5 +1,9 @@
+use std::collections::BTreeMap;
+
 use crate::storage::{self, FreePercentageEmptyDirFragment};
-use crate::{DruidCluster, DruidRole};
+use crate::{
+    DruidCluster, DruidRole, PATH_SEGMENT_CACHE, PROP_SEGMENT_CACHE_LOCATIONS, RUNTIME_PROPS,
+};
 use lazy_static::lazy_static;
 use snafu::{ResultExt, Snafu};
 use stackable_operator::config::fragment;
@@ -76,6 +80,27 @@ impl RoleResource {
             Self::Druid(r) => r.clone().memory,
             Self::Historical(r) => r.clone().memory,
         }
+    }
+
+    pub fn update_druid_config_file(
+        &self,
+        file: &str,
+        config: &mut BTreeMap<String, Option<String>>,
+    ) -> Result<(), Error> {
+        if let Self::Historical(r) = self {
+            if RUNTIME_PROPS == file {
+                let free_percentage = r.storage.segment_cache.free_percentage.unwrap_or(5u16);
+                let capacity = &r.storage.segment_cache.empty_dir.capacity;
+                config.insert(
+                    PROP_SEGMENT_CACHE_LOCATIONS.to_string(),
+                    Some(format!(
+                        r#"[{{"path":"{}","maxSize":"{}","freeSpacePercent": {}}}]"#,
+                        PATH_SEGMENT_CACHE, capacity.0, free_percentage
+                    )),
+                );
+            }
+        }
+        Ok(())
     }
 }
 
@@ -494,7 +519,10 @@ mod test {
                 storage: storage::DruidStorage {},
             };
 
-            assert_eq!(middlemanager_resources_from_rg, expected);
+            assert_eq!(
+                middlemanager_resources_from_rg, expected,
+                "middlemanager resources from role group"
+            );
         } else {
             panic!("No role group named [resources-from-role-group] found");
         }
@@ -519,10 +547,61 @@ mod test {
                 storage: storage::DruidStorage {},
             };
 
-            assert_eq!(middlemanager_resources_from_rg, expected);
+            assert_eq!(
+                middlemanager_resources_from_rg, expected,
+                "resources from role"
+            );
         } else {
             panic!("No role group named [resources-from-role] found");
         }
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_segment_cache() -> Result<(), Error> {
+        let cluster_cr =
+            std::fs::File::open("test/resources/resource_merge/segment_cache.yaml").unwrap();
+        let cluster: DruidCluster = serde_yaml::from_reader(&cluster_cr).unwrap();
+
+        // ---------- default role group
+        let rolegroup_ref = RoleGroupRef {
+            cluster: ObjectRef::from_obj(&cluster),
+            role: DruidRole::Historical.to_string(),
+            role_group: "default".into(),
+        };
+        let res = resources(&cluster, &DruidRole::Historical, &rolegroup_ref)?;
+
+        let mut got = BTreeMap::new();
+        res.update_druid_config_file(RUNTIME_PROPS, &mut got)?;
+        let expected: BTreeMap<String, Option<String>> = vec![
+            (PROP_SEGMENT_CACHE_LOCATIONS.to_string(),
+             Some(r#"[{"path":"/stackable/var/druid/segment-cache","maxSize":"5g","freeSpacePercent": 3}]"#.to_string()))
+        ].into_iter().collect();
+
+        assert_eq!(
+            got, expected,
+            "role: historical, group: default, segment cache config"
+        );
+
+        // ---------- secondary role group
+        let rolegroup_ref = RoleGroupRef {
+            cluster: ObjectRef::from_obj(&cluster),
+            role: DruidRole::Historical.to_string(),
+            role_group: "secondary".into(),
+        };
+        let res = resources(&cluster, &DruidRole::Historical, &rolegroup_ref)?;
+        let mut got = BTreeMap::new();
+        res.update_druid_config_file(RUNTIME_PROPS, &mut got)?;
+        let expected = vec![
+            (PROP_SEGMENT_CACHE_LOCATIONS.to_string(),
+             Some(r#"[{"path":"/stackable/var/druid/segment-cache","maxSize":"2g","freeSpacePercent": 7}]"#.to_string()))
+        ].into_iter().collect();
+
+        assert_eq!(
+            got, expected,
+            "role: historical, group: secondary, segment cache config"
+        );
 
         Ok(())
     }

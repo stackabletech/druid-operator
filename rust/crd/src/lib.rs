@@ -17,7 +17,7 @@ use stackable_operator::{
         s3::{InlinedS3BucketSpec, S3BucketDef, S3ConnectionDef, S3ConnectionSpec},
         tls::{CaCert, Tls, TlsServerVerification, TlsVerification},
     },
-    kube::{CustomResource, ResourceExt},
+    kube::{runtime::reflector::ObjectRef, CustomResource, ResourceExt},
     product_config::types::PropertyNameKind,
     product_config_utils::{ConfigError, Configuration},
     role_utils::{Role, RoleGroupRef},
@@ -48,6 +48,9 @@ pub const SYSTEM_TRUST_STORE_PASSWORD: &str = "changeit";
 pub const STACKABLE_TRUST_STORE: &str = "/stackable/truststore.p12";
 pub const STACKABLE_TRUST_STORE_PASSWORD: &str = "changeit";
 pub const CERTS_DIR: &str = "/stackable/certificates";
+
+pub const PROP_SEGMENT_CACHE_LOCATIONS: &str = "druid.segmentCache.locations";
+pub const PATH_SEGMENT_CACHE: &str = "/stackable/var/druid/segment-cache";
 
 /////////////////////////////
 //    CONFIG PROPERTIES    //
@@ -125,6 +128,14 @@ pub enum Error {
     UnknownDruidRole { role: String, roles: Vec<String> },
     #[snafu(display("missing namespace for resource {name}"))]
     MissingNamespace { name: String },
+    #[snafu(display(
+        "invalid reosurce configuration for role [{role}] and role group [{role_group}]"
+    ))]
+    ComputeFiles {
+        role: DruidRole,
+        role_group: String,
+        source: resource::Error,
+    },
 }
 
 #[derive(Clone, CustomResource, Debug, Deserialize, JsonSchema, Serialize)]
@@ -752,10 +763,22 @@ impl Configuration for HistoricalConfig {
     fn compute_files(
         &self,
         resource: &Self::Configurable,
-        _role_name: &str,
+        role_name: &str,
         file: &str,
     ) -> Result<BTreeMap<String, Option<String>>, ConfigError> {
-        resource.common_compute_files(file)
+        let mut result = resource.common_compute_files(file)?;
+        let rolegroup_ref = RoleGroupRef {
+            cluster: ObjectRef::from_obj(resource),
+            role: DruidRole::Historical.to_string(),
+            role_group: role_name.into(),
+        };
+        resource::resources(resource, &DruidRole::Historical, &rolegroup_ref)
+            .and_then(|rr| rr.update_druid_config_file(file, &mut result))
+            .map_err(|_| ConfigError::InvalidConfiguration {
+                reason: "invalid resource configuration for historical role group [{role_name}]"
+                    .to_string(),
+            })?;
+        Ok(result)
     }
 }
 
