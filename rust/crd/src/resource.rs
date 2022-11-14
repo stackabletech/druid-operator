@@ -170,7 +170,6 @@ fn rolegroup_resources(
         DruidRole::Broker => druid
             .spec
             .brokers
-            .clone()
             .role_groups
             .get(&rolegroup_ref.role_group)
             .map(|rg| &rg.config.config)
