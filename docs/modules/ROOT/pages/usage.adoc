@@ -308,7 +308,7 @@ spec:
 
 ==== LDAP
 
-Currently not supported.
+TODO: add more info here.
 
 === Authorization with Open Policy Agent (OPA)
 
