@@ -35,7 +35,7 @@ pub enum Error {
     },
 }
 
-/// The sole puprose of this enum is to handle merging. It's needed because currently
+/// The sole purpose of this enum is to handle merging. It's needed because currently
 /// the operator-rs 0.26.1 doesn't handle fragment enum merging.
 #[derive(Debug, Clone, PartialEq)]
 enum RoleResourceFragment {
@@ -49,15 +49,16 @@ pub enum RoleResource {
     Historical(Resources<storage::HistoricalStorage, NoRuntimeLimits>),
 }
 
-impl From<RoleResourceFragment> for RoleResource {
-    fn from(rrf: RoleResourceFragment) -> Self {
+impl TryFrom<RoleResourceFragment> for RoleResource {
+    type Error = Error;
+    fn try_from(rrf: RoleResourceFragment) -> Result<Self, Error> {
         match rrf {
-            RoleResourceFragment::DruidFragment(fragment) => {
-                RoleResource::Druid(fragment::validate(fragment).unwrap()) // this succeeds because the actual validation has happened in try_merge
-            }
-            RoleResourceFragment::HistoricalFragment(fragment) => {
-                RoleResource::Historical(fragment::validate(fragment).unwrap())
-            }
+            RoleResourceFragment::DruidFragment(fragment) => Ok(RoleResource::Druid(
+                fragment::validate(fragment).with_context(|_| ResourceValidationSnafu)?,
+            )),
+            RoleResourceFragment::HistoricalFragment(fragment) => Ok(RoleResource::Historical(
+                fragment::validate(fragment).with_context(|_| ResourceValidationSnafu)?,
+            )),
         }
     }
 }
@@ -121,42 +122,42 @@ fn role_resources(druid: &DruidCluster, role: &DruidRole) -> Option<RoleResource
         DruidRole::Broker => druid
             .spec
             .brokers
-            .clone()
             .config
             .config
             .resources
+            .clone()
             .map(RoleResourceFragment::DruidFragment),
         DruidRole::Coordinator => druid
             .spec
             .coordinators
-            .clone()
             .config
             .config
             .resources
+            .clone()
             .map(RoleResourceFragment::DruidFragment),
         DruidRole::Historical => druid
             .spec
             .historicals
-            .clone()
             .config
             .config
             .resources
+            .clone()
             .map(RoleResourceFragment::HistoricalFragment),
         DruidRole::MiddleManager => druid
             .spec
             .middle_managers
-            .clone()
             .config
             .config
             .resources
+            .clone()
             .map(RoleResourceFragment::DruidFragment),
         DruidRole::Router => druid
             .spec
             .routers
-            .clone()
             .config
             .config
             .resources
+            .clone()
             .map(RoleResourceFragment::DruidFragment),
     }
 }
@@ -170,7 +171,6 @@ fn rolegroup_resources(
         DruidRole::Broker => druid
             .spec
             .brokers
-            .clone()
             .role_groups
             .get(&rolegroup_ref.role_group)
             .map(|rg| &rg.config.config)
@@ -237,7 +237,7 @@ fn try_merge(resources: &[Option<RoleResourceFragment>]) -> Result<RoleResource,
         try_merge_private(&mut result, resource)?;
     }
 
-    Ok(RoleResource::from(result))
+    RoleResource::try_from(result)
 }
 
 /// Merges `rb` into `ra`, i.e. `ra` has precedence over `rb`.
