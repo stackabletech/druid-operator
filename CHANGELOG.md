@@ -9,7 +9,16 @@ All notable changes to this project will be documented in this file.
 - BREAKING: Support for TLS encryption (activated per default -> port changes) and TLS authentication ([#333]).
 - BREAKING: Reworked top level configuration. Deep storage, Ingestion spec, discovery config maps etc. are now subfields of `spec.clusterConfig` instead of being top level under `spec` ([#333]).
 
+### Changed
+
+- Updated stackable image versions ([#339]).
+
+### Removed
+
+- Retired support for 0.22.1 as it is not build anymore via the docker actions ([#339]).
+
 [#333]: https://github.com/stackabletech/druid-operator/pull/333
+[#339]: https://github.com/stackabletech/druid-operator/pull/339
 
 ## [0.8.0] - 2022-11-07
 
