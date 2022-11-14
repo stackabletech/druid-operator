@@ -98,3 +98,11 @@ rules:
       - get
       - list
       - watch
+  - apiGroups:
+      - authentication.stackable.tech
+    resources:
+      - authenticationclasses
+    verbs:
+      - get
+      - list
+      - watch

@@ -131,8 +131,6 @@ Once you finished the ingestion dialog you should see the ingestion overview wit
 
 image::load_success.png[]
 
-
-
 === Query the data
 
 Query from the user interface by navigating to the  "Query" interface in the menu and query the `wikipedia` table:

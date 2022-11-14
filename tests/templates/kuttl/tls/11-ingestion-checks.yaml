@@ -1,0 +1,7 @@
+---
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+timeout: 600
+commands:
+  - script: kubectl cp -n $NAMESPACE ./ingestioncheck.py druid-checks-0:/tmp
+  - script: kubectl cp -n $NAMESPACE ./druid-quickstartimport.json druid-checks-0:/tmp

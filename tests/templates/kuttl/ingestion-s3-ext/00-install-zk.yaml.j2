@@ -4,14 +4,11 @@ kind: ZookeeperCluster
 metadata:
   name: druid-zk
 spec:
+  version: {{ test_scenario['values']['zookeeper-latest'] }}
   servers:
     roleGroups:
       default:
         replicas: 1
-        config:
-          myidOffset: 10
-  version: {{ test_scenario['values']['zookeeper-latest'] }}
-  stopped: false
 ---
 apiVersion: zookeeper.stackable.tech/v1alpha1
 kind: ZookeeperZnode

@@ -10,8 +10,6 @@ use stackable_operator::{
     kube::{runtime::reflector::ObjectRef, Resource, ResourceExt},
 };
 
-use crate::druid_controller::druid_version;
-
 #[derive(Snafu, Debug)]
 pub enum Error {
     #[snafu(display("object {} is missing metadata to build owner reference", druid))]
@@ -29,25 +27,29 @@ pub enum Error {
 
 /// Builds discovery [`ConfigMap`]s for connecting to a [`DruidCluster`]
 pub async fn build_discovery_configmaps(
-    owner: &impl Resource<DynamicType = ()>,
     druid: &DruidCluster,
+    owner: &impl Resource<DynamicType = ()>,
 ) -> Result<Vec<ConfigMap>, Error> {
     let name = owner.name_unchecked();
-    Ok(vec![build_discovery_configmap(&name, owner, druid)?])
+    Ok(vec![build_discovery_configmap(druid, owner, &name)?])
 }
 
 /// Build a discovery [`ConfigMap`] containing information about how to connect to a certain [`DruidCluster`]
 fn build_discovery_configmap(
-    name: &str,
-    owner: &impl Resource<DynamicType = ()>,
     druid: &DruidCluster,
+    owner: &impl Resource<DynamicType = ()>,
+    name: &str,
 ) -> Result<ConfigMap, Error> {
     let router_host = format!(
         "{}:{}",
         druid
             .role_service_fqdn(&DruidRole::Router)
             .with_context(|| NoServiceFqdnSnafu)?,
-        DruidRole::Router.get_http_port()
+        if druid.tls_enabled() {
+            DruidRole::Router.get_https_port()
+        } else {
+            DruidRole::Router.get_http_port()
+        }
     );
     let sqlalchemy_conn_str = format!("druid://{}/druid/v2/sql", router_host);
     let avatica_conn_str = format!(
@@ -67,7 +69,7 @@ fn build_discovery_configmap(
                 .with_recommended_labels(
                     druid,
                     APP_NAME,
-                    druid_version(druid).unwrap_or("unknown"),
+                    druid.version(),
                     CONTROLLER_NAME,
                     &DruidRole::Router.to_string(),
                     "discovery",

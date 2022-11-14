@@ -1,0 +1,113 @@
+---
+apiVersion: zookeeper.stackable.tech/v1alpha1
+kind: ZookeeperCluster
+metadata:
+  name: druid-zk
+spec:
+  version: 3.8.0-stackable0.8.0
+  servers:
+    roleGroups:
+      default:
+        replicas: 1
+---
+apiVersion: zookeeper.stackable.tech/v1alpha1
+kind: ZookeeperZnode
+metadata:
+  name: druid-hdfs-znode
+spec:
+  clusterRef:
+    name: druid-zk
+---
+apiVersion: hdfs.stackable.tech/v1alpha1
+kind: HdfsCluster
+metadata:
+  name: druid-hdfs
+spec:
+  version: 3.3.3-stackable0.1.0
+  zookeeperConfigMapName: druid-hdfs-znode
+  dfsReplication: 1
+  nameNodes:
+    roleGroups:
+      default:
+        replicas: 2
+  dataNodes:
+    roleGroups:
+      default:
+        replicas: 1
+  journalNodes:
+    roleGroups:
+      default:
+        replicas: 1
+---
+apiVersion: secrets.stackable.tech/v1alpha1
+kind: SecretClass
+metadata:
+  name: druid-mtls
+spec:
+  backend:
+    autoTls:
+      ca:
+        secret:
+          name: secret-provisioner-druid-mtls-ca
+          namespace: default
+        autoGenerate: true
+---
+apiVersion: authentication.stackable.tech/v1alpha1
+kind: AuthenticationClass
+metadata:
+  name: druid-mtls-authentication-class
+spec:
+  provider:
+    tls:
+      clientCertSecretClass: druid-mtls
+---
+apiVersion: zookeeper.stackable.tech/v1alpha1
+kind: ZookeeperZnode
+metadata:
+  name: druid-znode
+spec:
+  clusterRef:
+    name: druid-zk
+---
+apiVersion: druid.stackable.tech/v1alpha1
+kind: DruidCluster
+metadata:
+  name: derby-druid
+spec:
+  version: 24.0.0-stackable0.1.0
+  clusterConfig:
+    authentication:
+      tls:
+        authenticationClass: druid-mtls-authentication-class
+    deepStorage:
+      hdfs:
+        configMapName: druid-hdfs
+        directory: /druid
+    metadataStorageDatabase:
+      dbType: derby
+      connString: jdbc:derby://localhost:1527/var/druid/metadata.db;create=true
+      host: localhost
+      port: 1527
+    tls:
+      secretClass: tls
+    zookeeperConfigMapName: druid-znode
+  brokers:
+    roleGroups:
+      default:
+        replicas: 1
+  coordinators:
+    roleGroups:
+      default:
+        replicas: 1
+  historicals:
+    roleGroups:
+      default:
+        replicas: 1
+  middleManagers:
+    roleGroups:
+      default:
+        replicas: 1
+  routers:
+    roleGroups:
+      default:
+        replicas: 1
