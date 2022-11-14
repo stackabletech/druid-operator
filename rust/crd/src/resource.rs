@@ -29,7 +29,8 @@ pub enum Error {
     ResourceValidation { source: fragment::ValidationError },
     #[snafu(display("failed to merge resources for {rolegroup_ref}"))]
     ResourcesMerge {
-        //source: Box<Self>,
+        #[snafu(source(from(Error, Box::new)))]
+        source: Box<Error>,
         rolegroup_ref: RoleGroupRef<DruidCluster>,
     },
 }
@@ -220,7 +221,10 @@ pub fn resources(
         rolegroup_resources(druid, role, rolegroup_ref),
         role_resources(druid, role),
         default_resources(role),
-    ]) //.with_context(|_| ResourcesMergeSnafu {rolegroup_ref: rolegroup_ref.clone()})
+    ])
+    .with_context(|_| ResourcesMergeSnafu {
+        rolegroup_ref: rolegroup_ref.clone(),
+    })
 }
 
 /// Merge resources from beginning to end of the array: element 0 > element 1 > element 2.
