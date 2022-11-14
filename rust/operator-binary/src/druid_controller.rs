@@ -616,6 +616,7 @@ fn build_rolegroup_statefulset(
         &mut cb_druid,
         &mut pb,
     );
+    resources.update_volumes_and_volume_mounts(&mut cb_druid, &mut pb);
 
     let prepare_container_command = tls_settings.build_tls_key_stores_cmd();
 

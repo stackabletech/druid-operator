@@ -9,13 +9,15 @@ use snafu::{ResultExt, Snafu};
 use stackable_operator::config::fragment;
 use stackable_operator::role_utils::RoleGroupRef;
 use stackable_operator::{
+    builder::{ContainerBuilder, PodBuilder, VolumeBuilder},
     commons::resources::{
         CpuLimitsFragment, MemoryLimits, MemoryLimitsFragment, NoRuntimeLimits,
         NoRuntimeLimitsFragment, Resources, ResourcesFragment,
     },
     config::merge::Merge,
     k8s_openapi::{
-        api::core::v1::ResourceRequirements, apimachinery::pkg::api::resource::Quantity,
+        api::core::v1::{EmptyDirVolumeSource, ResourceRequirements},
+        apimachinery::pkg::api::resource::Quantity,
     },
 };
 use strum::{EnumDiscriminants, IntoStaticStr};
@@ -82,6 +84,8 @@ impl RoleResource {
         }
     }
 
+    /// Update the given configuration file with resource properties.
+    /// Currently it only adds the segment cache location property for historicals to runtime.properties.
     pub fn update_druid_config_file(
         &self,
         file: &str,
@@ -101,6 +105,20 @@ impl RoleResource {
             }
         }
         Ok(())
+    }
+
+    pub fn update_volumes_and_volume_mounts(&self, cb: &mut ContainerBuilder, pb: &mut PodBuilder) {
+        if let Self::Historical(r) = self {
+            cb.add_volume_mount("segment-cache", PATH_SEGMENT_CACHE);
+            pb.add_volume(
+                VolumeBuilder::new("segment-cache")
+                    .empty_dir(EmptyDirVolumeSource {
+                        medium: r.storage.segment_cache.empty_dir.medium.clone(),
+                        size_limit: Some(r.storage.segment_cache.empty_dir.capacity.clone()),
+                    })
+                    .build(),
+            );
+        }
     }
 }
 
