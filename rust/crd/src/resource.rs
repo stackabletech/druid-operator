@@ -121,42 +121,42 @@ fn role_resources(druid: &DruidCluster, role: &DruidRole) -> Option<RoleResource
         DruidRole::Broker => druid
             .spec
             .brokers
-            .clone()
             .config
             .config
             .resources
+            .clone()
             .map(RoleResourceFragment::DruidFragment),
         DruidRole::Coordinator => druid
             .spec
             .coordinators
-            .clone()
             .config
             .config
             .resources
+            .clone()
             .map(RoleResourceFragment::DruidFragment),
         DruidRole::Historical => druid
             .spec
             .historicals
-            .clone()
             .config
             .config
             .resources
+            .clone()
             .map(RoleResourceFragment::HistoricalFragment),
         DruidRole::MiddleManager => druid
             .spec
             .middle_managers
-            .clone()
             .config
             .config
             .resources
+            .clone()
             .map(RoleResourceFragment::DruidFragment),
         DruidRole::Router => druid
             .spec
             .routers
-            .clone()
             .config
             .config
             .resources
+            .clone()
             .map(RoleResourceFragment::DruidFragment),
     }
 }
