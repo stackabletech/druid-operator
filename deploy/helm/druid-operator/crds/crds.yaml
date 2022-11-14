@@ -1153,7 +1153,7 @@ spec:
                                   default:
                                     freePercentage: 5
                                     emptyDir:
-                                      capacity: 1g
+                                      capacity: 1G
                                       medium: ''
                                   properties:
                                     emptyDir:
@@ -1356,7 +1356,7 @@ spec:
                                         default:
                                           freePercentage: 5
                                           emptyDir:
-                                            capacity: 1g
+                                            capacity: 1G
                                             medium: ''
                                         properties:
                                           emptyDir:

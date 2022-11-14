@@ -60,7 +60,7 @@ impl Default for FreePercentageEmptyDir {
         FreePercentageEmptyDir {
             free_percentage: Some(5),
             empty_dir: CapacityEmptyDir {
-                capacity: Quantity("1g".to_string()),
+                capacity: Quantity("1G".to_string()),
                 medium: Some("".to_string()),
             },
         }
@@ -72,7 +72,7 @@ impl Default for FreePercentageEmptyDirFragment {
         FreePercentageEmptyDirFragment {
             free_percentage: Some(5),
             empty_dir: CapacityEmptyDirFragment {
-                capacity: Some(Quantity("1g".to_string())),
+                capacity: Some(Quantity("1G".to_string())),
                 medium: Some("".to_string()),
             },
         }
