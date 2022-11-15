@@ -860,7 +860,9 @@ mod test {
         let cluster_cr =
             std::fs::File::open(format!("test/resources/druid_controller/{druid_manifest}"))
                 .unwrap();
-        let druid: DruidCluster = serde_yaml::from_reader(&cluster_cr).unwrap();
+        let deserializer = serde_yaml::Deserializer::from_reader(&cluster_cr);
+        let druid: DruidCluster =
+            serde_yaml::with::singleton_map_recursive::deserialize(deserializer).unwrap();
 
         let role_config = transform_all_roles_to_config(&druid, druid.build_role_properties());
 
