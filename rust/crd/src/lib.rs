@@ -17,7 +17,7 @@ use stackable_operator::{
         s3::{InlinedS3BucketSpec, S3BucketDef, S3ConnectionDef, S3ConnectionSpec},
         tls::{CaCert, Tls, TlsServerVerification, TlsVerification},
     },
-    kube::{runtime::reflector::ObjectRef, CustomResource, ResourceExt},
+    kube::{CustomResource, ResourceExt},
     product_config::types::PropertyNameKind,
     product_config_utils::{ConfigError, Configuration},
     role_utils::{Role, RoleGroupRef},
@@ -763,22 +763,10 @@ impl Configuration for HistoricalConfig {
     fn compute_files(
         &self,
         resource: &Self::Configurable,
-        role_name: &str,
+        _role_name: &str,
         file: &str,
     ) -> Result<BTreeMap<String, Option<String>>, ConfigError> {
-        let mut result = resource.common_compute_files(file)?;
-        let rolegroup_ref = RoleGroupRef {
-            cluster: ObjectRef::from_obj(resource),
-            role: DruidRole::Historical.to_string(),
-            role_group: role_name.into(),
-        };
-        resource::resources(resource, &DruidRole::Historical, &rolegroup_ref)
-            .and_then(|rr| rr.update_druid_config_file(file, &mut result))
-            .map_err(|_| ConfigError::InvalidConfiguration {
-                reason: "invalid resource configuration for historical role group [{role_name}]"
-                    .to_string(),
-            })?;
-        Ok(result)
+        resource.common_compute_files(file)
     }
 }
 

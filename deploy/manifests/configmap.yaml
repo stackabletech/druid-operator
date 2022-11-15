@@ -740,30 +740,6 @@ data:
               required: false
           asOfVersion: "0.0.0"
 
-      - property: &segmentCacheLocations
-          propertyNames:
-            - name: "druid.segmentCache.locations"
-              kind:
-                type: "file"
-                file: "runtime.properties"
-          datatype:
-            type: "string"
-          defaultValues:
-            - fromVersion: "0.0.0"
-              value: "[{\"path\":\"/stackable/var/druid/segment-cache\",\"maxSize\":\"300g\"}]"
-          roles:
-            - name: "broker"
-              required: false
-            - name: "coordinator"
-              required: false
-            - name: "historical"
-              required: true
-            - name: "middleManager"
-              required: false
-            - name: "router"
-              required: false
-          asOfVersion: "0.0.0"
-
       - property: &coordinatorAsOverlordOverlordService
           propertyNames:
             - name: "druid.coordinator.asOverlord.overlordService"

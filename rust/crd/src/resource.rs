@@ -90,21 +90,21 @@ impl RoleResource {
         &self,
         file: &str,
         config: &mut BTreeMap<String, Option<String>>,
-    ) -> Result<(), Error> {
+    ) {
         if let Self::Historical(r) = self {
             if RUNTIME_PROPS == file {
                 let free_percentage = r.storage.segment_cache.free_percentage.unwrap_or(5u16);
                 let capacity = &r.storage.segment_cache.empty_dir.capacity;
-                config.insert(
-                    PROP_SEGMENT_CACHE_LOCATIONS.to_string(),
-                    Some(format!(
-                        r#"[{{"path":"{}","maxSize":"{}","freeSpacePercent": {}}}]"#,
-                        PATH_SEGMENT_CACHE, capacity.0, free_percentage
-                    )),
-                );
+                config
+                    .entry(PROP_SEGMENT_CACHE_LOCATIONS.to_string())
+                    .or_insert_with(|| {
+                        Some(format!(
+                            r#"[{{"path":"{}","maxSize":"{}","freeSpacePercent":"{}"}}]"#,
+                            PATH_SEGMENT_CACHE, capacity.0, free_percentage
+                        ))
+                    });
             }
         }
-        Ok(())
     }
 
     pub fn update_volumes_and_volume_mounts(&self, cb: &mut ContainerBuilder, pb: &mut PodBuilder) {
@@ -591,10 +591,10 @@ mod test {
         let res = resources(&cluster, &DruidRole::Historical, &rolegroup_ref)?;
 
         let mut got = BTreeMap::new();
-        res.update_druid_config_file(RUNTIME_PROPS, &mut got)?;
+        res.update_druid_config_file(RUNTIME_PROPS, &mut got);
         let expected: BTreeMap<String, Option<String>> = vec![
             (PROP_SEGMENT_CACHE_LOCATIONS.to_string(),
-             Some(r#"[{"path":"/stackable/var/druid/segment-cache","maxSize":"5g","freeSpacePercent": 3}]"#.to_string()))
+             Some(r#"[{"path":"/stackable/var/druid/segment-cache","maxSize":"5g","freeSpacePercent":"3"}]"#.to_string()))
         ].into_iter().collect();
 
         assert_eq!(
@@ -610,10 +610,10 @@ mod test {
         };
         let res = resources(&cluster, &DruidRole::Historical, &rolegroup_ref)?;
         let mut got = BTreeMap::new();
-        res.update_druid_config_file(RUNTIME_PROPS, &mut got)?;
+        res.update_druid_config_file(RUNTIME_PROPS, &mut got);
         let expected = vec![
             (PROP_SEGMENT_CACHE_LOCATIONS.to_string(),
-             Some(r#"[{"path":"/stackable/var/druid/segment-cache","maxSize":"2g","freeSpacePercent": 7}]"#.to_string()))
+             Some(r#"[{"path":"/stackable/var/druid/segment-cache","maxSize":"2g","freeSpacePercent":"7"}]"#.to_string()))
         ].into_iter().collect();
 
         assert_eq!(
