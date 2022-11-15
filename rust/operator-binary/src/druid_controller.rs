@@ -782,7 +782,7 @@ fn add_s3_volume_and_volume_mounts(
 }
 
 fn container_image(version: &str) -> String {
-    format!("docker.stackable.tech/stackable/druid:{}", version)
+    format!("docker.stackable.tech/sandbox/felix/druid:{}", version)
 }
 
 pub fn error_policy(_obj: Arc<DruidCluster>, _error: &Error, _ctx: Arc<Ctx>) -> Action {
