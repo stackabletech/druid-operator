@@ -59,6 +59,15 @@ spec:
             limits:
               cpu: "4"
               memory: 2Gi
+      volumes:
+        - configMap:
+            name: druid-resources-historical-default
+          name: config
+        - emptyDir: {}
+          name: rwconfig
+        - emptyDir:
+            sizeLimit: 2G
+          name: segment-cache
 status:
   readyReplicas: 1
   replicas: 1
