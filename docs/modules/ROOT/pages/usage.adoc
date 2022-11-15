@@ -463,3 +463,27 @@ brokers:
 WARNING: The default values are _most likely_ not sufficient to run a proper cluster in production. Please adapt according to your requirements.
 
 For more details regarding Kubernetes CPU limits see: https://kubernetes.io/docs/tasks/configure-pod-container/assign-cpu-resource/[Assign CPU Resources to Containers and Pods].
+
+==== Historical Resources
+
+In addition to the cpu and memory resources described above, historical Pods also accept a `storage` resource with the following properties:
+
+* `segmentCache` - used to set the maximum size allowed for the historical segment cache locations. See the Druid documentation regarding https://druid.apache.org/docs/latest/configuration/index.html#historical[druid.segmentCache.locations]. The operator creates an `emptyDir` and sets the `max_size` of the volume to be the value of the `capacity` property. In addition Druid is configured to keep 7% volume size free. By default, if no no `segmentCache` is configured, the operator will create an `emptyDir` with a size of `1G` and `freePercentage` of `5`.
+
+Example historical configuration with storage resources:
+
+[source,yaml]
+----
+historicals:
+  roleGroups:
+    default:
+      config:
+        resources:
+          storage:
+            segmentCache:
+              # The amount of free space to subtract from the capacity setting below.
+              freePercentage: 7
+              emptyDir:
+                # The maximum size of the volume used to store the segment cache
+                capacity: 2g
+----

@@ -55,6 +55,8 @@ pub struct FreePercentageEmptyDir {
     pub empty_dir: CapacityEmptyDir,
 }
 
+/// Default values for the `segmentCache` property of the custom resource.
+/// See also `Default` for `FreePercentageEmptyDirFragment` below.
 impl Default for FreePercentageEmptyDir {
     fn default() -> Self {
         FreePercentageEmptyDir {
@@ -67,6 +69,8 @@ impl Default for FreePercentageEmptyDir {
     }
 }
 
+/// Default values for the `segmentCache` property of the custom resource.
+/// See also `Default` for `FreePercentageEmptyDir` above.
 impl Default for FreePercentageEmptyDirFragment {
     fn default() -> Self {
         FreePercentageEmptyDirFragment {
