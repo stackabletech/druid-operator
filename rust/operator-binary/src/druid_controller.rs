@@ -444,7 +444,7 @@ fn build_rolegroup_config_map(
         match property_name_kind {
             PropertyNameKind::File(file_name) if file_name == RUNTIME_PROPS => {
                 // Add any properties derived from storage manifests, such as segment cache locations.
-                // This has to be done here sice there is no other suitable place for it.
+                // This has to be done here since there is no other suitable place for it.
                 // Previously such properties were added in the compute_files() function,
                 // but that code path is now incompatible with the design of fragment merging.
                 resources.update_druid_config_file(file_name.as_str(), &mut transformed_config);
