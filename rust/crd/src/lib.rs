@@ -128,14 +128,6 @@ pub enum Error {
     UnknownDruidRole { role: String, roles: Vec<String> },
     #[snafu(display("missing namespace for resource {name}"))]
     MissingNamespace { name: String },
-    #[snafu(display(
-        "invalid reosurce configuration for role [{role}] and role group [{role_group}]"
-    ))]
-    ComputeFiles {
-        role: DruidRole,
-        role_group: String,
-        source: resource::Error,
-    },
 }
 
 #[derive(Clone, CustomResource, Debug, Deserialize, JsonSchema, Serialize)]
