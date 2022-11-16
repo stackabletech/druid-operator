@@ -826,21 +826,6 @@ mod test {
         },
     }
 
-    // This test demonstrates that serde_yaml 0.9 cannot deserialize the deep_storage section
-    // of the CRD.
-    #[test]
-    fn serde_yaml_test() -> Result<(), Error> {
-        let druid_manifest = "segment_cache.yaml";
-        //println!("{}", std::fs::read_to_string(format!("test/resources/druid_controller/{druid_manifest}")).unwrap());
-
-        let cluster_cr =
-            std::fs::File::open(format!("test/resources/druid_controller/{druid_manifest}"))
-                .unwrap();
-        let _druid: DruidCluster = serde_yaml::from_reader(&cluster_cr).unwrap();
-
-        Ok(())
-    }
-
     #[rstest]
     #[case(
         "segment_cache.yaml",
