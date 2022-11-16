@@ -8,6 +8,7 @@ All notable changes to this project will be documented in this file.
 
 - BREAKING: Support for TLS encryption (activated per default -> port changes) and TLS authentication ([#333]).
 - BREAKING: Reworked top level configuration. Deep storage, Ingestion spec, discovery config maps etc. are now subfields of `spec.clusterConfig` instead of being top level under `spec` ([#333]).
+- Use emptyDir for segment cache on historicals ([#342])
 
 ### Changed
 
@@ -21,6 +22,7 @@ All notable changes to this project will be documented in this file.
 [#333]: https://github.com/stackabletech/druid-operator/pull/333
 [#339]: https://github.com/stackabletech/druid-operator/pull/339
 [#340]: https://github.com/stackabletech/druid-operator/pull/340
+[#342]: https://github.com/stackabletech/druid-operator/pull/342
 
 ## [0.8.0] - 2022-11-07
 

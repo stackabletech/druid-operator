@@ -49,6 +49,9 @@ pub const STACKABLE_TRUST_STORE: &str = "/stackable/truststore.p12";
 pub const STACKABLE_TRUST_STORE_PASSWORD: &str = "changeit";
 pub const CERTS_DIR: &str = "/stackable/certificates";
 
+pub const PROP_SEGMENT_CACHE_LOCATIONS: &str = "druid.segmentCache.locations";
+pub const PATH_SEGMENT_CACHE: &str = "/stackable/var/druid/segment-cache";
+
 /////////////////////////////
 //    CONFIG PROPERTIES    //
 /////////////////////////////

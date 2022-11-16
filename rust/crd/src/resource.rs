@@ -1,17 +1,23 @@
-use crate::storage;
-use crate::{DruidCluster, DruidRole};
+use std::collections::BTreeMap;
+
+use crate::storage::{self, FreePercentageEmptyDirFragment};
+use crate::{
+    DruidCluster, DruidRole, PATH_SEGMENT_CACHE, PROP_SEGMENT_CACHE_LOCATIONS, RUNTIME_PROPS,
+};
 use lazy_static::lazy_static;
 use snafu::{ResultExt, Snafu};
 use stackable_operator::config::fragment;
 use stackable_operator::role_utils::RoleGroupRef;
 use stackable_operator::{
+    builder::{ContainerBuilder, PodBuilder, VolumeBuilder},
     commons::resources::{
         CpuLimitsFragment, MemoryLimits, MemoryLimitsFragment, NoRuntimeLimits,
         NoRuntimeLimitsFragment, Resources, ResourcesFragment,
     },
     config::merge::Merge,
     k8s_openapi::{
-        api::core::v1::ResourceRequirements, apimachinery::pkg::api::resource::Quantity,
+        api::core::v1::{EmptyDirVolumeSource, ResourceRequirements},
+        apimachinery::pkg::api::resource::Quantity,
     },
 };
 use strum::{EnumDiscriminants, IntoStaticStr};
@@ -77,6 +83,43 @@ impl RoleResource {
             Self::Historical(r) => r.clone().memory,
         }
     }
+
+    /// Update the given configuration file with resource properties.
+    /// Currently it only adds the segment cache location property for historicals to runtime.properties.
+    pub fn update_druid_config_file(
+        &self,
+        file: &str,
+        config: &mut BTreeMap<String, Option<String>>,
+    ) {
+        if let Self::Historical(r) = self {
+            if RUNTIME_PROPS == file {
+                let free_percentage = r.storage.segment_cache.free_percentage.unwrap_or(5u16);
+                let capacity = &r.storage.segment_cache.empty_dir.capacity;
+                config
+                    .entry(PROP_SEGMENT_CACHE_LOCATIONS.to_string())
+                    .or_insert_with(|| {
+                        Some(format!(
+                            r#"[{{"path":"{}","maxSize":"{}","freeSpacePercent":"{}"}}]"#,
+                            PATH_SEGMENT_CACHE, capacity.0, free_percentage
+                        ))
+                    });
+            }
+        }
+    }
+
+    pub fn update_volumes_and_volume_mounts(&self, cb: &mut ContainerBuilder, pb: &mut PodBuilder) {
+        if let Self::Historical(r) = self {
+            cb.add_volume_mount("segment-cache", PATH_SEGMENT_CACHE);
+            pb.add_volume(
+                VolumeBuilder::new("segment-cache")
+                    .empty_dir(EmptyDirVolumeSource {
+                        medium: r.storage.segment_cache.empty_dir.medium.clone(),
+                        size_limit: Some(r.storage.segment_cache.empty_dir.capacity.clone()),
+                    })
+                    .build(),
+            );
+        }
+    }
 }
 
 lazy_static! {
@@ -102,7 +145,9 @@ lazy_static! {
                 limit: Some(Quantity("2Gi".to_owned())),
                 runtime_limits: NoRuntimeLimitsFragment {},
             },
-            storage: storage::HistoricalStorageFragment {},
+            storage: storage::HistoricalStorageFragment {
+                segment_cache: FreePercentageEmptyDirFragment::default(),
+            },
         };
 }
 
@@ -268,6 +313,8 @@ fn try_merge_private(
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate::storage::FreePercentageEmptyDir;
+
     use rstest::*;
     use stackable_operator::{
         commons::resources::{
@@ -290,6 +337,7 @@ mod test {
                 runtime_limits: NoRuntimeLimitsFragment{},
             },
             storage: storage::HistoricalStorageFragment{
+                segment_cache: FreePercentageEmptyDirFragment::default(),
             },
         })),
         None,
@@ -304,6 +352,7 @@ mod test {
                 runtime_limits: NoRuntimeLimits{},
             },
             storage: storage::HistoricalStorage{
+                segment_cache: FreePercentageEmptyDir::default(),
             },
         }),
      )]
@@ -318,6 +367,7 @@ mod test {
                 runtime_limits: NoRuntimeLimitsFragment  {},
             },
             storage: storage::HistoricalStorageFragment  {
+                segment_cache: FreePercentageEmptyDirFragment::default(),
             },
         })),
         Some(RoleResourceFragment::HistoricalFragment(ResourcesFragment  {
@@ -330,6 +380,7 @@ mod test {
                 runtime_limits: NoRuntimeLimitsFragment {},
             },
             storage: storage::HistoricalStorageFragment {
+                segment_cache: FreePercentageEmptyDirFragment::default(),
             },
         })),
         None,
@@ -343,6 +394,7 @@ mod test {
                 runtime_limits: NoRuntimeLimits {},
             },
             storage: storage::HistoricalStorage {
+                segment_cache: FreePercentageEmptyDir::default(),
             },
         }),
      )]
@@ -357,6 +409,7 @@ mod test {
                 runtime_limits: NoRuntimeLimitsFragment  {},
             },
             storage: storage::HistoricalStorageFragment  {
+                segment_cache: FreePercentageEmptyDirFragment::default(),
             },
         })),
         Some(RoleResourceFragment::HistoricalFragment (ResourcesFragment  {
@@ -369,6 +422,7 @@ mod test {
                 runtime_limits: NoRuntimeLimitsFragment  {},
             },
             storage: storage::HistoricalStorageFragment  {
+                segment_cache: FreePercentageEmptyDirFragment::default(),
             },
         })),
         Some(RoleResourceFragment::HistoricalFragment (ResourcesFragment  {
@@ -381,6 +435,7 @@ mod test {
                 runtime_limits: NoRuntimeLimitsFragment  {},
             },
             storage: storage::HistoricalStorageFragment  {
+                segment_cache: FreePercentageEmptyDirFragment::default(),
             },
         })),
         RoleResource::Historical(Resources {
@@ -393,6 +448,7 @@ mod test {
                 runtime_limits: NoRuntimeLimits {},
             },
             storage: storage::HistoricalStorage {
+                segment_cache: FreePercentageEmptyDir::default(),
             },
         }),
      )]
@@ -419,6 +475,7 @@ mod test {
                 runtime_limits: NoRuntimeLimitsFragment  {},
             },
             storage: storage::HistoricalStorageFragment  {
+                segment_cache: FreePercentageEmptyDirFragment::default(),
             },
         })),
         Some(RoleResourceFragment ::DruidFragment (ResourcesFragment  {
@@ -480,7 +537,10 @@ mod test {
                 storage: storage::DruidStorage {},
             };
 
-            assert_eq!(middlemanager_resources_from_rg, expected);
+            assert_eq!(
+                middlemanager_resources_from_rg, expected,
+                "middlemanager resources from role group"
+            );
         } else {
             panic!("No role group named [resources-from-role-group] found");
         }
@@ -505,10 +565,61 @@ mod test {
                 storage: storage::DruidStorage {},
             };
 
-            assert_eq!(middlemanager_resources_from_rg, expected);
+            assert_eq!(
+                middlemanager_resources_from_rg, expected,
+                "resources from role"
+            );
         } else {
             panic!("No role group named [resources-from-role] found");
         }
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_segment_cache() -> Result<(), Error> {
+        let cluster_cr =
+            std::fs::File::open("test/resources/resource_merge/segment_cache.yaml").unwrap();
+        let cluster: DruidCluster = serde_yaml::from_reader(&cluster_cr).unwrap();
+
+        // ---------- default role group
+        let rolegroup_ref = RoleGroupRef {
+            cluster: ObjectRef::from_obj(&cluster),
+            role: DruidRole::Historical.to_string(),
+            role_group: "default".into(),
+        };
+        let res = resources(&cluster, &DruidRole::Historical, &rolegroup_ref)?;
+
+        let mut got = BTreeMap::new();
+        res.update_druid_config_file(RUNTIME_PROPS, &mut got);
+        let expected: BTreeMap<String, Option<String>> = vec![
+            (PROP_SEGMENT_CACHE_LOCATIONS.to_string(),
+             Some(r#"[{"path":"/stackable/var/druid/segment-cache","maxSize":"5g","freeSpacePercent":"3"}]"#.to_string()))
+        ].into_iter().collect();
+
+        assert_eq!(
+            got, expected,
+            "role: historical, group: default, segment cache config"
+        );
+
+        // ---------- secondary role group
+        let rolegroup_ref = RoleGroupRef {
+            cluster: ObjectRef::from_obj(&cluster),
+            role: DruidRole::Historical.to_string(),
+            role_group: "secondary".into(),
+        };
+        let res = resources(&cluster, &DruidRole::Historical, &rolegroup_ref)?;
+        let mut got = BTreeMap::new();
+        res.update_druid_config_file(RUNTIME_PROPS, &mut got);
+        let expected = vec![
+            (PROP_SEGMENT_CACHE_LOCATIONS.to_string(),
+             Some(r#"[{"path":"/stackable/var/druid/segment-cache","maxSize":"2g","freeSpacePercent":"7"}]"#.to_string()))
+        ].into_iter().collect();
+
+        assert_eq!(
+            got, expected,
+            "role: historical, group: secondary, segment cache config"
+        );
 
         Ok(())
     }

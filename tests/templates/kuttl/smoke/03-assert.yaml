@@ -26,6 +26,21 @@ metadata:
 status:
   readyReplicas: 1
   replicas: 1
+spec:
+  template:
+    spec:
+      volumes:
+      - configMap:
+          name: druid-historical-default
+        name: config
+      - emptyDir: {}
+        name: rwconfig
+      - configMap:
+          name: druid-hdfs
+        name: hdfs
+      - emptyDir:
+          sizeLimit: 1G
+        name: segment-cache
 ---
 apiVersion: apps/v1
 kind: StatefulSet

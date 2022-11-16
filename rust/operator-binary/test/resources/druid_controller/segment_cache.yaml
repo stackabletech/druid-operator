@@ -1,0 +1,60 @@
+---
+apiVersion: druid.stackable.tech/v1alpha1
+kind: DruidCluster
+metadata:
+  name: test-resource-merge
+  namespace: default
+  uid: test-resource-merge
+spec:
+  version: 24.0.0-stackable0.2.0
+  clusterConfig:
+    deepStorage:
+      s3:
+        bucket:
+          inline:
+            bucketName: druid
+            connection:
+              inline:
+                host: minio-druid
+                port: 9000
+                accessStyle: Path
+                credentials:
+                  secretClass: druid-s3-credentials
+    metadataStorageDatabase:
+      dbType: postgresql
+      connString: jdbc:postgresql://druid-postgresql/druid
+      host: druid-postgresql
+      port: 5432
+      user: druid
+      password: druid
+    tls: null
+    zookeeperConfigMapName: psql-druid-znode
+  brokers:
+    roleGroups:
+      default:
+        replicas: 1
+  coordinators:
+    roleGroups:
+      default:
+        replicas: 1
+  historicals:
+    roleGroups:
+      default:
+        replicas: 1
+      secondary:
+        replicas: 1
+        config:
+          resources:
+            storage:
+              segmentCache:
+                freePercentage: 2
+                emptyDir:
+                  capacity: 5G
+  middleManagers:
+    roleGroups:
+      default:
+        replicas: 1
+  routers:
+    roleGroups:
+      default:
+        replicas: 1
