@@ -4,15 +4,19 @@ use crate::{
     discovery::{self, build_discovery_configmaps},
 };
 
+use crate::OPERATOR_NAME;
 use snafu::{OptionExt, ResultExt, Snafu};
-use stackable_druid_crd::resource::{self, RoleResource};
 use stackable_druid_crd::tls::DruidTlsSettings;
 use stackable_druid_crd::{
     authentication, authentication::DruidAuthentication, tls, DeepStorageSpec, DruidAuthorization,
-    DruidCluster, DruidRole, APP_NAME, AUTH_AUTHORIZER_OPA_URI, CERTS_DIR, CONTROLLER_NAME,
+    DruidCluster, DruidRole, APP_NAME, AUTH_AUTHORIZER_OPA_URI, CERTS_DIR,
     CREDENTIALS_SECRET_PROPERTY, DRUID_CONFIG_DIRECTORY, DS_BUCKET, HDFS_CONFIG_DIRECTORY,
     JVM_CONFIG, LOG4J2_CONFIG, RUNTIME_PROPS, RW_CONFIG_DIRECTORY, S3_ENDPOINT_URL,
     S3_PATH_STYLE_ACCESS, S3_SECRET_DIR_NAME, ZOOKEEPER_CONNECTION_STRING,
+};
+use stackable_druid_crd::{
+    build_recommended_labels,
+    resource::{self, RoleResource},
 };
 use stackable_operator::{
     builder::{
@@ -54,6 +58,7 @@ use std::{
 use strum::{EnumDiscriminants, IntoStaticStr};
 
 const JVM_HEAP_FACTOR: f32 = 0.8;
+pub const CONTROLLER_NAME: &str = "druidcluster";
 
 pub struct Ctx {
     pub client: stackable_operator::client::Client,
@@ -297,9 +302,13 @@ pub async fn reconcile_druid(druid: Arc<DruidCluster>, ctx: Arc<Ctx>) -> Result<
     )
     .context(InvalidProductConfigSnafu)?;
 
-    let mut cluster_resources =
-        ClusterResources::new(APP_NAME, CONTROLLER_NAME, &druid.object_ref(&()))
-            .context(CreateClusterResourcesSnafu)?;
+    let mut cluster_resources = ClusterResources::new(
+        APP_NAME,
+        OPERATOR_NAME,
+        CONTROLLER_NAME,
+        &druid.object_ref(&()),
+    )
+    .context(CreateClusterResourcesSnafu)?;
 
     for (role_name, role_config) in validated_role_config.iter() {
         let druid_role = DruidRole::from_str(role_name).context(UnidentifiedDruidRoleSnafu {
@@ -400,14 +409,13 @@ pub fn build_role_service(
             .name(&role_svc_name)
             .ownerreference_from_resource(druid, None, Some(true))
             .context(ObjectMissingMetadataForOwnerRefSnafu)?
-            .with_recommended_labels(
+            .with_recommended_labels(build_recommended_labels(
                 druid,
-                APP_NAME,
-                druid.version(),
                 CONTROLLER_NAME,
+                druid.version(),
                 &role_name,
                 "global",
-            )
+            ))
             .build(),
         spec: Some(ServiceSpec {
             ports: Some(tls_settings.service_ports(role)),
@@ -523,14 +531,13 @@ fn build_rolegroup_config_map(
             .name(rolegroup.object_name())
             .ownerreference_from_resource(druid, None, Some(true))
             .context(ObjectMissingMetadataForOwnerRefSnafu)?
-            .with_recommended_labels(
+            .with_recommended_labels(build_recommended_labels(
                 druid,
-                APP_NAME,
-                druid.version(),
                 CONTROLLER_NAME,
+                druid.version(),
                 &rolegroup.role,
                 &rolegroup.role_group,
-            )
+            ))
             .build(),
     );
     for (filename, file_content) in cm_conf_data.iter() {
@@ -559,14 +566,13 @@ fn build_rolegroup_services(
             .name(&rolegroup.object_name())
             .ownerreference_from_resource(druid, None, Some(true))
             .context(ObjectMissingMetadataForOwnerRefSnafu)?
-            .with_recommended_labels(
+            .with_recommended_labels(build_recommended_labels(
                 druid,
-                APP_NAME,
-                druid.version(),
                 CONTROLLER_NAME,
+                druid.version(),
                 &rolegroup.role,
                 &rolegroup.role_group,
-            )
+            ))
             .with_label("prometheus.io/scrape", "true")
             .build(),
         spec: Some(ServiceSpec {
@@ -662,14 +668,13 @@ fn build_rolegroup_statefulset(
     pb.add_init_container(cb_prepare.build());
     pb.add_container(cb_druid.build());
     pb.metadata_builder(|m| {
-        m.with_recommended_labels(
+        m.with_recommended_labels(build_recommended_labels(
             druid,
-            APP_NAME,
-            druid_version,
             CONTROLLER_NAME,
+            druid_version,
             &rolegroup_ref.role,
             &rolegroup_ref.role_group,
-        )
+        ))
     });
     pb.security_context(PodSecurityContextBuilder::new().fs_group(1000).build()); // Needed for secret-operator
 
@@ -679,14 +684,13 @@ fn build_rolegroup_statefulset(
             .name(&rolegroup_ref.object_name())
             .ownerreference_from_resource(druid, None, Some(true))
             .context(ObjectMissingMetadataForOwnerRefSnafu)?
-            .with_recommended_labels(
+            .with_recommended_labels(build_recommended_labels(
                 druid,
-                APP_NAME,
-                druid_version,
                 CONTROLLER_NAME,
+                druid_version,
                 &rolegroup_ref.role,
                 &rolegroup_ref.role_group,
-            )
+            ))
             .build(),
         spec: Some(StatefulSetSpec {
             pod_management_policy: Some("Parallel".to_string()),

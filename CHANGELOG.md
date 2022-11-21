@@ -14,6 +14,7 @@ All notable changes to this project will be documented in this file.
 
 - Updated stackable image versions ([#339]).
 - Upgrade to `operator-rs` `0.26.1` ([#340])
+- Upgrade to `operator-rs` `0.27.1` ([#347])
 
 ### Removed
 
@@ -23,6 +24,7 @@ All notable changes to this project will be documented in this file.
 [#339]: https://github.com/stackabletech/druid-operator/pull/339
 [#340]: https://github.com/stackabletech/druid-operator/pull/340
 [#342]: https://github.com/stackabletech/druid-operator/pull/342
+[#347]: https://github.com/stackabletech/druid-operator/pull/347
 
 ## [0.8.0] - 2022-11-07
 

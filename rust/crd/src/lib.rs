@@ -9,6 +9,7 @@ use crate::tls::DruidTls;
 use serde::{Deserialize, Serialize};
 use snafu::{OptionExt, ResultExt, Snafu};
 use stackable_operator::commons::resources::ResourcesFragment;
+use stackable_operator::labels::ObjectLabels;
 use stackable_operator::{
     client::Client,
     commons::{
@@ -30,7 +31,7 @@ use std::{
 use strum::{Display, EnumDiscriminants, EnumIter, EnumString, IntoStaticStr};
 
 pub const APP_NAME: &str = "druid";
-pub const CONTROLLER_NAME: &str = "druid-operator";
+pub const OPERATOR_NAME: &str = "druid.stackable.tech";
 
 // config directories
 pub const DRUID_CONFIG_DIRECTORY: &str = "/stackable/config";
@@ -871,6 +872,25 @@ fn build_string_list(strings: &[String]) -> String {
     let quoted_strings: Vec<String> = strings.iter().map(|s| format!("\"{}\"", s)).collect();
     let comma_list = quoted_strings.join(", ");
     format!("[{}]", comma_list)
+}
+
+/// Creates recommended `ObjectLabels` to be used in deployed resources
+pub fn build_recommended_labels<'a, T>(
+    owner: &'a T,
+    controller_name: &'a str,
+    app_version: &'a str,
+    role: &'a str,
+    role_group: &'a str,
+) -> ObjectLabels<'a, T> {
+    ObjectLabels {
+        owner,
+        app_name: APP_NAME,
+        app_version,
+        operator_name: OPERATOR_NAME,
+        controller_name,
+        role,
+        role_group,
+    }
 }
 
 #[cfg(test)]
