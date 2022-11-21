@@ -4,9 +4,11 @@ mod druid_controller;
 
 use std::sync::Arc;
 
+use crate::druid_controller::CONTROLLER_NAME;
 use clap::Parser;
 use futures::StreamExt;
-use stackable_druid_crd::{DruidCluster, APP_NAME};
+use stackable_druid_crd::{DruidCluster, APP_NAME, OPERATOR_NAME};
+use stackable_operator::CustomResourceExt;
 use stackable_operator::{
     cli::Command,
     cli::ProductOperatorRun,
@@ -14,7 +16,7 @@ use stackable_operator::{
         apps::v1::StatefulSet,
         core::v1::{ConfigMap, Service},
     },
-    kube::{api::ListParams, runtime::Controller, CustomResourceExt},
+    kube::{api::ListParams, runtime::Controller},
     logging::controller::report_controller_reconciled,
 };
 
@@ -33,7 +35,7 @@ struct Opts {
 async fn main() -> anyhow::Result<()> {
     let opts = Opts::parse();
     match opts.cmd {
-        Command::Crd => println!("{}", serde_yaml::to_string(&DruidCluster::crd())?),
+        Command::Crd => DruidCluster::print_yaml_schema()?,
         Command::Run(ProductOperatorRun {
             product_config,
             watch_namespace,
@@ -57,8 +59,7 @@ async fn main() -> anyhow::Result<()> {
                 "/etc/stackable/druid-operator/config-spec/properties.yaml",
             ])?;
             let client =
-                stackable_operator::client::create_client(Some("druid.stackable.tech".to_string()))
-                    .await?;
+                stackable_operator::client::create_client(Some(OPERATOR_NAME.to_string())).await?;
 
             Controller::new(
                 watch_namespace.get_api::<DruidCluster>(&client),
@@ -86,7 +87,11 @@ async fn main() -> anyhow::Result<()> {
                 }),
             )
             .map(|res| {
-                report_controller_reconciled(&client, "druidclusters.druid.stackable.tech", &res)
+                report_controller_reconciled(
+                    &client,
+                    &format!("{CONTROLLER_NAME}.{OPERATOR_NAME}"),
+                    &res,
+                )
             })
             .collect::<()>()
             .await;

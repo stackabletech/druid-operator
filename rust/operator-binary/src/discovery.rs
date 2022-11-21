@@ -2,8 +2,9 @@
 //! inside a config map.  We only provide a connection string to the router service, since it serves as
 //! a gateway to the cluster for client queries.
 
+use crate::CONTROLLER_NAME;
 use snafu::{OptionExt, ResultExt, Snafu};
-use stackable_druid_crd::{DruidCluster, DruidRole, APP_NAME, CONTROLLER_NAME};
+use stackable_druid_crd::{build_recommended_labels, DruidCluster, DruidRole};
 use stackable_operator::{
     builder::{ConfigMapBuilder, ObjectMetaBuilder},
     k8s_openapi::api::core::v1::ConfigMap,
@@ -66,14 +67,13 @@ fn build_discovery_configmap(
                 .with_context(|_| ObjectMissingMetadataForOwnerRefSnafu {
                     druid: ObjectRef::from_obj(druid),
                 })?
-                .with_recommended_labels(
+                .with_recommended_labels(build_recommended_labels(
                     druid,
-                    APP_NAME,
-                    druid.version(),
                     CONTROLLER_NAME,
+                    druid.version(),
                     &DruidRole::Router.to_string(),
                     "discovery",
-                )
+                ))
                 .build(),
         )
         .add_data("DRUID_ROUTER", router_host)
