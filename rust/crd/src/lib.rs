@@ -31,7 +31,7 @@ use std::{
 use strum::{Display, EnumDiscriminants, EnumIter, EnumString, IntoStaticStr};
 
 pub const APP_NAME: &str = "druid";
-pub const OPERATOR_NAME: &str = "airflow.stackable.tech";
+pub const OPERATOR_NAME: &str = "druid.stackable.tech";
 
 // config directories
 pub const DRUID_CONFIG_DIRECTORY: &str = "/stackable/config";
