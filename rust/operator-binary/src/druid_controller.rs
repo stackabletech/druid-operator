@@ -6,7 +6,6 @@ use crate::{
 
 use crate::OPERATOR_NAME;
 use snafu::{OptionExt, ResultExt, Snafu};
-use stackable_druid_crd::tls::DruidTlsSettings;
 use stackable_druid_crd::{
     authentication, authentication::DruidAuthentication, tls, DeepStorageSpec, DruidAuthorization,
     DruidCluster, DruidRole, APP_NAME, AUTH_AUTHORIZER_OPA_URI, CERTS_DIR,
@@ -17,6 +16,7 @@ use stackable_druid_crd::{
 use stackable_druid_crd::{
     build_recommended_labels,
     resource::{self, RoleResource},
+    tls::DruidTlsSettings,
 };
 use stackable_operator::{
     builder::{
@@ -292,6 +292,8 @@ pub async fn reconcile_druid(druid: Arc<DruidCluster>, ctx: Arc<Ctx>) -> Result<
         authentication: tls_authentication_config,
     };
 
+    // False positive, auto-deref breaks type inference
+    #[allow(clippy::explicit_auto_deref)]
     let role_config = transform_all_roles_to_config(&*druid, druid.build_role_properties());
     let validated_role_config = validate_all_roles_and_groups_config(
         druid.version(),
@@ -372,7 +374,7 @@ pub async fn reconcile_druid(druid: Arc<DruidCluster>, ctx: Arc<Ctx>) -> Result<
     }
 
     // discovery
-    for discovery_cm in build_discovery_configmaps(&*druid, &*druid)
+    for discovery_cm in build_discovery_configmaps(&druid, &*druid)
         .await
         .context(BuildDiscoveryConfigSnafu)?
     {
