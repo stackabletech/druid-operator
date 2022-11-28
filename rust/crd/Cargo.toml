@@ -21,4 +21,4 @@ lazy_static = "1.4"
 
 [dev-dependencies]
 serde_yaml = "0.8"
-rstest = "0.15"
+rstest = "0.16"
