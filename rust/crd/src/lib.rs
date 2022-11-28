@@ -970,6 +970,37 @@ mod tests {
     }
 
     #[test]
+    fn test_tls_config() {
+        let input = r#"
+        deepStorage:
+          hdfs:
+            configMapName: druid-hdfs
+            directory: /druid
+        metadataStorageDatabase:
+          dbType: derby
+          connString: jdbc:derby://localhost:1527/var/druid/metadata.db;create=true
+          host: localhost
+          port: 1527
+        zookeeperConfigMapName: zk-config-map
+        authentication:
+          tls:
+            authenticationClass: some-tls-class
+        "#;
+        let druid_cluster_config: DruidClusterConfig =
+            serde_yaml::from_str(input).expect("illegal test input");
+
+        assert_eq!(
+            druid_cluster_config
+                .authentication
+                .unwrap()
+                .tls
+                .unwrap()
+                .authentication_class,
+            "some-tls-class".to_string()
+        );
+    }
+
+    #[test]
     fn test_ldap_config() {
         let input = r#"
         deepStorage:

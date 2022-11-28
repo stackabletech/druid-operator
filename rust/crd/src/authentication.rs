@@ -50,6 +50,8 @@ impl DruidAuthentication {
     ) -> Result<Vec<DruidAuthenticationConfig>, Error> {
         let mut druid_authentication_config: Vec<DruidAuthenticationConfig> = vec![];
 
+        // NEXT: use the provider directly
+
         if let Some(DruidAuthentication {
             tls: Some(druid_tls),
             ldap: _,
