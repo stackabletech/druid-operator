@@ -5,6 +5,52 @@ metadata:
   name: install-druid
 timeout: 600
 ---
+apiVersion: secrets.stackable.tech/v1alpha1
+kind: SecretClass
+metadata:
+  name: druid-with-ldap-bind
+spec:
+  backend:
+    k8sSearch:
+      searchNamespace:
+        pod: {}
+---
+apiVersion: authentication.stackable.tech/v1alpha1
+kind: AuthenticationClass
+metadata:
+  name: druid-ldap-authentication-class
+spec:
+  provider:
+    ldap:
+      hostname: openldap.default.svc.cluster.local
+      searchBase: ou=Users,dc=example,dc=org
+      searchFilter: (&(uid=%s)(objectClass=inetOrgPerson))
+      bindCredentials:
+        secretClass: druid-with-ldap-bind
+        port: 1389
+#{% if test_scenario['values']['ldap-use-tls'] == 'false' %}
+#      port: 1389
+#{% else %}
+#      port: 1636
+#      tls:
+#        verification:
+#          server:
+#            caCert:
+#              secretClass: openldap-tls
+#{% endif %}
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: druid-with-ldap-bind
+  labels:
+    secrets.stackable.tech/class: druid-with-ldap-bind
+stringData:
+  bindUser: uid=admin,ou=Users,dc=example,dc=org
+  bindPassword: admin
+  internalUser: druid_system
+  internalPassword: druidsystem
+---
 apiVersion: druid.stackable.tech/v1alpha1
 kind: DruidCluster
 metadata:
@@ -12,6 +58,8 @@ metadata:
 spec:
   version: {{ test_scenario['values']['druid'] }}
   clusterConfig:
+    authentication:
+      - authenticationClass: druid-ldap-authentication-class
     deepStorage:
       hdfs:
         configMapName: druid-hdfs
