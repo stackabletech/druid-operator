@@ -596,7 +596,7 @@ impl DruidCluster {
             // TLS authentication with provided AuthenticationClass or no TLS required?
             matches!(
                 &self.spec.cluster_config.authentication,
-                Some(DruidAuthentication { tls: Some(_) })
+                Some(DruidAuthentication { tls: Some(_), classes: _ })
             )
         }
     }
@@ -963,6 +963,32 @@ mod tests {
         assert_eq!(
             druid_cluster_config.tls.unwrap().secret_class,
             "foo".to_string()
+        );
+    }
+
+    #[test]
+    fn test_ldap_config() {
+        let input = r#"
+        deepStorage:
+          hdfs:
+            configMapName: druid-hdfs
+            directory: /druid
+        metadataStorageDatabase:
+          dbType: derby
+          connString: jdbc:derby://localhost:1527/var/druid/metadata.db;create=true
+          host: localhost
+          port: 1527
+        zookeeperConfigMapName: zk-config-map
+        authentication:
+          classes:
+            - authenticationClass: some-ldap-class
+        "#;
+        let druid_cluster_config: DruidClusterConfig =
+            serde_yaml::from_str(input).expect("illegal test input");
+
+        assert_eq!(
+            druid_cluster_config.authentication.unwrap().classes.unwrap().first().unwrap().authentication_class,
+            "some-ldap-class".to_string()
         );
     }
 }

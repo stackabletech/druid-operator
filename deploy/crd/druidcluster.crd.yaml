@@ -361,6 +361,16 @@ spec:
                     description: Authentication class settings for Druid like TLS authentication or LDAP
                     nullable: true
                     properties:
+                      classes:
+                        items:
+                          properties:
+                            authenticationClass:
+                              type: string
+                          required:
+                          - authenticationClass
+                          type: object
+                        nullable: true
+                        type: array
                       tls:
                         description: TLS based client authentication (mutual TLS)
                         nullable: true
