@@ -6,7 +6,8 @@ use stackable_operator::{
     client::Client,
     commons::{
         authentication::{AuthenticationClass, AuthenticationClassProvider},
-        tls::TlsAuthenticationProvider, ldap::LdapAuthenticationProvider,
+        ldap::LdapAuthenticationProvider,
+        tls::TlsAuthenticationProvider,
     },
     kube::runtime::reflector::ObjectRef,
     schemars::{self, JsonSchema},
@@ -32,22 +33,13 @@ pub enum Error {
 #[serde(rename_all = "camelCase")]
 pub struct DruidAuthentication {
     /// TLS based client authentication (mutual TLS)
-    pub tls: Option<DruidTlsAuthentication>,
-    pub classes: Option<Vec<DruidAuthenticationClass>>, // TODO: hiding this behind "classes" is temporary
-    // NOTE: use below for an anonymous list. This would require a tls functionality rebuild
-    //#[serde(flatten)]
-    //pub authentication_entries: Vec<DruidAuthenticationClass>,
+    pub tls: Option<DruidAuthenticationClass>,
+    pub ldap: Option<DruidAuthenticationClass>,
 }
 
 #[derive(Clone, Debug, Deserialize, JsonSchema, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DruidAuthenticationClass {
-    pub authentication_class: String,
-}
-
-#[derive(Clone, Debug, Deserialize, JsonSchema, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct DruidTlsAuthentication {
     pub authentication_class: String,
 }
 
@@ -60,7 +52,7 @@ impl DruidAuthentication {
 
         if let Some(DruidAuthentication {
             tls: Some(druid_tls),
-            classes: _,
+            ldap: _,
         }) = &druid.spec.cluster_config.authentication
         {
             let authentication_class =

@@ -59,7 +59,7 @@ spec:
   version: {{ test_scenario['values']['druid'] }}
   clusterConfig:
     authentication:
-      - authenticationClass: druid-ldap-authentication-class
+      ldap: druid-tls-auth-class
     deepStorage:
       hdfs:
         configMapName: druid-hdfs

@@ -596,7 +596,10 @@ impl DruidCluster {
             // TLS authentication with provided AuthenticationClass or no TLS required?
             matches!(
                 &self.spec.cluster_config.authentication,
-                Some(DruidAuthentication { tls: Some(_), classes: _ })
+                Some(DruidAuthentication {
+                    tls: Some(_),
+                    ldap: _
+                })
             )
         }
     }
@@ -980,14 +983,19 @@ mod tests {
           port: 1527
         zookeeperConfigMapName: zk-config-map
         authentication:
-          classes:
-            - authenticationClass: some-ldap-class
+          ldap:
+            authenticationClass: some-ldap-class
         "#;
         let druid_cluster_config: DruidClusterConfig =
             serde_yaml::from_str(input).expect("illegal test input");
 
         assert_eq!(
-            druid_cluster_config.authentication.unwrap().classes.unwrap().first().unwrap().authentication_class,
+            druid_cluster_config
+                .authentication
+                .unwrap()
+                .ldap
+                .unwrap()
+                .authentication_class,
             "some-ldap-class".to_string()
         );
     }
