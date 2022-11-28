@@ -26,6 +26,7 @@ use stackable_operator::{
     },
     cluster_resources::ClusterResources,
     commons::{
+        authentication::AuthenticationClassProvider,
         opa::OpaApiVersion,
         s3::{S3AccessStyle, S3ConnectionSpec},
         tls::{CaCert, TlsVerification},
@@ -272,15 +273,11 @@ pub async fn reconcile_druid(druid: Arc<DruidCluster>, ctx: Arc<Ctx>) -> Result<
         .await
         .context(InvalidAuthenticationConfigSnafu)?;
 
+    // TODO: this is fishy! why ignore the spec.cluster_config.tls ?
     let mut tls_authentication_config = None;
-    let mut authentication_config = vec![];
-    // Remove a TLS provider if available. The TLS provider must be treated in combination
-    // with TLS encryption. Retain all other authentication providers.
     for auth_conf in resolved_authentication_config.into_iter() {
-        if auth_conf.is_tls_auth() {
+        if let AuthenticationClassProvider::Tls(_) = auth_conf {
             tls_authentication_config = Some(auth_conf);
-        } else {
-            authentication_config.push(auth_conf);
         }
     }
 

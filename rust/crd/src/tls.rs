@@ -1,10 +1,10 @@
-use crate::authentication::DruidAuthenticationConfig;
 use crate::{DruidRole, METRICS_PORT};
 
 use serde::{Deserialize, Serialize};
 use snafu::Snafu;
 use stackable_operator::{
     builder::{ContainerBuilder, PodBuilder, SecretOperatorVolumeSourceBuilder, VolumeBuilder},
+    commons::authentication::AuthenticationClassProvider,
     k8s_openapi::{
         api::core::v1::{ContainerPort, Probe, ServicePort, TCPSocketAction, Volume},
         apimachinery::pkg::util::intstr::IntOrString,
@@ -84,7 +84,7 @@ pub struct DruidTls {
 /// - Which probes to be set
 pub struct DruidTlsSettings {
     pub encryption: Option<DruidTls>,
-    pub authentication: Option<DruidAuthenticationConfig>,
+    pub authentication: Option<AuthenticationClassProvider>,
 }
 
 impl DruidTlsSettings {
@@ -132,7 +132,7 @@ impl DruidTlsSettings {
         druid: &mut ContainerBuilder,
         pod: &mut PodBuilder,
     ) -> Result<(), Error> {
-        let secret_class = if let Some(DruidAuthenticationConfig::Tls(provider)) =
+        let secret_class = if let Some(AuthenticationClassProvider::Tls(provider)) =
             &self.authentication
         {
             // If client_cert_secret_class authentication is set use it for our tls volume mounts
@@ -491,9 +491,11 @@ mod tests {
     fn test_add_tls_config_properties_only_authentication() {
         let tls_settings_encryption = DruidTlsSettings {
             encryption: None,
-            authentication: Some(DruidAuthenticationConfig::Tls(TlsAuthenticationProvider {
-                client_cert_secret_class: Some(DEFAULT_TLS_SECRET_CLASS.to_string()),
-            })),
+            authentication: Some(AuthenticationClassProvider::Tls(
+                TlsAuthenticationProvider {
+                    client_cert_secret_class: Some(DEFAULT_TLS_SECRET_CLASS.to_string()),
+                },
+            )),
         };
 
         let mut config = BTreeMap::new();
@@ -542,9 +544,11 @@ mod tests {
             encryption: Some(DruidTls {
                 secret_class: DEFAULT_TLS_SECRET_CLASS.to_string(),
             }),
-            authentication: Some(DruidAuthenticationConfig::Tls(TlsAuthenticationProvider {
-                client_cert_secret_class: Some(DEFAULT_TLS_SECRET_CLASS.to_string()),
-            })),
+            authentication: Some(AuthenticationClassProvider::Tls(
+                TlsAuthenticationProvider {
+                    client_cert_secret_class: Some(DEFAULT_TLS_SECRET_CLASS.to_string()),
+                },
+            )),
         };
 
         let mut config = BTreeMap::new();
