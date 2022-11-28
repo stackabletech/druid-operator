@@ -46,11 +46,7 @@ fn build_discovery_configmap(
         druid
             .role_service_fqdn(&DruidRole::Router)
             .with_context(|| NoServiceFqdnSnafu)?,
-        if druid.tls_enabled() {
-            DruidRole::Router.get_https_port()
-        } else {
-            DruidRole::Router.get_http_port()
-        }
+        druid.router_port()
     );
     let sqlalchemy_conn_str = format!("druid://{}/druid/v2/sql", router_host);
     let avatica_conn_str = format!(

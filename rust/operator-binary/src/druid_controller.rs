@@ -26,7 +26,6 @@ use stackable_operator::{
     },
     cluster_resources::ClusterResources,
     commons::{
-        authentication::AuthenticationClassProvider,
         opa::OpaApiVersion,
         s3::{S3AccessStyle, S3ConnectionSpec},
         tls::{CaCert, TlsVerification},
@@ -273,21 +272,8 @@ pub async fn reconcile_druid(druid: Arc<DruidCluster>, ctx: Arc<Ctx>) -> Result<
         .await
         .context(InvalidAuthenticationConfigSnafu)?;
 
-    // TODO: this is fishy! why ignore the spec.cluster_config.tls ?
-    let mut tls_authentication_config = None;
-    for auth_conf in resolved_authentication_config.into_iter() {
-        if let AuthenticationClassProvider::Tls(_) = auth_conf {
-            tls_authentication_config = Some(auth_conf);
-        }
-    }
-
     // Extract TLS encryption and TLS auth provider if available
-    let druid_tls_settings = DruidTlsSettings {
-        encryption: druid.spec.cluster_config.tls.clone(),
-        // There can currently only be one TLS authentication config, so if we find it we can just
-        // take ownership.
-        authentication: tls_authentication_config,
-    };
+    let druid_tls_settings = druid.tls_settings(resolved_authentication_config);
 
     // False positive, auto-deref breaks type inference
     #[allow(clippy::explicit_auto_deref)]

@@ -8,6 +8,7 @@ use crate::tls::DruidTls;
 
 use serde::{Deserialize, Serialize};
 use snafu::{OptionExt, ResultExt, Snafu};
+use stackable_operator::commons::authentication::AuthenticationClassProvider;
 use stackable_operator::commons::resources::ResourcesFragment;
 use stackable_operator::labels::ObjectLabels;
 use stackable_operator::{
@@ -29,6 +30,7 @@ use std::{
     str::FromStr,
 };
 use strum::{Display, EnumDiscriminants, EnumIter, EnumString, IntoStaticStr};
+use tls::DruidTlsSettings;
 
 pub const APP_NAME: &str = "druid";
 pub const OPERATOR_NAME: &str = "druid.stackable.tech";
@@ -333,6 +335,7 @@ impl DruidCluster {
                     String::from(EXT_HDFS),
                 ];
 
+                // TODO: do we need this test? What happens if we always load this extension but just don't use it?
                 if self.tls_enabled() {
                     extensions.push(String::from(EXT_SIMPLE_CLIENT_SSL_CONTEXT));
                 }
@@ -587,8 +590,29 @@ impl DruidCluster {
         s3_ingestion || s3_storage
     }
 
+    pub fn router_port(&self) -> u16 {
+        if self.tls_enabled() {
+            DruidRole::Router.get_https_port()
+        } else {
+            DruidRole::Router.get_http_port()
+        }
+    }
+
+    // TODO: this should return an Option
+    pub fn tls_settings(
+        &self,
+        resolved_authentication_config: Vec<AuthenticationClassProvider>,
+    ) -> DruidTlsSettings {
+        DruidTlsSettings {
+            encryption: self.spec.cluster_config.tls.clone(),
+            authentication: resolved_authentication_config
+                .into_iter()
+                .find(|acc| matches!(acc, &AuthenticationClassProvider::Tls(_))),
+        }
+    }
+
     /// Determines if the cluster should be encrypted / authenticated via TLS
-    pub fn tls_enabled(&self) -> bool {
+    fn tls_enabled(&self) -> bool {
         // TLS encryption
         if self.spec.cluster_config.tls.is_some() {
             true
@@ -596,10 +620,7 @@ impl DruidCluster {
             // TLS authentication with provided AuthenticationClass or no TLS required?
             matches!(
                 &self.spec.cluster_config.authentication,
-                Some(DruidAuthentication {
-                    tls: Some(_),
-                    ldap: _
-                })
+                Some(DruidAuthentication { tls: Some(_), .. })
             )
         }
     }
