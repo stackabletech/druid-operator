@@ -412,6 +412,27 @@ pub fn build_role_service(
     })
 }
 
+fn add_ldap_config_properties(transformed_config: &mut BTreeMap<String, Option<String>>) {
+    transformed_config.insert("druid.auth.authenticatorChain".to_string(), Some(r#"["ldap"]"#.to_string()));
+    transformed_config.insert("druid.auth.authenticator.ldap.type".to_string(), Some("basic".to_string()));
+    transformed_config.insert("druid.auth.authenticator.ldap.enableCacheNotifications".to_string(), Some("true".to_string()));
+    transformed_config.insert("druid.auth.authenticator.ldap.credentialsValidator.type".to_string(), Some("ldap".to_string()));
+    transformed_config.insert("druid.auth.authenticator.ldap.credentialsValidator.url".to_string(), Some("ldap://openldap:1389".to_string()));
+    transformed_config.insert("druid.auth.authenticator.ldap.credentialsValidator.bindUser".to_string(), Some("uid=admin,ou=Users,dc=example,dc=org".to_string()));
+    transformed_config.insert("druid.auth.authenticator.ldap.credentialsValidator.bindPassword".to_string(), Some("admin".to_string()));
+    transformed_config.insert("druid.auth.authenticator.ldap.initialAdminPassword".to_string(), Some("admin".to_string()));
+    transformed_config.insert("druid.auth.authenticator.ldap.initialInternalClientPassword".to_string(), Some("druidsystem".to_string()));
+    transformed_config.insert("druid.auth.authenticator.ldap.credentialsValidator.baseDn".to_string(), Some("ou=Users,dc=example,dc=org".to_string()));
+    transformed_config.insert("druid.auth.authenticator.ldap.credentialsValidator.userSearch".to_string(), Some("(&(uid=%s)(objectClass=inetOrgPerson))".to_string()));
+    transformed_config.insert("druid.auth.authenticator.ldap.credentialsValidator.userAttribute".to_string(), Some("uid".to_string()));
+    transformed_config.insert("druid.auth.authenticator.ldap.authorizeQueryContextParams".to_string(), Some("true".to_string()));
+    //# Escalator
+    transformed_config.insert("druid.escalator.type".to_string(), Some("basic".to_string()));
+    transformed_config.insert("druid.escalator.internalClientUsername".to_string(), Some("druid_system".to_string()));
+    transformed_config.insert("druid.escalator.internalClientPassword".to_string(), Some("druidsystem".to_string()));
+
+}
+
 #[allow(clippy::too_many_arguments)]
 /// The rolegroup [`ConfigMap`] configures the rolegroup based on the configuration given by the administrator
 fn build_rolegroup_config_map(
@@ -476,6 +497,8 @@ fn build_rolegroup_config_map(
 
                 // add tls encryption / auth properties
                 tls_settings.add_tls_config_properties(&mut transformed_config, &role);
+
+                add_ldap_config_properties(&mut transformed_config);
 
                 let runtime_properties =
                     stackable_operator::product_config::writer::to_java_properties_string(
