@@ -8,7 +8,7 @@ timeout: 600
 apiVersion: authentication.stackable.tech/v1alpha1
 kind: AuthenticationClass
 metadata:
-  name: druid-ldap-authentication-class
+  name: druid-ldap-auth-class
 spec:
   provider:
     ldap:
@@ -16,18 +16,30 @@ spec:
       searchBase: ou=Users,dc=example,dc=org
       searchFilter: (&(uid=%s)(objectClass=inetOrgPerson))
       port: 1389
+      bindCredentials:
+        secretClass: druid-ldap-secret
+---
+apiVersion: secrets.stackable.tech/v1alpha1
+kind: SecretClass
+metadata:
+  name: druid-ldap-secret
+spec:
+  backend:
+    k8sSearch:
+      searchNamespace:
+        pod: {}
 ---
 apiVersion: v1
 kind: Secret
 metadata:
-  name: druid-with-ldap-bind
+  name: druid-ldap-secret
   labels:
     secrets.stackable.tech/class: druid-with-ldap-bind
 stringData:
-  bindUser: uid=admin,ou=Users,dc=example,dc=org
-  bindPassword: admin
-  internalUser: druid_system
-  internalPassword: druidsystem
+  LDAP_ADMIN_USER: uid=admin,ou=Users,dc=example,dc=org
+  LDAP_ADMIN_PASSWORD: admin
+  LDAP_INTERNAL_USER: druid_system
+  LDAP_INTERNAL_PASSWORD: druidsystem
 ---
 apiVersion: druid.stackable.tech/v1alpha1
 kind: DruidCluster
@@ -37,7 +49,7 @@ spec:
   version: {{ test_scenario['values']['druid'] }}
   clusterConfig:
     authentication:
-      ldap: druid-tls-auth-class
+      ldap: druid-ldap-auth-class
     deepStorage:
       hdfs:
         configMapName: druid-hdfs
