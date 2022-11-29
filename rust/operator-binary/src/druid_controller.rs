@@ -483,11 +483,10 @@ fn build_rolegroup_config_map(
                 tls_settings.add_tls_config_properties(&mut transformed_config, &role);
 
                 // add ldap settings if configured by the user
-                transformed_config.extend(
-                    druid_ldap_settings
-                        .and_then(|ldap_settings| Some(ldap_settings.add_ldap_config_properties()))
-                        .unwrap_or(BTreeMap::new()),
-                );
+                if let Some(ldap_settings) = druid_ldap_settings {
+                    transformed_config
+                        .extend(ldap_settings.generate_runtime_properties_config_lines());
+                };
 
                 let runtime_properties =
                     stackable_operator::product_config::writer::to_java_properties_string(
