@@ -2,6 +2,7 @@ pub mod authentication;
 pub mod resource;
 pub mod storage;
 pub mod tls;
+pub mod ldap;
 
 use crate::authentication::DruidAuthentication;
 use crate::tls::DruidTls;
@@ -601,11 +602,11 @@ impl DruidCluster {
     // TODO: this should return an Option
     pub fn tls_settings(
         &self,
-        resolved_authentication_config: Vec<AuthenticationClassProvider>,
+        resolved_authentication_config: &Vec<AuthenticationClassProvider>,
     ) -> DruidTlsSettings {
         DruidTlsSettings {
             encryption: self.spec.cluster_config.tls.clone(),
-            authentication: resolved_authentication_config
+            authentication: resolved_authentication_config.clone()
                 .into_iter()
                 .find(|acc| matches!(acc, &AuthenticationClassProvider::Tls(_))),
         }

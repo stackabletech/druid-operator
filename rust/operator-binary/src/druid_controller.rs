@@ -11,7 +11,7 @@ use stackable_druid_crd::{
     DruidCluster, DruidRole, APP_NAME, AUTH_AUTHORIZER_OPA_URI, CERTS_DIR,
     CREDENTIALS_SECRET_PROPERTY, DRUID_CONFIG_DIRECTORY, DS_BUCKET, HDFS_CONFIG_DIRECTORY,
     JVM_CONFIG, LOG4J2_CONFIG, RUNTIME_PROPS, RW_CONFIG_DIRECTORY, S3_ENDPOINT_URL,
-    S3_PATH_STYLE_ACCESS, S3_SECRET_DIR_NAME, ZOOKEEPER_CONNECTION_STRING,
+    S3_PATH_STYLE_ACCESS, S3_SECRET_DIR_NAME, ZOOKEEPER_CONNECTION_STRING, ldap::DruidLdapSettings,
 };
 use stackable_druid_crd::{
     build_recommended_labels,
@@ -273,7 +273,9 @@ pub async fn reconcile_druid(druid: Arc<DruidCluster>, ctx: Arc<Ctx>) -> Result<
         .context(InvalidAuthenticationConfigSnafu)?;
 
     // Extract TLS encryption and TLS auth provider if available
-    let druid_tls_settings = druid.tls_settings(resolved_authentication_config);
+    let druid_tls_settings = druid.tls_settings(&resolved_authentication_config);
+
+    let druid_ldap_settings = DruidLdapSettings::new_from(&resolved_authentication_config);
 
     // False positive, auto-deref breaks type inference
     #[allow(clippy::explicit_auto_deref)]
@@ -326,6 +328,7 @@ pub async fn reconcile_druid(druid: Arc<DruidCluster>, ctx: Arc<Ctx>) -> Result<
                 deep_storage_bucket_name.as_deref(),
                 &resources,
                 &druid_tls_settings,
+                &druid_ldap_settings,
             )?;
             let rg_statefulset = build_rolegroup_statefulset(
                 &druid,
@@ -445,6 +448,7 @@ fn build_rolegroup_config_map(
     deep_storage_bucket_name: Option<&str>,
     resources: &RoleResource,
     tls_settings: &DruidTlsSettings,
+    druid_ldap_settings: &Option<DruidLdapSettings>,
 ) -> Result<ConfigMap> {
     let role = DruidRole::from_str(&rolegroup.role).unwrap();
     let mut cm_conf_data = BTreeMap::new(); // filename -> filecontent
@@ -498,7 +502,8 @@ fn build_rolegroup_config_map(
                 // add tls encryption / auth properties
                 tls_settings.add_tls_config_properties(&mut transformed_config, &role);
 
-                add_ldap_config_properties(&mut transformed_config);
+                // TODO
+                druid_ldap_settings.add_ldap_config_properties(&mut transformed_config);
 
                 let runtime_properties =
                     stackable_operator::product_config::writer::to_java_properties_string(
@@ -939,5 +944,14 @@ mod test {
         );
 
         Ok(())
+    }
+
+    #[test]
+    fn test_no_ldap_settings_added() {
+        let mut transformed_config: BTreeMap<String, Option<String>> = BTreeMap::new();
+        // TODO: ldap config with "ldap is disabled"
+        add_ldap_config_properties(&mut transformed_config);
+
+        assert_eq!(transformed_config.len(),0);
     }
 }
