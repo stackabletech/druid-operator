@@ -62,30 +62,6 @@ impl DruidLdapSettings {
             )),
         );
 
-        // TODO: reference secret field
-        lines.insert(
-            "druid.auth.authenticator.ldap.credentialsValidator.bindUser".to_string(),
-            Some("uid=admin,ou=Users,dc=example,dc=org".to_string()),
-        );
-
-        // TODO: reference secret field
-        lines.insert(
-            "druid.auth.authenticator.ldap.credentialsValidator.bindPassword".to_string(),
-            Some("admin".to_string()),
-        );
-
-        // TODO: reference secret field
-        lines.insert(
-            "druid.auth.authenticator.ldap.initialAdminPassword".to_string(),
-            Some("admin".to_string()),
-        );
-
-        // TODO: reference secret field
-        lines.insert(
-            "druid.auth.authenticator.ldap.initialInternalClientPassword".to_string(),
-            Some("druidsystem".to_string()),
-        );
-
         lines.insert(
             "druid.auth.authenticator.ldap.credentialsValidator.baseDn".to_string(),
             Some(self.provider.search_base.to_string()),
@@ -109,17 +85,24 @@ impl DruidLdapSettings {
             Some("basic".to_string()),
         );
 
-        // TODO: reference secret field
-        lines.insert(
-            "druid.escalator.internalClientUsername".to_string(),
-            Some("druid_system".to_string()),
-        );
-
-        // TODO: reference secret field
-        lines.insert(
-            "druid.escalator.internalClientPassword".to_string(),
-            Some("druidsystem".to_string()),
-        );
+        // TODO: set envs
+        /*
+            LDAP_ADMIN_USER = uid=admin,ou=Users,dc=example,dc=org
+            LDAP_ADMIN_PASSWORD = admin
+            LDAP_INTERNAL_PASSWORD = druidsystem
+            LDAP_INTERNAL_USER = druid_system
+        */
+        lines.insert("druid.dynamic.config.provider".to_string(), Some(r#"{
+            "type": "environment",
+            "variables": {
+              "druid.auth.authenticator.ldap.credentialsValidator.bindUser": "LDAP_ADMIN_USER",
+              "druid.auth.authenticator.ldap.credentialsValidator.bindPassword": "LDAP_ADMIN_PASSWORD",
+              "druid.auth.authenticator.ldap.initialAdminPassword": "LDAP_ADMIN_PASSWORD",
+              "druid.auth.authenticator.ldap.initialInternalClientPassword": "LDAP_INTERNAL_PASSWORD",
+              "druid.escalator.internalClientUsername": "LDAP_INTERNAL_USER",
+              "druid.escalator.internalClientPassword": "LDAP_INTERNAL_PASSWORD",
+            }
+          }"#.to_string()));
 
         lines
     }
