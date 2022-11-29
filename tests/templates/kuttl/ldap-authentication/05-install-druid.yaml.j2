@@ -28,16 +28,6 @@ spec:
       bindCredentials:
         secretClass: druid-with-ldap-bind
         port: 1389
-#{% if test_scenario['values']['ldap-use-tls'] == 'false' %}
-#      port: 1389
-#{% else %}
-#      port: 1636
-#      tls:
-#        verification:
-#          server:
-#            caCert:
-#              secretClass: openldap-tls
-#{% endif %}
 ---
 apiVersion: v1
 kind: Secret
