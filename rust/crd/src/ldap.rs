@@ -102,7 +102,7 @@ impl DruidLdapSettings {
               "druid.escalator.internalClientUsername": "LDAP_INTERNAL_USER",
               "druid.escalator.internalClientPassword": "LDAP_INTERNAL_PASSWORD",
             }
-          }"#.to_string()));
+          }"#.replace('\n', "")));
 
         lines
     }
