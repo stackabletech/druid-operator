@@ -7,11 +7,12 @@ use crate::{
 use crate::OPERATOR_NAME;
 use snafu::{OptionExt, ResultExt, Snafu};
 use stackable_druid_crd::{
-    authentication, authentication::DruidAuthentication, tls, DeepStorageSpec, DruidAuthorization,
-    DruidCluster, DruidRole, APP_NAME, AUTH_AUTHORIZER_OPA_URI, CERTS_DIR,
-    CREDENTIALS_SECRET_PROPERTY, DRUID_CONFIG_DIRECTORY, DS_BUCKET, HDFS_CONFIG_DIRECTORY,
-    JVM_CONFIG, LOG4J2_CONFIG, RUNTIME_PROPS, RW_CONFIG_DIRECTORY, S3_ENDPOINT_URL,
-    S3_PATH_STYLE_ACCESS, S3_SECRET_DIR_NAME, ZOOKEEPER_CONNECTION_STRING, ldap::DruidLdapSettings,
+    authentication, authentication::DruidAuthentication, ldap::DruidLdapSettings, tls,
+    DeepStorageSpec, DruidAuthorization, DruidCluster, DruidRole, APP_NAME,
+    AUTH_AUTHORIZER_OPA_URI, CERTS_DIR, CREDENTIALS_SECRET_PROPERTY, DRUID_CONFIG_DIRECTORY,
+    DS_BUCKET, HDFS_CONFIG_DIRECTORY, JVM_CONFIG, LOG4J2_CONFIG, RUNTIME_PROPS,
+    RW_CONFIG_DIRECTORY, S3_ENDPOINT_URL, S3_PATH_STYLE_ACCESS, S3_SECRET_DIR_NAME,
+    ZOOKEEPER_CONNECTION_STRING,
 };
 use stackable_druid_crd::{
     build_recommended_labels,
@@ -415,27 +416,6 @@ pub fn build_role_service(
     })
 }
 
-fn add_ldap_config_properties(transformed_config: &mut BTreeMap<String, Option<String>>) {
-    transformed_config.insert("druid.auth.authenticatorChain".to_string(), Some(r#"["ldap"]"#.to_string()));
-    transformed_config.insert("druid.auth.authenticator.ldap.type".to_string(), Some("basic".to_string()));
-    transformed_config.insert("druid.auth.authenticator.ldap.enableCacheNotifications".to_string(), Some("true".to_string()));
-    transformed_config.insert("druid.auth.authenticator.ldap.credentialsValidator.type".to_string(), Some("ldap".to_string()));
-    transformed_config.insert("druid.auth.authenticator.ldap.credentialsValidator.url".to_string(), Some("ldap://openldap:1389".to_string()));
-    transformed_config.insert("druid.auth.authenticator.ldap.credentialsValidator.bindUser".to_string(), Some("uid=admin,ou=Users,dc=example,dc=org".to_string()));
-    transformed_config.insert("druid.auth.authenticator.ldap.credentialsValidator.bindPassword".to_string(), Some("admin".to_string()));
-    transformed_config.insert("druid.auth.authenticator.ldap.initialAdminPassword".to_string(), Some("admin".to_string()));
-    transformed_config.insert("druid.auth.authenticator.ldap.initialInternalClientPassword".to_string(), Some("druidsystem".to_string()));
-    transformed_config.insert("druid.auth.authenticator.ldap.credentialsValidator.baseDn".to_string(), Some("ou=Users,dc=example,dc=org".to_string()));
-    transformed_config.insert("druid.auth.authenticator.ldap.credentialsValidator.userSearch".to_string(), Some("(&(uid=%s)(objectClass=inetOrgPerson))".to_string()));
-    transformed_config.insert("druid.auth.authenticator.ldap.credentialsValidator.userAttribute".to_string(), Some("uid".to_string()));
-    transformed_config.insert("druid.auth.authenticator.ldap.authorizeQueryContextParams".to_string(), Some("true".to_string()));
-    //# Escalator
-    transformed_config.insert("druid.escalator.type".to_string(), Some("basic".to_string()));
-    transformed_config.insert("druid.escalator.internalClientUsername".to_string(), Some("druid_system".to_string()));
-    transformed_config.insert("druid.escalator.internalClientPassword".to_string(), Some("druidsystem".to_string()));
-
-}
-
 #[allow(clippy::too_many_arguments)]
 /// The rolegroup [`ConfigMap`] configures the rolegroup based on the configuration given by the administrator
 fn build_rolegroup_config_map(
@@ -502,8 +482,12 @@ fn build_rolegroup_config_map(
                 // add tls encryption / auth properties
                 tls_settings.add_tls_config_properties(&mut transformed_config, &role);
 
-                // TODO
-                druid_ldap_settings.add_ldap_config_properties(&mut transformed_config);
+                // add ldap settings if configured by the user
+                transformed_config.extend(
+                    druid_ldap_settings
+                        .and_then(|ldap_settings| Some(ldap_settings.add_ldap_config_properties()))
+                        .unwrap_or(BTreeMap::new()),
+                );
 
                 let runtime_properties =
                     stackable_operator::product_config::writer::to_java_properties_string(
@@ -913,6 +897,7 @@ mod test {
                         None,
                         &resources,
                         &druid_tls_settings,
+                        &None::<DruidLdapSettings>,
                     )
                     .context(ControllerSnafu)?;
 
@@ -944,14 +929,5 @@ mod test {
         );
 
         Ok(())
-    }
-
-    #[test]
-    fn test_no_ldap_settings_added() {
-        let mut transformed_config: BTreeMap<String, Option<String>> = BTreeMap::new();
-        // TODO: ldap config with "ldap is disabled"
-        add_ldap_config_properties(&mut transformed_config);
-
-        assert_eq!(transformed_config.len(),0);
     }
 }
