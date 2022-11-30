@@ -12,7 +12,7 @@ metadata:
 spec:
   provider:
     ldap:
-      hostname: openldap.default.svc.cluster.local
+      hostname: openldap
       searchBase: ou=Users,dc=example,dc=org
       searchFilter: (&(uid=%s)(objectClass=inetOrgPerson))
       port: 1389
