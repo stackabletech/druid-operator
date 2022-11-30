@@ -92,6 +92,7 @@ impl DruidLdapSettings {
             LDAP_INTERNAL_PASSWORD = druidsystem
             LDAP_INTERNAL_USER = druid_system
         */
+        /*
         lines.insert("druid.dynamic.config.provider".to_string(), Some(r#"{
             "type": "environment",
             "variables": {
@@ -100,9 +101,34 @@ impl DruidLdapSettings {
               "druid.auth.authenticator.ldap.initialAdminPassword": "LDAP_ADMIN_PASSWORD",
               "druid.auth.authenticator.ldap.initialInternalClientPassword": "LDAP_INTERNAL_PASSWORD",
               "druid.escalator.internalClientUsername": "LDAP_INTERNAL_USER",
-              "druid.escalator.internalClientPassword": "LDAP_INTERNAL_PASSWORD",
+              "druid.escalator.internalClientPassword": "LDAP_INTERNAL_PASSWORD"
             }
-          }"#.replace('\n', "")));
+          }"#.replace('\n', "").replace(' ', "")));
+        */
+        lines.insert(
+            "druid.auth.authenticator.ldap.credentialsValidator.bindUser".to_string(),
+            Some(r#"{ "type": "environment", "variable": "LDAP_ADMIN_USER" }"#.to_string()),
+        );
+        lines.insert(
+            "druid.auth.authenticator.ldap.credentialsValidator.bindPassword".to_string(),
+            Some(r#"{ "type": "environment", "variable": "LDAP_ADMIN_PASSWORD" }"#.to_string()),
+        );
+        lines.insert(
+            "druid.auth.authenticator.ldap.initialAdminPassword".to_string(),
+            Some(r#"{ "type": "environment", "variable": "LDAP_ADMIN_PASSWORD" }"#.to_string()),
+        );
+        lines.insert(
+            "druid.auth.authenticator.ldap.initialInternalClientPassword".to_string(),
+            Some(r#"{ "type": "environment", "variable": "LDAP_INTERNAL_PASSWORD" }"#.to_string()),
+        );
+        lines.insert(
+            "druid.escalator.internalClientUsername".to_string(),
+            Some(r#"{ "type": "environment", "variable": "LDAP_INTERNAL_USER" }"#.to_string()),
+        );
+        lines.insert(
+            "druid.escalator.internalClientPassword".to_string(),
+            Some(r#"{ "type": "environment", "variable": "LDAP_INTERNAL_PASSWORD" }"#.to_string()),
+        );
 
         lines
     }
