@@ -197,6 +197,10 @@ pub enum Error {
     InvalidTlsConfig { source: tls::Error },
     #[snafu(display("object defines no namespace"))]
     ObjectHasNoNamespace,
+    #[snafu(display("failed to resolve ldap authentication settings"))]
+    LdapAuthorization {
+        source: stackable_druid_crd::ldap::Error,
+    },
 }
 
 type Result<T, E = Error> = std::result::Result<T, E>;
@@ -276,7 +280,10 @@ pub async fn reconcile_druid(druid: Arc<DruidCluster>, ctx: Arc<Ctx>) -> Result<
     // Extract TLS encryption and TLS auth provider if available
     let druid_tls_settings = druid.tls_settings(&resolved_authentication_config);
 
-    let druid_ldap_settings = DruidLdapSettings::new_from(&resolved_authentication_config);
+    let druid_ldap_settings =
+        DruidLdapSettings::new_from(client, namespace, &resolved_authentication_config)
+            .await
+            .context(LdapAuthorizationSnafu)?;
 
     // False positive, auto-deref breaks type inference
     #[allow(clippy::explicit_auto_deref)]
@@ -636,7 +643,7 @@ fn build_rolegroup_statefulset(
         .build();
 
     // rest of env
-    let mut rest_env = rolegroup_config
+    let rest_env = rolegroup_config
         .get(&PropertyNameKind::Env)
         .iter()
         .flat_map(|env_vars| env_vars.iter())
@@ -647,28 +654,6 @@ fn build_rolegroup_statefulset(
             ..EnvVar::default()
         })
         .collect::<Vec<_>>();
-
-    // TODO: this should be set from a secret instead of being hardcoded
-    rest_env.push(EnvVar {
-        name: "LDAP_ADMIN_USER".to_string(),
-        value: Some("uid=admin,ou=Users,dc=example,dc=org".to_string()),
-        ..EnvVar::default()
-    });
-    rest_env.push(EnvVar {
-        name: "LDAP_ADMIN_PASSWORD".to_string(),
-        value: Some("admin".to_string()),
-        ..EnvVar::default()
-    });
-    rest_env.push(EnvVar {
-        name: "LDAP_INTERNAL_PASSWORD".to_string(),
-        value: Some("druidsystem".to_string()),
-        ..EnvVar::default()
-    });
-    rest_env.push(EnvVar {
-        name: "LDAP_INTERNAL_USER".to_string(),
-        value: Some("druid_system".to_string()),
-        ..EnvVar::default()
-    });
 
     cb_druid.image(container_image(druid_version));
     cb_druid.command(role.get_command(s3_conn));
