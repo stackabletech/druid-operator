@@ -4,24 +4,77 @@ kind: TestStep
 metadata:
   name: druid-hdfs
 timeout: 600
+#---
+#apiVersion: hdfs.stackable.tech/v1alpha1
+#kind: HdfsCluster
+#metadata:
+#  name: druid-hdfs
+#spec:
+#  version: {{ test_scenario['values']['hadoop'] }}
+#  zookeeperConfigMapName: hdfs-znode
+#  dfsReplication: 1
+#  nameNodes:
+#    roleGroups:
+#      default:
+#        replicas: 2
+#  dataNodes:
+#    roleGroups:
+#      default:
+#        replicas: 1
+#  journalNodes:
+#    roleGroups:
+#      default:
+#        replicas: 1
 ---
-apiVersion: hdfs.stackable.tech/v1alpha1
-kind: HdfsCluster
+apiVersion: v1
+data:
+  core-site.xml: |-
+    <?xml version="1.0"?>
+    <configuration>
+      <property>
+        <name>fs.defaultFS</name>
+        <value>hdfs://druid-hdfs/</value>
+      </property>
+    </configuration>
+  hdfs-site.xml: |-
+    <?xml version="1.0"?>
+    <configuration>
+      <property>
+        <name>dfs.client.failover.proxy.provider.druid-hdfs</name>
+        <value>org.apache.hadoop.hdfs.server.namenode.ha.ConfiguredFailoverProxyProvider</value>
+      </property>
+      <property>
+        <name>dfs.ha.namenodes.druid-hdfs</name>
+        <value>druid-hdfs-namenode-default-0,druid-hdfs-namenode-default-1</value>
+      </property>
+      <property>
+        <name>dfs.namenode.http-address.druid-hdfs.druid-hdfs-namenode-default-0</name>
+        <value>druid-hdfs-namenode-default-0.druid-hdfs-namenode-default.kuttl-test-pro-guppy.svc.cluster.local:9870</value>
+      </property>
+      <property>
+        <name>dfs.namenode.http-address.druid-hdfs.druid-hdfs-namenode-default-1</name>
+        <value>druid-hdfs-namenode-default-1.druid-hdfs-namenode-default.kuttl-test-pro-guppy.svc.cluster.local:9870</value>
+      </property>
+      <property>
+        <name>dfs.namenode.rpc-address.druid-hdfs.druid-hdfs-namenode-default-0</name>
+        <value>druid-hdfs-namenode-default-0.druid-hdfs-namenode-default.kuttl-test-pro-guppy.svc.cluster.local:8020</value>
+      </property>
+      <property>
+        <name>dfs.namenode.rpc-address.druid-hdfs.druid-hdfs-namenode-default-1</name>
+        <value>druid-hdfs-namenode-default-1.druid-hdfs-namenode-default.kuttl-test-pro-guppy.svc.cluster.local:8020</value>
+      </property>
+      <property>
+        <name>dfs.nameservices</name>
+        <value>druid-hdfs</value>
+      </property>
+    </configuration>
+kind: ConfigMap
 metadata:
+  labels:
+    app.kubernetes.io/component: namenode
+    app.kubernetes.io/instance: druid-hdfs
+    app.kubernetes.io/managed-by: hdfs-controller
+    app.kubernetes.io/name: hdfs
+    app.kubernetes.io/role-group: discovery
+    app.kubernetes.io/version: 3.3.4-stackable0.2.0
   name: druid-hdfs
-spec:
-  version: {{ test_scenario['values']['hadoop'] }}
-  zookeeperConfigMapName: hdfs-znode
-  dfsReplication: 1
-  nameNodes:
-    roleGroups:
-      default:
-        replicas: 2
-  dataNodes:
-    roleGroups:
-      default:
-        replicas: 1
-  journalNodes:
-    roleGroups:
-      default:
-        replicas: 1
