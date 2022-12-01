@@ -69,7 +69,12 @@ spec:
       connString: jdbc:derby://localhost:1527/var/druid/metadata.db;create=true
       host: localhost
       port: 1527
+{% if test_scenario['values']['ldap-use-tls'] == 'true' %}
+    tls:
+      secretClass: tls
+{% else  %}
     tls: null
+{% endif %}
     zookeeperConfigMapName: druid-znode
   brokers:
     roleGroups:
