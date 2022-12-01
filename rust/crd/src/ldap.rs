@@ -40,6 +40,7 @@ pub enum Error {
 #[derive(Clone, Debug)]
 pub struct DruidLdapSettings {
     provider: LdapAuthenticationProvider,
+
     ldap_admin_user: String,
     ldap_admin_password: String,
     ldap_internal_user: String,
@@ -61,6 +62,10 @@ fn get_field_from_secret_data(
 }
 
 impl DruidLdapSettings {
+    fn is_ssl_enabled(&self) -> bool {
+        self.provider.tls.is_some()
+    }
+
     pub async fn new_from(
         client: &Client,
         namespace: &str,
