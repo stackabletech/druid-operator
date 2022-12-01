@@ -643,7 +643,7 @@ fn build_rolegroup_statefulset(
         .build();
 
     // rest of env
-    let mut rest_env = rolegroup_config
+    let rest_env = rolegroup_config
         .get(&PropertyNameKind::Env)
         .iter()
         .flat_map(|env_vars| env_vars.iter())
@@ -654,28 +654,6 @@ fn build_rolegroup_statefulset(
             ..EnvVar::default()
         })
         .collect::<Vec<_>>();
-
-    // TODO: this should be set from a secret instead of being hardcoded
-    rest_env.push(EnvVar {
-        name: "LDAP_ADMIN_USER".to_string(),
-        value: Some("uid=admin,ou=Users,dc=example,dc=org".to_string()),
-        ..EnvVar::default()
-    });
-    rest_env.push(EnvVar {
-        name: "LDAP_ADMIN_PASSWORD".to_string(),
-        value: Some("admin".to_string()),
-        ..EnvVar::default()
-    });
-    rest_env.push(EnvVar {
-        name: "LDAP_INTERNAL_PASSWORD".to_string(),
-        value: Some("druidsystem".to_string()),
-        ..EnvVar::default()
-    });
-    rest_env.push(EnvVar {
-        name: "LDAP_INTERNAL_USER".to_string(),
-        value: Some("druid_system".to_string()),
-        ..EnvVar::default()
-    });
 
     cb_druid.image(container_image(druid_version));
     cb_druid.command(role.get_command(s3_conn));

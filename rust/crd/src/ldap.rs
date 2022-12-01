@@ -257,12 +257,6 @@ impl DruidLdapSettings {
             Some(self.ldap_admin_user.clone()),
         );
         lines.insert(
-            "druid.escalator.internalClientUsername".to_string(),
-            Some(self.ldap_internal_user.clone()),
-        );
-
-        /*
-        lines.insert(
             "druid.auth.authenticator.ldap.credentialsValidator.bindPassword".to_string(),
             Some(self.ldap_admin_password.clone()),
         );
@@ -275,20 +269,13 @@ impl DruidLdapSettings {
             Some(self.ldap_internal_password.clone()),
         );
         lines.insert(
+            "druid.escalator.internalClientUsername".to_string(),
+            Some(self.ldap_internal_user.clone()),
+        );
+        lines.insert(
             "druid.escalator.internalClientPassword".to_string(),
             Some(self.ldap_internal_password.clone()),
         );
-         */
-
-        lines.insert("druid.dynamic.config.provider".to_string(), Some(r#"{
-            "type": "environment",
-            "variables": {
-              "druid.auth.authenticator.ldap.credentialsValidator.bindPassword": "LDAP_ADMIN_PASSWORD",
-              "druid.auth.authenticator.ldap.initialAdminPassword": "LDAP_ADMIN_PASSWORD",
-              "druid.auth.authenticator.ldap.initialInternalClientPassword": "LDAP_INTERNAL_PASSWORD",
-              "druid.escalator.internalClientPassword": "LDAP_INTERNAL_PASSWORD"
-            }
-          }"#.replace(['\n', ' '], "")));
 
         lines
     }
