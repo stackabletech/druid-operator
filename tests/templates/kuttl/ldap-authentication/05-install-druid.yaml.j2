@@ -45,8 +45,8 @@ metadata:
   labels:
     secrets.stackable.tech/class: druid-with-ldap-bind
 stringData:
-  LDAP_ADMIN_USER: uid=admin,ou=Users,dc=example,dc=org
-  LDAP_ADMIN_PASSWORD: admin
+  LDAP_BIND_USER: uid=admin,ou=Users,dc=example,dc=org
+  LDAP_BIND_PASSWORD: admin
   LDAP_INTERNAL_USER: druid_system
   LDAP_INTERNAL_PASSWORD: druidsystem
 ---

@@ -41,8 +41,8 @@ pub enum Error {
 pub struct DruidLdapSettings {
     provider: LdapAuthenticationProvider,
 
-    ldap_admin_user: String,
-    ldap_admin_password: String,
+    ldap_bind_user: String,
+    ldap_bind_password: String,
     ldap_internal_user: String,
     ldap_internal_password: String,
 }
@@ -99,15 +99,15 @@ impl DruidLdapSettings {
                     value: "LDAP secret contains no data".to_string(),
                 })?;
 
-            let ldap_admin_user = get_field_from_secret_data(
+            let ldap_bind_user = get_field_from_secret_data(
                 &data,
-                "LDAP_ADMIN_USER".to_string(),
+                "LDAP_BIND_USER".to_string(),
                 &secret_name,
                 secret_namespace,
             )?;
-            let ldap_admin_password = get_field_from_secret_data(
+            let ldap_bind_password = get_field_from_secret_data(
                 &data,
-                "LDAP_ADMIN_PASSWORD".to_string(),
+                "LDAP_BIND_PASSWORD".to_string(),
                 &secret_name,
                 secret_namespace,
             )?;
@@ -127,8 +127,8 @@ impl DruidLdapSettings {
             // create DruidLdapSettings with everything in it
             Ok(Some(DruidLdapSettings {
                 provider: provider.clone(),
-                ldap_admin_user,
-                ldap_admin_password,
+                ldap_bind_user,
+                ldap_bind_password,
                 ldap_internal_user,
                 ldap_internal_password,
             }))
@@ -186,15 +186,15 @@ impl DruidLdapSettings {
 
         lines.insert(
             "druid.auth.authenticator.ldap.credentialsValidator.bindUser".to_string(),
-            Some(self.ldap_admin_user.clone()),
+            Some(self.ldap_bind_user.clone()),
         );
         lines.insert(
             "druid.auth.authenticator.ldap.credentialsValidator.bindPassword".to_string(),
-            Some(self.ldap_admin_password.clone()),
+            Some(self.ldap_bind_password.clone()),
         );
         lines.insert(
             "druid.auth.authenticator.ldap.initialAdminPassword".to_string(),
-            Some(self.ldap_admin_password.clone()),
+            Some(self.ldap_bind_password.clone()),
         );
         lines.insert(
             "druid.auth.authenticator.ldap.initialInternalClientPassword".to_string(),
@@ -252,8 +252,8 @@ mod test {
                 bind_credentials: None,
                 tls: None,
             },
-            ldap_admin_user: "uid=admin,ou=Users,dc=example,dc=org".to_string(),
-            ldap_admin_password: "admin".to_string(),
+            ldap_bind_user: "uid=admin,ou=Users,dc=example,dc=org".to_string(),
+            ldap_bind_password: "admin".to_string(),
             ldap_internal_user: "druid_system".to_string(),
             ldap_internal_password: "druidsystem".to_string(),
         };
