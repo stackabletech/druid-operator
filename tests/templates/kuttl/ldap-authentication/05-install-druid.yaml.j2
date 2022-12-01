@@ -71,7 +71,7 @@ spec:
       port: 1527
 {% if test_scenario['values']['ldap-use-tls'] == 'true' %}
     tls:
-      secretClass: tls
+      secretClass: openldap-tls
 {% else  %}
     tls: null
 {% endif %}

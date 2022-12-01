@@ -9,6 +9,9 @@ use stackable_operator::kube::runtime::reflector::ObjectRef;
 use stackable_operator::{client::Client, k8s_openapi::api::core::v1::Secret};
 use strum::{EnumDiscriminants, IntoStaticStr};
 
+pub const LDAPS_TRUST_STORE_PATH: &str = "druid.auth.basic.ssl.trustStorePath";
+pub const AUTH_BASIC_PROTOCOL: &str = "druid.auth.basic.ssl.protocol";
+
 #[derive(Snafu, Debug, EnumDiscriminants)]
 #[strum_discriminants(derive(IntoStaticStr))]
 #[allow(clippy::enum_variant_names)]
@@ -62,10 +65,6 @@ fn get_field_from_secret_data(
 }
 
 impl DruidLdapSettings {
-    fn is_ssl_enabled(&self) -> bool {
-        self.provider.tls.is_some()
-    }
-
     pub async fn new_from(
         client: &Client,
         namespace: &str,
@@ -141,15 +140,6 @@ impl DruidLdapSettings {
         }
     }
 
-    // TODO: tests around this
-    fn get_port(&self) -> u16 {
-        if let Some(port) = self.provider.port {
-            port
-        } else {
-            1337 // TODO: proper port, depends on whether TLS is defined etc...
-        }
-    }
-
     pub fn generate_runtime_properties_config_lines(&self) -> BTreeMap<String, Option<String>> {
         let mut lines: BTreeMap<String, Option<String>> = BTreeMap::new();
 
@@ -172,11 +162,7 @@ impl DruidLdapSettings {
 
         lines.insert(
             "druid.auth.authenticator.ldap.credentialsValidator.url".to_string(),
-            Some(format!(
-                "ldap://{}:{}",
-                self.provider.hostname,
-                self.get_port()
-            )),
+            Some(self.credentials_validator_url()),
         );
 
         lines.insert(
@@ -282,7 +268,36 @@ impl DruidLdapSettings {
             Some(self.ldap_internal_password.clone()),
         );
 
+        if self.is_ssl_enabled() {
+            lines.insert(
+                LDAPS_TRUST_STORE_PATH.to_string(),
+                Some("/stackable/tls/truststore.p12".to_string()),
+            );
+            lines.insert(AUTH_BASIC_PROTOCOL.to_string(), Some("SSL".to_string()));
+        }
         lines
+    }
+
+    fn is_ssl_enabled(&self) -> bool {
+        self.provider.tls.is_some()
+    }
+
+    fn get_port(&self) -> u16 {
+        if let Some(port) = self.provider.port {
+            port
+        } else if self.is_ssl_enabled() {
+            1636
+        } else {
+            1389
+        }
+    }
+
+    fn credentials_validator_url(&self) -> String {
+        if self.is_ssl_enabled() {
+            format!("ldaps://{}:{}", self.provider.hostname, self.get_port())
+        } else {
+            format!("ldap://{}:{}", self.provider.hostname, self.get_port())
+        }
     }
 }
 
