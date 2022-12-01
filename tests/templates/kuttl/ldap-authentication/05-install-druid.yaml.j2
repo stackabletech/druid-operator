@@ -15,7 +15,16 @@ spec:
       hostname: openldap
       searchBase: ou=Users,dc=example,dc=org
       searchFilter: (&(uid=%s)(objectClass=inetOrgPerson))
+{% if test_scenario['values']['ldap-use-tls'] == 'false' %}
       port: 1389
+{% else %}
+      port: 1636
+      tls:
+        verification:
+          server:
+            caCert:
+              secretClass: openldap-tls
+{% endif %}
       bindCredentials:
         secretClass: druid-ldap-secret
 ---

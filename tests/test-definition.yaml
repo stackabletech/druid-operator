@@ -29,6 +29,10 @@ dimensions:
     values:
       - "true"
       - "false"
+  - name: ldap-use-tls
+    values:
+      - "true"
+      - "false"
 tests:
   - name: ldap-authentication
     dimensions:
@@ -36,6 +40,7 @@ tests:
       - zookeeper-latest
       - opa
       - hadoop
+      - ldap-use-tls
       # - name: smoke
       #   dimensions:
       #     - druid
