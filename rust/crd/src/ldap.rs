@@ -9,9 +9,6 @@ use stackable_operator::kube::runtime::reflector::ObjectRef;
 use stackable_operator::{client::Client, k8s_openapi::api::core::v1::Secret};
 use strum::{EnumDiscriminants, IntoStaticStr};
 
-pub const LDAPS_TRUST_STORE_PATH: &str = "druid.auth.basic.ssl.trustStorePath";
-pub const AUTH_BASIC_PROTOCOL: &str = "druid.auth.basic.ssl.protocol";
-
 #[derive(Snafu, Debug, EnumDiscriminants)]
 #[strum_discriminants(derive(IntoStaticStr))]
 #[allow(clippy::enum_variant_names)]
@@ -182,66 +179,10 @@ impl DruidLdapSettings {
             Some("true".to_string()),
         );
 
-        //# Escalator
         lines.insert(
             "druid.escalator.type".to_string(),
             Some("basic".to_string()),
         );
-
-        /*
-
-        NOTE: it seems like there are two options to set credentials without mentioning them in the config directly.
-
-        Both didn't work for us. The first one is the recommended way, the second one is deprecated.
-        */
-
-        // TODO: set envs
-        /*
-            LDAP_ADMIN_USER = uid=admin,ou=Users,dc=example,dc=org
-            LDAP_ADMIN_PASSWORD = admin
-            LDAP_INTERNAL_PASSWORD = druidsystem
-            LDAP_INTERNAL_USER = druid_system
-        */
-        /*
-        lines.insert("druid.dynamic.config.provider".to_string(), Some(r#"{
-            "type": "environment",
-            "variables": {
-              "druid.auth.authenticator.ldap.credentialsValidator.bindUser": "LDAP_ADMIN_USER",
-              "druid.auth.authenticator.ldap.credentialsValidator.bindPassword": "LDAP_ADMIN_PASSWORD",
-              "druid.auth.authenticator.ldap.initialAdminPassword": "LDAP_ADMIN_PASSWORD",
-              "druid.auth.authenticator.ldap.initialInternalClientPassword": "LDAP_INTERNAL_PASSWORD",
-              "druid.escalator.internalClientUsername": "LDAP_INTERNAL_USER",
-              "druid.escalator.internalClientPassword": "LDAP_INTERNAL_PASSWORD"
-            }
-          }"#.replace('\mentioning "").replace(' ', "")));
-        */
-
-        /*
-        lines.insert(
-            "druid.auth.authenticator.ldap.credentialsValidator.bindUser".to_string(),
-            Some(r#"{ "type": "environment", "variable": "LDAP_ADMIN_USER" }"#.to_string()),
-        );
-        lines.insert(
-            "druid.auth.authenticator.ldap.credentialsValidator.bindPassword".to_string(),
-            Some(r#"{ "type": "environment", "variable": "LDAP_ADMIN_PASSWORD" }"#.to_string()),
-        );
-        lines.insert(
-            "druid.auth.authenticator.ldap.initialAdminPassword".to_string(),
-            Some(r#"{ "type": "environment", "variable": "LDAP_ADMIN_PASSWORD" }"#.to_string()),
-        );
-        lines.insert(
-            "druid.auth.authenticator.ldap.initialInternalClientPassword".to_string(),
-            Some(r#"{ "type": "environment", "variable": "LDAP_INTERNAL_PASSWORD" }"#.to_string()),
-        );
-        lines.insert(
-            "druid.escalator.internalClientUsername".to_string(),
-            Some(r#"{ "type": "environment", "variable": "LDAP_INTERNAL_USER" }"#.to_string()),
-        );
-        lines.insert(
-            "druid.escalator.internalClientPassword".to_string(),
-            Some(r#"{ "type": "environment", "variable": "LDAP_INTERNAL_PASSWORD" }"#.to_string()),
-        );
-        */
 
         lines.insert(
             "druid.auth.authenticator.ldap.credentialsValidator.bindUser".to_string(),
@@ -268,13 +209,6 @@ impl DruidLdapSettings {
             Some(self.ldap_internal_password.clone()),
         );
 
-        if self.is_ssl_enabled() {
-            lines.insert(
-                LDAPS_TRUST_STORE_PATH.to_string(),
-                Some("/stackable/tls/truststore.p12".to_string()),
-            );
-            lines.insert(AUTH_BASIC_PROTOCOL.to_string(), Some("SSL".to_string()));
-        }
         lines
     }
 
@@ -310,24 +244,91 @@ mod test {
     fn test_ldap_settings_are_added() {
         let ldap_settings = DruidLdapSettings {
             provider: LdapAuthenticationProvider {
-                hostname: "".to_string(),
+                hostname: "openldap".to_string(),
                 port: None,
-                search_base: "".to_string(),
-                search_filter: "".to_string(),
+                search_base: "ou=Users,dc=example,dc=org".to_string(),
+                search_filter: "(&(uid=%s)(objectClass=inetOrgPerson))".to_string(),
                 ldap_field_names: LdapFieldNames::default(),
                 bind_credentials: None,
                 tls: None,
             },
-            ldap_admin_user: "".to_string(),
-            ldap_admin_password: "".to_string(),
-            ldap_internal_user: "".to_string(),
-            ldap_internal_password: "".to_string(),
+            ldap_admin_user: "uid=admin,ou=Users,dc=example,dc=org".to_string(),
+            ldap_admin_password: "admin".to_string(),
+            ldap_internal_user: "druid_system".to_string(),
+            ldap_internal_password: "druidsystem".to_string(),
         };
 
-        //let expected: BTreeMap<String, Option<String>> = BTreeMap::new();
+        let expected: BTreeMap<String, Option<String>> = vec![
+            (
+                "druid.auth.authenticator.ldap.authorizeQueryContextParams".to_string(),
+                Some("true".to_string()),
+            ),
+            (
+                "druid.auth.authenticator.ldap.credentialsValidator.baseDn".to_string(),
+                Some("ou=Users,dc=example,dc=org".to_string()),
+            ),
+            (
+                "druid.auth.authenticator.ldap.credentialsValidator.bindPassword".to_string(),
+                Some("admin".to_string()),
+            ),
+            (
+                "druid.auth.authenticator.ldap.credentialsValidator.bindUser".to_string(),
+                Some("uid=admin,ou=Users,dc=example,dc=org".to_string()),
+            ),
+            (
+                "druid.auth.authenticator.ldap.credentialsValidator.type".to_string(),
+                Some("ldap".to_string()),
+            ),
+            (
+                "druid.auth.authenticator.ldap.credentialsValidator.url".to_string(),
+                Some("ldap://openldap:1389".to_string()),
+            ),
+            (
+                "druid.auth.authenticator.ldap.credentialsValidator.userAttribute".to_string(),
+                Some("uid".to_string()),
+            ),
+            (
+                "druid.auth.authenticator.ldap.credentialsValidator.userSearch".to_string(),
+                Some("(&(uid=%s)(objectClass=inetOrgPerson))".to_string()),
+            ),
+            (
+                "druid.auth.authenticator.ldap.enableCacheNotifications".to_string(),
+                Some("true".to_string()),
+            ),
+            (
+                "druid.auth.authenticator.ldap.initialAdminPassword".to_string(),
+                Some("admin".to_string()),
+            ),
+            (
+                "druid.auth.authenticator.ldap.initialInternalClientPassword".to_string(),
+                Some("druidsystem".to_string()),
+            ),
+            (
+                "druid.auth.authenticator.ldap.type".to_string(),
+                Some("basic".to_string()),
+            ),
+            (
+                "druid.auth.authenticatorChain".to_string(),
+                Some("[\"ldap\"]".to_string()),
+            ),
+            (
+                "druid.escalator.internalClientPassword".to_string(),
+                Some("druidsystem".to_string()),
+            ),
+            (
+                "druid.escalator.internalClientUsername".to_string(),
+                Some("druid_system".to_string()),
+            ),
+            (
+                "druid.escalator.type".to_string(),
+                Some("basic".to_string()),
+            ),
+        ]
+        .into_iter()
+        .collect();
 
         let got = ldap_settings.generate_runtime_properties_config_lines();
 
-        assert_ne!(got.len(), 0);
+        assert_eq!(expected, got);
     }
 }

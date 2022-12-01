@@ -62,7 +62,13 @@ impl DruidAuthentication {
                         ),
                     })
                     .and_then(|auth_class| match auth_class.spec.provider {
-                        AuthenticationClassProvider::Tls(_) => Ok(auth_class.spec.provider),
+                        AuthenticationClassProvider::Tls(_) => {
+                            tracing::info!(
+                                "Found TLS authentication provider [{}]",
+                                druid_tls.authentication_class
+                            );
+                            Ok(auth_class.spec.provider)
+                        }
                         _ => Err(Error::AuthenticationClassProviderNotSupported {
                             auth_method: "tls".to_string(),
                             authentication_class: ObjectRef::<AuthenticationClass>::new(
@@ -87,7 +93,13 @@ impl DruidAuthentication {
                         ),
                     })
                     .and_then(|auth_class| match auth_class.spec.provider {
-                        AuthenticationClassProvider::Ldap(_) => Ok(auth_class.spec.provider),
+                        AuthenticationClassProvider::Ldap(_) => {
+                            tracing::info!(
+                                "Found LDAP authentication provider [{}]",
+                                druid_ldap.authentication_class
+                            );
+                            Ok(auth_class.spec.provider)
+                        }
                         _ => Err(Error::AuthenticationClassProviderNotSupported {
                             auth_method: "ldap".to_string(),
                             authentication_class: ObjectRef::<AuthenticationClass>::new(
