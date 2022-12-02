@@ -21,8 +21,7 @@ use stackable_druid_crd::{
 use stackable_operator::{
     builder::{
         ConfigMapBuilder, ContainerBuilder, ObjectMetaBuilder, PodBuilder,
-        PodSecurityContextBuilder, SecretOperatorVolumeSourceBuilder, SecurityContextBuilder,
-        VolumeBuilder,
+        PodSecurityContextBuilder, SecretOperatorVolumeSourceBuilder, VolumeBuilder,
     },
     cluster_resources::ClusterResources,
     commons::{
@@ -638,7 +637,6 @@ fn build_rolegroup_statefulset(
         .command(vec!["/bin/bash".to_string(), "-c".to_string()])
         .args(vec![prepare_container_command.join(" && ")])
         .image_pull_policy("IfNotPresent")
-        .security_context(SecurityContextBuilder::run_as_root())
         .build();
 
     // rest of env
@@ -678,7 +676,13 @@ fn build_rolegroup_statefulset(
             &rolegroup_ref.role_group,
         ))
     });
-    pb.security_context(PodSecurityContextBuilder::new().fs_group(1000).build()); // Needed for secret-operator
+    pb.security_context(
+        PodSecurityContextBuilder::new()
+            .run_as_user(1000)
+            .run_as_group(1000)
+            .fs_group(1000) // Needed for secret-operator
+            .build(),
+    );
 
     Ok(StatefulSet {
         metadata: ObjectMetaBuilder::new()
