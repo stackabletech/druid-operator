@@ -335,7 +335,6 @@ impl DruidTlsSettings {
                 TLS_ALIAS_NAME,
                 TLS_STORE_PASSWORD,
             ));
-            command.extend(chown_and_chmod(STACKABLE_TLS_DIR));
         }
         command
     }
@@ -399,15 +398,6 @@ pub fn add_key_pair_to_key_store_cmd(
         format!("cat {cert_directory}/ca.crt {cert_directory}/tls.crt > {key_store_directory}/chain.crt"),
         format!("echo Creating keystore [{key_store_directory}/keystore.p12]"),
         format!("openssl pkcs12 -export -in {key_store_directory}/chain.crt -inkey {cert_directory}/tls.key -out {key_store_directory}/keystore.p12 --passout pass:{store_password} -name {alias_name}"),
-    ]
-}
-
-/// Generates a shell script to chown and chmod the provided directory.
-pub fn chown_and_chmod(directory: &str) -> Vec<String> {
-    vec![
-        format!("echo chown and chmod {dir}", dir = directory),
-        format!("chown -R stackable:stackable {dir}", dir = directory),
-        format!("chmod -R a=,u=rwX {dir}", dir = directory),
     ]
 }
 
