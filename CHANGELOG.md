@@ -15,6 +15,7 @@ All notable changes to this project will be documented in this file.
 - Updated stackable image versions ([#339]).
 - Upgrade to `operator-rs` `0.26.1` ([#340])
 - Upgrade to `operator-rs` `0.27.1` ([#347])
+- Do not run init container as root anymore and avoid chmod and chown ([#353]).
 
 ### Removed
 
@@ -25,6 +26,7 @@ All notable changes to this project will be documented in this file.
 [#340]: https://github.com/stackabletech/druid-operator/pull/340
 [#342]: https://github.com/stackabletech/druid-operator/pull/342
 [#347]: https://github.com/stackabletech/druid-operator/pull/347
+[#353]: https://github.com/stackabletech/druid-operator/pull/353
 
 ## [0.8.0] - 2022-11-07
 
