@@ -41,49 +41,49 @@ tests:
       - opa
       - hadoop
       - ldap-use-tls
-      # - name: smoke
-      #   dimensions:
-      #     - druid
-      #     - zookeeper
-      #     - hadoop
-      # - name: authorizer
-      #   dimensions:
-      #     - druid
-      #     - zookeeper-latest
-      #     - opa
-      #     - hadoop
-      # - name: ingestion-no-s3-ext
-      #   dimensions:
-      #     - druid
-      #     - zookeeper-latest
-      #     - hadoop
-      # - name: ingestion-s3-ext
-      #   dimensions:
-      #     - druid
-      #     - zookeeper-latest
-      #     - hadoop
-      # - name: s3-deep-storage
-      #   dimensions:
-      #     - druid
-      #     - zookeeper-latest
-      #     - s3-use-tls
-      # - name: hdfs-deep-storage
-      #   dimensions:
-      #     - druid
-      #     - hadoop
-      #     - zookeeper-latest
-      # - name: resources
-      #   dimensions:
-      #     - druid
-      #     - zookeeper-latest
-      # - name: orphaned-resources
-      #   dimensions:
-      #     - druid
-      #     - zookeeper-latest
-      #     - hadoop
-      # - name: tls
-      #   dimensions:
-      #     - druid
-      #     - zookeeper-latest
-      #     - use-tls
-      #     - use-tls-auth
+  - name: smoke
+    dimensions:
+      - druid
+      - zookeeper
+      - hadoop
+  - name: authorizer
+    dimensions:
+      - druid
+      - zookeeper-latest
+      - opa
+      - hadoop
+  - name: ingestion-no-s3-ext
+    dimensions:
+      - druid
+      - zookeeper-latest
+      - hadoop
+  - name: ingestion-s3-ext
+    dimensions:
+      - druid
+      - zookeeper-latest
+      - hadoop
+  - name: s3-deep-storage
+    dimensions:
+      - druid
+      - zookeeper-latest
+      - s3-use-tls
+  - name: hdfs-deep-storage
+    dimensions:
+      - druid
+      - hadoop
+      - zookeeper-latest
+  - name: resources
+    dimensions:
+      - druid
+      - zookeeper-latest
+  - name: orphaned-resources
+    dimensions:
+      - druid
+      - zookeeper-latest
+      - hadoop
+  - name: tls
+    dimensions:
+      - druid
+      - zookeeper-latest
+      - use-tls
+      - use-tls-auth
