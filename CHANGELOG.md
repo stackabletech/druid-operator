@@ -9,7 +9,7 @@ All notable changes to this project will be documented in this file.
 - BREAKING: Support for TLS encryption (activated per default -> port changes) and TLS authentication ([#333]).
 - BREAKING: Reworked top level configuration. Deep storage, Ingestion spec, discovery config maps etc. are now subfields of `spec.clusterConfig` instead of being top level under `spec` ([#333]).
 - Use emptyDir for segment cache on historicals ([#342])
-- Add support for LDAP authentication ([#341])
+- Add support for non-TLS LDAP authentication ([#341])
 
 ### Changed
 
