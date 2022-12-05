@@ -37,6 +37,9 @@ pub enum Error {
     MissingRequiredValue { value: String },
 }
 
+const DEFAULT_LDAP_PORT: u16 = 1389;
+const DEFAULT_LDAP_TLS_PORT: u16 = 1636;
+
 #[derive(Clone, Debug)]
 pub struct DruidLdapSettings {
     provider: LdapAuthenticationProvider,
@@ -216,22 +219,27 @@ impl DruidLdapSettings {
         self.provider.tls.is_some()
     }
 
-    fn get_port(&self) -> u16 {
-        if let Some(port) = self.provider.port {
+    fn get_ldap_protocol_and_port(&self) -> (String, u16) {
+        let protocol = if self.is_ssl_enabled() {
+            "ldaps".to_string()
+        } else {
+            "ldap".to_string()
+        };
+
+        let port = if let Some(port) = self.provider.port {
             port
         } else if self.is_ssl_enabled() {
-            1636
+            DEFAULT_LDAP_TLS_PORT
         } else {
-            1389
-        }
+            DEFAULT_LDAP_PORT
+        };
+
+        (protocol, port)
     }
 
     fn credentials_validator_url(&self) -> String {
-        if self.is_ssl_enabled() {
-            format!("ldaps://{}:{}", self.provider.hostname, self.get_port())
-        } else {
-            format!("ldap://{}:{}", self.provider.hostname, self.get_port())
-        }
+        let (protocol, port) = self.get_ldap_protocol_and_port();
+        format!("{}://{}:{}", protocol, self.provider.hostname, port,)
     }
 }
 
