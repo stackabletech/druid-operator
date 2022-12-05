@@ -2,7 +2,7 @@
 dimensions:
   - name: druid
     values:
-      # - 0.23.0-stackable0.2.0
+      - 0.23.0-stackable0.2.0
       - 24.0.0-stackable0.2.0
   - name: zookeeper
     values:
