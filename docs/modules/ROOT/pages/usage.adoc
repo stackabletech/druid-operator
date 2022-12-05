@@ -367,13 +367,16 @@ stringData:
 
 Refer to https://github.com/stackabletech/druid-operator/tree/main/tests/templates/kuttl/ldap-authentication/create_ldap_user.sh[the LDAP test user creation script] to see what LDAP settings are referred to in this config snippet.
 
-==== Internal Notes Regarding Future LDAP-Related Development Work
+Please note, that Druid makes very specific assumptions about the content of the connected LDAP. Specifically, you will need to create an admin "Group" and assign your chosen admin user, as well as the internal user, to it. See the https://github.com/stackabletech/druid-operator/tree/main/tests/templates/kuttl/ldap-authentication/create_ldap_user.sh[create_ldap_user.sh] file in the current LDAP test case for an example.
 
-By enabling LDAP, the nodes will try to use LDAP to communicate among themselves. This might interfere or override the TLS authentication method at the current moment.
+==== Known Issues and Upcoming Work
+
+By enabling LDAP, the nodes will try to use LDAP to communicate among themselves. This will interfere or override the TLS authentication method at the current moment.
+This might be fixable by adding TLS to the auth chain.
 
 Communication with a TLS-secured LDAP server is currently not implemented, but will be tackled in the near future.
 
-A note on authorization with LDAP: This feature is currently disabled in favor of OPA. If it's chosen to be implemented in the future - Druid has specific assumptions about the content of the connected LDAP. Specifically, you will need to create a admin group, and assign the admin user as well as the internal user to it. See the https://github.com/stackabletech/druid-operator/tree/main/tests/templates/kuttl/ldap-authentication/create_ldap_user.sh[create_ldap_user.sh] file in the current LDAP test case.
+Authorization with LDAP is currently disabled in favor of OPA, apart from the admin and internal users which are used by Druid internally once LDAP is enabled.
 
 === Authorization with Open Policy Agent (OPA)
 
