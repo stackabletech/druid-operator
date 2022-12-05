@@ -316,53 +316,7 @@ Here you have a reduced, non-functional YAML example, which shows the most essen
 
 [source,yaml]
 ----
----
-apiVersion: druid.stackable.tech/v1alpha1
-kind: DruidCluster
-metadata:
-  name: derby-druid
-spec:
-  clusterConfig:
-    authentication:
-      ldap:
-        authenticationClass: druid-ldap-auth-class
----
-apiVersion: authentication.stackable.tech/v1alpha1
-kind: AuthenticationClass
-metadata:
-  name: druid-ldap-auth-class
-spec:
-  provider:
-    ldap:
-      hostname: openldap
-      searchBase: ou=Users,dc=example,dc=org
-      searchFilter: (&(uid=%s)(objectClass=inetOrgPerson))
-      port: 1389
-      bindCredentials:
-        secretClass: druid-ldap-secret
----
-apiVersion: secrets.stackable.tech/v1alpha1
-kind: SecretClass
-metadata:
-  name: druid-ldap-secret
-spec:
-  backend:
-    k8sSearch:
-      searchNamespace:
-        pod: {}
----
-apiVersion: v1
-kind: Secret
-metadata:
-  name: druid-ldap-secret
-  labels:
-    secrets.stackable.tech/class: druid-with-ldap-bind
-stringData:
-  LDAP_BIND_USER: uid=admin,ou=Users,dc=example,dc=org
-  LDAP_BIND_PASSWORD: admin
-  LDAP_INTERNAL_USER: druid_system
-  LDAP_INTERNAL_PASSWORD: druidsystem
----
+include::example$code/druid-ldap-authentication.yaml[]
 ----
 
 Refer to https://github.com/stackabletech/druid-operator/tree/main/tests/templates/kuttl/ldap-authentication/create_ldap_user.sh[the LDAP test user creation script] to see what LDAP settings are referred to in this config snippet.
