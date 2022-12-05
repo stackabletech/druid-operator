@@ -308,7 +308,72 @@ spec:
 
 ==== LDAP
 
-TODO: add more info here.
+Druid supports authentication of users against an LDAP server.
+Have a look at https://github.com/stackabletech/druid-operator/tree/main/tests/templates/kuttl/ldap-authentication[the LDAP test] and the general xref:commons-operator::authenticationclass.adoc[Stackable Authentication] documentation on how to set it up.
+
+In general, it requires you to specify a xref:commons-operator::authenticationclass.adoc[`AuthenticationClass`] which is used to authenticate the users.
+Here you have a reduced, non-functional YAML example, which shows the most essential parts which are needed to configure LDAP in the druid-operator:
+
+[source,yaml]
+----
+---
+apiVersion: druid.stackable.tech/v1alpha1
+kind: DruidCluster
+metadata:
+  name: derby-druid
+spec:
+  clusterConfig:
+    authentication:
+      ldap:
+        authenticationClass: druid-ldap-auth-class
+---
+apiVersion: authentication.stackable.tech/v1alpha1
+kind: AuthenticationClass
+metadata:
+  name: druid-ldap-auth-class
+spec:
+  provider:
+    ldap:
+      hostname: openldap
+      searchBase: ou=Users,dc=example,dc=org
+      searchFilter: (&(uid=%s)(objectClass=inetOrgPerson))
+      port: 1389
+      bindCredentials:
+        secretClass: druid-ldap-secret
+---
+apiVersion: secrets.stackable.tech/v1alpha1
+kind: SecretClass
+metadata:
+  name: druid-ldap-secret
+spec:
+  backend:
+    k8sSearch:
+      searchNamespace:
+        pod: {}
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: druid-ldap-secret
+  labels:
+    secrets.stackable.tech/class: druid-with-ldap-bind
+stringData:
+  LDAP_BIND_USER: uid=admin,ou=Users,dc=example,dc=org
+  LDAP_BIND_PASSWORD: admin
+  LDAP_INTERNAL_USER: druid_system
+  LDAP_INTERNAL_PASSWORD: druidsystem
+---
+----
+
+Refer to https://github.com/stackabletech/druid-operator/tree/main/tests/templates/kuttl/ldap-authentication/create_ldap_user.sh[the LDAP test user creation script] to see what LDAP settings are referred to in this config snippet.
+
+==== Internal Notes Regarding Future LDAP-Related Development Work
+
+By enabling LDAP, the nodes will try to use LDAP to communicate among themselves. This might interfere or override the TLS authentication method at the current moment.
+
+Communication with a TLS-secured LDAP server is currently not implemented, but will be tackled in the near future.
+
+A note on authorization with LDAP: This feature is currently disabled in favor of OPA. If it's chosen to be implemented in the future - Druid has specific assumptions about the content of the connected LDAP. Specifically, you will need to create a admin group, and assign the admin user as well as the internal user to it. See the https://github.com/stackabletech/druid-operator/tree/main/tests/templates/kuttl/ldap-authentication/create_ldap_user.sh[create_ldap_user.sh] file in the current LDAP test case.
 
 === Authorization with Open Policy Agent (OPA)
 
