@@ -6,20 +6,21 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
-- BREAKING: Support for TLS encryption (activated per default -> port changes) and TLS authentication ([#333]).
-- BREAKING: Reworked top level configuration. Deep storage, Ingestion spec, discovery config maps etc. are now subfields of `spec.clusterConfig` instead of being top level under `spec` ([#333]).
+- BREAKING: Support for TLS encryption (activated per default -> port changes) and TLS authentication ([#333])
+- BREAKING: Reworked top level configuration. Deep storage, Ingestion spec, discovery config maps etc. are now subfields of `spec.clusterConfig` instead of being top level under `spec` ([#333])
 - Use emptyDir for segment cache on historicals ([#342])
 
 ### Changed
 
-- Updated stackable image versions ([#339]).
+- Updated stackable image versions ([#339])
 - Upgrade to `operator-rs` `0.26.1` ([#340])
 - Upgrade to `operator-rs` `0.27.1` ([#347])
-- Do not run init container as root anymore and avoid chmod and chown ([#353]).
+- Do not run init container as root anymore and avoid chmod and chown ([#353])
+- [BREAKING] Use Product image selection instead of version. `spec.version` has been replaced by `spec.image` ([#356])
 
 ### Removed
 
-- Retired support for 0.22.1 as it is not build anymore via the docker actions ([#339]).
+- Retired support for 0.22.1 as it is not build anymore via the docker actions ([#339])
 
 [#333]: https://github.com/stackabletech/druid-operator/pull/333
 [#339]: https://github.com/stackabletech/druid-operator/pull/339
@@ -27,14 +28,15 @@ All notable changes to this project will be documented in this file.
 [#342]: https://github.com/stackabletech/druid-operator/pull/342
 [#347]: https://github.com/stackabletech/druid-operator/pull/347
 [#353]: https://github.com/stackabletech/druid-operator/pull/353
+[#356]: https://github.com/stackabletech/druid-operator/pull/356
 
 ## [0.8.0] - 2022-11-07
 
 ### Added
 
-- Cpu and memory limits are now configurable ([#298]).
-- Stale resources are now deleted ([#310]).
-- Support Druid 24.0.0 ([#317]).
+- Cpu and memory limits are now configurable ([#298])
+- Stale resources are now deleted ([#310])
+- Support Druid 24.0.0 ([#317])
 - Refactor role configuration with per role structs like `BrokerConfig`, `HistoricalConfig`, etc ([#332])
 - Added `HistoricalStorage` and `DruidStorage` (as catch-all storage configuration) ([#332])
 
@@ -51,12 +53,12 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
-- BREAKING: HDFS deep storage now configurable via HDFS discovery config map instead of an url to a HDFS name node ([#262]).
-- Include chart name when installing with a custom release name ([#263], [#264]).
+- BREAKING: HDFS deep storage now configurable via HDFS discovery config map instead of an url to a HDFS name node ([#262])
+- Include chart name when installing with a custom release name ([#263], [#264])
 
 ### Fixed
 
-- Add missing role to read S3Connection and S3Bucket objects ([#281]).
+- Add missing role to read S3Connection and S3Bucket objects ([#281])
 
 [#262]: https://github.com/stackabletech/druid-operator/pull/262
 [#263]: https://github.com/stackabletech/druid-operator/pull/263
@@ -93,18 +95,18 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
-- Reconciliation errors are now reported as Kubernetes events ([#178]).
+- Reconciliation errors are now reported as Kubernetes events ([#178])
 - Use cli argument `watch-namespace` / env var `WATCH_NAMESPACE` to specify
-  a single namespace to watch ([#183]).
-- BREAKING: Local backend storage (deep-storage) has been replaced with HDFS-storage, affecting the CRD ([#187]).
-- BREAKING: The corresponding local-storage label has been removed, affecting the CRD ([#124]).
-- Make the inclusion of the druid-s3-extension dependent on the Custom Resource definition ([#192]).
+  a single namespace to watch ([#183])
+- BREAKING: Local backend storage (deep-storage) has been replaced with HDFS-storage, affecting the CRD ([#187])
+- BREAKING: The corresponding local-storage label has been removed, affecting the CRD ([#124])
+- Make the inclusion of the druid-s3-extension dependent on the Custom Resource definition ([#192])
 
 ### Changed
 
 - Many configuration properties are not hardcoded anymore, product-config expanded ([#195])
-- `operator-rs` `0.10.0` -> `0.15.0` ([#178], [#183], [#195], [#187]).
-- `snafu` `0.6` -> `0.7` ([#178]).
+- `operator-rs` `0.10.0` -> `0.15.0` ([#178], [#183], [#195], [#187])
+- `snafu` `0.6` -> `0.7` ([#178])
 
 [#124]: https://github.com/stackabletech/druid-operator/pull/124
 [#178]: https://github.com/stackabletech/druid-operator/pull/178
@@ -118,7 +120,7 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
-- Monitoring scraping label `prometheus.io/scrape: true` ([#155]).
+- Monitoring scraping label `prometheus.io/scrape: true` ([#155])
 
 ### Changed
 
@@ -134,7 +136,7 @@ All notable changes to this project will be documented in this file.
 
 - `operator-rs` `0.7.0` → `0.8.0` ([#123])
 - Fixed a port reference in the role services ([#102])
-- Shut down gracefully ([#101]).
+- Shut down gracefully ([#101])
 
 ### Added
 
@@ -148,9 +150,9 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
-- Migrated to StatefulSet rather than direct Pod management ([#59]).
-- Ports are not configurable anymore ([#76]).
-- Updated to operator-rs 0.7.0 ([#76]).
+- Migrated to StatefulSet rather than direct Pod management ([#59])
+- Ports are not configurable anymore ([#76])
+- Updated to operator-rs 0.7.0 ([#76])
 
 [#59]: https://github.com/stackabletech/druid-operator/pull/59
 [#76]: https://github.com/stackabletech/druid-operator/pull/76
