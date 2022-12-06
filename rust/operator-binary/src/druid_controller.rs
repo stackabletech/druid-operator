@@ -18,6 +18,7 @@ use stackable_druid_crd::{
     resource::{self, RoleResource},
     tls::DruidTlsSettings,
 };
+use stackable_operator::commons::product_image_selection::ResolvedProductImage;
 use stackable_operator::{
     builder::{
         ConfigMapBuilder, ContainerBuilder, ObjectMetaBuilder, PodBuilder,
@@ -56,8 +57,10 @@ use std::{
 };
 use strum::{EnumDiscriminants, IntoStaticStr};
 
-const JVM_HEAP_FACTOR: f32 = 0.8;
 pub const CONTROLLER_NAME: &str = "druidcluster";
+
+const JVM_HEAP_FACTOR: f32 = 0.8;
+const DOCKER_IMAGE_BASE_NAME: &str = "druid";
 
 pub struct Ctx {
     pub client: stackable_operator::client::Client,
@@ -213,6 +216,8 @@ pub async fn reconcile_druid(druid: Arc<DruidCluster>, ctx: Arc<Ctx>) -> Result<
         .namespace
         .clone()
         .with_context(|| ObjectHasNoNamespaceSnafu {})?;
+    let resolved_product_image: ResolvedProductImage =
+        druid.spec.image.resolve(DOCKER_IMAGE_BASE_NAME);
 
     let zk_confmap = druid.spec.cluster_config.zookeeper_config_map_name.clone();
     let zk_connstr = client
@@ -295,7 +300,7 @@ pub async fn reconcile_druid(druid: Arc<DruidCluster>, ctx: Arc<Ctx>) -> Result<
     #[allow(clippy::explicit_auto_deref)]
     let role_config = transform_all_roles_to_config(&*druid, druid.build_role_properties());
     let validated_role_config = validate_all_roles_and_groups_config(
-        druid.version(),
+        &resolved_product_image.product_version,
         &role_config.context(ProductConfigTransformSnafu)?,
         &ctx.product_config,
         false,
@@ -316,7 +321,12 @@ pub async fn reconcile_druid(druid: Arc<DruidCluster>, ctx: Arc<Ctx>) -> Result<
             role: role_name.to_string(),
         })?;
 
-        let role_service = build_role_service(&druid, &druid_role, &druid_tls_settings)?;
+        let role_service = build_role_service(
+            &druid,
+            &resolved_product_image,
+            &druid_role,
+            &druid_tls_settings,
+        )?;
         cluster_resources
             .add(client, &role_service)
             .await
@@ -331,9 +341,15 @@ pub async fn reconcile_druid(druid: Arc<DruidCluster>, ctx: Arc<Ctx>) -> Result<
             let resources = resource::resources(&druid, &druid_role, &rolegroup)
                 .context(FailedToResolveResourceConfigSnafu)?;
 
-            let rg_service = build_rolegroup_services(&druid, &rolegroup, &druid_tls_settings)?;
+            let rg_service = build_rolegroup_services(
+                &druid,
+                &resolved_product_image,
+                &rolegroup,
+                &druid_tls_settings,
+            )?;
             let rg_configmap = build_rolegroup_config_map(
                 &druid,
+                &resolved_product_image,
                 &rolegroup,
                 rolegroup_config,
                 &zk_connstr,
@@ -345,6 +361,7 @@ pub async fn reconcile_druid(druid: Arc<DruidCluster>, ctx: Arc<Ctx>) -> Result<
             )?;
             let rg_statefulset = build_rolegroup_statefulset(
                 &druid,
+                &resolved_product_image,
                 &rolegroup,
                 rolegroup_config,
                 s3_conn.as_ref(),
@@ -373,7 +390,7 @@ pub async fn reconcile_druid(druid: Arc<DruidCluster>, ctx: Arc<Ctx>) -> Result<
     }
 
     // discovery
-    for discovery_cm in build_discovery_configmaps(&druid, &*druid)
+    for discovery_cm in build_discovery_configmaps(&druid, &*druid, &resolved_product_image)
         .await
         .context(BuildDiscoveryConfigSnafu)?
     {
@@ -395,6 +412,7 @@ pub async fn reconcile_druid(druid: Arc<DruidCluster>, ctx: Arc<Ctx>) -> Result<
 /// including targets outside of the cluster.
 pub fn build_role_service(
     druid: &DruidCluster,
+    resolved_product_image: &ResolvedProductImage,
     role: &DruidRole,
     tls_settings: &DruidTlsSettings,
 ) -> Result<Service> {
@@ -413,7 +431,7 @@ pub fn build_role_service(
             .with_recommended_labels(build_recommended_labels(
                 druid,
                 CONTROLLER_NAME,
-                druid.version(),
+                &resolved_product_image.app_version_label,
                 &role_name,
                 "global",
             ))
@@ -432,6 +450,7 @@ pub fn build_role_service(
 /// The rolegroup [`ConfigMap`] configures the rolegroup based on the configuration given by the administrator
 fn build_rolegroup_config_map(
     druid: &DruidCluster,
+    resolved_product_image: &ResolvedProductImage,
     rolegroup: &RoleGroupRef<DruidCluster>,
     rolegroup_config: &HashMap<PropertyNameKind, BTreeMap<String, String>>,
     zk_connstr: &str,
@@ -535,7 +554,7 @@ fn build_rolegroup_config_map(
             .with_recommended_labels(build_recommended_labels(
                 druid,
                 CONTROLLER_NAME,
-                druid.version(),
+                &resolved_product_image.app_version_label,
                 &rolegroup.role,
                 &rolegroup.role_group,
             ))
@@ -556,6 +575,7 @@ fn build_rolegroup_config_map(
 /// This is mostly useful for internal communication between peers, or for clients that perform client-side load balancing.
 fn build_rolegroup_services(
     druid: &DruidCluster,
+    resolved_product_image: &ResolvedProductImage,
     rolegroup: &RoleGroupRef<DruidCluster>,
     tls_settings: &DruidTlsSettings,
 ) -> Result<Service> {
@@ -570,7 +590,7 @@ fn build_rolegroup_services(
             .with_recommended_labels(build_recommended_labels(
                 druid,
                 CONTROLLER_NAME,
-                druid.version(),
+                &resolved_product_image.app_version_label,
                 &rolegroup.role,
                 &rolegroup.role_group,
             ))
@@ -597,6 +617,7 @@ fn build_rolegroup_services(
 /// The [`Pod`](`stackable_operator::k8s_openapi::api::core::v1::Pod`)s are accessible through the corresponding [`Service`] (from [`build_rolegroup_services`]).
 fn build_rolegroup_statefulset(
     druid: &DruidCluster,
+    resolved_product_image: &ResolvedProductImage,
     rolegroup_ref: &RoleGroupRef<DruidCluster>,
     rolegroup_config: &HashMap<PropertyNameKind, BTreeMap<String, String>>,
     s3_conn: Option<&S3ConnectionSpec>,
@@ -606,7 +627,6 @@ fn build_rolegroup_statefulset(
     let role = DruidRole::from_str(&rolegroup_ref.role).context(UnidentifiedDruidRoleSnafu {
         role: rolegroup_ref.role.to_string(),
     })?;
-    let druid_version = druid.version();
 
     // init container builder
     let mut cb_prepare = ContainerBuilder::new("prepare")
@@ -652,37 +672,38 @@ fn build_rolegroup_statefulset(
         })
         .collect::<Vec<_>>();
 
-    cb_druid.image(container_image(druid_version));
-    cb_druid.command(role.get_command(s3_conn));
-    cb_druid.image_pull_policy("IfNotPresent");
-    cb_druid.add_env_vars(rest_env);
-    cb_druid.add_container_ports(tls_settings.container_ports(&role));
-    // 10s * 30 = 300s to come up
-    cb_druid.startup_probe(tls_settings.get_tcp_socket_probe(30, 10, 30, 3));
-    // 10s * 1 = 10s to get removed from service
-    cb_druid.readiness_probe(tls_settings.get_tcp_socket_probe(10, 10, 1, 3));
-    // 10s * 3 = 30s to be restarted
-    cb_druid.liveness_probe(tls_settings.get_tcp_socket_probe(10, 10, 3, 3));
-    cb_druid.resources(resources.as_resource_requirements());
+    cb_druid
+        .image_from_product_image(resolved_product_image)
+        .command(role.get_command(s3_conn))
+        .add_env_vars(rest_env)
+        .add_container_ports(tls_settings.container_ports(&role))
+        // 10s * 30 = 300s to come up
+        .startup_probe(tls_settings.get_tcp_socket_probe(30, 10, 30, 3))
+        // 10s * 1 = 10s to get removed from service
+        .readiness_probe(tls_settings.get_tcp_socket_probe(10, 10, 1, 3))
+        // 10s * 3 = 30s to be restarted
+        .liveness_probe(tls_settings.get_tcp_socket_probe(10, 10, 3, 3))
+        .resources(resources.as_resource_requirements());
 
-    pb.add_init_container(cb_prepare.build());
-    pb.add_container(cb_druid.build());
-    pb.metadata_builder(|m| {
-        m.with_recommended_labels(build_recommended_labels(
-            druid,
-            CONTROLLER_NAME,
-            druid_version,
-            &rolegroup_ref.role,
-            &rolegroup_ref.role_group,
-        ))
-    });
-    pb.security_context(
-        PodSecurityContextBuilder::new()
-            .run_as_user(1000)
-            .run_as_group(1000)
-            .fs_group(1000)
-            .build(),
-    );
+    pb.image_pull_secrets_from_product_image(resolved_product_image)
+        .add_init_container(cb_prepare.build())
+        .add_container(cb_druid.build())
+        .metadata_builder(|m| {
+            m.with_recommended_labels(build_recommended_labels(
+                druid,
+                CONTROLLER_NAME,
+                &resolved_product_image.app_version_label,
+                &rolegroup_ref.role,
+                &rolegroup_ref.role_group,
+            ))
+        })
+        .security_context(
+            PodSecurityContextBuilder::new()
+                .run_as_user(1000)
+                .run_as_group(1000)
+                .fs_group(1000)
+                .build(),
+        );
 
     Ok(StatefulSet {
         metadata: ObjectMetaBuilder::new()
@@ -693,7 +714,7 @@ fn build_rolegroup_statefulset(
             .with_recommended_labels(build_recommended_labels(
                 druid,
                 CONTROLLER_NAME,
-                druid_version,
+                &resolved_product_image.app_version_label,
                 &rolegroup_ref.role,
                 &rolegroup_ref.role_group,
             ))
@@ -795,10 +816,6 @@ fn add_s3_volume_and_volume_mounts(
     }
 
     Ok(())
-}
-
-fn container_image(version: &str) -> String {
-    format!("docker.stackable.tech/stackable/druid:{}", version)
 }
 
 pub fn error_policy(_obj: Arc<DruidCluster>, _error: &Error, _ctx: Arc<Ctx>) -> Action {
