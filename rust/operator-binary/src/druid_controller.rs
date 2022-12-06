@@ -876,6 +876,8 @@ mod test {
         let druid: DruidCluster =
             serde_yaml::with::singleton_map_recursive::deserialize(deserializer).unwrap();
 
+        let resolved_product_image: ResolvedProductImage =
+            druid.spec.image.resolve(DOCKER_IMAGE_BASE_NAME);
         let role_config = transform_all_roles_to_config(&druid, druid.build_role_properties());
 
         let product_config_manager =
@@ -883,7 +885,7 @@ mod test {
                 .context(ProductConfigSnafu)?;
 
         let validated_role_config = validate_all_roles_and_groups_config(
-            druid.version(),
+            &resolved_product_image.product_version,
             &role_config.context(ProductConfigUtilsSnafu)?,
             &product_config_manager,
             false,
@@ -915,6 +917,7 @@ mod test {
 
                     let rg_configmap = build_rolegroup_config_map(
                         &druid,
+                        &resolved_product_image,
                         &rolegroup_ref,
                         rolegroup_config,
                         "zookeeper-connection-string",
@@ -946,7 +949,6 @@ mod test {
         )
         .unwrap();
 
-        //assert!(druid_segment_cache_property.contains(expected_druid_segment_cache_property), "role group {}", tested_rolegroup_name);
         assert!(
             druid_segment_cache_property.contains(&escaped_segment_cache_property),
             "role group {}",
