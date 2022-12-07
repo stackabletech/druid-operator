@@ -8,17 +8,17 @@ use crate::tls::DruidTls;
 
 use serde::{Deserialize, Serialize};
 use snafu::{OptionExt, ResultExt, Snafu};
-use stackable_operator::commons::resources::ResourcesFragment;
-use stackable_operator::labels::ObjectLabels;
 use stackable_operator::{
     client::Client,
     commons::{
         opa::OpaConfig,
-        resources::NoRuntimeLimits,
+        product_image_selection::ProductImage,
+        resources::{NoRuntimeLimits, ResourcesFragment},
         s3::{InlinedS3BucketSpec, S3BucketDef, S3ConnectionDef, S3ConnectionSpec},
         tls::{CaCert, Tls, TlsServerVerification, TlsVerification},
     },
     kube::{CustomResource, ResourceExt},
+    labels::ObjectLabels,
     product_config::types::PropertyNameKind,
     product_config_utils::{ConfigError, Configuration},
     role_utils::{Role, RoleGroupRef},
@@ -151,8 +151,8 @@ pub struct DruidClusterSpec {
     /// Emergency stop button, if `true` then all pods are stopped without affecting configuration (as setting `replicas` to `0` would)
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub stopped: Option<bool>,
-    /// Desired Druid version
-    pub version: String,
+    /// The Druid image to use
+    pub image: ProductImage,
     pub brokers: Role<BrokerConfig>,
     pub coordinators: Role<CoordinatorConfig>,
     pub historicals: Role<HistoricalConfig>,
@@ -311,10 +311,6 @@ impl DruidRole {
 }
 
 impl DruidCluster {
-    pub fn version(&self) -> &str {
-        self.spec.version.as_ref()
-    }
-
     pub fn common_compute_files(
         &self,
         file: &str,

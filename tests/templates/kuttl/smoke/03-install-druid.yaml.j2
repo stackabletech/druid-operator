@@ -10,7 +10,9 @@ kind: DruidCluster
 metadata:
   name: druid
 spec:
-  version: {{ test_scenario['values']['druid'] }}
+  image:
+    productVersion: "{{ test_scenario['values']['druid'].split('-stackable')[0] }}"
+    stackableVersion: "{{ test_scenario['values']['druid'].split('-stackable')[1] }}"
   clusterConfig:
     deepStorage:
       hdfs:
