@@ -151,7 +151,7 @@ pub struct DruidClusterSpec {
     /// Emergency stop button, if `true` then all pods are stopped without affecting configuration (as setting `replicas` to `0` would)
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub stopped: Option<bool>,
-    /// The Druid image version to use
+    /// The Druid image to use
     pub image: ProductImage,
     pub brokers: Role<BrokerConfig>,
     pub coordinators: Role<CoordinatorConfig>,
