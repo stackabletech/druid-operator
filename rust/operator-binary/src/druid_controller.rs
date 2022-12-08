@@ -345,6 +345,7 @@ pub async fn reconcile_druid(druid: Arc<DruidCluster>, ctx: Arc<Ctx>) -> Result<
                 s3_conn.as_ref(),
                 &resources,
                 &druid_tls_settings,
+                &druid_ldap_settings,
             )?;
             cluster_resources
                 .add(client, &rg_service)
@@ -604,6 +605,7 @@ fn build_rolegroup_statefulset(
     s3_conn: Option<&S3ConnectionSpec>,
     resources: &RoleResource,
     tls_settings: &DruidTlsSettings,
+    maybe_ldap_settings: &Option<DruidLdapSettings>,
 ) -> Result<StatefulSet> {
     let role = DruidRole::from_str(&rolegroup_ref.role).context(UnidentifiedDruidRoleSnafu {
         role: rolegroup_ref.role.to_string(),
@@ -656,7 +658,7 @@ fn build_rolegroup_statefulset(
         .collect::<Vec<_>>();
 
     cb_druid.image(container_image(druid_version));
-    cb_druid.command(role.get_command(s3_conn));
+    cb_druid.command(role.get_command(s3_conn, maybe_ldap_settings));
     cb_druid.image_pull_policy("IfNotPresent");
     cb_druid.add_env_vars(rest_env);
     cb_druid.add_container_ports(tls_settings.container_ports(&role));

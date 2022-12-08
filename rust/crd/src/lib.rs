@@ -7,6 +7,7 @@ pub mod tls;
 use crate::authentication::DruidAuthentication;
 use crate::tls::DruidTls;
 
+use ldap::DruidLdapSettings;
 use serde::{Deserialize, Serialize};
 use snafu::{OptionExt, ResultExt, Snafu};
 use stackable_operator::commons::authentication::AuthenticationClassProvider;
@@ -265,7 +266,11 @@ impl DruidRole {
     }
 
     /// Returns the start commands for the different server types.
-    pub fn get_command(&self, s3_connection: Option<&S3ConnectionSpec>) -> Vec<String> {
+    pub fn get_command(
+        &self,
+        s3_connection: Option<&S3ConnectionSpec>,
+        maybe_ldap_settings: &Option<DruidLdapSettings>,
+    ) -> Vec<String> {
         let mut shell_cmd = vec![format!("keytool -importkeystore -srckeystore {SYSTEM_TRUST_STORE} -srcstoretype jks -srcstorepass {SYSTEM_TRUST_STORE_PASSWORD} -destkeystore {STACKABLE_TRUST_STORE} -deststoretype pkcs12 -deststorepass {STACKABLE_TRUST_STORE_PASSWORD} -noprompt")];
 
         if let Some(s3_connection) = s3_connection {
@@ -294,10 +299,28 @@ impl DruidRole {
 
         // copy hdfs config to RW_CONFIG_DIRECTORY folder (if available)
         shell_cmd.push(format!(
-            "cp -RL {hdfs_conf}/* {rw_conf} || :",
+            "cp -RL {hdfs_conf}/* {rw_conf}",
             hdfs_conf = HDFS_CONFIG_DIRECTORY,
             rw_conf = RW_CONFIG_DIRECTORY,
         ));
+
+        const RUNTIME_PROPERTIES_PATH: &str = "/stackable/rwconfig/runtime.properties";
+        // replace LDAP secret placeholders with their in-secret value
+        if let Some(ldap_settings) = maybe_ldap_settings {
+            shell_cmd
+                .push(r#"echo "Replacing LDAP placeholders with their proper values""#.to_string());
+            shell_cmd.push(format!(r#"sed "s/xxx_ldap_bind_user_xxx/uid=admin,ou=Users,dc=example,dc=org/g" -i {RUNTIME_PROPERTIES_PATH}"#));
+            shell_cmd.push(format!(
+                r#"sed "s/xxx_ldap_bind_password_xxx/admin/g" -i {RUNTIME_PROPERTIES_PATH}"#
+            ));
+            shell_cmd.push(format!(
+                r#"sed "s/xxx_ldap_internal_user_xxx/druid_system/g" -i {RUNTIME_PROPERTIES_PATH}"#
+            ));
+            shell_cmd.push(format!(r#"sed "s/xxx_ldap_internal_password_xxx/druidsystem/g" -i {RUNTIME_PROPERTIES_PATH}"#));
+            shell_cmd.push("true || :".to_string());
+        } else {
+            shell_cmd.push("true || :".to_string());
+        }
 
         shell_cmd.push(format!(
             "{} {} {}",
