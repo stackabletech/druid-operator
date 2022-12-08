@@ -1,12 +1,11 @@
 use std::collections::BTreeMap;
 use std::string::FromUtf8Error;
 
-use snafu::{OptionExt, ResultExt, Snafu};
+use snafu::Snafu;
 use stackable_operator::commons::authentication::AuthenticationClassProvider;
 use stackable_operator::commons::ldap::LdapAuthenticationProvider;
-use stackable_operator::k8s_openapi::ByteString;
+use stackable_operator::k8s_openapi::api::core::v1::Secret;
 use stackable_operator::kube::runtime::reflector::ObjectRef;
-use stackable_operator::{client::Client, k8s_openapi::api::core::v1::Secret};
 use strum::{EnumDiscriminants, IntoStaticStr};
 
 #[derive(Snafu, Debug, EnumDiscriminants)]
@@ -42,27 +41,11 @@ const DEFAULT_LDAP_TLS_PORT: u16 = 1636;
 
 #[derive(Clone, Debug)]
 pub struct DruidLdapSettings {
-    provider: LdapAuthenticationProvider,
-}
-
-fn get_field_from_secret_data(
-    data: &BTreeMap<String, ByteString>,
-    var_name: String,
-    secret_name: &str,
-    secret_namespace: &str,
-) -> Result<String, Error> {
-    let password = data.get(&var_name).context(MissingSecretFieldSnafu)?;
-
-    String::from_utf8(password.0.clone()).with_context(|_| NonUtf8SecretSnafu {
-        key: var_name.clone(),
-        secret: ObjectRef::new(secret_name).within(secret_namespace),
-    })
+    pub provider: LdapAuthenticationProvider,
 }
 
 impl DruidLdapSettings {
     pub async fn new_from(
-        client: &Client,
-        namespace: &str,
         resolved_authentication_config: &[AuthenticationClassProvider],
     ) -> Result<Option<DruidLdapSettings>, Error> {
         let maybe_provider = resolved_authentication_config

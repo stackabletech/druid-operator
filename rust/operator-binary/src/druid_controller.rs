@@ -34,7 +34,7 @@ use stackable_operator::{
     k8s_openapi::{
         api::{
             apps::v1::{StatefulSet, StatefulSetSpec},
-            core::v1::{ConfigMap, EnvVar, Service, ServiceSpec},
+            core::v1::{ConfigMap, EnvVar, Service, ServiceSpec, Volume},
         },
         apimachinery::pkg::apis::meta::v1::LabelSelector,
     },
@@ -280,10 +280,9 @@ pub async fn reconcile_druid(druid: Arc<DruidCluster>, ctx: Arc<Ctx>) -> Result<
     // Extract TLS encryption and TLS auth provider if available
     let druid_tls_settings = druid.tls_settings(&resolved_authentication_config);
 
-    let druid_ldap_settings =
-        DruidLdapSettings::new_from(client, namespace, &resolved_authentication_config)
-            .await
-            .context(LdapAuthorizationSnafu)?;
+    let druid_ldap_settings = DruidLdapSettings::new_from(&resolved_authentication_config)
+        .await
+        .context(LdapAuthorizationSnafu)?;
 
     // False positive, auto-deref breaks type inference
     #[allow(clippy::explicit_auto_deref)]
@@ -621,11 +620,15 @@ fn build_rolegroup_statefulset(
     // init pod builder
     let mut pb = PodBuilder::new();
 
+    let (ldap_auth_mounts, ldap_auth_cmd) =
+        get_ldap_secret_volume_and_volume_mounts_and_commands(maybe_ldap_settings);
+
     // volume and volume mounts
     tls_settings
         .add_tls_volume_and_volume_mounts(&mut cb_prepare, &mut cb_druid, &mut pb)
         .context(InvalidTlsConfigSnafu)?;
     add_s3_volume_and_volume_mounts(s3_conn, &mut cb_druid, &mut pb)?;
+    add_ldap_secret_volume_mounts(&mut cb_druid, &mut pb, ldap_auth_mounts);
     add_config_volume_and_volume_mounts(rolegroup_ref, &mut cb_druid, &mut pb);
     add_hdfs_cm_volume_and_volume_mounts(
         &druid.spec.cluster_config.deep_storage,
@@ -658,7 +661,7 @@ fn build_rolegroup_statefulset(
         .collect::<Vec<_>>();
 
     cb_druid.image(container_image(druid_version));
-    cb_druid.command(role.get_command(s3_conn, maybe_ldap_settings));
+    cb_druid.command(role.get_command(s3_conn, ldap_auth_cmd));
     cb_druid.image_pull_policy("IfNotPresent");
     cb_druid.add_env_vars(rest_env);
     cb_druid.add_container_ports(tls_settings.container_ports(&role));
@@ -734,6 +737,60 @@ fn add_hdfs_cm_volume_and_volume_mounts(
                 .with_config_map(&hdfs.config_map_name)
                 .build(),
         );
+    }
+}
+
+fn get_ldap_secret_volume_and_volume_mounts_and_commands(
+    maybe_ldap_settings: &Option<DruidLdapSettings>,
+) -> (BTreeMap<String, (String, Volume)>, Vec<String>) {
+    let mut volumes = BTreeMap::new();
+    let mut commands = Vec::new();
+
+    if let Some(ldap_settings) = maybe_ldap_settings {
+        if let Some(credentials) = &ldap_settings.provider.bind_credentials {
+            let volume_name = credentials.secret_class.clone();
+            let secret_volume = VolumeBuilder::new(&volume_name)
+                .ephemeral(SecretOperatorVolumeSourceBuilder::new(volume_name.clone()).build())
+                .build();
+
+            volumes.insert(
+                volume_name.clone(),
+                (format!("/stackable/secrets/{volume_name}"), secret_volume),
+            );
+
+            let ldap_bind_user = "$(cat /stackable/secrets/{volume_name}/LDAP_BIND_USER";
+            let ldap_bind_password = "$(cat /stackable/secrets/{volume_name}/LDAP_BIND_PASSWORD";
+            let ldap_internal_user = "$(cat /stackable/secrets/{volume_name}/LDAP_INTERNAL_USER";
+            let ldap_internal_password =
+                "$(cat /stackable/secrets/{volume_name}/LDAP_INTERNAL_PASSWORD";
+
+            const RUNTIME_PROPERTIES_PATH: &str = "/stackable/rwconfig/runtime.properties";
+            commands
+                .push(r#"echo "Replacing LDAP placeholders with their proper values""#.to_string());
+            commands.push(format!(
+                r#"sed "s/xxx_ldap_bind_user_xxx/{ldap_bind_user}/g" -i {RUNTIME_PROPERTIES_PATH}"#
+            ));
+            commands.push(format!(
+                r#"sed "s/xxx_ldap_bind_password_xxx/{ldap_bind_password}/g" -i {RUNTIME_PROPERTIES_PATH}"#
+            ));
+            commands.push(format!(
+                r#"sed "s/xxx_ldap_internal_user_xxx/{ldap_internal_user}/g" -i {RUNTIME_PROPERTIES_PATH}"#
+            ));
+            commands.push(format!(r#"sed "s/xxx_ldap_internal_password_xxx/{ldap_internal_password}/g" -i {RUNTIME_PROPERTIES_PATH}"#));
+        }
+    }
+
+    (volumes, commands)
+}
+
+fn add_ldap_secret_volume_mounts(
+    cb_druid: &mut ContainerBuilder,
+    pb: &mut PodBuilder,
+    ldap_auth_volumes: BTreeMap<String, (String, Volume)>,
+) {
+    for (name, (path, volume)) in ldap_auth_volumes.iter() {
+        cb_druid.add_volume_mount(name, path);
+        pb.add_volume(volume.clone());
     }
 }
 
