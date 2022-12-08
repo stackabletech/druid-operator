@@ -15,6 +15,6 @@ commands:
       --set consoleService.type=NodePort,consoleService.nodePort=null
 {%- if test_scenario['values']['s3-use-tls'] == 'true' %}
       --set tls.enabled=true,tls.certSecret=minio-druid-tls-certificates,tls.publicCrt=tls.crt,tls.privateKey=tls.key
-{% endif -%}
+{%- endif %}
       --repo https://charts.min.io/ minio
     timeout: 600
