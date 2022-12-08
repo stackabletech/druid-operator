@@ -2,10 +2,9 @@
 apiVersion: kuttl.dev/v1beta1
 kind: TestSuite
 testDirs:
-  {% for test_name in test_names %}
+  {% for test_name in test_names -%}
   - ./tests/{{ test_name }}
   {% endfor %}
-
 startKIND: false
 suppress: ["events"]
 parallel: 2

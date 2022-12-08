@@ -1,19 +1,20 @@
 #!/usr/bin/env bash
-set -e
+set -euo pipefail
 
-# Register absolute paths to pass to Ansible so the location of the role is irrelevant
-# for the run
-TESTDIR="$(pwd)/tests"
-WORKDIR="$(pwd)/tests/_work"
+test_dir="$(dirname "$0")/../tests"
+work_dir="_work"
 
-cd "$TESTDIR"
+cd "$test_dir"
 
 curl -L "https://github.com/stackabletech/beku/releases/download/wip/beku" -o "beku"
 chmod +x beku
 
-./beku -d test-definition.yaml -t templates/kuttl -o _work/tests
+./beku --definition test-definition.yaml \
+       --templates templates \
+       --kuttl-test kuttl-test.yaml.jinja2 \
+       --out "$work_dir"
 
 # Run tests
-pushd _work
+pushd "$work_dir"
 kubectl kuttl test "$@"
 
