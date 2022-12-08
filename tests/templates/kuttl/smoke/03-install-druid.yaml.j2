@@ -11,8 +11,8 @@ metadata:
   name: druid
 spec:
   image:
-    productVersion: "{{ test_scenario['values']['druid'].split('-stackable')[0] }}"
-    stackableVersion: "{{ test_scenario['values']['druid'].split('-stackable')[1] }}"
+    productVersion: "{{ test_scenario['values']['druid'] | split(pat='-stackable') | nth(n=0) }}"
+    stackableVersion: "{{ test_scenario['values']['druid'] | split(pat='-stackable') | nth(n=1) }}"
   clusterConfig:
     deepStorage:
       hdfs:

@@ -6,24 +6,14 @@ set -e
 TESTDIR="$(pwd)/tests"
 WORKDIR="$(pwd)/tests/_work"
 
-# Create dirs
-mkdir -p tests/ansible/roles
-mkdir -p "$WORKDIR"
+cd "$TESTDIR"
 
-# Install Ansible role if needed
-pushd tests/ansible
-ansible-galaxy role install -r requirements.yaml -p ./roles
+curl -L "https://github.com/stackabletech/beku/releases/download/wip/beku" -o "beku"
+chmod +x beku
 
-# TODO: create pipenv in files for script thingy
-
-# Funnel via JSON to ensure that values are escaped properly
-echo '{}' | jq '{work_dir: $WORKDIR, test_dir: $TESTDIR}' --arg WORKDIR "$WORKDIR" --arg TESTDIR "$TESTDIR" > "${WORKDIR}"/vars.json
-
-# Run playbook to generate test scenarios
-ansible-playbook playbook.yaml --extra-vars "@${WORKDIR}/vars.json"
-popd
+./beku -d test-definition.yaml -t templates/kuttl -o _work/tests
 
 # Run tests
-pushd tests/_work
+pushd _work
 kubectl kuttl test "$@"
-popd
+

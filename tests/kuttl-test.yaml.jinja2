@@ -2,8 +2,8 @@
 apiVersion: kuttl.dev/v1beta1
 kind: TestSuite
 testDirs:
-  {% for testcase in testinput.tests %}
-  - ./tests/{{ testcase.name }}
+  {% for test_name in test_names %}
+  - ./tests/{{ test_name }}
   {% endfor %}
 
 startKIND: false
