@@ -41,6 +41,61 @@ pub struct DruidAuthenticationClass {
     pub authentication_class: String,
 }
 
+async fn extract_tls_provider(
+    client: &Client,
+    druid_tls: &DruidAuthenticationClass,
+) -> Result<AuthenticationClassProvider, Error> {
+    AuthenticationClass::resolve(client, &druid_tls.authentication_class)
+        .await
+        .context(AuthenticationClassRetrievalSnafu {
+            authentication_class: ObjectRef::<AuthenticationClass>::new(
+                &druid_tls.authentication_class,
+            ),
+        })
+        .and_then(|auth_class| match auth_class.spec.provider {
+            AuthenticationClassProvider::Tls(_) => {
+                tracing::info!(
+                    "Found TLS authentication provider [{}]",
+                    druid_tls.authentication_class,
+                );
+                Ok(auth_class.spec.provider)
+            }
+            _ => Err(Error::AuthenticationClassProviderNotSupported {
+                auth_method: "tls".to_string(),
+                authentication_class: ObjectRef::<AuthenticationClass>::new(
+                    &druid_tls.authentication_class,
+                ),
+            }),
+        })
+}
+async fn extract_ldap_provider(
+    client: &Client,
+    druid_ldap: &DruidAuthenticationClass,
+) -> Result<AuthenticationClassProvider, Error> {
+    AuthenticationClass::resolve(client, &druid_ldap.authentication_class)
+        .await
+        .context(AuthenticationClassRetrievalSnafu {
+            authentication_class: ObjectRef::<AuthenticationClass>::new(
+                &druid_ldap.authentication_class,
+            ),
+        })
+        .and_then(|auth_class| match auth_class.spec.provider {
+            AuthenticationClassProvider::Ldap(_) => {
+                tracing::info!(
+                    "Found LDAP authentication provider [{}]",
+                    druid_ldap.authentication_class
+                );
+                Ok(auth_class.spec.provider)
+            }
+            _ => Err(Error::AuthenticationClassProviderNotSupported {
+                auth_method: "ldap".to_string(),
+                authentication_class: ObjectRef::<AuthenticationClass>::new(
+                    &druid_ldap.authentication_class,
+                ),
+            }),
+        })
+}
+
 impl DruidAuthentication {
     pub async fn resolve(
         client: &Client,
@@ -53,30 +108,8 @@ impl DruidAuthentication {
             ..
         }) = &druid.spec.cluster_config.authentication
         {
-            result.push(
-                AuthenticationClass::resolve(client, &druid_tls.authentication_class)
-                    .await
-                    .context(AuthenticationClassRetrievalSnafu {
-                        authentication_class: ObjectRef::<AuthenticationClass>::new(
-                            &druid_tls.authentication_class,
-                        ),
-                    })
-                    .and_then(|auth_class| match auth_class.spec.provider {
-                        AuthenticationClassProvider::Tls(_) => {
-                            tracing::info!(
-                                "Found TLS authentication provider [{}]",
-                                druid_tls.authentication_class
-                            );
-                            Ok(auth_class.spec.provider)
-                        }
-                        _ => Err(Error::AuthenticationClassProviderNotSupported {
-                            auth_method: "tls".to_string(),
-                            authentication_class: ObjectRef::<AuthenticationClass>::new(
-                                &druid_tls.authentication_class,
-                            ),
-                        }),
-                    })?,
-            );
+            let provider = extract_tls_provider(client, druid_tls).await?;
+            result.push(provider);
         }
 
         if let Some(DruidAuthentication {
@@ -84,31 +117,10 @@ impl DruidAuthentication {
             ..
         }) = &druid.spec.cluster_config.authentication
         {
-            result.push(
-                AuthenticationClass::resolve(client, &druid_ldap.authentication_class)
-                    .await
-                    .context(AuthenticationClassRetrievalSnafu {
-                        authentication_class: ObjectRef::<AuthenticationClass>::new(
-                            &druid_ldap.authentication_class,
-                        ),
-                    })
-                    .and_then(|auth_class| match auth_class.spec.provider {
-                        AuthenticationClassProvider::Ldap(_) => {
-                            tracing::info!(
-                                "Found LDAP authentication provider [{}]",
-                                druid_ldap.authentication_class
-                            );
-                            Ok(auth_class.spec.provider)
-                        }
-                        _ => Err(Error::AuthenticationClassProviderNotSupported {
-                            auth_method: "ldap".to_string(),
-                            authentication_class: ObjectRef::<AuthenticationClass>::new(
-                                &druid_ldap.authentication_class,
-                            ),
-                        }),
-                    })?,
-            );
+            let provider = extract_ldap_provider(client, druid_ldap).await?;
+            result.push(provider);
         }
+
         Ok(result)
     }
 }
