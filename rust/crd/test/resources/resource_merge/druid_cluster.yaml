@@ -6,7 +6,9 @@ metadata:
   namespace: default
   uid: test-resource-merge
 spec:
-  version: 24.0.0-stackable0.2.0
+  image:
+    productVersion: 24.0.0
+    stackableVersion: 0.2.0
   clusterConfig:
     deepStorage:
       hdfs:

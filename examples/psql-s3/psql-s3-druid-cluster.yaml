@@ -4,7 +4,9 @@ kind: ZookeeperCluster
 metadata:
   name: simple-zk
 spec:
-  version: 3.8.0-stackable0.8.0
+  image:
+    productVersion: 3.8.0
+    stackableVersion: 0.8.0
   servers:
     roleGroups:
       default:
@@ -43,7 +45,9 @@ kind: DruidCluster
 metadata:
   name: psql-s3-druid
 spec:
-  version: 24.0.0-stackable0.2.0
+  image:
+    productVersion: 24.0.0
+    stackableVersion: 0.2.0
   clusterConfig:
     deepStorage:
       s3:
