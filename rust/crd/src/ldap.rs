@@ -68,6 +68,25 @@ impl DruidLdapSettings {
     pub fn generate_runtime_properties_config_lines(&self) -> BTreeMap<String, Option<String>> {
         let mut lines: BTreeMap<String, Option<String>> = BTreeMap::new();
 
+        /*
+          NOTES on trying to get ldap and existing tls auth to work.
+          see https://druid.apache.org/docs/latest/configuration/index.html#authentication-and-authorization
+
+          Below approaches did not work out:
+
+          * adding "allowAll" to the authenticatorChain
+          * inserting the following line:
+
+          ```
+          lines.insert(
+            // TODO: maybe try removing this if basic above works
+            "druid.auth.authenticator.ldap.skipOnFailure".to_string(),
+            Some("true".to_string()),
+          );
+          ```
+
+          NEXT: does it have to do with the escalator?
+        */
         lines.insert(
             "druid.auth.authenticatorChain".to_string(),
             Some(r#"["ldap"]"#.to_string()),
