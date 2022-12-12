@@ -87,3 +87,10 @@ tests:
       - zookeeper-latest
       - use-tls
       - use-tls-auth
+  # FAILING test regarding the interaction of ldap and tls authentication methods
+  # - name: tls-despite-ldap
+  #    dimensions:
+  #      - druid
+  #      - zookeeper-latest
+  #      - use-tls
+  #      - use-tls-auth
