@@ -602,7 +602,6 @@ impl DruidCluster {
         }
     }
 
-    // TODO: this should return an Option
     pub fn tls_settings(
         &self,
         resolved_authentication_config: &[AuthenticationClassProvider],
