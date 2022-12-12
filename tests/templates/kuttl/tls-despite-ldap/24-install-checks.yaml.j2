@@ -1,0 +1,67 @@
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: druid-checks
+  labels:
+    app: druid-checks
+spec:
+  replicas: 1
+  serviceName: druid-checks
+  selector:
+    matchLabels:
+      app: druid-checks
+  template:
+    metadata:
+      labels:
+        app: druid-checks
+    spec:
+      securityContext:
+        runAsUser: 0
+      containers:
+        - name: druid-checks
+          image: docker.stackable.tech/stackable/testing-tools:0.1.0-stackable0.1.0
+          command: ["sleep", "infinity"]
+          volumeMounts:
+            - mountPath: /tmp/tls
+              name: tls
+{% if test_scenario['values']['use-tls'] == 'true' and test_scenario['values']['use-tls-auth'] == 'true' %}
+            - mountPath: /tmp/tls_auth
+              name: tls-auth
+{% endif %}
+      volumes:
+        - ephemeral:
+            volumeClaimTemplate:
+              metadata:
+                annotations:
+                  secrets.stackable.tech/class: tls
+                  secrets.stackable.tech/scope: pod,node
+                creationTimestamp: null
+              spec:
+                accessModes:
+                  - ReadWriteOnce
+                resources:
+                  requests:
+                    storage: "1"
+                storageClassName: secrets.stackable.tech
+                volumeMode: Filesystem
+          name: tls
+{% if test_scenario['values']['use-tls'] == 'true' and test_scenario['values']['use-tls-auth'] == 'true' %}
+        - ephemeral:
+            volumeClaimTemplate:
+              metadata:
+                annotations:
+                  secrets.stackable.tech/class: druid-tls-auth
+                  secrets.stackable.tech/scope: pod,node
+                creationTimestamp: null
+              spec:
+                accessModes:
+                  - ReadWriteOnce
+                resources:
+                  requests:
+                    storage: "1"
+                storageClassName: secrets.stackable.tech
+                volumeMode: Filesystem
+          name: tls-auth
+{% endif %}
+

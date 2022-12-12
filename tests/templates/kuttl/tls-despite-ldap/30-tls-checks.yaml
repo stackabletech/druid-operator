@@ -1,0 +1,7 @@
+---
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+timeout: 600
+commands:
+  - script: kubectl cp -n $NAMESPACE ./check-tls.sh druid-checks-0:/tmp/check-tls.sh
+  - script: kubectl cp -n $NAMESPACE ./untrusted-ca.crt druid-checks-0:/tmp/tls/untrusted-ca.crt

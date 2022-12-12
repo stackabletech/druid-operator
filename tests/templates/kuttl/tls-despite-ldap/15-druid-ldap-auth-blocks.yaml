@@ -1,0 +1,43 @@
+---
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+metadata:
+  name: install-druid
+timeout: 600
+---
+apiVersion: authentication.stackable.tech/v1alpha1
+kind: AuthenticationClass
+metadata:
+  name: druid-ldap-auth-class
+spec:
+  provider:
+    ldap:
+      hostname: openldap
+      searchBase: ou=Users,dc=example,dc=org
+      searchFilter: (&(uid=%s)(objectClass=inetOrgPerson))
+      port: 1389
+      bindCredentials:
+        secretClass: druid-ldap-secret
+---
+apiVersion: secrets.stackable.tech/v1alpha1
+kind: SecretClass
+metadata:
+  name: druid-ldap-secret
+spec:
+  backend:
+    k8sSearch:
+      searchNamespace:
+        pod: {}
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: druid-ldap-secret
+  labels:
+    secrets.stackable.tech/class: druid-ldap-secret
+stringData:
+  LDAP_BIND_USER: uid=admin,ou=Users,dc=example,dc=org
+  LDAP_BIND_PASSWORD: admin
+  LDAP_INTERNAL_USER: druid_system
+  LDAP_INTERNAL_PASSWORD: druidsystem
+---

@@ -1,0 +1,14 @@
+---
+apiVersion: kuttl.dev/v1beta1
+kind: TestAssert
+timeout: 300
+commands:
+{% if test_scenario['values']['use-tls-auth'] == 'true' and test_scenario['values']['use-tls'] == 'true' %}
+  - script: kubectl exec -n $NAMESPACE druid-checks-0 -- /tmp/check-tls.sh $NAMESPACE secure_auth
+{% endif %}
+{% if test_scenario['values']['use-tls-auth'] == 'false' and test_scenario['values']['use-tls'] == 'true' %}
+  - script: kubectl exec -n $NAMESPACE druid-checks-0 -- /tmp/check-tls.sh $NAMESPACE secure
+{% endif %}
+{% if test_scenario['values']['use-tls-auth'] == 'false' and test_scenario['values']['use-tls'] == 'false' %}
+  - script: kubectl exec -n $NAMESPACE druid-checks-0 -- /tmp/check-tls.sh $NAMESPACE insecure
+{% endif %}

@@ -1,0 +1,115 @@
+---
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+metadata:
+  name: install-druid
+timeout: 600
+---
+apiVersion: secrets.stackable.tech/v1alpha1
+kind: SecretClass
+metadata:
+  name: druid-s3-credentials
+spec:
+  backend:
+    k8sSearch:
+      searchNamespace:
+        pod: {}
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: druid-s3-credentials
+  labels:
+    secrets.stackable.tech/class: druid-s3-credentials
+stringData:
+  accessKey: druid
+  secretKey: druiddruid
+{% if test_scenario['values']['use-tls'] == 'true' and test_scenario['values']['use-tls-auth'] == 'true' %}
+---
+apiVersion: secrets.stackable.tech/v1alpha1
+kind: SecretClass
+metadata:
+  name: druid-tls-auth
+spec:
+  backend:
+    autoTls:
+      ca:
+        secret:
+          name: secret-provisioner-druid-tls-auth-ca
+          namespace: default
+        autoGenerate: true
+---
+apiVersion: authentication.stackable.tech/v1alpha1
+kind: AuthenticationClass
+metadata:
+  name: druid-tls-auth-class
+spec:
+  provider:
+    tls:
+      clientCertSecretClass: druid-tls-auth
+{% endif %}
+---
+apiVersion: druid.stackable.tech/v1alpha1
+kind: DruidCluster
+metadata:
+  name: derby-druid
+spec:
+  version: {{ test_scenario['values']['druid'] }}
+  clusterConfig:
+    authentication:
+{% if test_scenario['values']['use-tls'] == 'true' and test_scenario['values']['use-tls-auth'] == 'true' %}
+      ldap:
+        authenticationClass: druid-ldap-auth-class
+      tls:
+        authenticationClass: druid-tls-auth-class
+{% endif %}
+    deepStorage:
+      s3:
+        bucket:
+          inline:
+            bucketName: druid
+            connection:
+              inline:
+                host: minio-druid
+                port: 9000
+                accessStyle: Path
+                credentials:
+                  secretClass: druid-s3-credentials
+                tls:
+                  verification:
+                    server:
+                      caCert:
+                        secretClass: minio-druid-tls-certificates
+        baseKey: deep-storage
+    metadataStorageDatabase:
+      dbType: derby
+      connString: jdbc:derby://localhost:1527/var/druid/metadata.db;create=true
+      host: localhost
+      port: 1527
+{% if test_scenario['values']['use-tls'] == 'true' %}
+    tls:
+      secretClass: tls
+{% else  %}
+    tls: null
+{% endif %}
+    zookeeperConfigMapName: druid-znode
+  brokers:
+    roleGroups:
+      default:
+        replicas: 1
+  coordinators:
+    roleGroups:
+      default:
+        replicas: 1
+  historicals:
+    roleGroups:
+      default:
+        replicas: 1
+  middleManagers:
+    roleGroups:
+      default:
+        replicas: 1
+  routers:
+    roleGroups:
+      default:
+        replicas: 1
