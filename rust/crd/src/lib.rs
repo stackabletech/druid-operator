@@ -298,14 +298,12 @@ impl DruidRole {
 
         // copy hdfs config to RW_CONFIG_DIRECTORY folder (if available)
         shell_cmd.push(format!(
-            "cp -RL {hdfs_conf}/* {rw_conf}",
+            "cp -RL {hdfs_conf}/* {rw_conf} || :", // NOTE: the OR part is here because the command is not applicable sometimes, and would stop everything else from executing
             hdfs_conf = HDFS_CONFIG_DIRECTORY,
             rw_conf = RW_CONFIG_DIRECTORY,
         ));
 
         shell_cmd.extend(ldap_auth_cmd);
-
-        shell_cmd.push("true || :".to_string());
 
         shell_cmd.push(format!(
             "{} {} {}",
