@@ -13,13 +13,13 @@ use strum::{EnumDiscriminants, IntoStaticStr};
 #[derive(Snafu, Debug, EnumDiscriminants)]
 #[strum_discriminants(derive(IntoStaticStr))]
 pub enum Error {
-    #[snafu(display("Failed to retrieve AuthenticationClass [{authentication_class}]"))]
+    #[snafu(display("failed to retrieve AuthenticationClass [{authentication_class}]"))]
     AuthenticationClassRetrieval {
         source: stackable_operator::error::Error,
         authentication_class: ObjectRef<AuthenticationClass>,
     },
     #[snafu(display(
-        "Invalid {auth_method} authentication class provider [{authentication_class}]"
+        "invalid {auth_method} authentication class provider [{authentication_class}]"
     ))]
     AuthenticationClassProviderNotSupported {
         auth_method: String,
