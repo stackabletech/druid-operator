@@ -18,19 +18,19 @@ pub enum Error {
     MissingBindCredentials,
     #[snafu(display("missing secret field"))]
     MissingSecretField,
-    #[snafu(display("Unable to parse key {} from {} as UTF8", key, secret))]
+    #[snafu(display("unable to parse key {} from {} as UTF8", key, secret))]
     NonUtf8Secret {
         source: FromUtf8Error,
         key: String,
         secret: ObjectRef<Secret>,
     },
-    #[snafu(display("Failed to find referenced {}", secret))]
+    #[snafu(display("failed to find referenced {}", secret))]
     MissingSecret {
         source: stackable_operator::error::Error,
         secret: ObjectRef<Secret>,
     },
     #[snafu(display(
-        "A required value was not found when parsing the authentication config: [{}]",
+        "a required value was not found when parsing the authentication config: [{}]",
         value
     ))]
     MissingRequiredValue { value: String },
