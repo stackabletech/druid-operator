@@ -38,7 +38,7 @@ kind: Secret
 metadata:
   name: druid-ldap-secret
   labels:
-    secrets.stackable.tech/class: druid-with-ldap-bind
+    secrets.stackable.tech/class: druid-ldap-secret
 stringData:
   LDAP_BIND_USER: uid=admin,ou=Users,dc=example,dc=org
   LDAP_BIND_PASSWORD: admin
