@@ -653,10 +653,9 @@ fn build_rolegroup_statefulset(
     let prepare_container_command = tls_settings.build_tls_key_stores_cmd();
 
     cb_prepare
-        .image("docker.stackable.tech/stackable/tools:0.2.0-stackable0")
+        .image_from_product_image(resolved_product_image)
         .command(vec!["/bin/bash".to_string(), "-c".to_string()])
         .args(vec![prepare_container_command.join(" && ")])
-        .image_pull_policy("IfNotPresent")
         .build();
 
     // rest of env
