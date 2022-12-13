@@ -31,7 +31,7 @@ dimensions:
       - "false"
   - name: ldap-use-tls
     values:
-      - "true"
+      #- "true" # commented out, as it is not yet functional
       - "false"
 tests:
   - name: ldap-authentication
