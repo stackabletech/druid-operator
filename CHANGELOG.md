@@ -17,6 +17,7 @@ All notable changes to this project will be documented in this file.
 - Upgrade to `operator-rs` `0.27.1` ([#347])
 - Do not run init container as root anymore and avoid chmod and chown ([#353])
 - [BREAKING] Use Product image selection instead of version. `spec.version` has been replaced by `spec.image` ([#356])
+- [BREAKING]: Removed tools image from init container and replaced with Druid product image. This means the latest stackable version has to be used in the product image selection ([#358])
 
 ### Removed
 
@@ -29,6 +30,7 @@ All notable changes to this project will be documented in this file.
 [#347]: https://github.com/stackabletech/druid-operator/pull/347
 [#353]: https://github.com/stackabletech/druid-operator/pull/353
 [#356]: https://github.com/stackabletech/druid-operator/pull/356
+[#358]: https://github.com/stackabletech/druid-operator/pull/358
 
 ## [0.8.0] - 2022-11-07
 
