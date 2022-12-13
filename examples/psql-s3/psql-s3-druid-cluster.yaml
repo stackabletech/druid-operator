@@ -47,7 +47,7 @@ metadata:
 spec:
   image:
     productVersion: 24.0.0
-    stackableVersion: 0.2.0
+    stackableVersion: 0.3.0
   clusterConfig:
     deepStorage:
       s3:
