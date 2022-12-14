@@ -2,6 +2,17 @@
 
 This is an operator for Kubernetes that can manage https://druid.apache.org/[Apache Druid] clusters.
 
+== Overview
+
+image::druid_overview.drawio.svg[]
+
+An Apache Druid instance is defined by the DruidCluster resource.
+
+== Roles
+
+The Stackable Operator for Apache Druid supports 5 xref:home:concepts:roles-and-role-groups.adoc[roles]: **Router**, **Coordinator**, **Broker**, **MiddleManager** and **Historical**.
+The roles correspond to https://druid.apache.org/docs/latest/design/processes.html[Druid processes].
+
 == Supported Versions
 
 The Stackable Operator for Apache Druid currently supports the following versions of Druid:
