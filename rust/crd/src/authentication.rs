@@ -31,16 +31,11 @@ pub enum Error {
 #[derive(Clone, Debug, Deserialize, JsonSchema, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DruidAuthentication {
-    /// TLS based client authentication (mutual TLS)
-    pub tls: Option<DruidTlsAuthentication>,
-}
-
-#[derive(Clone, Debug, Deserialize, JsonSchema, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct DruidTlsAuthentication {
+    /// Name of the authentication class used to authenticate clients.
     pub authentication_class: String,
 }
 
+/*
 impl DruidAuthentication {
     pub async fn resolve(
         client: &Client,
@@ -93,3 +88,4 @@ impl DruidAuthenticationConfig {
         matches!(self, DruidAuthenticationConfig::Tls(_))
     }
 }
+*/

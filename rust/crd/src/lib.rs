@@ -166,8 +166,7 @@ pub struct DruidClusterSpec {
 #[serde(rename_all = "camelCase")]
 pub struct DruidClusterConfig {
     /// Authentication class settings for Druid like TLS authentication or LDAP
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub authentication: Option<DruidAuthentication>,
+    pub authentication: Vec<DruidAuthentication>,
     /// Authorization settings for Druid like OPA
     #[serde(skip_serializing_if = "Option::is_none")]
     pub authorization: Option<DruidAuthorization>,

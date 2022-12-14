@@ -18,7 +18,10 @@ use stackable_druid_crd::{
     resource::{self, RoleResource},
     tls::DruidTlsSettings,
 };
-use stackable_operator::commons::product_image_selection::ResolvedProductImage;
+use stackable_operator::commons::{
+    authentication::{AuthenticationClass, AuthenticationClassProvider},
+    product_image_selection::ResolvedProductImage,
+};
 use stackable_operator::{
     builder::{
         ConfigMapBuilder, ContainerBuilder, ObjectMetaBuilder, PodBuilder,
@@ -208,6 +211,52 @@ impl ReconcilerError for Error {
     }
 }
 
+fn resolve_authentication_classes(
+    client: Client,
+    authentication_content: &Vec<DruidAuthentication>,
+) -> Vec<AuthenticationClass> {
+    todo!("gotta resolve stuff actually")
+}
+
+fn maybe_extract_tls_config(
+    authentication_classes: &Vec<AuthenticationClass>,
+) -> Option<TlsAuthenticationProvider> {
+    // smart version for a complete list
+    // return the FIRST item which is of type TLS
+    authentication_classes
+        .into_iter()
+        .filter_map(|x| match x.spec.provider {
+            AuthenticationClassProvider::Tls(tls) => Some(tls),
+            _ => None,
+        })
+        .next()
+
+    /*
+    // dumb dumb dumb
+    // we know at most one tls entry is expected
+    if authentication_classes.len() > 0 {
+        if let AuthenticationClassProvider::Tls(_) = authentication_classes[0] {
+            return Some(authentication_classes[0]);
+        }
+    }
+    None
+     */
+
+    /*
+        let mut tls_authentication_config = None;
+        let mut authentication_config = vec![];
+        // Remove a TLS provider if available. The TLS provider must be treated in combination
+        // with TLS encryption. Retain all other authentication providers.
+        for auth_conf in resolved_authentication_config.into_iter() {
+            if auth_conf.is_tls_auth() {
+                tls_authentication_config = Some(auth_conf);
+            } else {
+                authentication_config.push(auth_conf);
+            }
+        }
+    */
+}
+
 pub async fn reconcile_druid(druid: Arc<DruidCluster>, ctx: Arc<Ctx>) -> Result<Action> {
     tracing::info!("Starting reconcile");
     let client = &ctx.client;
@@ -272,28 +321,20 @@ pub async fn reconcile_druid(druid: Arc<DruidCluster>, ctx: Arc<Ctx>) -> Result<
     };
 
     // Get possible authentication methods
-    let resolved_authentication_config = DruidAuthentication::resolve(client, &druid)
-        .await
-        .context(InvalidAuthenticationConfigSnafu)?;
+    let authentication_classes =
+        resolve_authentication_classes(client, &druid.spec.cluster_config.authentication);
 
-    let mut tls_authentication_config = None;
-    let mut authentication_config = vec![];
-    // Remove a TLS provider if available. The TLS provider must be treated in combination
-    // with TLS encryption. Retain all other authentication providers.
-    for auth_conf in resolved_authentication_config.into_iter() {
-        if auth_conf.is_tls_auth() {
-            tls_authentication_config = Some(auth_conf);
-        } else {
-            authentication_config.push(auth_conf);
-        }
-    }
+    // TODO: validate config. assert authentication list length 1
+    // validate_authentication_classes(authentication_classes)?;
+
+    let maybe_tls_authentication_config = maybe_extract_tls_config(&authentication_classes);
 
     // Extract TLS encryption and TLS auth provider if available
     let druid_tls_settings = DruidTlsSettings {
         encryption: druid.spec.cluster_config.tls.clone(),
         // There can currently only be one TLS authentication config, so if we find it we can just
         // take ownership.
-        authentication: tls_authentication_config,
+        authentication: maybe_tls_authentication_config,
     };
 
     // False positive, auto-deref breaks type inference
