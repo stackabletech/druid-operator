@@ -11,11 +11,12 @@ use snafu::{OptionExt, ResultExt, Snafu};
 use stackable_operator::{
     client::Client,
     commons::{
+        authentication::{AuthenticationClass, AuthenticationClassProvider},
         opa::OpaConfig,
         product_image_selection::ProductImage,
         resources::{NoRuntimeLimits, ResourcesFragment},
         s3::{InlinedS3BucketSpec, S3BucketDef, S3ConnectionDef, S3ConnectionSpec},
-        tls::{CaCert, Tls, TlsServerVerification, TlsVerification},
+        tls::{CaCert, Tls, TlsAuthenticationProvider, TlsServerVerification, TlsVerification},
     },
     kube::{CustomResource, ResourceExt},
     labels::ObjectLabels,
@@ -29,6 +30,7 @@ use std::{
     str::FromStr,
 };
 use strum::{Display, EnumDiscriminants, EnumIter, EnumString, IntoStaticStr};
+use tls::DruidTlsSettings;
 
 pub const APP_NAME: &str = "druid";
 pub const OPERATOR_NAME: &str = "druid.stackable.tech";
@@ -313,6 +315,7 @@ impl DruidCluster {
     pub fn common_compute_files(
         &self,
         file: &str,
+        tls_settings: &DruidTlsSettings,
     ) -> Result<BTreeMap<String, Option<String>>, ConfigError> {
         let mut result = BTreeMap::new();
         match file {
@@ -328,7 +331,7 @@ impl DruidCluster {
                     String::from(EXT_HDFS),
                 ];
 
-                if self.tls_enabled() {
+                if is_tls_enabled(tls_settings) {
                     extensions.push(String::from(EXT_SIMPLE_CLIENT_SSL_CONTEXT));
                 }
 
@@ -580,20 +583,6 @@ impl DruidCluster {
             .is_some();
         let s3_storage = self.spec.cluster_config.deep_storage.is_s3();
         s3_ingestion || s3_storage
-    }
-
-    /// Determines if the cluster should be encrypted / authenticated via TLS
-    pub fn tls_enabled(&self) -> bool {
-        // TLS encryption
-        if self.spec.cluster_config.tls.is_some() {
-            true
-        } else {
-            // TLS authentication with provided AuthenticationClass or no TLS required?
-            matches!(
-                &self.spec.cluster_config.authentication,
-                Some(DruidAuthentication { tls: Some(_) })
-            )
-        }
     }
 }
 
@@ -885,6 +874,84 @@ pub fn build_recommended_labels<'a, T>(
         controller_name,
         role,
         role_group,
+    }
+}
+
+fn resolve_authentication_classes(
+    client: Client,
+    authentication_content: &Vec<DruidAuthentication>,
+) -> Vec<AuthenticationClass> {
+    todo!("gotta resolve stuff actually")
+}
+
+fn maybe_extract_tls_config(
+    authentication_classes: &Vec<AuthenticationClass>,
+) -> Option<TlsAuthenticationProvider> {
+    // smart version for a complete list
+    // return the FIRST item which is of type TLS
+    authentication_classes
+        .into_iter()
+        .filter_map(|x| match x.spec.provider {
+            AuthenticationClassProvider::Tls(tls) => Some(tls),
+            _ => None,
+        })
+        .next()
+
+    /*
+    // dumb dumb dumb
+    // we know at most one tls entry is expected
+    if authentication_classes.len() > 0 {
+        if let AuthenticationClassProvider::Tls(_) = authentication_classes[0] {
+            return Some(authentication_classes[0]);
+        }
+    }
+    None
+     */
+
+    /*
+        let mut tls_authentication_config = None;
+        let mut authentication_config = vec![];
+        // Remove a TLS provider if available. The TLS provider must be treated in combination
+        // with TLS encryption. Retain all other authentication providers.
+        for auth_conf in resolved_authentication_config.into_iter() {
+            if auth_conf.is_tls_auth() {
+                tls_authentication_config = Some(auth_conf);
+            } else {
+                authentication_config.push(auth_conf);
+            }
+        }
+    */
+}
+
+//TODO: this will be a result-returning function
+pub fn construct_druid_tls_settings(
+    client: Client,
+    druid_cluster_config: &DruidClusterConfig,
+) -> DruidTlsSettings {
+    // Get possible authentication methods
+    let authentication_classes =
+        resolve_authentication_classes(client, &druid_cluster_config.authentication);
+
+    // TODO: validate config. assert authentication list length 1
+    // validate_authentication_classes(authentication_classes)?;
+
+    let maybe_tls_authentication_config = maybe_extract_tls_config(&authentication_classes);
+
+    DruidTlsSettings {
+        encryption: druid_cluster_config.tls.clone(),
+        // There can currently only be one TLS authentication config, so if we find it we can just
+        // take ownership.
+        authentication: maybe_tls_authentication_config,
+    }
+}
+
+pub fn is_tls_enabled(druid_tls_settings: &DruidTlsSettings) -> bool {
+    if druid_tls_settings.encryption.is_some() {
+        true
+    } else if druid_tls_settings.authentication.is_some() {
+        true
+    } else {
+        false
     }
 }
 

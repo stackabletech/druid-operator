@@ -132,9 +132,7 @@ impl DruidTlsSettings {
         druid: &mut ContainerBuilder,
         pod: &mut PodBuilder,
     ) -> Result<(), Error> {
-        let secret_class = if let Some(DruidAuthenticationConfig::Tls(provider)) =
-            &self.authentication
-        {
+        let secret_class = if let Some(provider) = &self.authentication {
             // If client_cert_secret_class authentication is set use it for our tls volume mounts
             if provider.client_cert_secret_class.is_some() {
                 provider.client_cert_secret_class.as_ref()
