@@ -331,6 +331,8 @@ impl DruidCluster {
                     String::from(EXT_HDFS),
                 ];
 
+                // TODO: we can just enable it and skip the passing of tls settings?
+                // CONTINUE IN 2023
                 if is_tls_enabled(tls_settings) {
                     extensions.push(String::from(EXT_SIMPLE_CLIENT_SSL_CONTEXT));
                 }
