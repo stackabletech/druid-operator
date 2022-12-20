@@ -636,6 +636,7 @@ fn build_rolegroup_statefulset(
         .context(FailedContainerBuilderCreationSnafu { name: APP_NAME })?;
     // init pod builder
     let mut pb = PodBuilder::new();
+    pb.node_selector_opt(druid.node_selector(rolegroup_ref));
 
     // volume and volume mounts
     tls_settings
