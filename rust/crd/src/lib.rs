@@ -403,6 +403,8 @@ impl DruidCluster {
         Ok(result)
     }
 
+    /// Takes a rolegoup_ref (with role and role group name) and returns the selector defined for
+    /// that role group.
     pub fn node_selector(
         &self,
         rolegroup_ref: &RoleGroupRef<DruidCluster>,
