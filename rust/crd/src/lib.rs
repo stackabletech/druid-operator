@@ -17,6 +17,7 @@ use stackable_operator::{
         s3::{InlinedS3BucketSpec, S3BucketDef, S3ConnectionDef, S3ConnectionSpec},
         tls::{CaCert, Tls, TlsServerVerification, TlsVerification},
     },
+    k8s_openapi::apimachinery::pkg::apis::meta::v1::LabelSelector,
     kube::{CustomResource, ResourceExt},
     labels::ObjectLabels,
     product_config::types::PropertyNameKind,
@@ -400,6 +401,44 @@ impl DruidCluster {
         }
 
         Ok(result)
+    }
+
+    pub fn node_selector(
+        &self,
+        rolegroup_ref: &RoleGroupRef<DruidCluster>,
+    ) -> Option<LabelSelector> {
+        match DruidRole::from_str(rolegroup_ref.role.as_str()).unwrap() {
+            DruidRole::Broker => self
+                .spec
+                .brokers
+                .role_groups
+                .get(&rolegroup_ref.role_group)
+                .and_then(|rg| rg.selector.clone()),
+            DruidRole::MiddleManager => self
+                .spec
+                .middle_managers
+                .role_groups
+                .get(&rolegroup_ref.role_group)
+                .and_then(|rg| rg.selector.clone()),
+            DruidRole::Coordinator => self
+                .spec
+                .coordinators
+                .role_groups
+                .get(&rolegroup_ref.role_group)
+                .and_then(|rg| rg.selector.clone()),
+            DruidRole::Historical => self
+                .spec
+                .historicals
+                .role_groups
+                .get(&rolegroup_ref.role_group)
+                .and_then(|rg| rg.selector.clone()),
+            DruidRole::Router => self
+                .spec
+                .routers
+                .role_groups
+                .get(&rolegroup_ref.role_group)
+                .and_then(|rg| rg.selector.clone()),
+        }
     }
 
     pub fn replicas(&self, rolegroup_ref: &RoleGroupRef<DruidCluster>) -> Option<i32> {
