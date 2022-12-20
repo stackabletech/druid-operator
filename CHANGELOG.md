@@ -18,6 +18,7 @@ All notable changes to this project will be documented in this file.
 - Do not run init container as root anymore and avoid chmod and chown ([#353])
 - [BREAKING] Use Product image selection instead of version. `spec.version` has been replaced by `spec.image` ([#356])
 - [BREAKING] Removed tools image from init container and replaced with Druid product image. This means the latest stackable version has to be used in the product image selection ([#358])
+- Bitnami Helm chart 12.1.5 for kuttl tests. ([#xxx])
 
 ### Removed
 
@@ -31,6 +32,7 @@ All notable changes to this project will be documented in this file.
 [#353]: https://github.com/stackabletech/druid-operator/pull/353
 [#356]: https://github.com/stackabletech/druid-operator/pull/356
 [#358]: https://github.com/stackabletech/druid-operator/pull/358
+[#xxx]: https://github.com/stackabletech/druid-operator/pull/xxx
 
 ## [0.8.0] - 2022-11-07
 
