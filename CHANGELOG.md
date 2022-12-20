@@ -13,7 +13,7 @@ All notable changes to this project will be documented in this file.
 ### Changed
 
 - Updated stackable image versions ([#339])
-- Upgrade to `operator-rs` `0.31.1` ([#340], [#347], [#362])
+- Upgrade to `operator-rs` `0.30.1` ([#340], [#347], [#362])
 - Do not run init container as root anymore and avoid chmod and chown ([#353])
 - Fixed role group node selector ([#362])
 - [BREAKING] Use Product image selection instead of version. `spec.version` has been replaced by `spec.image` ([#356])
