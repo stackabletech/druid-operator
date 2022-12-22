@@ -5,7 +5,7 @@ commands:
   - script: >-
       helm install druid-postgresql
       --namespace $NAMESPACE
-      --version 11.0.0
+      --version 12.1.5
       --set auth.username=druid
       --set auth.password=druid
       --set auth.database=druid

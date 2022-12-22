@@ -18,6 +18,7 @@ All notable changes to this project will be documented in this file.
 - Fixed role group node selector ([#362])
 - [BREAKING] Use Product image selection instead of version. `spec.version` has been replaced by `spec.image` ([#356])
 - [BREAKING] Removed tools image from init container and replaced with Druid product image. This means the latest stackable version has to be used in the product image selection ([#358])
+- Bitnami Helm chart 12.1.5 for kuttl tests. ([#363])
 
 ### Removed
 
@@ -32,6 +33,7 @@ All notable changes to this project will be documented in this file.
 [#356]: https://github.com/stackabletech/druid-operator/pull/356
 [#358]: https://github.com/stackabletech/druid-operator/pull/358
 [#362]: https://github.com/stackabletech/druid-operator/pull/362
+[#363]: https://github.com/stackabletech/druid-operator/pull/363
 
 ## [0.8.0] - 2022-11-07
 
@@ -114,7 +116,6 @@ All notable changes to this project will be documented in this file.
 [#124]: https://github.com/stackabletech/druid-operator/pull/124
 [#178]: https://github.com/stackabletech/druid-operator/pull/178
 [#183]: https://github.com/stackabletech/druid-operator/pull/183
-[#186]: https://github.com/stackabletech/druid-operator/pull/186
 [#187]: https://github.com/stackabletech/druid-operator/pull/187
 [#192]: https://github.com/stackabletech/druid-operator/pull/192
 [#195]: https://github.com/stackabletech/druid-operator/pull/195
