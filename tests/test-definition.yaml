@@ -4,6 +4,9 @@ dimensions:
     values:
       - 0.23.0-stackable0.3.0
       - 24.0.0-stackable0.3.0
+  - name: druid-latest
+    values:
+      - 24.0.0-stackable0.3.0
   - name: zookeeper
     values:
       - 3.7.0-stackable0.8.0
@@ -37,42 +40,42 @@ tests:
       - hadoop
   - name: authorizer
     dimensions:
-      - druid
+      - druid-latest
       - zookeeper-latest
       - opa
       - hadoop
   - name: ingestion-no-s3-ext
     dimensions:
-      - druid
+      - druid-latest
       - zookeeper-latest
       - hadoop
   - name: ingestion-s3-ext
     dimensions:
-      - druid
+      - druid-latest
       - zookeeper-latest
       - hadoop
   - name: s3-deep-storage
     dimensions:
-      - druid
+      - druid-latest
       - zookeeper-latest
       - s3-use-tls
   - name: hdfs-deep-storage
     dimensions:
-      - druid
+      - druid-latest
       - hadoop
       - zookeeper-latest
   - name: resources
     dimensions:
-      - druid
+      - druid-latest
       - zookeeper-latest
   - name: orphaned-resources
     dimensions:
-      - druid
+      - druid-latest
       - zookeeper-latest
       - hadoop
   - name: tls
     dimensions:
-      - druid
+      - druid-latest
       - zookeeper-latest
       - use-tls
       - use-tls-auth
