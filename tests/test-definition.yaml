@@ -40,7 +40,7 @@ tests:
       - hadoop
   - name: authorizer
     dimensions:
-      - druid-latest
+      - druid
       - zookeeper-latest
       - opa
       - hadoop
