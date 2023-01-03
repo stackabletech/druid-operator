@@ -25,6 +25,7 @@ spec:
             spec:
               properties:
                 brokers:
+                  description: Configuration of the broker role
                   properties:
                     cliOverrides:
                       additionalProperties:
@@ -357,22 +358,27 @@ spec:
                     - roleGroups
                   type: object
                 clusterConfig:
-                  description: Common cluster wide configuration that can not differ or be overriden on a role or role group level
+                  description: Common cluster wide configuration that can not differ or be overridden on a role or role group level
                   properties:
                     authentication:
-                      description: Authentication class settings for Druid like TLS authentication or LDAP
-                      nullable: true
-                      properties:
-                        tls:
-                          description: TLS based client authentication (mutual TLS)
-                          nullable: true
-                          properties:
-                            authenticationClass:
-                              type: string
-                          required:
-                            - authenticationClass
-                          type: object
-                      type: object
+                      default: []
+                      description: List of Authentication classes using like TLS or LDAP to authenticate users
+                      items:
+                        properties:
+                          authenticationClass:
+                            description: |-
+                              The AuthenticationClass <https://docs.stackable.tech/home/nightly/concepts/authenticationclass.html> to use.
+
+                              ## TLS provider
+
+                              Only affects client connections. This setting controls: - If clients need to authenticate themselves against Druid via TLS - Which ca.crt to use when validating the provided client certs
+
+                              Please note that the SecretClass used to authenticate users needs to be the same as the SecretClass used for internal communication.
+                            type: string
+                        required:
+                          - authenticationClass
+                        type: object
+                      type: array
                     authorization:
                       description: Authorization settings for Druid like OPA
                       nullable: true
@@ -669,15 +675,15 @@ spec:
                       type: object
                     tls:
                       default:
-                        secretClass: tls
-                      description: TLS encryption settings for Druid
+                        serverAndInternalSecretClass: tls
+                      description: TLS encryption settings for Druid. This setting only affects server and internal communication. It does not affect client tls authentication, use `clusterConfig.authentication` instead.
                       nullable: true
                       properties:
-                        secretClass:
-                          description: 'Only affects client connections. This setting controls: - If TLS encryption is used at all - Which cert the servers should use to authenticate themselves against the client Important: This will activate encrypted internal druid communication as well!'
+                        serverAndInternalSecretClass:
+                          default: tls
+                          description: 'This setting controls client as well as internal tls usage: - If TLS encryption is used at all - Which cert the servers should use to authenticate themselves against the clients - Which cert the servers should use to authenticate themselves among each other'
+                          nullable: true
                           type: string
-                      required:
-                        - secretClass
                       type: object
                     zookeeperConfigMapName:
                       description: ZooKeeper discovery ConfigMap
@@ -688,6 +694,7 @@ spec:
                     - zookeeperConfigMapName
                   type: object
                 coordinators:
+                  description: Configuration of the coordinator role
                   properties:
                     cliOverrides:
                       additionalProperties:
@@ -1020,6 +1027,7 @@ spec:
                     - roleGroups
                   type: object
                 historicals:
+                  description: Configuration of the historical role
                   properties:
                     cliOverrides:
                       additionalProperties:
@@ -1509,6 +1517,7 @@ spec:
                       type: string
                   type: object
                 middleManagers:
+                  description: Configuration of the middle managed role
                   properties:
                     cliOverrides:
                       additionalProperties:
@@ -1841,6 +1850,7 @@ spec:
                     - roleGroups
                   type: object
                 routers:
+                  description: Configuration of the router role
                   properties:
                     cliOverrides:
                       additionalProperties:

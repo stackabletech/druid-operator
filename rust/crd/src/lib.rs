@@ -1,17 +1,20 @@
 pub mod authentication;
+pub mod authorization;
 pub mod resource;
+pub mod security;
 pub mod storage;
 pub mod tls;
 
 use crate::authentication::DruidAuthentication;
 use crate::tls::DruidTls;
 
+use crate::security::DruidTlsSecurity;
+use authorization::DruidAuthorization;
 use serde::{Deserialize, Serialize};
 use snafu::{OptionExt, ResultExt, Snafu};
 use stackable_operator::{
     client::Client,
     commons::{
-        opa::OpaConfig,
         product_image_selection::ProductImage,
         resources::{NoRuntimeLimits, ResourcesFragment},
         s3::{InlinedS3BucketSpec, S3BucketDef, S3ConnectionDef, S3ConnectionSpec},
@@ -99,8 +102,6 @@ pub const CREDENTIALS_SECRET_PROPERTY: &str = "credentialsSecret";
 // metrics
 pub const PROMETHEUS_PORT: &str = "druid.emitter.prometheus.port";
 pub const METRICS_PORT: u16 = 9090;
-// tls
-const DEFAULT_TLS_SECRET_CLASS: &str = "tls";
 // container locations
 pub const S3_SECRET_DIR_NAME: &str = "/stackable/secrets";
 const ENV_S3_ACCESS_KEY: &str = "AWS_ACCESS_KEY_ID";
@@ -154,21 +155,26 @@ pub struct DruidClusterSpec {
     pub stopped: Option<bool>,
     /// The Druid image to use
     pub image: ProductImage,
+    /// Configuration of the broker role
     pub brokers: Role<BrokerConfig>,
+    /// Configuration of the coordinator role
     pub coordinators: Role<CoordinatorConfig>,
+    /// Configuration of the historical role
     pub historicals: Role<HistoricalConfig>,
+    /// Configuration of the middle managed role
     pub middle_managers: Role<MiddleManagerConfig>,
+    /// Configuration of the router role
     pub routers: Role<RouterConfig>,
-    /// Common cluster wide configuration that can not differ or be overriden on a role or role group level
+    /// Common cluster wide configuration that can not differ or be overridden on a role or role group level
     pub cluster_config: DruidClusterConfig,
 }
 
 #[derive(Clone, Debug, Deserialize, JsonSchema, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DruidClusterConfig {
-    /// Authentication class settings for Druid like TLS authentication or LDAP
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub authentication: Option<DruidAuthentication>,
+    /// List of Authentication classes using like TLS or LDAP to authenticate users
+    #[serde(default)]
+    pub authentication: Vec<DruidAuthentication>,
     /// Authorization settings for Druid like OPA
     #[serde(skip_serializing_if = "Option::is_none")]
     pub authorization: Option<DruidAuthorization>,
@@ -179,7 +185,9 @@ pub struct DruidClusterConfig {
     pub ingestion: Option<IngestionSpec>,
     /// Meta storage database like Derby or PostgreSQL
     pub metadata_storage_database: DatabaseConnectionSpec,
-    /// TLS encryption settings for Druid
+    /// TLS encryption settings for Druid.
+    /// This setting only affects server and internal communication.
+    /// It does not affect client tls authentication, use `clusterConfig.authentication` instead.
     #[serde(
         default = "default_tls_secret_class",
         skip_serializing_if = "Option::is_none"
@@ -191,14 +199,10 @@ pub struct DruidClusterConfig {
 
 fn default_tls_secret_class() -> Option<DruidTls> {
     Some(DruidTls {
-        secret_class: DEFAULT_TLS_SECRET_CLASS.to_string(),
+        server_and_internal_secret_class: Some(
+            DruidTlsSecurity::TLS_DEFAULT_SECRET_CLASS.to_string(),
+        ),
     })
-}
-
-#[derive(Clone, Debug, Default, Deserialize, JsonSchema, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct DruidAuthorization {
-    pub opa: OpaConfig,
 }
 
 #[derive(
@@ -328,11 +332,9 @@ impl DruidCluster {
                     String::from(EXT_BASIC_SECURITY),
                     String::from(EXT_OPA_AUTHORIZER),
                     String::from(EXT_HDFS),
+                    // TODO Check if this removal causes problems
+                    String::from(EXT_SIMPLE_CLIENT_SSL_CONTEXT),
                 ];
-
-                if self.tls_enabled() {
-                    extensions.push(String::from(EXT_SIMPLE_CLIENT_SSL_CONTEXT));
-                }
 
                 // metadata storage
                 let mds = self.spec.cluster_config.metadata_storage_database.clone();
@@ -622,20 +624,6 @@ impl DruidCluster {
             .is_some();
         let s3_storage = self.spec.cluster_config.deep_storage.is_s3();
         s3_ingestion || s3_storage
-    }
-
-    /// Determines if the cluster should be encrypted / authenticated via TLS
-    pub fn tls_enabled(&self) -> bool {
-        // TLS encryption
-        if self.spec.cluster_config.tls.is_some() {
-            true
-        } else {
-            // TLS authentication with provided AuthenticationClass or no TLS required?
-            matches!(
-                &self.spec.cluster_config.authentication,
-                Some(DruidAuthentication { tls: Some(_) })
-            )
-        }
     }
 }
 
@@ -932,7 +920,6 @@ pub fn build_recommended_labels<'a, T>(
 
 #[cfg(test)]
 mod tests {
-
     use super::*;
 
     #[test]
@@ -976,30 +963,43 @@ mod tests {
             "zk-config-map".to_string()
         );
         assert_eq!(
-            druid_cluster_config.tls.unwrap().secret_class,
-            DEFAULT_TLS_SECRET_CLASS.to_string()
+            druid_cluster_config.tls,
+            Some(DruidTls {
+                server_and_internal_secret_class: Some("tls".to_string())
+            }),
         );
+        assert_eq!(druid_cluster_config.authentication, vec![],);
 
         let input = r#"
-        deepStorage:
-          hdfs:
-            configMapName: druid-hdfs
-            directory: /druid
+        authentication:
+          - authenticationClass: druid-user-authentication-class
+        tls:
+          serverAndInternalSecretClass: druid-secret-class
+        zookeeperConfigMapName: zk-config-map
         metadataStorageDatabase:
           dbType: derby
           connString: jdbc:derby://localhost:1527/var/druid/metadata.db;create=true
           host: localhost
           port: 1527
-        tls:
-          secretClass: foo
-        zookeeperConfigMapName: zk-config-map
+        deepStorage:
+          hdfs:
+            configMapName: druid-hdfs
+            directory: /druid
         "#;
         let druid_cluster_config: DruidClusterConfig =
             serde_yaml::from_str(input).expect("illegal test input");
 
         assert_eq!(
-            druid_cluster_config.tls.unwrap().secret_class,
-            "foo".to_string()
+            druid_cluster_config.tls,
+            Some(DruidTls {
+                server_and_internal_secret_class: Some("druid-secret-class".to_string())
+            }),
+        );
+        assert_eq!(
+            druid_cluster_config.authentication,
+            vec![DruidAuthentication {
+                authentication_class: "druid-user-authentication-class".to_string()
+            }],
         );
     }
 }
