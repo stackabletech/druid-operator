@@ -17,7 +17,8 @@ spec:
       connString: jdbc:derby://localhost:1527/var/druid/metadata.db;create=true
       host: localhost
       port: 1527
-    tls: null
+    tls:
+      serverAndInternalSecretClass: null
     zookeeperConfigMapName: simple-druid-znode
   brokers:
     roleGroups:

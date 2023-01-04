@@ -265,11 +265,11 @@ TLS encryption is supported for internal cluster communication (e.g. between Bro
 spec:
   clusterConfig:
     tls:
-      secretClass: tls # <1>
+      serverAndInternalSecretClass: tls # <1>
 ----
 <1> Name of the `SecretClass` that is used to encrypt internal and external communication.
 
-IMPORTANT: A Stackable Druid cluster is always encrypted per default. In order to disable this default behavior you can set `spec.clusterConfig.tls: null`.
+IMPORTANT: A Stackable Druid cluster is always encrypted per default. In order to disable this default behavior you can set `spec.clusterConfig.tls.serverAndInternalSecretClass: null`.
 
 === Authentication
 
@@ -282,12 +282,9 @@ The access to the Druid cluster can be limited by configuring client authenticat
 spec:
   clusterConfig:
     authentication:
-      tls:
-        authenticationClass: druid-tls-auth # <1>
+      - authenticationClass: druid-tls-auth # <1>
 ----
 <1> Name of the `AuthenticationClass` that is used to encrypt and authenticate communication.
-
-IMPORTANT: The TLS `AuthenticationClass` and its respective `SecretClass` will always take precedence over the TLS encryption `SecretClass` (if provided).
 
 The `AuthenticationClass` may or may not have a `SecretClass` configured:
 [source,yaml]
@@ -303,10 +300,10 @@ spec:
     tls:
       clientCertSecretClass: druid-mtls # <1>
     # Option 2
-    tls: null # <2>
+    tls: {} # <2>
 ----
 <1> If a client `SecretClass` is provided in the `AuthenticationClass` (here `druid-mtls`), these certificates will be used for encryption and authentication.
-<2> If no client `SecretClass` is provided in the `AuthenticationClass`, the `spec.clusterConfig.tls.secretClass` will be used for encryption and authentication. It cannot be explicitly set to null in this case.
+<2> If no client `SecretClass` is provided in the `AuthenticationClass`, the `spec.clusterConfig.tls.serverAndInternalSecretClass` will be used for encryption and authentication. It cannot be explicitly set to null in this case.
 
 ==== LDAP
 
