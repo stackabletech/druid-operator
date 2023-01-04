@@ -9,7 +9,8 @@ if __name__ == "__main__":
     log_level = 'DEBUG'  # if args.debug else 'INFO'
     logging.basicConfig(level=log_level, format='%(asctime)s %(levelname)s: %(message)s', stream=sys.stdout)
 
-    druid_cluster_name = "druid"
+    druid_cluster_name = sys.argv[1]
+
     druid_role_ports = {
         "broker": 8282,
         "coordinator": 8281,
