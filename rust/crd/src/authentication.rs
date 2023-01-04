@@ -7,6 +7,8 @@ use stackable_operator::{
     schemars::{self, JsonSchema},
 };
 
+use crate::DruidCluster;
+
 const SUPPORTED_AUTHENTICATION_CLASS_PROVIDERS: [&str; 1] = ["TLS"];
 
 #[derive(Snafu, Debug)]
@@ -25,6 +27,19 @@ pub enum Error {
     AuthenticationProviderNotSupported {
         authentication_class: ObjectRef<AuthenticationClass>,
         provider: String,
+    },
+    #[snafu(display(
+        "Client authentication using TLS (as requested by AuthenticationClass {authentication_class}) can not be used when Druid server and internal TLS is disabled",
+    ))]
+    TlsAuthenticationClassWithoutDruidServerTls {
+        authentication_class: ObjectRef<AuthenticationClass>,
+    },
+    #[snafu(display(
+        "Client authentication using TLS (as requested by AuthenticationClass {authentication_class}) can only use the same SecretClass as the Druid instance is using for server and internal communication (SecretClass {server_and_internal_secret_class} in this case)",
+    ))]
+    TlsAuthenticationClassSecretClassDiffersFromDruidServerTls {
+        authentication_class: ObjectRef<AuthenticationClass>,
+        server_and_internal_secret_class: String,
     },
 }
 
@@ -63,6 +78,7 @@ impl ResolvedAuthenticationClasses {
     /// - Validation failed
     pub async fn from_references(
         client: &Client,
+        druid: &DruidCluster,
         auth_classes: &Vec<DruidAuthentication>,
     ) -> Result<ResolvedAuthenticationClasses, Error> {
         let mut resolved_authentication_classes: Vec<AuthenticationClass> = vec![];
@@ -79,7 +95,14 @@ impl ResolvedAuthenticationClasses {
             );
         }
 
-        ResolvedAuthenticationClasses::new(resolved_authentication_classes).validate()
+        ResolvedAuthenticationClasses::new(resolved_authentication_classes).validate(
+            druid
+                .spec
+                .cluster_config
+                .tls
+                .as_ref()
+                .and_then(|tls| tls.server_and_internal_secret_class.clone()),
+        )
     }
 
     /// Return the (first) TLS `AuthenticationClass` if available
@@ -93,52 +116,203 @@ impl ResolvedAuthenticationClasses {
     /// Currently errors out if:
     /// - More than one AuthenticationClass was provided
     /// - AuthenticationClass provider was not supported
-    pub fn validate(&self) -> Result<Self, Error> {
-        // TODO: Check usual stuff
-        // TODO: Check that no tls AuthClass is used when Druid server_and_internal tls is not enabled.
-        // TODO: Check that the tls AuthClass uses the same SecretClass as the Druid server itself.
-        todo!()
+    pub fn validate(self, server_and_internal_secret_class: Option<String>) -> Result<Self, Error> {
+        if self.resolved_authentication_classes.len() > 1 {
+            return Err(Error::MultipleAuthenticationClassesProvided);
+        }
+
+        for auth_class in &self.resolved_authentication_classes {
+            match &auth_class.spec.provider {
+                AuthenticationClassProvider::Tls(_) => {}
+                _ => {
+                    return Err(Error::AuthenticationProviderNotSupported {
+                        authentication_class: ObjectRef::from_obj(auth_class),
+                        provider: auth_class.spec.provider.to_string(),
+                    })
+                }
+            }
+        }
+
+        if let Some(tls_auth_class) = self.get_tls_authentication_class() {
+            match &server_and_internal_secret_class {
+                Some(server_and_internal_secret_class) => {
+                    // Check that the tls AuthenticationClass uses the same SecretClass as the Druid server itself
+                    match &tls_auth_class.spec.provider {
+                        AuthenticationClassProvider::Tls(tls) => {
+                            if let Some(auth_class_secret_class) = &tls.client_cert_secret_class {
+                                if auth_class_secret_class != server_and_internal_secret_class {
+                                    return Err(Error::TlsAuthenticationClassSecretClassDiffersFromDruidServerTls { authentication_class:  ObjectRef::from_obj(tls_auth_class), server_and_internal_secret_class: server_and_internal_secret_class.clone() });
+                                }
+                            }
+                        }
+                        _ => unreachable!(
+                            "We know for sure we can only have tls AuthenticationClasses here"
+                        ),
+                    }
+                }
+                None => {
+                    // Check that no tls AuthenticationClass is used when Druid server_and_internal tls is disabled
+                    return Err(Error::TlsAuthenticationClassWithoutDruidServerTls {
+                        authentication_class: ObjectRef::from_obj(tls_auth_class),
+                    });
+                }
+            }
+        }
+
+        Ok(self)
     }
 }
 
-// impl DruidAuthentication {
-//     pub async fn resolve(
-//         client: &Client,
-//         druid: &DruidCluster,
-//     ) -> Result<Vec<DruidAuthenticationConfig>, Error> {
-//         let mut druid_authentication_config: Vec<DruidAuthenticationConfig> = vec![];
+#[cfg(test)]
+mod tests {
+    use crate::authentication::{Error, ResolvedAuthenticationClasses};
+    use stackable_operator::{commons::authentication::AuthenticationClass, kube::ResourceExt};
 
-//         if let Some(DruidAuthentication {
-//             tls: Some(druid_tls),
-//         }) = &druid.spec.cluster_config.authentication
-//         {
-//             let authentication_class =
-//                 AuthenticationClass::resolve(client, &druid_tls.authentication_class)
-//                     .await
-//                     .context(AuthenticationClassRetrievalSnafu {
-//                         authentication_class: ObjectRef::<AuthenticationClass>::new(
-//                             &druid_tls.authentication_class,
-//                         ),
-//                     })?;
+    #[test]
+    fn test_authentication_classes_validation() {
+        let classes = ResolvedAuthenticationClasses::new(vec![]);
+        assert!(
+            classes.validate(None).is_ok(),
+            "Supported: No server tls, no AuthenticationClasses"
+        );
 
-//             match authentication_class.spec.provider {
-//                 AuthenticationClassProvider::Tls(tls_provider) => {
-//                     druid_authentication_config.push(DruidAuthenticationConfig::Tls(tls_provider));
-//                 }
-//                 _ => {
-//                     return Err(Error::AuthenticationClassProviderNotSupported {
-//                         authentication_class_provider: authentication_class
-//                             .spec
-//                             .provider
-//                             .to_string(),
-//                         authentication_class: ObjectRef::<AuthenticationClass>::new(
-//                             &druid_tls.authentication_class,
-//                         ),
-//                     })
-//                 }
-//             }
-//         }
+        let classes = ResolvedAuthenticationClasses::new(vec![
+            get_tls_authentication_class_without_secret_class(),
+        ]);
+        assert!(
+            matches!(
+                classes.validate(None),
+                Err(Error::TlsAuthenticationClassWithoutDruidServerTls { authentication_class }) if authentication_class.name == "tls",
+            ),
+            "Not supported: No server tls, TLS authentication class"
+        );
 
-//         Ok(druid_authentication_config)
-//     }
-// }
+        let classes = ResolvedAuthenticationClasses::new(vec![get_ldap_authentication_class()]);
+        assert!(
+            matches!(
+                classes.validate(None),
+                Err(Error::AuthenticationProviderNotSupported { provider, authentication_class }) if provider == "Ldap" && authentication_class.name == "ldap",
+            ),
+            "Not supported: No server tls, LDAP authentication class"
+        );
+
+        let classes = ResolvedAuthenticationClasses::new(vec![]);
+        assert!(
+            classes.validate(Some("tls".to_string())).is_ok(),
+            "Supported: Server tls, no AuthenticationClasses"
+        );
+
+        let classes = ResolvedAuthenticationClasses::new(vec![
+            get_tls_authentication_class_without_secret_class(),
+        ]);
+        assert!(
+            classes.validate(Some("tls".to_string())).is_ok(),
+            "Supported: Server tls, TLS authentication class without SecretClass"
+        );
+
+        let classes = ResolvedAuthenticationClasses::new(vec![
+            get_tls_authentication_class_with_secret_class_tls(),
+        ]);
+        assert!(
+            classes.validate(Some("tls".to_string())).is_ok(),
+            "Supported: Server tls, TLS authentication class with same SecretClass as Druid cluster"
+        );
+
+        let classes = ResolvedAuthenticationClasses::new(vec![
+            get_tls_authentication_class_with_secret_class_druid_clients(),
+        ]);
+        assert!(
+            matches!(
+                classes.validate(Some("tls-druid".to_string())),
+                Err(Error::TlsAuthenticationClassSecretClassDiffersFromDruidServerTls{ authentication_class, server_and_internal_secret_class }) if authentication_class.name == "tls-druid-clients" && server_and_internal_secret_class == "tls-druid"
+            ),
+            "Not supported: Server tls, TLS authentication class with *different* SecretClass as Druid cluster"
+        );
+
+        let classes = ResolvedAuthenticationClasses::new(vec![
+            get_tls_authentication_class_without_secret_class(),
+            get_tls_authentication_class_without_secret_class(),
+        ]);
+        assert!(
+            matches!(
+                classes.validate(Some("tls-druid".to_string())),
+                Err(Error::MultipleAuthenticationClassesProvided {})
+            ),
+            "Not supported: Server tls, multiple authentication classes"
+        );
+    }
+
+    #[test]
+    fn test_get_tls_authentication_class() {
+        let classes = ResolvedAuthenticationClasses::new(vec![
+            get_ldap_authentication_class(),
+            get_tls_authentication_class_without_secret_class(),
+            get_tls_authentication_class_with_secret_class_druid_clients(),
+        ]);
+
+        let tls_authentication_class = classes.get_tls_authentication_class();
+
+        // TODO Check deriving PartialEq for AuthenticationClass so that we can compare them directly instead of comparing the names
+        assert_eq!(
+            tls_authentication_class.map(|class| class.name_unchecked()),
+            Some("tls".to_string())
+        );
+    }
+
+    fn get_tls_authentication_class_without_secret_class() -> AuthenticationClass {
+        let input = r#"
+apiVersion: authentication.stackable.tech/v1alpha1
+kind: AuthenticationClass
+metadata:
+  name: tls
+spec:
+  provider:
+    tls: {}
+"#;
+        serde_yaml::from_str(input).expect("illegal test input")
+    }
+
+    fn get_tls_authentication_class_with_secret_class_tls() -> AuthenticationClass {
+        let input = r#"
+apiVersion: authentication.stackable.tech/v1alpha1
+kind: AuthenticationClass
+metadata:
+  name: tls-tls
+spec:
+  provider:
+    tls:
+      clientCertSecretClass: tls
+"#;
+        serde_yaml::from_str(input).expect("illegal test input")
+    }
+
+    fn get_tls_authentication_class_with_secret_class_druid_clients() -> AuthenticationClass {
+        let input = r#"
+apiVersion: authentication.stackable.tech/v1alpha1
+kind: AuthenticationClass
+metadata:
+  name: tls-druid-clients
+spec:
+  provider:
+    tls:
+      clientCertSecretClass: druid-clients
+"#;
+        serde_yaml::from_str(input).expect("illegal test input")
+    }
+
+    fn get_ldap_authentication_class() -> AuthenticationClass {
+        let input = r#"
+apiVersion: authentication.stackable.tech/v1alpha1
+kind: AuthenticationClass
+metadata:
+  name: ldap
+spec:
+  provider:
+    ldap:
+      hostname: my.ldap.server
+      port: 389
+      searchBase: ou=users,dc=example,dc=org
+"#;
+        serde_yaml::from_str(input).expect("illegal test input")
+    }
+}

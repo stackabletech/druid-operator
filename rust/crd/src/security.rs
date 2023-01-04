@@ -89,6 +89,7 @@ impl DruidTlsSecurity {
             resolved_authentication_classes:
                 authentication::ResolvedAuthenticationClasses::from_references(
                     client,
+                    druid,
                     &druid.spec.cluster_config.authentication,
                 )
                 .await
