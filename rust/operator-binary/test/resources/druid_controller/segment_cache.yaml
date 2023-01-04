@@ -29,7 +29,8 @@ spec:
       port: 5432
       user: druid
       password: druid
-    tls: null
+    tls:
+      serverAndInternalSecretClass: null
     zookeeperConfigMapName: psql-druid-znode
   brokers:
     roleGroups:
