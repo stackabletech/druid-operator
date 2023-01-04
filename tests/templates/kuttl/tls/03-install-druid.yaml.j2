@@ -60,8 +60,7 @@ spec:
   clusterConfig:
 {% if test_scenario['values']['use-tls'] == 'true' and test_scenario['values']['use-tls-auth'] == 'true' %}
     authentication:
-      tls:
-        authenticationClass: druid-tls-auth-class
+      - authenticationClass: druid-tls-auth-class
 {% endif %}
     deepStorage:
       s3:
@@ -88,7 +87,7 @@ spec:
       port: 1527
 {% if test_scenario['values']['use-tls'] == 'true' %}
     tls:
-      secretClass: tls
+      serverAndInternalSecretClass: tls
 {% else  %}
     tls:
       serverAndInternalSecretClass: null
