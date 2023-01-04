@@ -30,17 +30,29 @@ spec:
   template:
     spec:
       volumes:
-      - configMap:
+      - name: tls-mount
+        ephemeral:
+          volumeClaimTemplate:
+            metadata:
+              annotations:
+                secrets.stackable.tech/class: tls
+                secrets.stackable.tech/scope: pod,node
+              creationTimestamp: null
+            spec:
+              storageClassName: secrets.stackable.tech
+      - name: tls
+        emptyDir: {}
+      - name: config
+        configMap:
           name: druid-historical-default
-        name: config
-      - emptyDir: {}
-        name: rwconfig
-      - configMap:
+      - name: rwconfig
+        emptyDir: {}
+      - name: hdfs
+        configMap:
           name: druid-hdfs
-        name: hdfs
-      - emptyDir:
+      - name: segment-cache
+        emptyDir:
           sizeLimit: 1G
-        name: segment-cache
 ---
 apiVersion: apps/v1
 kind: StatefulSet

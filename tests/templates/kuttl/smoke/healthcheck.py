@@ -10,23 +10,16 @@ if __name__ == "__main__":
     logging.basicConfig(level=log_level, format='%(asctime)s %(levelname)s: %(message)s', stream=sys.stdout)
 
     druid_cluster_name = "druid"
-    druid_roles = [
-        "broker",
-        "coordinator",
-        "middlemanager",
-        "historical",
-        "router"
-    ]
-    druid_ports = {
-        "broker": 8082,
-        "coordinator": 8081,
-        "middlemanager": 8091,
-        "historical": 8083,
-        "router": 8888
+    druid_role_ports = {
+        "broker": 8282,
+        "coordinator": 8281,
+        "middlemanager": 8291,
+        "historical": 8283,
+        "router": 9088,
     }
 
-    for role in druid_roles:
-        url = f"http://{druid_cluster_name}-{role}-default:{druid_ports[role]}/status/health"
+    for role, port in druid_role_ports.items():
+        url = f"https://{druid_cluster_name}-{role}-default:{port}/status/health"
         count = 1
 
         # As this script is intended to be executed by Kuttl which is in charge of overall test timeouts it is ok
@@ -43,7 +36,7 @@ if __name__ == "__main__":
             try:
                 count = count + 1
                 print(f"Checking role [{role}] on url [{url}]")
-                res = requests.get(url, timeout=5)
+                res = requests.get(url, verify=False, timeout=5)
                 code = res.status_code
                 if res.status_code == 200 and res.text.lower() == "true":
                     break
