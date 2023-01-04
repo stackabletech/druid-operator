@@ -90,7 +90,8 @@ spec:
     tls:
       secretClass: tls
 {% else  %}
-    tls: null
+    tls:
+      serverAndInternalSecretClass: null
 {% endif %}
     zookeeperConfigMapName: druid-znode
   brokers:
