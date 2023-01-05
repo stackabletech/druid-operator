@@ -52,26 +52,26 @@ namespace = sys.argv[1]
 druid_cluster_name = sys.argv[2]
 security = sys.argv[3]
 
-if security == "insecure":
+if security == "no-tls":
     protocol = "http"
     coordinator_port = "8081"
     broker_port = "8082"
     cert = None
     verify = False
-elif security == "secure":
+elif security == "internal-tls":
     protocol = "https"
     coordinator_port = "8281"
     broker_port = "8282"
     cert = None
-    verify = "/tmp/tls/ca.crt"
-elif security == "secure_auth":
+    verify = "/tmp/druid-tls/ca.crt"
+elif security == "internal-tls-and-tls-client-auth":
     protocol = "https"
     coordinator_port = "8281"
     broker_port = "8282"
-    cert = ("/tmp/tls_auth/tls.crt", "/tmp/tls_auth/tls.key")
-    verify = "/tmp/tls_auth/ca.crt"
+    cert = ("/tmp/druid-tls/tls.crt", "/tmp/druid-tls/tls.key")
+    verify = "/tmp/druid-tls/ca.crt"
 else:
-    sys.exit("Usage: python ./ingestioncheck.py <namespace> <cluster_name> <insecure|secure|secure_auth>")
+    sys.exit("Usage: python ./ingestioncheck.py <namespace> <cluster_name> <no-tls|internal-tls|internal-tls-and-tls-client-auth>")
 
 
 druid = DruidClient(cert, verify)

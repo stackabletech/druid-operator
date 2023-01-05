@@ -24,18 +24,17 @@ metadata:
 stringData:
   accessKey: druid
   secretKey: druiddruid
-{% if test_scenario['values']['use-tls'] == 'true' and test_scenario['values']['use-tls-auth'] == 'true' %}
 ---
 apiVersion: secrets.stackable.tech/v1alpha1
 kind: SecretClass
 metadata:
-  name: druid-tls-auth
+  name: druid-tls
 spec:
   backend:
     autoTls:
       ca:
         secret:
-          name: secret-provisioner-druid-tls-auth-ca
+          name: secret-provisioner-druid-tls-ca
           namespace: default
         autoGenerate: true
 ---
@@ -46,8 +45,7 @@ metadata:
 spec:
   provider:
     tls:
-      clientCertSecretClass: druid-tls-auth
-{% endif %}
+      clientCertSecretClass: druid-tls # This SecretClass must match the SecretClass used for internal Druid communication
 ---
 apiVersion: druid.stackable.tech/v1alpha1
 kind: DruidCluster
@@ -58,7 +56,7 @@ spec:
     productVersion: "{{ test_scenario['values']['druid-latest'].split('-stackable')[0] }}"
     stackableVersion: "{{ test_scenario['values']['druid-latest'].split('-stackable')[1] }}"
   clusterConfig:
-{% if test_scenario['values']['use-tls'] == 'true' and test_scenario['values']['use-tls-auth'] == 'true' %}
+{% if test_scenario['values']['tls-mode'] == 'internal-tls-and-tls-client-auth' %}
     authentication:
       - authenticationClass: druid-tls-auth-class
 {% endif %}
@@ -85,9 +83,9 @@ spec:
       connString: jdbc:derby://localhost:1527/var/druid/metadata.db;create=true
       host: localhost
       port: 1527
-{% if test_scenario['values']['use-tls'] == 'true' %}
+{% if test_scenario['values']['tls-mode'] == 'internal-tls' or test_scenario['values']['tls-mode'] == 'internal-tls-and-tls-client-auth' %}
     tls:
-      serverAndInternalSecretClass: tls
+      serverAndInternalSecretClass: druid-tls
 {% else  %}
     tls:
       serverAndInternalSecretClass: null

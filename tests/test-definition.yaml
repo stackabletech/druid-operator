@@ -24,14 +24,11 @@ dimensions:
     values:
       - "true"
       - "false"
-  - name: use-tls
+  - name: tls-mode
     values:
-      - "true"
-      - "false"
-  - name: use-tls-auth
-    values:
-      - "true"
-      - "false"
+      - "no-tls"
+      - "internal-tls"
+      - "internal-tls-and-tls-client-auth"
 tests:
   - name: smoke
     dimensions:
@@ -77,5 +74,4 @@ tests:
     dimensions:
       - druid-latest
       - zookeeper-latest
-      - use-tls
-      - use-tls-auth
+      - tls-mode

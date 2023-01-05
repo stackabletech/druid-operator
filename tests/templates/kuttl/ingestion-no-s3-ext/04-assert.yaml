@@ -2,5 +2,5 @@
 apiVersion: kuttl.dev/v1beta1
 kind: TestAssert
 commands:
-  - script: kubectl exec -n $NAMESPACE checks-0 -- python /tmp/healthcheck.py
+  - script: kubectl exec -n $NAMESPACE checks-0 -- python /tmp/healthcheck.py derby-druid
 timeout: 300

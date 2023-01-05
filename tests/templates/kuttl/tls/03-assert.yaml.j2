@@ -53,16 +53,16 @@ spec:
       port: 9090
       protocol: TCP
       targetPort: 9090
-{% if test_scenario['values']['use-tls'] == 'false' %}
-    - name: http
-      port: 8081
-      protocol: TCP
-      targetPort: 8081
-{% else %}
+{% if test_scenario['values']['tls-mode'] == 'internal-tls' or test_scenario['values']['tls-mode'] == 'internal-tls-and-tls-client-auth' %}
     - name: https
       port: 8281
       protocol: TCP
       targetPort: 8281
+{% else %}
+    - name: http
+      port: 8081
+      protocol: TCP
+      targetPort: 8081
 {% endif %}
 ---
 apiVersion: v1
@@ -75,16 +75,16 @@ spec:
       port: 9090
       protocol: TCP
       targetPort: 9090
-{% if test_scenario['values']['use-tls'] == 'false' %}
-    - name: http
-      port: 8091
-      protocol: TCP
-      targetPort: 8091
-{% else %}
+{% if test_scenario['values']['tls-mode'] == 'internal-tls' or test_scenario['values']['tls-mode'] == 'internal-tls-and-tls-client-auth' %}
     - name: https
       port: 8291
       protocol: TCP
       targetPort: 8291
+{% else %}
+    - name: http
+      port: 8091
+      protocol: TCP
+      targetPort: 8091
 {% endif %}
 ---
 apiVersion: v1
@@ -97,16 +97,16 @@ spec:
       port: 9090
       protocol: TCP
       targetPort: 9090
-{% if test_scenario['values']['use-tls'] == 'false' %}
-    - name: http
-      port: 8083
-      protocol: TCP
-      targetPort: 8083
-{% else %}
+{% if test_scenario['values']['tls-mode'] == 'internal-tls' or test_scenario['values']['tls-mode'] == 'internal-tls-and-tls-client-auth' %}
     - name: https
       port: 8283
       protocol: TCP
       targetPort: 8283
+{% else %}
+    - name: http
+      port: 8083
+      protocol: TCP
+      targetPort: 8083
 {% endif %}
 ---
 apiVersion: v1
@@ -119,16 +119,16 @@ spec:
       port: 9090
       protocol: TCP
       targetPort: 9090
-{% if test_scenario['values']['use-tls'] == 'false' %}
-    - name: http
-      port: 8888
-      protocol: TCP
-      targetPort: 8888
-{% else %}
+{% if test_scenario['values']['tls-mode'] == 'internal-tls' or test_scenario['values']['tls-mode'] == 'internal-tls-and-tls-client-auth' %}
     - name: https
       port: 9088
       protocol: TCP
       targetPort: 9088
+{% else %}
+    - name: http
+      port: 8888
+      protocol: TCP
+      targetPort: 8888
 {% endif %}
 ---
 apiVersion: v1
@@ -141,14 +141,14 @@ spec:
       port: 9090
       protocol: TCP
       targetPort: 9090
-{% if test_scenario['values']['use-tls'] == 'false' %}
-    - name: http
-      port: 8082
-      protocol: TCP
-      targetPort: 8082
-{% else %}
+{% if test_scenario['values']['tls-mode'] == 'internal-tls' or test_scenario['values']['tls-mode'] == 'internal-tls-and-tls-client-auth' %}
     - name: https
       port: 8282
       protocol: TCP
       targetPort: 8282
+{% else %}
+    - name: http
+      port: 8082
+      protocol: TCP
+      targetPort: 8082
 {% endif %}
