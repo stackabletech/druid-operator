@@ -2,16 +2,18 @@
 use crate::{
     config::{get_jvm_config, get_log4j_config},
     discovery::{self, build_discovery_configmaps},
+    extensions::get_extension_list,
 };
 
 use crate::OPERATOR_NAME;
 use snafu::{OptionExt, ResultExt, Snafu};
 use stackable_druid_crd::{
-    authentication, authorization::DruidAuthorization, security::DruidTlsSecurity, DeepStorageSpec,
-    DruidCluster, DruidRole, APP_NAME, AUTH_AUTHORIZER_OPA_URI, CERTS_DIR,
-    CREDENTIALS_SECRET_PROPERTY, DRUID_CONFIG_DIRECTORY, DS_BUCKET, HDFS_CONFIG_DIRECTORY,
-    JVM_CONFIG, LOG4J2_CONFIG, RUNTIME_PROPS, RW_CONFIG_DIRECTORY, S3_ENDPOINT_URL,
-    S3_PATH_STYLE_ACCESS, S3_SECRET_DIR_NAME, ZOOKEEPER_CONNECTION_STRING,
+    authentication, authorization::DruidAuthorization, build_string_list,
+    security::DruidTlsSecurity, DeepStorageSpec, DruidCluster, DruidRole, APP_NAME,
+    AUTH_AUTHORIZER_OPA_URI, CERTS_DIR, CREDENTIALS_SECRET_PROPERTY, DRUID_CONFIG_DIRECTORY,
+    DS_BUCKET, EXTENSIONS_LOADLIST, HDFS_CONFIG_DIRECTORY, JVM_CONFIG, LOG4J2_CONFIG,
+    RUNTIME_PROPS, RW_CONFIG_DIRECTORY, S3_ENDPOINT_URL, S3_PATH_STYLE_ACCESS, S3_SECRET_DIR_NAME,
+    ZOOKEEPER_CONNECTION_STRING,
 };
 use stackable_druid_crd::{
     build_recommended_labels,
@@ -272,31 +274,6 @@ pub async fn reconcile_druid(druid: Arc<DruidCluster>, ctx: Arc<Ctx>) -> Result<
         _ => None,
     };
 
-    // // Get possible authentication methods
-    // let resolved_authentication_config = DruidAuthentication::resolve(client, &druid)
-    //     .await
-    //     .context(InvalidAuthenticationConfigSnafu)?;
-
-    // let mut tls_authentication_config = None;
-    // let mut authentication_config = vec![];
-    // // Remove a TLS provider if available. The TLS provider must be treated in combination
-    // // with TLS encryption. Retain all other authentication providers.
-    // for auth_conf in resolved_authentication_config.into_iter() {
-    //     if auth_conf.is_tls_auth() {
-    //         tls_authentication_config = Some(auth_conf);
-    //     } else {
-    //         authentication_config.push(auth_conf);
-    //     }
-    // }
-
-    // // Extract TLS encryption and TLS auth provider if available
-    // let druid_tls_settings = DruidTlsSettings {
-    //     encryption: druid.spec.cluster_config.tls.clone(),
-    //     // There can currently only be one TLS authentication config, so if we find it we can just
-    //     // take ownership.
-    //     authentication: tls_authentication_config,
-    // };
-
     let druid_tls_security = DruidTlsSecurity::new_from_druid_cluster(client, &druid)
         .await
         .context(FailedToInitializeSecurityContextSnafu)?;
@@ -493,12 +470,22 @@ fn build_rolegroup_config_map(
                     ZOOKEEPER_CONNECTION_STRING.to_string(),
                     Some(zk_connstr.to_string()),
                 );
+
+                transformed_config.insert(
+                    EXTENSIONS_LOADLIST.to_string(),
+                    Some(build_string_list(&get_extension_list(
+                        druid,
+                        druid_tls_security,
+                    ))),
+                );
+
                 if let Some(opa_str) = opa_connstr {
                     transformed_config.insert(
                         AUTH_AUTHORIZER_OPA_URI.to_string(),
                         Some(opa_str.to_string()),
                     );
                 };
+
                 if let Some(conn) = s3_conn {
                     if let Some(endpoint) = conn.endpoint() {
                         transformed_config.insert(S3_ENDPOINT_URL.to_string(), Some(endpoint));

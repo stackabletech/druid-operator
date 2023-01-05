@@ -61,17 +61,7 @@ pub const PATH_SEGMENT_CACHE: &str = "/stackable/var/druid/segment-cache";
 //    CONFIG PROPERTIES    //
 /////////////////////////////
 // extensions
-const EXTENSIONS_LOADLIST: &str = "druid.extensions.loadList";
-const EXT_S3: &str = "druid-s3-extensions";
-const EXT_KAFKA_INDEXING: &str = "druid-kafka-indexing-service";
-const EXT_DATASKETCHES: &str = "druid-datasketches";
-const PROMETHEUS_EMITTER: &str = "prometheus-emitter";
-const EXT_PSQL_MD_ST: &str = "postgresql-metadata-storage";
-const EXT_MYSQL_MD_ST: &str = "mysql-metadata-storage";
-const EXT_OPA_AUTHORIZER: &str = "druid-opa-authorizer";
-const EXT_BASIC_SECURITY: &str = "druid-basic-security";
-const EXT_HDFS: &str = "druid-hdfs-storage";
-const EXT_SIMPLE_CLIENT_SSL_CONTEXT: &str = "simple-client-sslcontext";
+pub const EXTENSIONS_LOADLIST: &str = "druid.extensions.loadList";
 // zookeeper
 pub const ZOOKEEPER_CONNECTION_STRING: &str = "druid.zk.service.host";
 // deep storage
@@ -324,25 +314,7 @@ impl DruidCluster {
         match file {
             JVM_CONFIG => {}
             RUNTIME_PROPS => {
-                // extensions
-                let mut extensions = vec![
-                    String::from(EXT_KAFKA_INDEXING),
-                    String::from(EXT_DATASKETCHES),
-                    String::from(PROMETHEUS_EMITTER),
-                    String::from(EXT_BASIC_SECURITY),
-                    String::from(EXT_OPA_AUTHORIZER),
-                    String::from(EXT_HDFS),
-                    // TODO Check if this removal causes problems
-                    String::from(EXT_SIMPLE_CLIENT_SSL_CONTEXT),
-                ];
-
-                // metadata storage
-                let mds = self.spec.cluster_config.metadata_storage_database.clone();
-                match mds.db_type {
-                    DbType::Derby => {} // no additional extensions required
-                    DbType::Postgresql => extensions.push(EXT_PSQL_MD_ST.to_string()),
-                    DbType::Mysql => extensions.push(EXT_MYSQL_MD_ST.to_string()),
-                }
+                let mds = &self.spec.cluster_config.metadata_storage_database;
                 result.insert(MD_ST_TYPE.to_string(), Some(mds.db_type.to_string()));
                 result.insert(
                     MD_ST_CONNECT_URI.to_string(),
@@ -356,10 +328,7 @@ impl DruidCluster {
                 if let Some(password) = &mds.password {
                     result.insert(MD_ST_PASSWORD.to_string(), Some(password.to_string()));
                 }
-                // s3
-                if self.uses_s3() {
-                    extensions.push(EXT_S3.to_string());
-                }
+
                 // OPA
                 if let Some(DruidAuthorization { opa: _ }) = &self.spec.cluster_config.authorization
                 {
@@ -390,11 +359,7 @@ impl DruidCluster {
                         // that is done directly in the controller
                     }
                 }
-                // other
-                result.insert(
-                    EXTENSIONS_LOADLIST.to_string(),
-                    Some(build_string_list(&extensions)),
-                );
+
                 // metrics
                 result.insert(PROMETHEUS_PORT.to_string(), Some(METRICS_PORT.to_string()));
             }
@@ -893,7 +858,7 @@ pub struct DruidClusterStatus {}
 
 /// Takes a vec of strings and returns them as a formatted json
 /// list.
-fn build_string_list(strings: &[String]) -> String {
+pub fn build_string_list(strings: &[String]) -> String {
     let quoted_strings: Vec<String> = strings.iter().map(|s| format!("\"{}\"", s)).collect();
     let comma_list = quoted_strings.join(", ");
     format!("[{}]", comma_list)
