@@ -325,9 +325,8 @@ impl DruidTlsSecurity {
             Self::CLIENT_HTTPS_CERT_ALIAS.to_string(),
             Some(store_alias.to_string()),
         );
+        // FIXME: https://github.com/stackabletech/druid-operator/issues/372
         // This is required because the server will send its pod ip which is not in the SANs of the certificates
-        // TODO TEST TEST TEST!
-        // Awful!
         config.insert(
             Self::CLIENT_HTTPS_VALIDATE_HOST_NAMES.to_string(),
             Some("false".to_string()),
@@ -360,9 +359,8 @@ impl DruidTlsSecurity {
             Self::SERVER_HTTPS_KEY_MANAGER_PASSWORD.to_string(),
             Some(Self::TLS_STORE_PASSWORD.to_string()),
         );
+        // FIXME: https://github.com/stackabletech/druid-operator/issues/372
         // This is required because the client will send its pod ip which is not in the SANs of the certificates
-        // TODO TEST TEST TEST!
-        // Awful!
         config.insert(
             Self::SERVER_HTTPS_VALIDATE_HOST_NAMES.to_string(),
             Some("false".to_string()),
