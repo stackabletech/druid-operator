@@ -8,12 +8,11 @@ use crate::{
 use crate::OPERATOR_NAME;
 use snafu::{OptionExt, ResultExt, Snafu};
 use stackable_druid_crd::{
-    authentication, authorization::DruidAuthorization, build_string_list,
-    security::DruidTlsSecurity, DeepStorageSpec, DruidCluster, DruidRole, APP_NAME,
-    AUTH_AUTHORIZER_OPA_URI, CERTS_DIR, CREDENTIALS_SECRET_PROPERTY, DRUID_CONFIG_DIRECTORY,
-    DS_BUCKET, EXTENSIONS_LOADLIST, HDFS_CONFIG_DIRECTORY, JVM_CONFIG, LOG4J2_CONFIG,
-    RUNTIME_PROPS, RW_CONFIG_DIRECTORY, S3_ENDPOINT_URL, S3_PATH_STYLE_ACCESS, S3_SECRET_DIR_NAME,
-    ZOOKEEPER_CONNECTION_STRING,
+    authorization::DruidAuthorization, build_string_list, security::DruidTlsSecurity,
+    DeepStorageSpec, DruidCluster, DruidRole, APP_NAME, AUTH_AUTHORIZER_OPA_URI, CERTS_DIR,
+    CREDENTIALS_SECRET_PROPERTY, DRUID_CONFIG_DIRECTORY, DS_BUCKET, EXTENSIONS_LOADLIST,
+    HDFS_CONFIG_DIRECTORY, JVM_CONFIG, LOG4J2_CONFIG, RUNTIME_PROPS, RW_CONFIG_DIRECTORY,
+    S3_ENDPOINT_URL, S3_PATH_STYLE_ACCESS, S3_SECRET_DIR_NAME, ZOOKEEPER_CONNECTION_STRING,
 };
 use stackable_druid_crd::{
     build_recommended_labels,
