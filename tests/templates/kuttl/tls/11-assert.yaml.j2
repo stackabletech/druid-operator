@@ -3,4 +3,4 @@ apiVersion: kuttl.dev/v1beta1
 kind: TestAssert
 timeout: 300
 commands:
- - script: kubectl exec -n $NAMESPACE druid-checks-0 -- python /tmp/ingestioncheck.py $NAMESPACE derby-druid {{ test_scenario['values']['tls-mode'] }}
+ - script: kubectl exec -n $NAMESPACE druid-checks-0 -- python /tmp/ingestioncheck-tls.py $NAMESPACE derby-druid {{ test_scenario['values']['tls-mode'] }}
