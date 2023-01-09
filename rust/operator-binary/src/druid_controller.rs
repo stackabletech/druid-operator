@@ -260,6 +260,10 @@ pub async fn reconcile_druid(druid: Arc<DruidCluster>, ctx: Arc<Ctx>) -> Result<
         .await
         .context(FailedToInitializeSecurityContextSnafu)?;
 
+    let druid_ldap_settings = DruidLdapSettings::new_from_druid_cluster(client, &druid)
+        .await
+        .context(FailedToInitializeSecurityContextSnafu)?;
+
     // False positive, auto-deref breaks type inference
     #[allow(clippy::explicit_auto_deref)]
     let role_config = transform_all_roles_to_config(&*druid, druid.build_role_properties());
@@ -295,6 +299,7 @@ pub async fn reconcile_druid(druid: Arc<DruidCluster>, ctx: Arc<Ctx>) -> Result<
             .add(client, &role_service)
             .await
             .context(ApplyRoleServiceSnafu)?;
+
         for (rolegroup_name, rolegroup_config) in role_config.iter() {
             let rolegroup = RoleGroupRef {
                 cluster: ObjectRef::from_obj(&*druid),
@@ -322,6 +327,7 @@ pub async fn reconcile_druid(druid: Arc<DruidCluster>, ctx: Arc<Ctx>) -> Result<
                 deep_storage_bucket_name.as_deref(),
                 &resources,
                 &druid_tls_security,
+                &druid_ldap_settings,
             )?;
             let rg_statefulset = build_rolegroup_statefulset(
                 &druid,
@@ -331,6 +337,7 @@ pub async fn reconcile_druid(druid: Arc<DruidCluster>, ctx: Arc<Ctx>) -> Result<
                 s3_conn.as_ref(),
                 &resources,
                 &druid_tls_security,
+                &druid_ldap_settings,
             )?;
             cluster_resources
                 .add(client, &rg_service)
