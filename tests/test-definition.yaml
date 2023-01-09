@@ -29,6 +29,10 @@ dimensions:
       - "no-tls"
       - "internal-tls"
       - "internal-tls-and-tls-client-auth"
+  - name: ldap-use-tls
+    values:
+      #- "true" # commented out, as it is not yet functional
+      - "false"
 tests:
   - name: smoke
     dimensions:
@@ -75,3 +79,10 @@ tests:
       - druid-latest
       - zookeeper-latest
       - tls-mode
+  - name: ldap-authentication
+    dimensions:
+      - druid
+      - zookeeper-latest
+      - opa
+      - hadoop
+      - ldap-use-tls
