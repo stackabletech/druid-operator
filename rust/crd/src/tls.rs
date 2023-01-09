@@ -1,16 +1,7 @@
 use crate::security::DruidTlsSecurity;
 
 use serde::{Deserialize, Serialize};
-use snafu::Snafu;
 use stackable_operator::schemars::{self, JsonSchema};
-use strum::{EnumDiscriminants, IntoStaticStr};
-
-#[derive(Snafu, Debug, EnumDiscriminants)]
-#[strum_discriminants(derive(IntoStaticStr))]
-pub enum Error {
-    #[snafu(display("The provided TLS configuration is invalid: {reason}"))]
-    InvalidTlsConfiguration { reason: String },
-}
 
 #[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, JsonSchema, Serialize)]
 #[serde(rename_all = "camelCase")]

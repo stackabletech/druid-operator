@@ -131,13 +131,6 @@ pub enum Error {
         cm_name
     ))]
     MissingZookeeperConnString { cm_name: String },
-    #[snafu(display("Failed to get OPA discovery config map for cluster: {}", cm_name))]
-    GetOpaConnStringConfigMap {
-        source: stackable_operator::error::Error,
-        cm_name: String,
-    },
-    #[snafu(display("Failed to get OPA connection string from config map {}", cm_name))]
-    MissingOpaConnString { cm_name: String },
     #[snafu(display("Failed to transform configs"))]
     ProductConfigTransform {
         source: stackable_operator::product_config_utils::ConfigError,
@@ -185,16 +178,6 @@ pub enum Error {
         source: stackable_operator::error::Error,
         name: String,
     },
-    #[snafu(display("no quantity unit (k, m, g, etc.) given for [{value}]"))]
-    NoQuantityUnit { value: String },
-    #[snafu(display("invalid quantity value"))]
-    InvalidQuantityValue { source: std::num::ParseIntError },
-    #[snafu(display("segment cache location is required but missing"))]
-    NoSegmentCacheLocation,
-    #[snafu(display("role group and resource type mismatch. this is a programming error."))]
-    RoleResourceMismatch,
-    #[snafu(display("invalid authentication configuration"))]
-    InvalidAuthenticationConfig { source: authentication::Error },
     #[snafu(display("object defines no namespace"))]
     ObjectHasNoNamespace,
     #[snafu(display("failed to initialize security context"))]

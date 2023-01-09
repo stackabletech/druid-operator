@@ -28,44 +28,44 @@ pub struct DruidTlsSecurity {
 
 impl DruidTlsSecurity {
     // Ports
-    pub const ENABLE_PLAINTEXT_PORT: &str = "druid.enablePlaintextPort";
-    pub const PLAINTEXT_PORT: &str = "druid.plaintextPort";
-    pub const ENABLE_TLS_PORT: &str = "druid.enableTlsPort";
-    pub const TLS_PORT: &str = "druid.tlsPort";
+    const ENABLE_PLAINTEXT_PORT: &str = "druid.enablePlaintextPort";
+    const PLAINTEXT_PORT: &str = "druid.plaintextPort";
+    const ENABLE_TLS_PORT: &str = "druid.enableTlsPort";
+    const TLS_PORT: &str = "druid.tlsPort";
     // Port names
     const PLAINTEXT_PORT_NAME: &str = "http";
     const TLS_PORT_NAME: &str = "https";
     const METRICS_PORT_NAME: &str = "metrics";
     // Client side (Druid) TLS
-    pub const CLIENT_HTTPS_KEY_STORE_PATH: &str = "druid.client.https.keyStorePath";
-    pub const CLIENT_HTTPS_KEY_STORE_TYPE: &str = "druid.client.https.keyStoreType";
-    pub const CLIENT_HTTPS_KEY_STORE_PASSWORD: &str = "druid.client.https.keyStorePassword";
-    pub const CLIENT_HTTPS_TRUST_STORE_PATH: &str = "druid.client.https.trustStorePath";
-    pub const CLIENT_HTTPS_TRUST_STORE_TYPE: &str = "druid.client.https.trustStoreType";
-    pub const CLIENT_HTTPS_TRUST_STORE_PASSWORD: &str = "druid.client.https.trustStorePassword";
-    pub const CLIENT_HTTPS_CERT_ALIAS: &str = "druid.client.https.certAlias";
-    pub const CLIENT_HTTPS_VALIDATE_HOST_NAMES: &str = "druid.client.https.validateHostnames";
-    pub const CLIENT_HTTPS_KEY_MANAGER_PASSWORD: &str = "druid.client.https.keyManagerPassword";
+    const CLIENT_HTTPS_KEY_STORE_PATH: &str = "druid.client.https.keyStorePath";
+    const CLIENT_HTTPS_KEY_STORE_TYPE: &str = "druid.client.https.keyStoreType";
+    const CLIENT_HTTPS_KEY_STORE_PASSWORD: &str = "druid.client.https.keyStorePassword";
+    const CLIENT_HTTPS_TRUST_STORE_PATH: &str = "druid.client.https.trustStorePath";
+    const CLIENT_HTTPS_TRUST_STORE_TYPE: &str = "druid.client.https.trustStoreType";
+    const CLIENT_HTTPS_TRUST_STORE_PASSWORD: &str = "druid.client.https.trustStorePassword";
+    const CLIENT_HTTPS_CERT_ALIAS: &str = "druid.client.https.certAlias";
+    const CLIENT_HTTPS_VALIDATE_HOST_NAMES: &str = "druid.client.https.validateHostnames";
+    const CLIENT_HTTPS_KEY_MANAGER_PASSWORD: &str = "druid.client.https.keyManagerPassword";
     // Server side TLS
-    pub const SERVER_HTTPS_KEY_STORE_PATH: &str = "druid.server.https.keyStorePath";
-    pub const SERVER_HTTPS_KEY_STORE_TYPE: &str = "druid.server.https.keyStoreType";
-    pub const SERVER_HTTPS_KEY_STORE_PASSWORD: &str = "druid.server.https.keyStorePassword";
-    pub const SERVER_HTTPS_TRUST_STORE_PATH: &str = "druid.server.https.trustStorePath";
-    pub const SERVER_HTTPS_TRUST_STORE_TYPE: &str = "druid.server.https.trustStoreType";
-    pub const SERVER_HTTPS_TRUST_STORE_PASSWORD: &str = "druid.server.https.trustStorePassword";
-    pub const SERVER_HTTPS_CERT_ALIAS: &str = "druid.server.https.certAlias";
-    pub const SERVER_HTTPS_VALIDATE_HOST_NAMES: &str = "druid.server.https.validateHostnames";
-    pub const SERVER_HTTPS_KEY_MANAGER_PASSWORD: &str = "druid.server.https.keyManagerPassword";
-    pub const SERVER_HTTPS_REQUIRE_CLIENT_CERTIFICATE: &str =
+    const SERVER_HTTPS_KEY_STORE_PATH: &str = "druid.server.https.keyStorePath";
+    const SERVER_HTTPS_KEY_STORE_TYPE: &str = "druid.server.https.keyStoreType";
+    const SERVER_HTTPS_KEY_STORE_PASSWORD: &str = "druid.server.https.keyStorePassword";
+    const SERVER_HTTPS_TRUST_STORE_PATH: &str = "druid.server.https.trustStorePath";
+    const SERVER_HTTPS_TRUST_STORE_TYPE: &str = "druid.server.https.trustStoreType";
+    const SERVER_HTTPS_TRUST_STORE_PASSWORD: &str = "druid.server.https.trustStorePassword";
+    const SERVER_HTTPS_CERT_ALIAS: &str = "druid.server.https.certAlias";
+    const SERVER_HTTPS_VALIDATE_HOST_NAMES: &str = "druid.server.https.validateHostnames";
+    const SERVER_HTTPS_KEY_MANAGER_PASSWORD: &str = "druid.server.https.keyManagerPassword";
+    const SERVER_HTTPS_REQUIRE_CLIENT_CERTIFICATE: &str =
         "druid.server.https.requireClientCertificate";
-    pub const TLS_ALIAS_NAME: &str = "tls";
+    const TLS_ALIAS_NAME: &str = "tls";
     // Misc TLS
-    pub const TLS_STORE_PASSWORD: &str = "changeit";
-    pub const TLS_STORE_TYPE: &str = "pkcs12";
+    const TLS_STORE_PASSWORD: &str = "changeit";
+    const TLS_STORE_TYPE: &str = "pkcs12";
 
     // directories
-    pub const STACKABLE_MOUNT_TLS_DIR: &str = "/stackable/mount_tls";
-    pub const STACKABLE_TLS_DIR: &str = "/stackable/tls";
+    const STACKABLE_MOUNT_TLS_DIR: &str = "/stackable/mount_tls";
+    const STACKABLE_TLS_DIR: &str = "/stackable/tls";
 
     pub const TLS_DEFAULT_SECRET_CLASS: &str = "tls";
 
@@ -264,8 +264,6 @@ impl DruidTlsSecurity {
     ) {
         // We need a truststore in addition to a keystore here, because server and internal tls
         // can only be enabled/disabled together
-
-        // TODO: Check why we don't check the certificates of other servers
         config.insert(
             Self::CLIENT_HTTPS_TRUST_STORE_PATH.to_string(),
             Some(format!("{}/truststore.p12", store_directory)),

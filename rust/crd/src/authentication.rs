@@ -29,13 +29,13 @@ pub enum Error {
         provider: String,
     },
     #[snafu(display(
-        "Client authentication using TLS (as requested by AuthenticationClass {authentication_class}) can not be used when Druid server and internal TLS is disabled",
+        "client authentication using TLS (as requested by AuthenticationClass {authentication_class}) can not be used when Druid server and internal TLS is disabled",
     ))]
     TlsAuthenticationClassWithoutDruidServerTls {
         authentication_class: ObjectRef<AuthenticationClass>,
     },
     #[snafu(display(
-        "Client authentication using TLS (as requested by AuthenticationClass {authentication_class}) can only use the same SecretClass as the Druid instance is using for server and internal communication (SecretClass {server_and_internal_secret_class} in this case)",
+        "client authentication using TLS (as requested by AuthenticationClass {authentication_class}) can only use the same SecretClass as the Druid instance is using for server and internal communication (SecretClass {server_and_internal_secret_class} in this case)",
     ))]
     TlsAuthenticationClassSecretClassDiffersFromDruidServerTls {
         authentication_class: ObjectRef<AuthenticationClass>,
