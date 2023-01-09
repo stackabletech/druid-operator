@@ -9,7 +9,7 @@ use stackable_operator::{
 
 use crate::DruidCluster;
 
-const SUPPORTED_AUTHENTICATION_CLASS_PROVIDERS: [&str; 1] = ["TLS"];
+const SUPPORTED_AUTHENTICATION_CLASS_PROVIDERS: [&str; 2] = ["LDAP", "TLS"];
 
 #[derive(Snafu, Debug)]
 pub enum Error {
@@ -56,6 +56,10 @@ pub struct DruidAuthentication {
     ///
     /// Please note that the SecretClass used to authenticate users needs to be the same
     /// as the SecretClass used for internal communication.
+    ///
+    /// ## LDAP provider
+    ///
+    /// Only affects client connections. TODO
     pub authentication_class: String,
 }
 
@@ -112,6 +116,12 @@ impl ResolvedAuthenticationClasses {
             .find(|auth| matches!(auth.spec.provider, AuthenticationClassProvider::Tls(_)))
     }
 
+    pub fn get_ldap_authentication_class(&self) -> Option<&AuthenticationClass> {
+        self.resolved_authentication_classes
+            .iter()
+            .find(|auth| matches!(auth.spec.provider, AuthenticationClassProvider::Ldap(_)))
+    }
+
     /// Validates the resolved AuthenticationClasses.
     /// Currently errors out if:
     /// - More than one AuthenticationClass was provided
@@ -124,6 +134,7 @@ impl ResolvedAuthenticationClasses {
         for auth_class in &self.resolved_authentication_classes {
             match &auth_class.spec.provider {
                 AuthenticationClassProvider::Tls(_) => {}
+                AuthenticationClassProvider::Ldap(_) => {}
                 _ => {
                     return Err(Error::AuthenticationProviderNotSupported {
                         authentication_class: ObjectRef::from_obj(auth_class),
@@ -132,6 +143,8 @@ impl ResolvedAuthenticationClasses {
                 }
             }
         }
+
+        // TODO: verify LDAP case
 
         if let Some(tls_auth_class) = self.get_tls_authentication_class() {
             match &server_and_internal_secret_class {
@@ -189,11 +202,8 @@ mod tests {
 
         let classes = ResolvedAuthenticationClasses::new(vec![get_ldap_authentication_class()]);
         assert!(
-            matches!(
-                classes.validate(None),
-                Err(Error::AuthenticationProviderNotSupported { provider, authentication_class }) if provider == "Ldap" && authentication_class.name == "ldap",
-            ),
-            "Not supported: No server tls, LDAP authentication class"
+            classes.validate(None).is_ok(),
+            "Supported: No server tls, LDAP authentication class"
         );
 
         let classes = ResolvedAuthenticationClasses::new(vec![]);
@@ -240,6 +250,18 @@ mod tests {
             ),
             "Not supported: Server tls, multiple authentication classes"
         );
+
+        let classes = ResolvedAuthenticationClasses::new(vec![
+            get_tls_authentication_class_without_secret_class(),
+            get_ldap_authentication_class(),
+        ]);
+        assert!(
+            matches!(
+                classes.validate(Some("tls-druid".to_string())),
+                Err(Error::MultipleAuthenticationClassesProvided {})
+            ),
+            "Not supported: Server tls, multiple authentication classes"
+        );
     }
 
     #[test]
@@ -256,6 +278,23 @@ mod tests {
         assert_eq!(
             tls_authentication_class.map(|class| class.name_unchecked()),
             Some("tls".to_string())
+        );
+    }
+
+    #[test]
+    fn test_get_ldap_authentication_class() {
+        let classes = ResolvedAuthenticationClasses::new(vec![
+            get_ldap_authentication_class(),
+            get_tls_authentication_class_without_secret_class(),
+            get_tls_authentication_class_with_secret_class_druid_clients(),
+        ]);
+
+        let ldap_authentication_class = classes.get_ldap_authentication_class();
+
+        // TODO Check deriving PartialEq for AuthenticationClass so that we can compare them directly instead of comparing the names
+        assert_eq!(
+            ldap_authentication_class.map(|class| class.name_unchecked()),
+            Some("ldap".to_string())
         );
     }
 
