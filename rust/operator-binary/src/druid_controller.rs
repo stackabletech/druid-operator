@@ -105,7 +105,7 @@ pub enum Error {
         source: stackable_operator::error::Error,
     },
     #[snafu(display(
-        "Failed to get ZooKeeper discovery config map for cluster: {}",
+        "failed to get ZooKeeper discovery config map for cluster: {}",
         cm_name
     ))]
     GetZookeeperConnStringConfigMap {
@@ -113,29 +113,29 @@ pub enum Error {
         cm_name: String,
     },
     #[snafu(display(
-        "Failed to get OPA discovery config map and/or connection string for cluster: {}",
+        "failed to get OPA discovery config map and/or connection string for cluster: {}",
         cm_name
     ))]
     GetOpaConnString {
         source: stackable_operator::error::Error,
         cm_name: String,
     },
-    #[snafu(display("Failed to get valid S3 connection"))]
+    #[snafu(display("failed to get valid S3 connection"))]
     GetS3Connection { source: stackable_druid_crd::Error },
-    #[snafu(display("Failed to get deep storage bucket"))]
+    #[snafu(display("failed to get deep storage bucket"))]
     GetDeepStorageBucket {
         source: stackable_operator::error::Error,
     },
     #[snafu(display(
-        "Failed to get ZooKeeper connection string from config map {}",
+        "failed to get ZooKeeper connection string from config map {}",
         cm_name
     ))]
     MissingZookeeperConnString { cm_name: String },
-    #[snafu(display("Failed to transform configs"))]
+    #[snafu(display("failed to transform configs"))]
     ProductConfigTransform {
         source: stackable_operator::product_config_utils::ConfigError,
     },
-    #[snafu(display("Failed to format runtime properties"))]
+    #[snafu(display("failed to format runtime properties"))]
     PropertiesWriteError {
         source: stackable_operator::product_config::writer::PropertiesWriterError,
     },
