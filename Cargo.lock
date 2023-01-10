@@ -1822,6 +1822,7 @@ dependencies = [
 name = "stackable-druid-crd"
 version = "0.9.0-nightly"
 dependencies = [
+ "indoc",
  "lazy_static",
  "rstest",
  "semver",

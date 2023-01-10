@@ -28,3 +28,117 @@ pub fn default_druid_tls() -> Option<DruidTls> {
 pub fn tls_default() -> Option<String> {
     Some(DruidTlsSecurity::TLS_DEFAULT_SECRET_CLASS.to_string())
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::{authentication::DruidAuthentication, tls::DruidTls, DruidClusterConfig};
+    use indoc::formatdoc;
+
+    const BASE_DRUID_CONFIGURATION: &str = r#"
+deepStorage:
+  hdfs:
+    configMapName: druid-hdfs
+    directory: /druid
+metadataStorageDatabase:
+  dbType: derby
+  connString: jdbc:derby://localhost:1527/var/druid/metadata.db;create=true
+  host: localhost
+  port: 1527
+zookeeperConfigMapName: zk-config-map
+    "#;
+
+    #[test]
+    fn test_tls_default() {
+        let druid_cluster_config: DruidClusterConfig =
+            serde_yaml::from_str(BASE_DRUID_CONFIGURATION).expect("illegal test input");
+
+        assert_eq!(
+            druid_cluster_config.tls,
+            Some(DruidTls {
+                server_and_internal_secret_class: Some("tls".to_string())
+            }),
+        );
+        assert_eq!(druid_cluster_config.authentication, vec![]);
+    }
+
+    #[test]
+    fn test_tls_explicit_enabled() {
+        let input = formatdoc! {"\
+        {BASE_DRUID_CONFIGURATION}
+        tls:
+          serverAndInternalSecretClass: druid-secret-class
+        "};
+        dbg!(&input);
+        let druid_cluster_config: DruidClusterConfig =
+            serde_yaml::from_str(&input).expect("illegal test input");
+
+        assert_eq!(
+            druid_cluster_config.tls,
+            Some(DruidTls {
+                server_and_internal_secret_class: Some("druid-secret-class".to_string())
+            }),
+        );
+        assert_eq!(druid_cluster_config.authentication, vec![]);
+    }
+
+    #[test]
+    fn test_tls_explicit_disabled() {
+        let input = formatdoc! {"\
+        {BASE_DRUID_CONFIGURATION}
+        tls: null
+        "};
+        dbg!(&input);
+        let druid_cluster_config: DruidClusterConfig =
+            serde_yaml::from_str(&input).expect("illegal test input");
+
+        assert_eq!(druid_cluster_config.tls, None,);
+        assert_eq!(druid_cluster_config.authentication, vec![]);
+    }
+
+    #[test]
+    fn test_tls_explicit_disabled_secret_class() {
+        let input = formatdoc! {"\
+        {BASE_DRUID_CONFIGURATION}
+        tls:
+          serverAndInternalSecretClass: null
+        "};
+        dbg!(&input);
+        let druid_cluster_config: DruidClusterConfig =
+            serde_yaml::from_str(&input).expect("illegal test input");
+
+        assert_eq!(
+            druid_cluster_config.tls,
+            Some(DruidTls {
+                server_and_internal_secret_class: None,
+            }),
+        );
+        assert_eq!(druid_cluster_config.authentication, vec![]);
+    }
+
+    #[test]
+    fn test_tls_explicit_enabled_and_authentication_enabled() {
+        let input = formatdoc! {"\
+        {BASE_DRUID_CONFIGURATION}
+        tls:
+          serverAndInternalSecretClass: druid-secret-class
+        authentication:
+          - authenticationClass: druid-user-authentication-class
+        "};
+        dbg!(&input);
+        let druid_cluster_config: DruidClusterConfig =
+            serde_yaml::from_str(&input).expect("illegal test input");
+
+        assert_eq!(
+            druid_cluster_config.tls,
+            Some(DruidTls {
+                server_and_internal_secret_class: Some("druid-secret-class".to_string())
+            }),
+        );
+        assert_eq!(
+            druid_cluster_config.authentication,
+            vec![DruidAuthentication {
+                authentication_class: "druid-user-authentication-class".to_string()
+            }],
+        );
+    }
+}
