@@ -60,14 +60,26 @@ spec:
               cpu: "4"
               memory: 2Gi
       volumes:
-        - configMap:
+        - name: tls-mount
+          ephemeral:
+            volumeClaimTemplate:
+              metadata:
+                annotations:
+                  secrets.stackable.tech/class: tls
+                  secrets.stackable.tech/scope: pod,node
+                creationTimestamp: null
+              spec:
+                storageClassName: secrets.stackable.tech
+        - name: tls
+          emptyDir: {}
+        - name: config
+          configMap:
             name: druid-resources-historical-default
-          name: config
-        - emptyDir: {}
-          name: rwconfig
-        - emptyDir:
+        - name: rwconfig
+          emptyDir: {}
+        - name: segment-cache
+          emptyDir:
             sizeLimit: 2G
-          name: segment-cache
 status:
   readyReplicas: 1
   replicas: 1

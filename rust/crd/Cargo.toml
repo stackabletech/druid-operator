@@ -20,5 +20,6 @@ snafu = "0.7"
 lazy_static = "1.4"
 
 [dev-dependencies]
-serde_yaml = "0.8"
+indoc = "1.0"
 rstest = "0.16"
+serde_yaml = "0.8"

@@ -1,17 +1,19 @@
 pub mod authentication;
+pub mod authorization;
 pub mod resource;
+pub mod security;
 pub mod storage;
 pub mod tls;
 
 use crate::authentication::DruidAuthentication;
 use crate::tls::DruidTls;
 
+use authorization::DruidAuthorization;
 use serde::{Deserialize, Serialize};
 use snafu::{OptionExt, ResultExt, Snafu};
 use stackable_operator::{
     client::Client,
     commons::{
-        opa::OpaConfig,
         product_image_selection::ProductImage,
         resources::{NoRuntimeLimits, ResourcesFragment},
         s3::{InlinedS3BucketSpec, S3BucketDef, S3ConnectionDef, S3ConnectionSpec},
@@ -30,6 +32,7 @@ use std::{
     str::FromStr,
 };
 use strum::{Display, EnumDiscriminants, EnumIter, EnumString, IntoStaticStr};
+use tls::default_druid_tls;
 
 pub const APP_NAME: &str = "druid";
 pub const OPERATOR_NAME: &str = "druid.stackable.tech";
@@ -58,17 +61,7 @@ pub const PATH_SEGMENT_CACHE: &str = "/stackable/var/druid/segment-cache";
 //    CONFIG PROPERTIES    //
 /////////////////////////////
 // extensions
-const EXTENSIONS_LOADLIST: &str = "druid.extensions.loadList";
-const EXT_S3: &str = "druid-s3-extensions";
-const EXT_KAFKA_INDEXING: &str = "druid-kafka-indexing-service";
-const EXT_DATASKETCHES: &str = "druid-datasketches";
-const PROMETHEUS_EMITTER: &str = "prometheus-emitter";
-const EXT_PSQL_MD_ST: &str = "postgresql-metadata-storage";
-const EXT_MYSQL_MD_ST: &str = "mysql-metadata-storage";
-const EXT_OPA_AUTHORIZER: &str = "druid-opa-authorizer";
-const EXT_BASIC_SECURITY: &str = "druid-basic-security";
-const EXT_HDFS: &str = "druid-hdfs-storage";
-const EXT_SIMPLE_CLIENT_SSL_CONTEXT: &str = "simple-client-sslcontext";
+pub const EXTENSIONS_LOADLIST: &str = "druid.extensions.loadList";
 // zookeeper
 pub const ZOOKEEPER_CONNECTION_STRING: &str = "druid.zk.service.host";
 // deep storage
@@ -99,8 +92,6 @@ pub const CREDENTIALS_SECRET_PROPERTY: &str = "credentialsSecret";
 // metrics
 pub const PROMETHEUS_PORT: &str = "druid.emitter.prometheus.port";
 pub const METRICS_PORT: u16 = 9090;
-// tls
-const DEFAULT_TLS_SECRET_CLASS: &str = "tls";
 // container locations
 pub const S3_SECRET_DIR_NAME: &str = "/stackable/secrets";
 const ENV_S3_ACCESS_KEY: &str = "AWS_ACCESS_KEY_ID";
@@ -154,21 +145,26 @@ pub struct DruidClusterSpec {
     pub stopped: Option<bool>,
     /// The Druid image to use
     pub image: ProductImage,
+    /// Configuration of the broker role
     pub brokers: Role<BrokerConfig>,
+    /// Configuration of the coordinator role
     pub coordinators: Role<CoordinatorConfig>,
+    /// Configuration of the historical role
     pub historicals: Role<HistoricalConfig>,
+    /// Configuration of the middle managed role
     pub middle_managers: Role<MiddleManagerConfig>,
+    /// Configuration of the router role
     pub routers: Role<RouterConfig>,
-    /// Common cluster wide configuration that can not differ or be overriden on a role or role group level
+    /// Common cluster wide configuration that can not differ or be overridden on a role or role group level
     pub cluster_config: DruidClusterConfig,
 }
 
 #[derive(Clone, Debug, Deserialize, JsonSchema, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DruidClusterConfig {
-    /// Authentication class settings for Druid like TLS authentication or LDAP
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub authentication: Option<DruidAuthentication>,
+    /// List of Authentication classes using like TLS or LDAP to authenticate users
+    #[serde(default)]
+    pub authentication: Vec<DruidAuthentication>,
     /// Authorization settings for Druid like OPA
     #[serde(skip_serializing_if = "Option::is_none")]
     pub authorization: Option<DruidAuthorization>,
@@ -179,26 +175,13 @@ pub struct DruidClusterConfig {
     pub ingestion: Option<IngestionSpec>,
     /// Meta storage database like Derby or PostgreSQL
     pub metadata_storage_database: DatabaseConnectionSpec,
-    /// TLS encryption settings for Druid
-    #[serde(
-        default = "default_tls_secret_class",
-        skip_serializing_if = "Option::is_none"
-    )]
+    /// TLS encryption settings for Druid.
+    /// This setting only affects server and internal communication.
+    /// It does not affect client tls authentication, use `clusterConfig.authentication` instead.
+    #[serde(default = "default_druid_tls", skip_serializing_if = "Option::is_none")]
     pub tls: Option<DruidTls>,
     /// ZooKeeper discovery ConfigMap
     pub zookeeper_config_map_name: String,
-}
-
-fn default_tls_secret_class() -> Option<DruidTls> {
-    Some(DruidTls {
-        secret_class: DEFAULT_TLS_SECRET_CLASS.to_string(),
-    })
-}
-
-#[derive(Clone, Debug, Default, Deserialize, JsonSchema, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct DruidAuthorization {
-    pub opa: OpaConfig,
 }
 
 #[derive(
@@ -320,27 +303,7 @@ impl DruidCluster {
         match file {
             JVM_CONFIG => {}
             RUNTIME_PROPS => {
-                // extensions
-                let mut extensions = vec![
-                    String::from(EXT_KAFKA_INDEXING),
-                    String::from(EXT_DATASKETCHES),
-                    String::from(PROMETHEUS_EMITTER),
-                    String::from(EXT_BASIC_SECURITY),
-                    String::from(EXT_OPA_AUTHORIZER),
-                    String::from(EXT_HDFS),
-                ];
-
-                if self.tls_enabled() {
-                    extensions.push(String::from(EXT_SIMPLE_CLIENT_SSL_CONTEXT));
-                }
-
-                // metadata storage
-                let mds = self.spec.cluster_config.metadata_storage_database.clone();
-                match mds.db_type {
-                    DbType::Derby => {} // no additional extensions required
-                    DbType::Postgresql => extensions.push(EXT_PSQL_MD_ST.to_string()),
-                    DbType::Mysql => extensions.push(EXT_MYSQL_MD_ST.to_string()),
-                }
+                let mds = &self.spec.cluster_config.metadata_storage_database;
                 result.insert(MD_ST_TYPE.to_string(), Some(mds.db_type.to_string()));
                 result.insert(
                     MD_ST_CONNECT_URI.to_string(),
@@ -354,10 +317,7 @@ impl DruidCluster {
                 if let Some(password) = &mds.password {
                     result.insert(MD_ST_PASSWORD.to_string(), Some(password.to_string()));
                 }
-                // s3
-                if self.uses_s3() {
-                    extensions.push(EXT_S3.to_string());
-                }
+
                 // OPA
                 if let Some(DruidAuthorization { opa: _ }) = &self.spec.cluster_config.authorization
                 {
@@ -388,11 +348,7 @@ impl DruidCluster {
                         // that is done directly in the controller
                     }
                 }
-                // other
-                result.insert(
-                    EXTENSIONS_LOADLIST.to_string(),
-                    Some(build_string_list(&extensions)),
-                );
+
                 // metrics
                 result.insert(PROMETHEUS_PORT.to_string(), Some(METRICS_PORT.to_string()));
             }
@@ -622,20 +578,6 @@ impl DruidCluster {
             .is_some();
         let s3_storage = self.spec.cluster_config.deep_storage.is_s3();
         s3_ingestion || s3_storage
-    }
-
-    /// Determines if the cluster should be encrypted / authenticated via TLS
-    pub fn tls_enabled(&self) -> bool {
-        // TLS encryption
-        if self.spec.cluster_config.tls.is_some() {
-            true
-        } else {
-            // TLS authentication with provided AuthenticationClass or no TLS required?
-            matches!(
-                &self.spec.cluster_config.authentication,
-                Some(DruidAuthentication { tls: Some(_) })
-            )
-        }
     }
 }
 
@@ -905,7 +847,7 @@ pub struct DruidClusterStatus {}
 
 /// Takes a vec of strings and returns them as a formatted json
 /// list.
-fn build_string_list(strings: &[String]) -> String {
+pub fn build_string_list(strings: &[String]) -> String {
     let quoted_strings: Vec<String> = strings.iter().map(|s| format!("\"{}\"", s)).collect();
     let comma_list = quoted_strings.join(", ");
     format!("[{}]", comma_list)
@@ -932,7 +874,6 @@ pub fn build_recommended_labels<'a, T>(
 
 #[cfg(test)]
 mod tests {
-
     use super::*;
 
     #[test]
@@ -952,54 +893,5 @@ mod tests {
             cluster.role_service_fqdn(&DruidRole::Router),
             Some("testcluster-router.default.svc.cluster.local".to_string())
         )
-    }
-
-    #[test]
-    fn test_druid_cluster_config_tls() {
-        let input = r#"
-        deepStorage:
-          hdfs:
-            configMapName: druid-hdfs
-            directory: /druid
-        metadataStorageDatabase:
-          dbType: derby
-          connString: jdbc:derby://localhost:1527/var/druid/metadata.db;create=true
-          host: localhost
-          port: 1527
-        zookeeperConfigMapName: zk-config-map
-        "#;
-        let druid_cluster_config: DruidClusterConfig =
-            serde_yaml::from_str(input).expect("illegal test input");
-
-        assert_eq!(
-            druid_cluster_config.zookeeper_config_map_name,
-            "zk-config-map".to_string()
-        );
-        assert_eq!(
-            druid_cluster_config.tls.unwrap().secret_class,
-            DEFAULT_TLS_SECRET_CLASS.to_string()
-        );
-
-        let input = r#"
-        deepStorage:
-          hdfs:
-            configMapName: druid-hdfs
-            directory: /druid
-        metadataStorageDatabase:
-          dbType: derby
-          connString: jdbc:derby://localhost:1527/var/druid/metadata.db;create=true
-          host: localhost
-          port: 1527
-        tls:
-          secretClass: foo
-        zookeeperConfigMapName: zk-config-map
-        "#;
-        let druid_cluster_config: DruidClusterConfig =
-            serde_yaml::from_str(input).expect("illegal test input");
-
-        assert_eq!(
-            druid_cluster_config.tls.unwrap().secret_class,
-            "foo".to_string()
-        );
     }
 }

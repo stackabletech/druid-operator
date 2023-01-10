@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# Usage: check-tls.sh namespace type [insecure,secure,secure_auth]
+# Usage: check-tls.sh namespace type [no-tls,internal-and-server-tls,internal-and-server-tls-and-tls-client-auth]
 
 NAMESPACE=$1
 TYPE=$2
 
 # No encryption
-if [[ $TYPE == "insecure" ]]
+if [[ $TYPE == "no-tls" ]]
 then
   HOST=http://derby-druid-router-default-0.derby-druid-router-default.${NAMESPACE}.svc.cluster.local:8888/status/health
 
@@ -21,7 +21,7 @@ then
 fi
 
 # Only encryption
-if [[ $TYPE == "secure" ]]
+if [[ $TYPE == "internal-and-server-tls" ]]
 then
   HOST=https://derby-druid-router-default-0.derby-druid-router-default.${NAMESPACE}.svc.cluster.local:9088/status/health
 
@@ -47,7 +47,7 @@ then
 
   # should work without insecure but with certificate
   echo "[TLS_ENCRYPTION] Test TLS with trusted certificate"
-  if curl --cacert /tmp/tls/ca.crt "$HOST" &> /dev/null
+  if curl --cacert /tmp/druid-tls/ca.crt "$HOST" &> /dev/null
   then
     echo "[SUCCESS] Could establish connection to server with trusted certificate!"
   else
@@ -57,7 +57,7 @@ then
 
   # should not work with wrong certificate
   echo "[TLS_ENCRYPTION] Test TLS with untrusted certificate"
-  if curl --cacert /tmp/tls/untrusted-ca.crt "$HOST" &> /dev/null
+  if curl --cacert /tmp/untrusted-ca.crt "$HOST" &> /dev/null
   then
     echo "[ERROR] Could establish connection to server with untrusted certificate. Should not be happening!"
     exit 1
@@ -67,7 +67,7 @@ then
 fi
 
 # Encryption and TLS client auth
-if [[ $TYPE == "secure_auth" ]]
+if [[ $TYPE == "internal-and-server-tls-and-tls-client-auth" ]]
 then
   HOST=https://derby-druid-router-default-0.derby-druid-router-default.${NAMESPACE}.svc.cluster.local:9088/status/health
 
@@ -83,7 +83,7 @@ then
 
   # Should fail
   echo "[TLS_AUTH] Test access providing CA"
-  if curl --cacert  "$HOST" &> /dev/null
+  if curl --cacert /tmp/druid-tls/ca.crt "$HOST" &> /dev/null
   then
     echo "[ERROR] Could establish insecure connection to server! This should not be happening!"
     exit 1
@@ -92,8 +92,8 @@ then
   fi
 
   # Should fail
-  echo "[TLS_AUTH] Test access providing wrong ca, cert and key"
-  if curl --cacert /tmp/tls/ca.crt --cert /tmp/tls/tls.crt --key /tmp/tls/tls.key "$HOST" &> /dev/null
+  echo "[TLS_AUTH] Test access providing wrong cert and key"
+  if curl --cacert /tmp/druid-tls/ca.crt --cert /tmp/tls/tls.crt --key /tmp/tls/tls.key "$HOST" &> /dev/null
   then
     echo "[ERROR] Could establish authenticated connection to server with wrong credentials! This should not be happening!"
     exit 1
@@ -103,7 +103,7 @@ then
 
   # Should work
   echo "[TLS_AUTH] Test access providing correct ca, cert and key"
-  if curl --cacert /tmp/tls_auth/ca.crt --cert /tmp/tls_auth/tls.crt --key /tmp/tls_auth/tls.key "$HOST" &> /dev/null
+  if curl --cacert /tmp/druid-tls/ca.crt --cert /tmp/druid-tls/tls.crt --key /tmp/druid-tls/tls.key "$HOST" &> /dev/null
   then
     echo "[SUCCESS] Could establish authenticated connection to server!"
   else
