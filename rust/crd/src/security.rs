@@ -417,17 +417,16 @@ pub fn add_cert_to_trust_store_cmd(
     alias_name: &str,
     store_password: &str,
 ) -> Vec<String> {
-    let mut command = vec![];
-    command.push(format!(
-        "echo Cleaning up truststore [{trust_store_directory}/truststore.p12] - just in case"
-    ));
-    command.push(format!("rm -f {trust_store_directory}/truststore.p12"));
-    command.push(format!(
-        "echo Creating truststore [{trust_store_directory}/truststore.p12]"
-    ));
-    command.push(format!("keytool -importcert -file {cert_directory}/ca.crt -keystore {trust_store_directory}/truststore.p12 -storetype pkcs12 -alias {alias_name} -storepass {store_password} -noprompt"));
-
-    command
+    vec![
+        format!(
+            "echo Cleaning up truststore [{trust_store_directory}/truststore.p12] - just in case"
+        ),
+        format!("rm -f {trust_store_directory}/truststore.p12"),
+        format!(
+            "echo Creating truststore [{trust_store_directory}/truststore.p12]"
+        ),
+        format!("keytool -importcert -file {cert_directory}/ca.crt -keystore {trust_store_directory}/truststore.p12 -storetype pkcs12 -alias {alias_name} -storepass {store_password} -noprompt")
+    ]
 }
 
 /// Generate a script to create a certificate chain and add a key-cert pair to the keystore
