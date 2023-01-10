@@ -67,8 +67,6 @@ impl DruidTlsSecurity {
     const STACKABLE_MOUNT_TLS_DIR: &str = "/stackable/mount_tls";
     const STACKABLE_TLS_DIR: &str = "/stackable/tls";
 
-    pub const TLS_DEFAULT_SECRET_CLASS: &str = "tls";
-
     pub fn new(
         resolved_authentication_classes: ResolvedAuthenticationClasses,
         server_and_internal_secret_class: Option<String>,

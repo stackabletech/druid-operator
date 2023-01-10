@@ -1,7 +1,7 @@
-use crate::security::DruidTlsSecurity;
-
 use serde::{Deserialize, Serialize};
 use stackable_operator::schemars::{self, JsonSchema};
+
+const TLS_DEFAULT_SECRET_CLASS: &str = "tls";
 
 #[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, JsonSchema, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -26,7 +26,7 @@ pub fn default_druid_tls() -> Option<DruidTls> {
 
 /// Helper methods to provide defaults in the CRDs and tests
 pub fn tls_default() -> Option<String> {
-    Some(DruidTlsSecurity::TLS_DEFAULT_SECRET_CLASS.to_string())
+    Some(TLS_DEFAULT_SECRET_CLASS.to_string())
 }
 
 #[cfg(test)]

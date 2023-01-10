@@ -8,7 +8,6 @@ pub mod tls;
 use crate::authentication::DruidAuthentication;
 use crate::tls::DruidTls;
 
-use crate::security::DruidTlsSecurity;
 use authorization::DruidAuthorization;
 use serde::{Deserialize, Serialize};
 use snafu::{OptionExt, ResultExt, Snafu};
@@ -33,6 +32,7 @@ use std::{
     str::FromStr,
 };
 use strum::{Display, EnumDiscriminants, EnumIter, EnumString, IntoStaticStr};
+use tls::default_druid_tls;
 
 pub const APP_NAME: &str = "druid";
 pub const OPERATOR_NAME: &str = "druid.stackable.tech";
@@ -178,21 +178,10 @@ pub struct DruidClusterConfig {
     /// TLS encryption settings for Druid.
     /// This setting only affects server and internal communication.
     /// It does not affect client tls authentication, use `clusterConfig.authentication` instead.
-    #[serde(
-        default = "default_tls_secret_class",
-        skip_serializing_if = "Option::is_none"
-    )]
+    #[serde(default = "default_druid_tls", skip_serializing_if = "Option::is_none")]
     pub tls: Option<DruidTls>,
     /// ZooKeeper discovery ConfigMap
     pub zookeeper_config_map_name: String,
-}
-
-fn default_tls_secret_class() -> Option<DruidTls> {
-    Some(DruidTls {
-        server_and_internal_secret_class: Some(
-            DruidTlsSecurity::TLS_DEFAULT_SECRET_CLASS.to_string(),
-        ),
-    })
 }
 
 #[derive(
