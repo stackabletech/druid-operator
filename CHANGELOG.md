@@ -12,7 +12,7 @@ All notable changes to this project will be documented in this file.
 ### Changed
 
 - BREAKING: Use Product image selection instead of version. `spec.version` has been replaced by `spec.image` ([#356])
-- BREAKING: Reworked top level configuration. Deep storage, Ingestion spec, discovery config maps, authentication etc. are now subfields of `spec.clusterConfig` instead of being top level under `spec` ([#333], [#373])
+- BREAKING: Reworked top level configuration. Deep storage, Ingestion spec, discovery config maps, authentication etc. are now subfields of `spec.clusterConfig` instead of being top level under `spec` ([#333], [#365])
 - BREAKING: Removed tools image from init container and replaced with Druid product image. This means the latest stackable version has to be used in the product image selection ([#358])
 - Updated stackable image versions ([#339])
 - Upgrade to `operator-rs` `0.30.1` ([#340], [#347], [#362])
@@ -34,7 +34,7 @@ All notable changes to this project will be documented in this file.
 [#358]: https://github.com/stackabletech/druid-operator/pull/358
 [#362]: https://github.com/stackabletech/druid-operator/pull/362
 [#363]: https://github.com/stackabletech/druid-operator/pull/363
-[#373]: https://github.com/stackabletech/druid-operator/pull/373
+[#365]: https://github.com/stackabletech/druid-operator/pull/365
 
 ## [0.8.0] - 2022-11-07
 
