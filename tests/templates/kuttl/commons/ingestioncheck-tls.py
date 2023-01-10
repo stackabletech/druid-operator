@@ -58,20 +58,20 @@ if security == "no-tls":
     broker_port = "8082"
     cert = None
     verify = False
-elif security == "internal-tls":
+elif security == "internal-and-server-tls":
     protocol = "https"
     coordinator_port = "8281"
     broker_port = "8282"
     cert = None
     verify = "/tmp/druid-tls/ca.crt"
-elif security == "internal-tls-and-tls-client-auth":
+elif security == "internal-and-server-tls-and-tls-client-auth":
     protocol = "https"
     coordinator_port = "8281"
     broker_port = "8282"
     cert = ("/tmp/druid-tls/tls.crt", "/tmp/druid-tls/tls.key")
     verify = "/tmp/druid-tls/ca.crt"
 else:
-    sys.exit("Usage: python ./ingestioncheck.py <namespace> <cluster_name> <no-tls|internal-tls|internal-tls-and-tls-client-auth>")
+    sys.exit("Usage: python ./ingestioncheck.py <namespace> <cluster_name> <no-tls|internal-and-server-tls|internal-and-server-tls-and-tls-client-auth>")
 
 
 druid = DruidClient(cert, verify)

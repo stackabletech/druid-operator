@@ -56,7 +56,7 @@ spec:
     productVersion: "{{ test_scenario['values']['druid-latest'].split('-stackable')[0] }}"
     stackableVersion: "{{ test_scenario['values']['druid-latest'].split('-stackable')[1] }}"
   clusterConfig:
-{% if test_scenario['values']['tls-mode'] == 'internal-tls-and-tls-client-auth' %}
+{% if test_scenario['values']['tls-mode'] == 'internal-and-server-tls-and-tls-client-auth' %}
     authentication:
       - authenticationClass: druid-tls-auth-class
 {% endif %}
@@ -83,7 +83,7 @@ spec:
       connString: jdbc:derby://localhost:1527/var/druid/metadata.db;create=true
       host: localhost
       port: 1527
-{% if test_scenario['values']['tls-mode'] == 'internal-tls' or test_scenario['values']['tls-mode'] == 'internal-tls-and-tls-client-auth' %}
+{% if test_scenario['values']['tls-mode'] == 'internal-and-server-tls' or test_scenario['values']['tls-mode'] == 'internal-and-server-tls-and-tls-client-auth' %}
     tls:
       serverAndInternalSecretClass: druid-tls
 {% else  %}

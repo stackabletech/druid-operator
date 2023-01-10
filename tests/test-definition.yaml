@@ -27,8 +27,8 @@ dimensions:
   - name: tls-mode
     values:
       - "no-tls"
-      - "internal-tls"
-      - "internal-tls-and-tls-client-auth"
+      - "internal-and-server-tls"
+      - "internal-and-server-tls-and-tls-client-auth"
 tests:
   - name: smoke
     dimensions:

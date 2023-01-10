@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Usage: check-tls.sh namespace type [no-tls,internal-tls,internal-tls-and-tls-client-auth]
+# Usage: check-tls.sh namespace type [no-tls,internal-and-server-tls,internal-and-server-tls-and-tls-client-auth]
 
 NAMESPACE=$1
 TYPE=$2
@@ -21,7 +21,7 @@ then
 fi
 
 # Only encryption
-if [[ $TYPE == "internal-tls" ]]
+if [[ $TYPE == "internal-and-server-tls" ]]
 then
   HOST=https://derby-druid-router-default-0.derby-druid-router-default.${NAMESPACE}.svc.cluster.local:9088/status/health
 
@@ -67,7 +67,7 @@ then
 fi
 
 # Encryption and TLS client auth
-if [[ $TYPE == "internal-tls-and-tls-client-auth" ]]
+if [[ $TYPE == "internal-and-server-tls-and-tls-client-auth" ]]
 then
   HOST=https://derby-druid-router-default-0.derby-druid-router-default.${NAMESPACE}.svc.cluster.local:9088/status/health
 
