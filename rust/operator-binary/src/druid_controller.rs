@@ -787,13 +787,8 @@ fn get_ldap_secret_volume_and_volume_mounts_and_commands(
                 (format!("/stackable/secrets/{volume_name}"), secret_volume),
             );
 
-            let ldap_bind_user = format!("$(cat /stackable/secrets/{volume_name}/LDAP_BIND_USER)");
-            let ldap_bind_password =
-                format!("$(cat /stackable/secrets/{volume_name}/LDAP_BIND_PASSWORD)");
-            let ldap_internal_user =
-                format!("$(cat /stackable/secrets/{volume_name}/LDAP_INTERNAL_USER)");
-            let ldap_internal_password =
-                format!("$(cat /stackable/secrets/{volume_name}/LDAP_INTERNAL_PASSWORD)");
+            let ldap_bind_user = format!("$(cat /stackable/secrets/{volume_name}/user)");
+            let ldap_bind_password = format!("$(cat /stackable/secrets/{volume_name}/password)");
 
             const RUNTIME_PROPERTIES_PATH: &str = "/stackable/rwconfig/runtime.properties";
             commands
@@ -804,10 +799,6 @@ fn get_ldap_secret_volume_and_volume_mounts_and_commands(
             commands.push(format!(
                 r#"sed "s/xxx_ldap_bind_password_xxx/{ldap_bind_password}/g" -i {RUNTIME_PROPERTIES_PATH}"#
             ));
-            commands.push(format!(
-                r#"sed "s/xxx_ldap_internal_user_xxx/{ldap_internal_user}/g" -i {RUNTIME_PROPERTIES_PATH}"#
-            ));
-            commands.push(format!(r#"sed "s/xxx_ldap_internal_password_xxx/{ldap_internal_password}/g" -i {RUNTIME_PROPERTIES_PATH}"#));
         }
     }
 
