@@ -83,8 +83,7 @@ spec:
     stackableVersion: 0.3.0
   clusterConfig:
     authentication:
-      tls:
-        authenticationClass: druid-mtls-authentication-class
+      - authenticationClass: druid-mtls-authentication-class
     deepStorage:
       hdfs:
         configMapName: druid-hdfs
@@ -95,7 +94,7 @@ spec:
       host: localhost
       port: 1527
     tls:
-      secretClass: tls
+      serverAndInternalSecretClass: tls
     zookeeperConfigMapName: druid-znode
   brokers:
     roleGroups:

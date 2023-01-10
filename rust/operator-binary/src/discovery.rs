@@ -4,7 +4,9 @@
 use crate::CONTROLLER_NAME;
 
 use snafu::{OptionExt, ResultExt, Snafu};
-use stackable_druid_crd::{build_recommended_labels, DruidCluster, DruidRole};
+use stackable_druid_crd::{
+    build_recommended_labels, security::DruidTlsSecurity, DruidCluster, DruidRole,
+};
 use stackable_operator::{
     builder::{ConfigMapBuilder, ObjectMetaBuilder},
     commons::product_image_selection::ResolvedProductImage,
@@ -32,12 +34,14 @@ pub async fn build_discovery_configmaps(
     druid: &DruidCluster,
     owner: &impl Resource<DynamicType = ()>,
     resolved_product_image: &ResolvedProductImage,
+    druid_tls_security: &DruidTlsSecurity,
 ) -> Result<Vec<ConfigMap>, Error> {
     let name = owner.name_unchecked();
     Ok(vec![build_discovery_configmap(
         druid,
         owner,
         resolved_product_image,
+        druid_tls_security,
         &name,
     )?])
 }
@@ -47,6 +51,7 @@ fn build_discovery_configmap(
     druid: &DruidCluster,
     owner: &impl Resource<DynamicType = ()>,
     resolved_product_image: &ResolvedProductImage,
+    druid_tls_security: &DruidTlsSecurity,
     name: &str,
 ) -> Result<ConfigMap, Error> {
     let router_host = format!(
@@ -54,7 +59,7 @@ fn build_discovery_configmap(
         druid
             .role_service_fqdn(&DruidRole::Router)
             .with_context(|| NoServiceFqdnSnafu)?,
-        if druid.tls_enabled() {
+        if druid_tls_security.tls_enabled() {
             DruidRole::Router.get_https_port()
         } else {
             DruidRole::Router.get_http_port()
