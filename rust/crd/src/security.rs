@@ -1,6 +1,6 @@
 use crate::{
     authentication::{self, ResolvedAuthenticationClasses},
-    tls, DruidCluster, DruidRole, METRICS_PORT,
+    DruidCluster, DruidRole, METRICS_PORT,
 };
 use snafu::{ResultExt, Snafu};
 use stackable_operator::{
@@ -99,8 +99,7 @@ impl DruidTlsSecurity {
                 .cluster_config
                 .tls
                 .as_ref()
-                .map(|tls| tls.server_and_internal_secret_class.clone())
-                .unwrap_or_else(tls::tls_default),
+                .and_then(|tls| tls.server_and_internal_secret_class.clone()),
         })
     }
 
