@@ -12,6 +12,7 @@ use stackable_operator::{
         apimachinery::pkg::util::intstr::IntOrString,
     },
 };
+
 use std::collections::BTreeMap;
 
 #[derive(Snafu, Debug)]
@@ -24,6 +25,19 @@ pub enum Error {
 pub struct DruidTlsSecurity {
     resolved_authentication_classes: ResolvedAuthenticationClasses,
     server_and_internal_secret_class: Option<String>,
+}
+
+pub async fn resolve_authentication_classes(
+    client: &Client,
+    druid: &DruidCluster,
+) -> Result<ResolvedAuthenticationClasses, Error> {
+    authentication::ResolvedAuthenticationClasses::from_references(
+        client,
+        druid,
+        &druid.spec.cluster_config.authentication,
+    )
+    .await
+    .context(InvalidAuthenticationClassConfigurationSnafu)
 }
 
 impl DruidTlsSecurity {
@@ -80,18 +94,11 @@ impl DruidTlsSecurity {
     /// Create a `DruidTlsSecurity` struct from the Druid custom resource and resolve
     /// all provided `AuthenticationClass` references.
     pub async fn new_from_druid_cluster(
-        client: &Client,
         druid: &DruidCluster,
+        resolved_authentication_classes: ResolvedAuthenticationClasses,
     ) -> Result<Self, Error> {
         Ok(DruidTlsSecurity {
-            resolved_authentication_classes:
-                authentication::ResolvedAuthenticationClasses::from_references(
-                    client,
-                    druid,
-                    &druid.spec.cluster_config.authentication,
-                )
-                .await
-                .context(InvalidAuthenticationClassConfigurationSnafu)?,
+            resolved_authentication_classes,
             server_and_internal_secret_class: druid
                 .spec
                 .cluster_config
