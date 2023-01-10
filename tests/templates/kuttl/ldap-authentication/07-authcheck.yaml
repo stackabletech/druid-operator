@@ -1,0 +1,6 @@
+---
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+timeout: 600
+commands:
+  - script: kubectl cp -n $NAMESPACE ./authcheck.py  checks-0:/tmp
