@@ -2,9 +2,7 @@ use std::collections::BTreeMap;
 use std::string::FromUtf8Error;
 
 use snafu::Snafu;
-use stackable_operator::commons::authentication::{
-    AuthenticationClass, AuthenticationClassProvider,
-};
+use stackable_operator::commons::authentication::AuthenticationClassProvider;
 use stackable_operator::commons::ldap::LdapAuthenticationProvider;
 use stackable_operator::k8s_openapi::api::core::v1::Secret;
 use stackable_operator::kube::runtime::reflector::ObjectRef;
