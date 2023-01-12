@@ -52,10 +52,7 @@ impl DruidLdapSettings {
             format!("{PREFIX}.authorizerName"),
             Some("DruidSystemAuthorizer".to_string()),
         );
-        config.insert(
-            format!("{PREFIX}.skipOnFailure"),
-            Some("true".to_string()), // TODO: is additional escaping necessary for "true"?
-        );
+        config.insert(format!("{PREFIX}.skipOnFailure"), Some("true".to_string()));
     }
 
     fn add_ldap_authenticator_config(&self, config: &mut BTreeMap<String, Option<String>>) {
@@ -64,7 +61,7 @@ impl DruidLdapSettings {
         config.insert(format!("{PREFIX}.type"), Some("basic".to_string()));
         config.insert(
             format!("{PREFIX}.enableCacheNotifications"),
-            Some("true".to_string()), // TODO: is additional escaping necessary for "true"?
+            Some("true".to_string()),
         );
         config.insert(
             format!("{PREFIX}.credentialsValidator.type"),
