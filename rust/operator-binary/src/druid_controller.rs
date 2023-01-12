@@ -787,7 +787,7 @@ fn get_ldap_secret_volume_and_volume_mounts_and_commands(
 
             const RUNTIME_PROPERTIES_PATH: &str = "/stackable/rwconfig/runtime.properties";
             commands
-                .push(r#"echo "Replacing LDAP placeholders with their proper values""#.to_string());
+                .push(r#"echo "Replacing LDAP placeholders with their proper values in {RUNTIME_PROPERTIES_FILE}""#.to_string());
             commands.push(format!(
                 r#"sed "s/xxx_ldap_bind_user_xxx/{ldap_bind_user}/g" -i {RUNTIME_PROPERTIES_PATH}"#
             ));
