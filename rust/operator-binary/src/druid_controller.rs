@@ -508,8 +508,7 @@ fn build_rolegroup_config_map(
                 druid_tls_security.add_tls_config_properties(&mut transformed_config, &role);
 
                 if let Some(ldap_settings) = druid_ldap_settings {
-                    transformed_config
-                        .extend(ldap_settings.generate_runtime_properties_config_lines());
+                    transformed_config.extend(ldap_settings.generate_runtime_properties_config());
                 };
 
                 let runtime_properties =

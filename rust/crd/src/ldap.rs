@@ -32,12 +32,12 @@ impl DruidLdapSettings {
         None
     }
 
-    fn add_druid_system_authenticator_lines(&self, lines: &mut BTreeMap<String, Option<String>>) {
-        lines.insert(
+    fn add_druid_system_authenticator_config(&self, config: &mut BTreeMap<String, Option<String>>) {
+        config.insert(
             "druid.auth.authenticator.DruidSystemAuthenticator.type".to_string(),
             Some("basic".to_string()),
         );
-        lines.insert(
+        config.insert(
             "druid.auth.authenticator.DruidSystemAuthenticator.credentialsValidator.type"
                 .to_string(),
             Some("metadata".to_string()),
@@ -46,112 +46,112 @@ impl DruidLdapSettings {
         // this line is left out, as we don't want to create an admin user
         // # druid.auth.authenticator.DruidSystemAuthenticator.initialAdminPassword: XXX
 
-        lines.insert(
+        config.insert(
             "druid.auth.authenticator.DruidSystemAuthenticator.initialInternalClientPassword"
                 .to_string(),
             Some("druid_system_pass".to_string()), // TODO: replace with sed placeholder
         );
-        lines.insert(
+        config.insert(
             "druid.auth.authenticator.DruidSystemAuthenticator.authorizerName".to_string(),
             Some("DruidSystemAuthorizer".to_string()),
         );
-        lines.insert(
+        config.insert(
             "druid.auth.authenticator.DruidSystemAuthenticator.skipOnFailure".to_string(),
             Some("true".to_string()), // TODO: is additional escaping necessary for "true"?
         );
     }
 
-    fn add_ldap_authenticator_lines(&self, lines: &mut BTreeMap<String, Option<String>>) {
-        lines.insert(
+    fn add_ldap_authenticator_config(&self, config: &mut BTreeMap<String, Option<String>>) {
+        config.insert(
             "druid.auth.authenticator.Ldap.type".to_string(),
             Some("basic".to_string()),
         );
-        lines.insert(
+        config.insert(
             "druid.auth.authenticator.Ldap.enableCacheNotifications".to_string(),
             Some("true".to_string()), // TODO: is additional escaping necessary for "true"?
         );
-        lines.insert(
+        config.insert(
             "druid.auth.authenticator.Ldap.credentialsValidator.type".to_string(),
             Some("ldap".to_string()),
         );
-        lines.insert(
+        config.insert(
             "druid.auth.authenticator.Ldap.credentialsValidator.url".to_string(),
             Some(self.credentials_validator_url()),
         );
-        lines.insert(
+        config.insert(
             "druid.auth.authenticator.Ldap.credentialsValidator.bindUser".to_string(),
             Some("xxx_ldap_bind_user_xxx".to_string()), // NOTE: this placeholder will be replaced from a mounted secret on container startup
         );
-        lines.insert(
+        config.insert(
             "druid.auth.authenticator.Ldap.credentialsValidator.bindPassword".to_string(),
             Some("xxx_ldap_bind_password_xxx".to_string()), // NOTE: this placeholder will be replaced from a mounted secret on container startup
         );
-        lines.insert(
+        config.insert(
             "druid.auth.authenticator.Ldap.credentialsValidator.baseDn".to_string(),
             Some(self.provider.search_base.to_string()),
         );
-        lines.insert(
+        config.insert(
             "druid.auth.authenticator.Ldap.credentialsValidator.userAttribute".to_string(),
             Some(self.provider.ldap_field_names.uid.to_string()),
         );
-        lines.insert(
+        config.insert(
             "druid.auth.authenticator.Ldap.credentialsValidator.userSearch".to_string(),
             Some(self.provider.search_filter.to_string()),
         );
-        lines.insert(
+        config.insert(
             "druid.auth.authenticator.Ldap.authorizerName".to_string(),
             Some("LdapAuthorizer".to_string()),
         );
     }
 
-    fn add_escalator_lines(&self, lines: &mut BTreeMap<String, Option<String>>) {
-        lines.insert(
+    fn add_escalator_config(&self, config: &mut BTreeMap<String, Option<String>>) {
+        config.insert(
             "druid.escalator.type".to_string(),
             Some("basic".to_string()),
         );
-        lines.insert(
+        config.insert(
             "druid.escalator.internalClientUsername".to_string(),
             Some("druid_system".to_string()), // TODO: replace with sed-placeholder xxx_druid_system_internal_user_xxx
         );
-        lines.insert(
+        config.insert(
             "druid.escalator.internalClientPassword".to_string(),
             Some("druid_system_pass".to_string()), // TODO: replace with sed-placeholder
         );
-        lines.insert(
+        config.insert(
             "druid.escalator.authorizerName".to_string(),
             Some("DruidSystemAuthorizer".to_string()),
         );
     }
 
-    fn add_authorizer_lines(&self, lines: &mut BTreeMap<String, Option<String>>) {
-        lines.insert(
+    fn add_authorizer_config(&self, config: &mut BTreeMap<String, Option<String>>) {
+        config.insert(
             "druid.auth.authorizers".to_string(),
             Some(r#"["LdapAuthorizer", "DruidSystemAuthorizer"]"#.to_string()),
         );
-        lines.insert(
+        config.insert(
             "druid.auth.authorizer.DruidSystemAuthorizer.type".to_string(),
             Some(r#"allowAll"#.to_string()),
         );
-        lines.insert(
+        config.insert(
             "druid.auth.authorizer.LdapAuthorizer.type".to_string(),
             Some(r#"allowAll"#.to_string()),
         );
     }
 
-    pub fn generate_runtime_properties_config_lines(&self) -> BTreeMap<String, Option<String>> {
-        let mut lines: BTreeMap<String, Option<String>> = BTreeMap::new();
+    pub fn generate_runtime_properties_config(&self) -> BTreeMap<String, Option<String>> {
+        let mut config: BTreeMap<String, Option<String>> = BTreeMap::new();
 
-        lines.insert(
+        config.insert(
             "druid.auth.authenticatorChain".to_string(),
             Some(r#"["DruidSystemAuthenticator", "Ldap"]"#.to_string()),
         );
 
-        self.add_druid_system_authenticator_lines(&mut lines);
-        self.add_ldap_authenticator_lines(&mut lines);
-        self.add_escalator_lines(&mut lines);
-        self.add_authorizer_lines(&mut lines);
+        self.add_druid_system_authenticator_config(&mut config);
+        self.add_ldap_authenticator_config(&mut config);
+        self.add_escalator_config(&mut config);
+        self.add_authorizer_config(&mut config);
 
-        lines
+        config
     }
 
     fn is_ssl_enabled(&self) -> bool {
@@ -201,7 +201,7 @@ mod test {
             },
         };
 
-        let got = ldap_settings.generate_runtime_properties_config_lines();
+        let got = ldap_settings.generate_runtime_properties_config();
 
         assert!(got.contains_key("druid.auth.authenticator.Ldap.type"));
     }
