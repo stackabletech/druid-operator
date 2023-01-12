@@ -33,13 +33,11 @@ impl DruidLdapSettings {
     }
 
     fn add_druid_system_authenticator_config(&self, config: &mut BTreeMap<String, Option<String>>) {
+        const PREFIX: &str = "druid.auth.authenticator.DruidSystemAuthenticator";
+
+        config.insert(format!("{PREFIX}.type"), Some("basic".to_string()));
         config.insert(
-            "druid.auth.authenticator.DruidSystemAuthenticator.type".to_string(),
-            Some("basic".to_string()),
-        );
-        config.insert(
-            "druid.auth.authenticator.DruidSystemAuthenticator.credentialsValidator.type"
-                .to_string(),
+            format!("{PREFIX}.credentialsValidator.type"),
             Some("metadata".to_string()),
         );
 
@@ -47,59 +45,57 @@ impl DruidLdapSettings {
         // # druid.auth.authenticator.DruidSystemAuthenticator.initialAdminPassword: XXX
 
         config.insert(
-            "druid.auth.authenticator.DruidSystemAuthenticator.initialInternalClientPassword"
-                .to_string(),
+            format!("{PREFIX}.initialInternalClientPassword"),
             Some("druid_system_pass".to_string()), // TODO: replace with sed placeholder
         );
         config.insert(
-            "druid.auth.authenticator.DruidSystemAuthenticator.authorizerName".to_string(),
+            format!("{PREFIX}.authorizerName"),
             Some("DruidSystemAuthorizer".to_string()),
         );
         config.insert(
-            "druid.auth.authenticator.DruidSystemAuthenticator.skipOnFailure".to_string(),
+            format!("{PREFIX}.skipOnFailure"),
             Some("true".to_string()), // TODO: is additional escaping necessary for "true"?
         );
     }
 
     fn add_ldap_authenticator_config(&self, config: &mut BTreeMap<String, Option<String>>) {
+        const PREFIX: &str = "druid.auth.authenticator.Ldap";
+
+        config.insert(format!("{PREFIX}.type"), Some("basic".to_string()));
         config.insert(
-            "druid.auth.authenticator.Ldap.type".to_string(),
-            Some("basic".to_string()),
-        );
-        config.insert(
-            "druid.auth.authenticator.Ldap.enableCacheNotifications".to_string(),
+            format!("{PREFIX}.enableCacheNotifications"),
             Some("true".to_string()), // TODO: is additional escaping necessary for "true"?
         );
         config.insert(
-            "druid.auth.authenticator.Ldap.credentialsValidator.type".to_string(),
+            format!("{PREFIX}.credentialsValidator.type"),
             Some("ldap".to_string()),
         );
         config.insert(
-            "druid.auth.authenticator.Ldap.credentialsValidator.url".to_string(),
+            format!("{PREFIX}.credentialsValidator.url"),
             Some(self.credentials_validator_url()),
         );
         config.insert(
-            "druid.auth.authenticator.Ldap.credentialsValidator.bindUser".to_string(),
+            format!("{PREFIX}.credentialsValidator.bindUser"),
             Some("xxx_ldap_bind_user_xxx".to_string()), // NOTE: this placeholder will be replaced from a mounted secret on container startup
         );
         config.insert(
-            "druid.auth.authenticator.Ldap.credentialsValidator.bindPassword".to_string(),
+            format!("{PREFIX}.credentialsValidator.bindPassword"),
             Some("xxx_ldap_bind_password_xxx".to_string()), // NOTE: this placeholder will be replaced from a mounted secret on container startup
         );
         config.insert(
-            "druid.auth.authenticator.Ldap.credentialsValidator.baseDn".to_string(),
+            format!("{PREFIX}.credentialsValidator.baseDn"),
             Some(self.ldap.search_base.to_string()),
         );
         config.insert(
-            "druid.auth.authenticator.Ldap.credentialsValidator.userAttribute".to_string(),
+            format!("{PREFIX}.credentialsValidator.userAttribute"),
             Some(self.ldap.ldap_field_names.uid.to_string()),
         );
         config.insert(
-            "druid.auth.authenticator.Ldap.credentialsValidator.userSearch".to_string(),
+            format!("{PREFIX}.credentialsValidator.userSearch"),
             Some(self.ldap.search_filter.to_string()),
         );
         config.insert(
-            "druid.auth.authenticator.Ldap.authorizerName".to_string(),
+            format!("{PREFIX}.authorizerName"),
             Some("LdapAuthorizer".to_string()),
         );
     }
