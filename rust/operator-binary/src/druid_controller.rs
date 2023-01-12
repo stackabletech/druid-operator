@@ -188,10 +188,6 @@ pub enum Error {
     FailedToInitializeSecurityContext {
         source: stackable_druid_crd::security::Error,
     },
-    #[snafu(display("failed to resolve ldap authentication settings"))]
-    LdapAuthorization {
-        source: stackable_druid_crd::ldap::Error,
-    },
 }
 
 type Result<T, E = Error> = std::result::Result<T, E>;

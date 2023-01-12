@@ -1,42 +1,9 @@
 use std::collections::BTreeMap;
-use std::string::FromUtf8Error;
 
-use snafu::Snafu;
 use stackable_operator::commons::authentication::AuthenticationClassProvider;
 use stackable_operator::commons::ldap::LdapAuthenticationProvider;
-use stackable_operator::k8s_openapi::api::core::v1::Secret;
-use stackable_operator::kube::runtime::reflector::ObjectRef;
-use strum::{EnumDiscriminants, IntoStaticStr};
 
 use crate::authentication::ResolvedAuthenticationClasses;
-
-#[derive(Snafu, Debug, EnumDiscriminants)]
-#[strum_discriminants(derive(IntoStaticStr))]
-#[allow(clippy::enum_variant_names)]
-pub enum Error {
-    #[snafu(display("invalid ldap settings"))]
-    InvalidLdapSettings,
-    #[snafu(display("missing ldap bind credentials"))]
-    MissingBindCredentials,
-    #[snafu(display("missing secret field"))]
-    MissingSecretField,
-    #[snafu(display("unable to parse key {} from {} as UTF8", key, secret))]
-    NonUtf8Secret {
-        source: FromUtf8Error,
-        key: String,
-        secret: ObjectRef<Secret>,
-    },
-    #[snafu(display("failed to find referenced {}", secret))]
-    MissingSecret {
-        source: stackable_operator::error::Error,
-        secret: ObjectRef<Secret>,
-    },
-    #[snafu(display(
-        "a required value was not found when parsing the authentication config: [{}]",
-        value
-    ))]
-    MissingRequiredValue { value: String },
-}
 
 const DEFAULT_LDAP_PORT: u16 = 1389;
 const DEFAULT_LDAP_TLS_PORT: u16 = 1636;
