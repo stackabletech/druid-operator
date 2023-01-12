@@ -10,7 +10,7 @@ const DEFAULT_LDAP_TLS_PORT: u16 = 1636;
 
 #[derive(Clone, Debug)]
 pub struct DruidLdapSettings {
-    pub provider: LdapAuthenticationProvider,
+    pub ldap: LdapAuthenticationProvider,
 }
 
 impl DruidLdapSettings {
@@ -25,7 +25,7 @@ impl DruidLdapSettings {
                 authentication_class.spec.provider
             {
                 return Some(DruidLdapSettings {
-                    provider: provider.clone(),
+                    ldap: provider.clone(),
                 });
             }
         }
@@ -88,15 +88,15 @@ impl DruidLdapSettings {
         );
         config.insert(
             "druid.auth.authenticator.Ldap.credentialsValidator.baseDn".to_string(),
-            Some(self.provider.search_base.to_string()),
+            Some(self.ldap.search_base.to_string()),
         );
         config.insert(
             "druid.auth.authenticator.Ldap.credentialsValidator.userAttribute".to_string(),
-            Some(self.provider.ldap_field_names.uid.to_string()),
+            Some(self.ldap.ldap_field_names.uid.to_string()),
         );
         config.insert(
             "druid.auth.authenticator.Ldap.credentialsValidator.userSearch".to_string(),
-            Some(self.provider.search_filter.to_string()),
+            Some(self.ldap.search_filter.to_string()),
         );
         config.insert(
             "druid.auth.authenticator.Ldap.authorizerName".to_string(),
@@ -155,7 +155,7 @@ impl DruidLdapSettings {
     }
 
     fn is_ssl_enabled(&self) -> bool {
-        self.provider.tls.is_some()
+        self.ldap.tls.is_some()
     }
 
     fn get_ldap_protocol_and_port(&self) -> (String, u16) {
@@ -165,7 +165,7 @@ impl DruidLdapSettings {
             "ldap".to_string()
         };
 
-        let port = if let Some(port) = self.provider.port {
+        let port = if let Some(port) = self.ldap.port {
             port
         } else if self.is_ssl_enabled() {
             DEFAULT_LDAP_TLS_PORT
@@ -178,7 +178,7 @@ impl DruidLdapSettings {
 
     fn credentials_validator_url(&self) -> String {
         let (protocol, port) = self.get_ldap_protocol_and_port();
-        format!("{}://{}:{}", protocol, self.provider.hostname, port,)
+        format!("{}://{}:{}", protocol, self.ldap.hostname, port,)
     }
 }
 
@@ -190,7 +190,7 @@ mod test {
     #[test]
     fn test_ldap_settings_are_added() {
         let ldap_settings = DruidLdapSettings {
-            provider: LdapAuthenticationProvider {
+            ldap: LdapAuthenticationProvider {
                 hostname: "openldap".to_string(),
                 port: None,
                 search_base: "ou=users,dc=example,dc=org".to_string(),

@@ -771,7 +771,7 @@ fn get_ldap_secret_volume_and_volume_mounts_and_commands(
     let mut commands = Vec::new();
 
     if let Some(ldap_settings) = maybe_ldap_settings {
-        if let Some(credentials) = &ldap_settings.provider.bind_credentials {
+        if let Some(credentials) = &ldap_settings.ldap.bind_credentials {
             let volume_name = credentials.secret_class.clone();
             let secret_volume = VolumeBuilder::new(&volume_name)
                 .ephemeral(SecretOperatorVolumeSourceBuilder::new(volume_name.clone()).build())
