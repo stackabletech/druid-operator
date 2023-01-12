@@ -785,14 +785,14 @@ fn get_ldap_secret_volume_and_volume_mounts_and_commands(
             let ldap_bind_user = format!("$(cat /stackable/secrets/{volume_name}/user)");
             let ldap_bind_password = format!("$(cat /stackable/secrets/{volume_name}/password)");
 
-            const RUNTIME_PROPERTIES_PATH: &str = "/stackable/rwconfig/runtime.properties";
+            let runtime_properties_file: String = format!("{RW_CONFIG_DIRECTORY}/{RUNTIME_PROPS}");
             commands
                 .push(r#"echo "Replacing LDAP placeholders with their proper values in {RUNTIME_PROPERTIES_FILE}""#.to_string());
             commands.push(format!(
-                r#"sed "s/xxx_ldap_bind_user_xxx/{ldap_bind_user}/g" -i {RUNTIME_PROPERTIES_PATH}"#
+                r#"sed "s/xxx_ldap_bind_user_xxx/{ldap_bind_user}/g" -i {runtime_properties_file}"#
             ));
             commands.push(format!(
-                r#"sed "s/xxx_ldap_bind_password_xxx/{ldap_bind_password}/g" -i {RUNTIME_PROPERTIES_PATH}"#
+                r#"sed "s/xxx_ldap_bind_password_xxx/{ldap_bind_password}/g" -i {runtime_properties_file}"#
             ));
         }
     }
