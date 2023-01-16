@@ -647,7 +647,7 @@ fn build_rolegroup_statefulset(
         .add_tls_volume_and_volume_mounts(&mut cb_prepare, &mut cb_druid, &mut pb)
         .context(FailedToInitializeSecurityContextSnafu)?;
     add_s3_volume_and_volume_mounts(s3_conn, &mut cb_druid, &mut pb)?;
-    add_ldap_secret_volume_mounts(&mut cb_druid, &mut pb, ldap_auth_mounts);
+    add_ldap_secret_volume_mounts(ldap_auth_mounts, &mut cb_druid, &mut pb);
     add_config_volume_and_volume_mounts(rolegroup_ref, &mut cb_druid, &mut pb);
     add_hdfs_cm_volume_and_volume_mounts(
         &druid.spec.cluster_config.deep_storage,
@@ -801,9 +801,9 @@ fn get_ldap_secret_volume_and_volume_mounts_and_commands(
 }
 
 fn add_ldap_secret_volume_mounts(
+    ldap_auth_volumes: BTreeMap<String, (String, Volume)>,
     cb_druid: &mut ContainerBuilder,
     pb: &mut PodBuilder,
-    ldap_auth_volumes: BTreeMap<String, (String, Volume)>,
 ) {
     for (name, (path, volume)) in ldap_auth_volumes.iter() {
         cb_druid.add_volume_mount(name, path);
