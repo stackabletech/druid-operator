@@ -3,6 +3,10 @@ use crate::{
     config::{get_jvm_config, get_log4j_config},
     discovery::{self, build_discovery_configmaps},
     extensions::get_extension_list,
+    internal_secret::{
+        build_shared_internal_secret_name, create_shared_internal_secret, env_var_from_secret,
+        ENV_INTERNAL_SECRET,
+    },
 };
 
 use crate::OPERATOR_NAME;
@@ -188,6 +192,10 @@ pub enum Error {
     FailedToInitializeSecurityContext {
         source: stackable_druid_crd::security::Error,
     },
+    #[snafu(display("failed to retrieve secret for internal communications"))]
+    FailedInternalSecretCreation {
+        source: crate::internal_secret::Error,
+    },
 }
 
 type Result<T, E = Error> = std::result::Result<T, E>;
@@ -307,6 +315,10 @@ pub async fn reconcile_druid(druid: Arc<DruidCluster>, ctx: Arc<Ctx>) -> Result<
             .add(client, &role_service)
             .await
             .context(ApplyRoleServiceSnafu)?;
+
+        create_shared_internal_secret(&druid, client, CONTROLLER_NAME)
+            .await
+            .context(FailedInternalSecretCreationSnafu)?;
 
         for (rolegroup_name, rolegroup_config) in role_config.iter() {
             let rolegroup = RoleGroupRef {
@@ -665,7 +677,7 @@ fn build_rolegroup_statefulset(
         .build();
 
     // rest of env
-    let rest_env = rolegroup_config
+    let mut rest_env = rolegroup_config
         .get(&PropertyNameKind::Env)
         .iter()
         .flat_map(|env_vars| env_vars.iter())
@@ -676,6 +688,9 @@ fn build_rolegroup_statefulset(
             ..EnvVar::default()
         })
         .collect::<Vec<_>>();
+
+    let secret_name = build_shared_internal_secret_name(druid);
+    rest_env.push(env_var_from_secret(&secret_name, None, ENV_INTERNAL_SECRET));
 
     cb_druid
         .image_from_product_image(resolved_product_image)

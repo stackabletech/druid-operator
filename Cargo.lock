@@ -1845,6 +1845,7 @@ dependencies = [
  "fnv",
  "futures 0.3.25",
  "indoc",
+ "openssl",
  "pin-project",
  "rstest",
  "semver",
