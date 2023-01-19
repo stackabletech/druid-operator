@@ -17,9 +17,9 @@ impl DruidLdapSettings {
     pub fn new_from(
         resolved_authentication_config: ResolvedAuthenticationClasses,
     ) -> Option<DruidLdapSettings> {
-        let authentication_class = resolved_authentication_config.get_ldap_authentication_class();
-
-        if let Some(authentication_class) = authentication_class {
+        if let Some(authentication_class) =
+            resolved_authentication_config.get_ldap_authentication_class()
+        {
             if let AuthenticationClassProvider::Ldap(ref provider) =
                 authentication_class.spec.provider
             {

@@ -824,7 +824,7 @@ fn add_ldap_secret_volume_mounts(
     cb_druid: &mut ContainerBuilder,
     pb: &mut PodBuilder,
 ) {
-    for (name, (path, volume)) in ldap_auth_volumes.iter() {
+    for (name, (path, volume)) in ldap_auth_volumes {
         cb_druid.add_volume_mount(name, path);
         pb.add_volume(volume.clone());
     }
