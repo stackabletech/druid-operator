@@ -307,7 +307,27 @@ spec:
 
 ==== LDAP
 
-TODO: add more info here.
+
+Druid supports authentication of users against an LDAP server.
+Have a look at https://github.com/stackabletech/druid-operator/tree/main/tests/templates/kuttl/ldap-authentication[the LDAP test] and the general xref:commons-operator::authenticationclass.adoc[Stackable Authentication] documentation on how to set it up.
+
+To use LDAP, you will need to specify a xref:commons-operator::authenticationclass.adoc[`AuthenticationClass`] which is used to authenticate the users.
+Here is a reduced, non-functional YAML example, which shows the most essential parts which are needed to configure LDAP in the druid-operator:
+
+[source,yaml]
+----
+include::example$code/druid-ldap-authentication.yaml[]
+----
+
+Refer to https://github.com/stackabletech/druid-operator/tree/main/tests/templates/kuttl/ldap-authentication/create_ldap_user.sh[the LDAP test user creation script] to see what LDAP settings are referred to in this config snippet.
+
+==== Current Limitations and Upcoming Work
+
+At the moment you can either use TLS authentication or LDAP authentication. Both methods together are not supported.
+
+Communication with a TLS-secured LDAP server is currently not implemented, but will be tackled in the near future.
+
+Authorization is done using the `allowAll` authorizer. In the future, support for `memberOf` and OPA will be added.
 
 === Authorization with Open Policy Agent (OPA)
 
