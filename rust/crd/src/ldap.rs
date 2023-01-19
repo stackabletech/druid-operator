@@ -5,9 +5,6 @@ use stackable_operator::commons::ldap::LdapAuthenticationProvider;
 
 use crate::authentication::ResolvedAuthenticationClasses;
 
-const DEFAULT_LDAP_PORT: u16 = 1389;
-const DEFAULT_LDAP_TLS_PORT: u16 = 1636;
-
 #[derive(Clone, Debug)]
 pub struct DruidLdapSettings {
     pub ldap: LdapAuthenticationProvider,
@@ -159,10 +156,8 @@ impl DruidLdapSettings {
 
         let port = if let Some(port) = self.ldap.port {
             port
-        } else if self.is_ssl_enabled() {
-            DEFAULT_LDAP_TLS_PORT
         } else {
-            DEFAULT_LDAP_PORT
+            self.ldap.default_port()
         };
 
         (protocol, port)
