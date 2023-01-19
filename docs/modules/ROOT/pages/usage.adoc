@@ -307,11 +307,11 @@ spec:
 
 ==== LDAP
 
+Druid supports xref:home:concepts:authentication.adoc[authentication] of users against an LDAP server.
+This requires setting up an xref:home:concepts:authentication.adoc#authenticationclass[AuthenticationClass] for the LDAP server.
 
-Druid supports authentication of users against an LDAP server.
-Have a look at https://github.com/stackabletech/druid-operator/tree/main/tests/templates/kuttl/ldap-authentication[the LDAP test] and the general xref:commons-operator::authenticationclass.adoc[Stackable Authentication] documentation on how to set it up.
+NOTE: You can follow the xref:home:tutorials:authentication_with_openldap.adoc[] tutorial to learn how to create an AuthenticationClass for an LDAP server.
 
-To use LDAP, you will need to specify a xref:commons-operator::authenticationclass.adoc[`AuthenticationClass`] which is used to authenticate the users.
 Here is a reduced, non-functional YAML example, which shows the most essential parts which are needed to configure LDAP in the druid-operator:
 
 [source,yaml]
@@ -319,15 +319,16 @@ Here is a reduced, non-functional YAML example, which shows the most essential p
 include::example$code/druid-ldap-authentication.yaml[]
 ----
 
-Refer to https://github.com/stackabletech/druid-operator/tree/main/tests/templates/kuttl/ldap-authentication/create_ldap_user.sh[the LDAP test user creation script] to see what LDAP settings are referred to in this config snippet.
+You can see the xref:home:tutorials:authentication_with_openldap.adoc[] tutorial to see a complete example of how to set LDAP authentication for another Stackable operator. You can also consult the xref:home:reference:authenticationclass.adoc[] reference, or
+https://github.com/stackabletech/druid-operator/tree/main/tests/templates/kuttl/ldap-authentication[the LDAP test] suite.
 
 ==== Current Limitations and Upcoming Work
 
 At the moment you can either use TLS authentication or LDAP authentication. Both methods together are not supported.
 
-Communication with a TLS-secured LDAP server is currently not implemented, but will be tackled in the near future.
+Communication with a TLS-secured LDAP server is currently not implemented, but will be tackled in the future.
 
-Authorization is done using the `allowAll` authorizer. In the future, support for `memberOf` and OPA will be added.
+Authorization is done using the `allowAll` authorizer. Supporting for `memberOf` and OPA authorization are planned.
 
 === Authorization with Open Policy Agent (OPA)
 
