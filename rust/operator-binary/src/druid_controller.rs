@@ -623,7 +623,7 @@ fn build_rolegroup_statefulset(
     s3_conn: Option<&S3ConnectionSpec>,
     resources: &RoleResource,
     druid_tls_security: &DruidTlsSecurity,
-    maybe_ldap_settings: &Option<DruidLdapSettings>,
+    ldap_settings: &Option<DruidLdapSettings>,
 ) -> Result<StatefulSet> {
     let role = DruidRole::from_str(&rolegroup_ref.role).context(UnidentifiedDruidRoleSnafu {
         role: rolegroup_ref.role.to_string(),
@@ -640,7 +640,7 @@ fn build_rolegroup_statefulset(
     pb.node_selector_opt(druid.node_selector(rolegroup_ref));
 
     let (ldap_auth_mounts, ldap_auth_cmd) =
-        get_ldap_secret_volume_and_volume_mounts_and_commands(maybe_ldap_settings);
+        get_ldap_secret_volume_and_volume_mounts_and_commands(ldap_settings);
 
     // volume and volume mounts
     druid_tls_security
@@ -765,12 +765,12 @@ fn add_hdfs_cm_volume_and_volume_mounts(
 }
 
 fn get_ldap_secret_volume_and_volume_mounts_and_commands(
-    maybe_ldap_settings: &Option<DruidLdapSettings>,
+    ldap_settings: &Option<DruidLdapSettings>,
 ) -> (BTreeMap<String, (String, Volume)>, Vec<String>) {
     let mut volumes = BTreeMap::new();
     let mut commands = Vec::new();
 
-    if let Some(ldap_settings) = maybe_ldap_settings {
+    if let Some(ldap_settings) = ldap_settings {
         if let Some(credentials) = &ldap_settings.ldap.bind_credentials {
             let volume_name = credentials.secret_class.clone();
             let secret_volume = VolumeBuilder::new(&volume_name)
@@ -968,7 +968,7 @@ mod test {
                     let resources =
                         resource::resources(&druid, &DruidRole::Historical, &rolegroup_ref)
                             .context(ResourceSnafu)?;
-                    let maybe_ldap_settings: Option<DruidLdapSettings> = None;
+                    let ldap_settings: Option<DruidLdapSettings> = None;
 
                     let rg_configmap = build_rolegroup_config_map(
                         &druid,
@@ -981,7 +981,7 @@ mod test {
                         None,
                         &resources,
                         &druid_tls_security,
-                        &maybe_ldap_settings,
+                        &ldap_settings,
                     )
                     .context(ControllerSnafu)?;
 
