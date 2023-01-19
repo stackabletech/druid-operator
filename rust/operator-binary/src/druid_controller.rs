@@ -799,6 +799,7 @@ fn get_ldap_secret_volume_and_volume_mounts_and_commands(
 
             let ldap_bind_user = format!("$(cat /stackable/secrets/{volume_name}/user)");
             let ldap_bind_password = format!("$(cat /stackable/secrets/{volume_name}/password)");
+            let internal_client_password = format!("$(echo ${ENV_INTERNAL_SECRET})");
 
             let runtime_properties_file: String = format!("{RW_CONFIG_DIRECTORY}/{RUNTIME_PROPS}");
             commands
@@ -808,6 +809,9 @@ fn get_ldap_secret_volume_and_volume_mounts_and_commands(
             ));
             commands.push(format!(
                 r#"sed "s/xxx_ldap_bind_password_xxx/{ldap_bind_password}/g" -i {runtime_properties_file}"#
+            ));
+            commands.push(format!(
+                r#"sed "s|xxx_druid_system_internal_client_password_xxx|{internal_client_password}|g" -i {runtime_properties_file}"# // using another delimeter (|) here because of base64 string
             ));
         }
     }

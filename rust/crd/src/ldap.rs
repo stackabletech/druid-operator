@@ -45,7 +45,7 @@ impl DruidLdapSettings {
 
         config.insert(
             format!("{PREFIX}.initialInternalClientPassword"),
-            Some("druid_system_pass".to_string()), // TODO: replace with sed placeholder
+            Some("xxx_druid_system_internal_client_password_xxx".to_string()),
         );
         config.insert(
             format!("{PREFIX}.authorizerName"),
@@ -103,11 +103,11 @@ impl DruidLdapSettings {
         );
         config.insert(
             "druid.escalator.internalClientUsername".to_string(),
-            Some("druid_system".to_string()), // TODO: replace with sed-placeholder xxx_druid_system_internal_user_xxx
+            Some("druid_system".to_string()),
         );
         config.insert(
             "druid.escalator.internalClientPassword".to_string(),
-            Some("druid_system_pass".to_string()), // TODO: replace with sed-placeholder
+            Some("xxx_druid_system_internal_client_password_xxx".to_string()),
         );
         config.insert(
             "druid.escalator.authorizerName".to_string(),
