@@ -126,7 +126,7 @@ impl DruidLdapSettings {
         );
         config.insert(
             "druid.auth.authorizer.LdapAuthorizer.type".to_string(),
-            Some(r#"allowAll"#.to_string()),
+            Some(r#"allowAll"#.to_string()), // TODO: Respect opa setting
         );
     }
 
