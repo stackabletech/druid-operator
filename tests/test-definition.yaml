@@ -31,7 +31,7 @@ dimensions:
       - "internal-and-server-tls-and-tls-client-auth"
   - name: ldap-use-tls
     values:
-      #- "true" # commented out, as it is not yet functional
+      # - "true" # disabled, until ldaps is actually supported
       - "false"
 tests:
   - name: smoke
