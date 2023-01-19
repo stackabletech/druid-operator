@@ -20,6 +20,9 @@ dimensions:
   - name: hadoop
     values:
       - 3.3.4-stackable0.2.0
+  - name: hadoop-latest
+    values:
+      - 3.3.4-stackable0.2.0
   - name: s3-use-tls
     values:
       - "true"
@@ -84,5 +87,5 @@ tests:
       - druid
       - zookeeper-latest
       - opa
-      - hadoop
+      - hadoop-latest
       - ldap-use-tls
