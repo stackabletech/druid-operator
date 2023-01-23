@@ -308,7 +308,12 @@ spec:
 ==== LDAP
 
 Druid supports xref:home:concepts:authentication.adoc[authentication] of users against an LDAP server.
-This requires setting up an xref:home:concepts:authentication.adoc#authenticationclass[AuthenticationClass] for the LDAP server.
+This requires setting up an xref:home:concepts:authentication.adoc#authenticationclass[AuthenticationClass] for the LDAP server:
+
+[source,yaml]
+----
+include::example$code/druid-ldap-authentication.yaml[tag=authclass]
+----
 
 NOTE: You can follow the xref:home:tutorials:authentication_with_openldap.adoc[] tutorial to learn how to create an AuthenticationClass for an LDAP server.
 
