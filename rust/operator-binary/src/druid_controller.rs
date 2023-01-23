@@ -33,13 +33,14 @@ use stackable_operator::{
     cluster_resources::ClusterResources,
     commons::{
         opa::OpaApiVersion,
+        product_image_selection::ResolvedProductImage,
         s3::{S3AccessStyle, S3ConnectionSpec},
         tls::{CaCert, TlsVerification},
     },
     k8s_openapi::{
         api::{
             apps::v1::{StatefulSet, StatefulSetSpec},
-            core::v1::{ConfigMap, EnvVar, Service, ServiceSpec},
+            core::v1::{ConfigMap, EnvVar, Service, ServiceSpec, Volume},
         },
         apimachinery::pkg::apis::meta::v1::LabelSelector,
     },
@@ -53,9 +54,6 @@ use stackable_operator::{
     product_config::{types::PropertyNameKind, ProductConfigManager},
     product_config_utils::{transform_all_roles_to_config, validate_all_roles_and_groups_config},
     role_utils::RoleGroupRef,
-};
-use stackable_operator::{
-    commons::product_image_selection::ResolvedProductImage, k8s_openapi::api::core::v1::Volume,
 };
 use std::{
     collections::{BTreeMap, HashMap},
