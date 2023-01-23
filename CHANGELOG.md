@@ -4,6 +4,8 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [23.1.0] - 2023-01-23
+
 ### Added
 
 - BREAKING: Support for TLS encryption (activated per default -> port changes) and TLS authentication ([#333])

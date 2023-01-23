@@ -6,7 +6,7 @@ metadata:
 spec:
   image:
     productVersion: 3.8.0
-    stackableVersion: 0.8.0
+    stackableVersion: 23.1.0
   servers:
     roleGroups:
       default:
@@ -19,6 +19,8 @@ metadata:
 spec:
   clusterRef:
     name: simple-zk
+  image:
+    stackableVersion: 23.1.0
 ---
 apiVersion: zookeeper.stackable.tech/v1alpha1
 kind: ZookeeperZnode
@@ -27,3 +29,5 @@ metadata:
 spec:
   clusterRef:
     name: simple-zk
+  image:
+    stackableVersion: 23.1.0
