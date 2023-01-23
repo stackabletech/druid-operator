@@ -317,11 +317,11 @@ include::example$code/druid-ldap-authentication.yaml[tag=authclass]
 
 NOTE: You can follow the xref:home:tutorials:authentication_with_openldap.adoc[] tutorial to learn how to create an AuthenticationClass for an LDAP server.
 
-Here is a reduced, non-functional YAML example, which shows the most essential parts which are needed to configure LDAP in the druid-operator:
+Reference the AuthenticationClass in your DruidCluster resource:
 
 [source,yaml]
 ----
-include::example$code/druid-ldap-authentication.yaml[]
+include::example$code/druid-ldap-authentication.yaml[tag=druid]
 ----
 
 You can see the xref:home:tutorials:authentication_with_openldap.adoc[] tutorial to see a complete example of how to set LDAP authentication for another Stackable operator. You can also consult the xref:home:reference:authenticationclass.adoc[] reference, or
