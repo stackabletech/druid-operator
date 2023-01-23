@@ -59,7 +59,10 @@ pub struct DruidAuthentication {
     ///
     /// ## LDAP provider
     ///
-    /// Only affects client connections. TODO
+    /// Only affects client connections. This setting controls:
+    /// - If clients need to authenticate themselves against Druid via LDAP
+    /// - Which ca.crt to use when validating the provided client certs (currently not supported)
+    ///
     pub authentication_class: String,
 }
 
