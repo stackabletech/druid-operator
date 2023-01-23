@@ -93,11 +93,11 @@ impl DruidTlsSecurity {
 
     /// Create a `DruidTlsSecurity` struct from the Druid custom resource and resolve
     /// all provided `AuthenticationClass` references.
-    pub async fn new_from_druid_cluster(
+    pub fn new_from_druid_cluster(
         druid: &DruidCluster,
         resolved_authentication_classes: ResolvedAuthenticationClasses,
-    ) -> Result<Self, Error> {
-        Ok(DruidTlsSecurity {
+    ) -> Self {
+        DruidTlsSecurity {
             resolved_authentication_classes,
             server_and_internal_secret_class: druid
                 .spec
@@ -105,7 +105,7 @@ impl DruidTlsSecurity {
                 .tls
                 .as_ref()
                 .and_then(|tls| tls.server_and_internal_secret_class.clone()),
-        })
+        }
     }
 
     /// Check if TLS encryption is enabled. This could be due to:

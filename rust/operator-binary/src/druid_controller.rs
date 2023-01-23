@@ -274,9 +274,7 @@ pub async fn reconcile_druid(druid: Arc<DruidCluster>, ctx: Arc<Ctx>) -> Result<
         .context(FailedToInitializeSecurityContextSnafu)?;
 
     let druid_tls_security =
-        DruidTlsSecurity::new_from_druid_cluster(&druid, resolved_authentication_classes.clone())
-            .await
-            .context(FailedToInitializeSecurityContextSnafu)?;
+        DruidTlsSecurity::new_from_druid_cluster(&druid, resolved_authentication_classes.clone());
 
     let druid_ldap_settings = DruidLdapSettings::new_from(resolved_authentication_classes);
 
