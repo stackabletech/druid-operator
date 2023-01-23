@@ -12,7 +12,7 @@ pub struct DruidLdapSettings {
 
 impl DruidLdapSettings {
     pub fn new_from(
-        resolved_authentication_config: ResolvedAuthenticationClasses,
+        resolved_authentication_config: &ResolvedAuthenticationClasses,
     ) -> Option<DruidLdapSettings> {
         if let Some(authentication_class) =
             resolved_authentication_config.get_ldap_authentication_class()

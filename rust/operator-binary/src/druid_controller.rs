@@ -271,10 +271,10 @@ pub async fn reconcile_druid(druid: Arc<DruidCluster>, ctx: Arc<Ctx>) -> Result<
         .await
         .context(FailedToInitializeSecurityContextSnafu)?;
 
-    let druid_tls_security =
-        DruidTlsSecurity::new_from_druid_cluster(&druid, resolved_authentication_classes.clone());
+    let druid_ldap_settings = DruidLdapSettings::new_from(&resolved_authentication_classes);
 
-    let druid_ldap_settings = DruidLdapSettings::new_from(resolved_authentication_classes);
+    let druid_tls_security =
+        DruidTlsSecurity::new_from_druid_cluster(&druid, resolved_authentication_classes);
 
     // False positive, auto-deref breaks type inference
     #[allow(clippy::explicit_auto_deref)]
