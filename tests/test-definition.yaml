@@ -36,6 +36,10 @@ dimensions:
     values:
       # - "true" # disabled, until ldaps is actually supported
       - "false"
+  - name: ldap-no-bind-credentials
+    values:
+      # - "true"
+      - "false"
 tests:
   - name: smoke
     dimensions:
@@ -89,3 +93,4 @@ tests:
       - opa
       - hadoop-latest
       - ldap-use-tls
+      - ldap-no-bind-credentials

@@ -25,6 +25,7 @@ spec:
             caCert:
               secretClass: openldap-tls
 {% endif %}
+{% if test_scenario['values']['ldap-no-bind-credentials'] == 'false' %}
       bindCredentials:
         secretClass: druid-ldap-secret
 ---
@@ -47,6 +48,7 @@ metadata:
 stringData:
   user: cn=admin,dc=example,dc=org
   password: admin
+{% endif %}
 ---
 apiVersion: druid.stackable.tech/v1alpha1
 kind: DruidCluster

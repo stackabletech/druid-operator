@@ -32,6 +32,10 @@ spec:
               value: /tls/tls.key
             - name: LDAP_TLS_CA_FILE
               value: /tls/ca.crt
+{% if test_scenario['values']['ldap-no-bind-credentials'] == 'true' %}
+            - name: LDAP_ALLOW_ANON_BINDING
+              value: "yes"
+{% endif %}
           ports:
             - name: ldap
               containerPort: 1389
