@@ -19,8 +19,6 @@ metadata:
 spec:
   clusterRef:
     name: simple-zk
-  image:
-    stackableVersion: 23.1.0
 ---
 apiVersion: zookeeper.stackable.tech/v1alpha1
 kind: ZookeeperZnode
@@ -29,5 +27,3 @@ metadata:
 spec:
   clusterRef:
     name: simple-zk
-  image:
-    stackableVersion: 23.1.0
