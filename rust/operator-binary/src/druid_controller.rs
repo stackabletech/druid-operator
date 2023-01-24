@@ -791,31 +791,29 @@ fn get_ldap_secret_placeholder_replacement_commands(
     let mut commands = Vec::new();
 
     if let Some(ldap_settings) = ldap_settings {
-        // having ldap settings, but no bind credentials does not seem to sit well with how druid approaches LDAP auth
-        // see https://www.bookstack.cn/read/apache-druid-0.21.0-en/50dcbe5ee010849f.md#properties-for-ldap-user-authentication
-        // search for "credentialsValidator.bindUser" - it is required
-        // thus the error if we don't manage to construct mount paths below
-        let (ldap_bind_user_path, ldap_bind_password_path) = ldap_settings
-            .ldap
-            .bind_credentials_mount_paths()
-            .context(LdapBindCredentialsAreRequiredSnafu)?;
+        let runtime_properties_file: String = format!("{RW_CONFIG_DIRECTORY}/{RUNTIME_PROPS}");
 
-        let ldap_bind_user = format!("$(cat {ldap_bind_user_path})");
-        let ldap_bind_password = format!("$(cat {ldap_bind_password_path})");
         let internal_client_password = format!("$(echo ${ENV_INTERNAL_SECRET})");
 
-        let runtime_properties_file: String = format!("{RW_CONFIG_DIRECTORY}/{RUNTIME_PROPS}");
         commands
                 .push(r#"echo "Replacing LDAP placeholders with their proper values in {RUNTIME_PROPERTIES_FILE}""#.to_string());
         commands.push(format!(
-                r#"sed "s/{PLACEHOLDER_LDAP_BIND_USER}/{ldap_bind_user}/g" -i {runtime_properties_file}"#
-            ));
-        commands.push(format!(
-                r#"sed "s/{PLACEHOLDER_LDAP_BIND_PASSWORD}/{ldap_bind_password}/g" -i {runtime_properties_file}"#
-            ));
-        commands.push(format!(
             r#"sed "s|{PLACEHOLDER_INTERNAL_CLIENT_PASSWORD}|{internal_client_password}|g" -i {runtime_properties_file}"# // using another delimeter (|) here because of base64 string
         ));
+
+        if let Some((ldap_bind_user_path, ldap_bind_password_path)) =
+            ldap_settings.ldap.bind_credentials_mount_paths()
+        {
+            let ldap_bind_user = format!("$(cat {ldap_bind_user_path})");
+            let ldap_bind_password = format!("$(cat {ldap_bind_password_path})");
+
+            commands.push(format!(
+                    r#"sed "s/{PLACEHOLDER_LDAP_BIND_USER}/{ldap_bind_user}/g" -i {runtime_properties_file}"#
+                ));
+            commands.push(format!(
+                    r#"sed "s/{PLACEHOLDER_LDAP_BIND_PASSWORD}/{ldap_bind_password}/g" -i {runtime_properties_file}"#
+                ));
+        }
     }
     Ok(commands)
 }
