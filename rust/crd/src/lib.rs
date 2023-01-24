@@ -1,5 +1,6 @@
 pub mod authentication;
 pub mod authorization;
+pub mod memory;
 pub mod resource;
 pub mod security;
 pub mod storage;
