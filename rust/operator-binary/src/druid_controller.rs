@@ -800,8 +800,8 @@ fn get_ldap_secret_placeholder_replacement_commands(
             .bind_credentials_mount_paths()
             .context(LdapBindCredentialsAreRequiredSnafu)?;
 
-        let ldap_bind_user = format!("$(cat {ldap_bind_user_path}");
-        let ldap_bind_password = format!("$(cat {ldap_bind_password_path}");
+        let ldap_bind_user = format!("$(cat {ldap_bind_user_path})");
+        let ldap_bind_password = format!("$(cat {ldap_bind_password_path})");
         let internal_client_password = format!("$(echo ${ENV_INTERNAL_SECRET})");
 
         let runtime_properties_file: String = format!("{RW_CONFIG_DIRECTORY}/{RUNTIME_PROPS}");
