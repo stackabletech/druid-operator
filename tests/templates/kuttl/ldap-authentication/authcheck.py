@@ -11,10 +11,10 @@ def main():
 
     druid_ports = {
         "coordinator": 8081,
-        # "broker": 8082,
-        # "middlemanager": 8091,
-        # "historical": 8083,
-        # "router": 8888
+        "broker": 8082,
+        "middlemanager": 8091,
+        "historical": 8083,
+        "router": 8888
     }
     log_level = 'INFO'
     logging.basicConfig(level=log_level, format='%(asctime)s %(levelname)s: %(message)s', stream=sys.stdout)
