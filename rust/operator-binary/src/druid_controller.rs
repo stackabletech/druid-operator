@@ -40,7 +40,7 @@ use stackable_operator::{
     k8s_openapi::{
         api::{
             apps::v1::{StatefulSet, StatefulSetSpec},
-            core::v1::{ConfigMap, EnvVar, Service, ServiceSpec, Volume},
+            core::v1::{ConfigMap, EnvVar, Service, ServiceSpec},
         },
         apimachinery::pkg::apis::meta::v1::LabelSelector,
     },
@@ -647,15 +647,18 @@ fn build_rolegroup_statefulset(
     let mut pb = PodBuilder::new();
     pb.node_selector_opt(druid.node_selector(rolegroup_ref));
 
-    let (ldap_auth_mounts, ldap_auth_cmd) =
-        get_ldap_secret_volume_and_volume_mounts_and_commands(ldap_settings);
+    if let Some(ldap_settings) = ldap_settings {
+        ldap_settings
+            .ldap
+            .add_volumes_and_mounts(&mut pb, vec![&mut cb_druid]);
+    }
+    let ldap_auth_cmd = get_ldap_secret_placeholder_replacement_commands(ldap_settings);
 
     // volume and volume mounts
     druid_tls_security
         .add_tls_volume_and_volume_mounts(&mut cb_prepare, &mut cb_druid, &mut pb)
         .context(FailedToInitializeSecurityContextSnafu)?;
     add_s3_volume_and_volume_mounts(s3_conn, &mut cb_druid, &mut pb)?;
-    add_ldap_secret_volume_mounts(ldap_auth_mounts, &mut cb_druid, &mut pb);
     add_config_volume_and_volume_mounts(rolegroup_ref, &mut cb_druid, &mut pb);
     add_hdfs_cm_volume_and_volume_mounts(
         &druid.spec.cluster_config.deep_storage,
@@ -775,23 +778,14 @@ fn add_hdfs_cm_volume_and_volume_mounts(
     }
 }
 
-fn get_ldap_secret_volume_and_volume_mounts_and_commands(
+fn get_ldap_secret_placeholder_replacement_commands(
     ldap_settings: &Option<DruidLdapSettings>,
-) -> (BTreeMap<String, (String, Volume)>, Vec<String>) {
-    let mut volumes = BTreeMap::new();
+) -> Vec<String> {
     let mut commands = Vec::new();
 
     if let Some(ldap_settings) = ldap_settings {
         if let Some(credentials) = &ldap_settings.ldap.bind_credentials {
-            let volume_name = credentials.secret_class.clone();
-            let secret_volume = VolumeBuilder::new(&volume_name)
-                .ephemeral(SecretOperatorVolumeSourceBuilder::new(volume_name.clone()).build())
-                .build();
-
-            volumes.insert(
-                volume_name.clone(),
-                (format!("/stackable/secrets/{volume_name}"), secret_volume),
-            );
+            let volume_name = credentials.secret_class.clone(); // TODO: get another way?
 
             let ldap_bind_user = format!("$(cat /stackable/secrets/{volume_name}/user)");
             let ldap_bind_password = format!("$(cat /stackable/secrets/{volume_name}/password)");
@@ -812,18 +806,7 @@ fn get_ldap_secret_volume_and_volume_mounts_and_commands(
         }
     }
 
-    (volumes, commands)
-}
-
-fn add_ldap_secret_volume_mounts(
-    ldap_auth_volumes: BTreeMap<String, (String, Volume)>,
-    cb_druid: &mut ContainerBuilder,
-    pb: &mut PodBuilder,
-) {
-    for (name, (path, volume)) in ldap_auth_volumes {
-        cb_druid.add_volume_mount(name, path);
-        pb.add_volume(volume.clone());
-    }
+    commands
 }
 
 fn add_config_volume_and_volume_mounts(
