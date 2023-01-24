@@ -19,10 +19,10 @@ dimensions:
       - 0.45.0-stackable0.3.0
   - name: hadoop
     values:
-      - 3.3.4-stackable0.2.0
+      - 3.3.4-stackable0.3.0
   - name: hadoop-latest
     values:
-      - 3.3.4-stackable0.2.0
+      - 3.3.4-stackable0.3.0
   - name: s3-use-tls
     values:
       - "true"
