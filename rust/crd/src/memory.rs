@@ -1,4 +1,8 @@
-//! Calculate how much memory to allocate where
+use std::collections::HashMap;
+
+use stackable_operator::memory::MemoryQuantity;
+
+use crate::{PROCESSING_BUFFER_SIZEBYTES, PROCESSING_NUMMERGEBUFFERS, PROCESSING_NUMTHREADS};
 
 pub struct RuntimeSettings {
     total_memory: usize,
@@ -58,6 +62,23 @@ impl RuntimeSettings {
         ((self.direct_access_memory() as f64)
             / (self.num_threads() + self.num_merge_buffers() + 1) as f64)
             .round() as usize
+    }
+
+    pub fn get_settings(&self) -> HashMap<String, String> {
+        HashMap::from([
+            (
+                PROCESSING_NUMTHREADS.to_owned(),
+                self.num_threads().to_string(),
+            ),
+            (
+                PROCESSING_NUMMERGEBUFFERS.to_owned(),
+                self.num_merge_buffers().to_string(),
+            ),
+            (
+                PROCESSING_BUFFER_SIZEBYTES.to_owned(),
+                self.buffer_size().to_string(),
+            ),
+        ])
     }
 }
 
