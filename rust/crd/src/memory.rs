@@ -15,7 +15,7 @@ impl RuntimeSettings {
             cpu_millis,
             min_heap_ratio: 0.75,
             os_reserved_memory: 300_000_000, // 300MB
-            max_buffer_size: 2_000_000_000, // 2GB, Druid recommended
+            max_buffer_size: 2_000_000_000,  // 2GB, Druid recommended
         }
     }
 
@@ -40,7 +40,8 @@ impl RuntimeSettings {
 
     /// How much to allocate (or keep free) for direct access.
     pub fn direct_access_memory(&self) -> usize {
-        self.allocatable_direct_access_memory().min(self.max_direct_access_memory())
+        self.allocatable_direct_access_memory()
+            .min(self.max_direct_access_memory())
     }
 
     /// The number of threads to use, based on the CPU millis.
@@ -81,7 +82,7 @@ mod tests {
         assert_eq!(s.num_threads(), expected_num_threads);
     }
 
-    #[rstest]    
+    #[rstest]
     #[case(1000, 2)]
     #[case(2000, 2)]
     #[case(4000, 2)]
@@ -90,9 +91,11 @@ mod tests {
     #[case(16_000, 3)]
     #[case(17_000, 4)]
     #[case(32_000, 7)]
-    fn test_num_merge_buffers(#[case] cpu_millis: usize, #[case] expected_num_merge_buffers: usize) {
+    fn test_num_merge_buffers(
+        #[case] cpu_millis: usize,
+        #[case] expected_num_merge_buffers: usize,
+    ) {
         let s = RuntimeSettings::new(2_000_000_000, cpu_millis);
         assert_eq!(s.num_merge_buffers(), expected_num_merge_buffers);
     }
-
 }
