@@ -10,6 +10,11 @@ pub struct DruidLdapSettings {
     pub ldap: LdapAuthenticationProvider,
 }
 
+pub const PLACEHOLDER_INTERNAL_CLIENT_PASSWORD: &str =
+    "xxx_druid_system_internal_client_password_xxx";
+pub const PLACEHOLDER_LDAP_BIND_PASSWORD: &str = "xxx_ldap_bind_password_xxx";
+pub const PLACEHOLDER_LDAP_BIND_USER: &str = "xxx_ldap_bind_user_xxx";
+
 impl DruidLdapSettings {
     pub fn new_from(
         resolved_authentication_config: &ResolvedAuthenticationClasses,
@@ -42,7 +47,7 @@ impl DruidLdapSettings {
 
         config.insert(
             format!("{PREFIX}.initialInternalClientPassword"),
-            Some("xxx_druid_system_internal_client_password_xxx".to_string()),
+            Some(PLACEHOLDER_INTERNAL_CLIENT_PASSWORD.to_string()),
         );
         config.insert(
             format!("{PREFIX}.authorizerName"),
@@ -69,11 +74,11 @@ impl DruidLdapSettings {
         );
         config.insert(
             format!("{PREFIX}.credentialsValidator.bindUser"),
-            Some("xxx_ldap_bind_user_xxx".to_string()), // NOTE: this placeholder will be replaced from a mounted secret on container startup
+            Some(PLACEHOLDER_LDAP_BIND_USER.to_string()), // NOTE: this placeholder will be replaced from a mounted secret on container startup
         );
         config.insert(
             format!("{PREFIX}.credentialsValidator.bindPassword"),
-            Some("xxx_ldap_bind_password_xxx".to_string()), // NOTE: this placeholder will be replaced from a mounted secret on container startup
+            Some(PLACEHOLDER_LDAP_BIND_PASSWORD.to_string()), // NOTE: this placeholder will be replaced from a mounted secret on container startup
         );
         config.insert(
             format!("{PREFIX}.credentialsValidator.baseDn"),
@@ -104,7 +109,7 @@ impl DruidLdapSettings {
         );
         config.insert(
             "druid.escalator.internalClientPassword".to_string(),
-            Some("xxx_druid_system_internal_client_password_xxx".to_string()),
+            Some(PLACEHOLDER_INTERNAL_CLIENT_PASSWORD.to_string()),
         );
         config.insert(
             "druid.escalator.authorizerName".to_string(),

@@ -14,7 +14,10 @@ use snafu::{OptionExt, ResultExt, Snafu};
 use stackable_druid_crd::{
     authorization::DruidAuthorization,
     build_string_list,
-    ldap::DruidLdapSettings,
+    ldap::{
+        DruidLdapSettings, PLACEHOLDER_INTERNAL_CLIENT_PASSWORD, PLACEHOLDER_LDAP_BIND_PASSWORD,
+        PLACEHOLDER_LDAP_BIND_USER,
+    },
     security::{resolve_authentication_classes, DruidTlsSecurity},
     DeepStorageSpec, DruidCluster, DruidRole, APP_NAME, AUTH_AUTHORIZER_OPA_URI, CERTS_DIR,
     CREDENTIALS_SECRET_PROPERTY, DRUID_CONFIG_DIRECTORY, DS_BUCKET, EXTENSIONS_LOADLIST,
@@ -795,13 +798,13 @@ fn get_ldap_secret_placeholder_replacement_commands(
             commands
                 .push(r#"echo "Replacing LDAP placeholders with their proper values in {RUNTIME_PROPERTIES_FILE}""#.to_string());
             commands.push(format!(
-                r#"sed "s/xxx_ldap_bind_user_xxx/{ldap_bind_user}/g" -i {runtime_properties_file}"#
+                r#"sed "s/{PLACEHOLDER_LDAP_BIND_USER}/{ldap_bind_user}/g" -i {runtime_properties_file}"#
             ));
             commands.push(format!(
-                r#"sed "s/xxx_ldap_bind_password_xxx/{ldap_bind_password}/g" -i {runtime_properties_file}"#
+                r#"sed "s/{PLACEHOLDER_LDAP_BIND_PASSWORD}/{ldap_bind_password}/g" -i {runtime_properties_file}"#
             ));
             commands.push(format!(
-                r#"sed "s|xxx_druid_system_internal_client_password_xxx|{internal_client_password}|g" -i {runtime_properties_file}"# // using another delimeter (|) here because of base64 string
+                r#"sed "s|{PLACEHOLDER_INTERNAL_CLIENT_PASSWORD}|{internal_client_password}|g" -i {runtime_properties_file}"# // using another delimeter (|) here because of base64 string
             ));
         }
     }
