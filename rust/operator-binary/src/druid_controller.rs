@@ -197,6 +197,10 @@ pub enum Error {
     FailedInternalSecretCreation {
         source: crate::internal_secret::Error,
     },
+    #[snafu(display(
+        "failed to access bind credentials although they are required for LDAP to work"
+    ))]
+    LdapBindCredentialsAreRequired,
 }
 
 type Result<T, E = Error> = std::result::Result<T, E>;
@@ -655,7 +659,7 @@ fn build_rolegroup_statefulset(
             .ldap
             .add_volumes_and_mounts(&mut pb, vec![&mut cb_druid]);
     }
-    let ldap_auth_cmd = get_ldap_secret_placeholder_replacement_commands(ldap_settings);
+    let ldap_auth_cmd = get_ldap_secret_placeholder_replacement_commands(ldap_settings)?;
 
     // volume and volume mounts
     druid_tls_security
@@ -783,33 +787,37 @@ fn add_hdfs_cm_volume_and_volume_mounts(
 
 fn get_ldap_secret_placeholder_replacement_commands(
     ldap_settings: &Option<DruidLdapSettings>,
-) -> Vec<String> {
+) -> Result<Vec<String>, Error> {
     let mut commands = Vec::new();
 
     if let Some(ldap_settings) = ldap_settings {
-        if let Some(credentials) = &ldap_settings.ldap.bind_credentials {
-            let volume_name = credentials.secret_class.clone(); // TODO: get another way?
+        // having ldap settings, but no bind credentials does not seem to sit well with how druid approaches LDAP auth
+        // see https://www.bookstack.cn/read/apache-druid-0.21.0-en/50dcbe5ee010849f.md#properties-for-ldap-user-authentication
+        // search for "credentialsValidator.bindUser" - it is required
+        // thus the error if we don't manage to construct mount paths below
+        let (ldap_bind_user_path, ldap_bind_password_path) = ldap_settings
+            .ldap
+            .bind_credentials_mount_paths()
+            .context(LdapBindCredentialsAreRequiredSnafu)?;
 
-            let ldap_bind_user = format!("$(cat /stackable/secrets/{volume_name}/user)");
-            let ldap_bind_password = format!("$(cat /stackable/secrets/{volume_name}/password)");
-            let internal_client_password = format!("$(echo ${ENV_INTERNAL_SECRET})");
+        let ldap_bind_user = format!("$(cat {ldap_bind_user_path}");
+        let ldap_bind_password = format!("$(cat {ldap_bind_password_path}");
+        let internal_client_password = format!("$(echo ${ENV_INTERNAL_SECRET})");
 
-            let runtime_properties_file: String = format!("{RW_CONFIG_DIRECTORY}/{RUNTIME_PROPS}");
-            commands
+        let runtime_properties_file: String = format!("{RW_CONFIG_DIRECTORY}/{RUNTIME_PROPS}");
+        commands
                 .push(r#"echo "Replacing LDAP placeholders with their proper values in {RUNTIME_PROPERTIES_FILE}""#.to_string());
-            commands.push(format!(
+        commands.push(format!(
                 r#"sed "s/{PLACEHOLDER_LDAP_BIND_USER}/{ldap_bind_user}/g" -i {runtime_properties_file}"#
             ));
-            commands.push(format!(
+        commands.push(format!(
                 r#"sed "s/{PLACEHOLDER_LDAP_BIND_PASSWORD}/{ldap_bind_password}/g" -i {runtime_properties_file}"#
             ));
-            commands.push(format!(
-                r#"sed "s|{PLACEHOLDER_INTERNAL_CLIENT_PASSWORD}|{internal_client_password}|g" -i {runtime_properties_file}"# // using another delimeter (|) here because of base64 string
-            ));
-        }
+        commands.push(format!(
+            r#"sed "s|{PLACEHOLDER_INTERNAL_CLIENT_PASSWORD}|{internal_client_password}|g" -i {runtime_properties_file}"# // using another delimeter (|) here because of base64 string
+        ));
     }
-
-    commands
+    Ok(commands)
 }
 
 fn add_config_volume_and_volume_mounts(
