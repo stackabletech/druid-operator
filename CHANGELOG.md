@@ -20,6 +20,7 @@ All notable changes to this project will be documented in this file.
 - Do not run init container as root anymore and avoid chmod and chown ([#353])
 - Fixed role group node selector ([#362])
 - Bitnami Helm chart 12.1.5 for kuttl tests. ([#363])
+- Upgrade to `operator-rs` `0.31.0` ([#374])
 
 ### Removed
 
