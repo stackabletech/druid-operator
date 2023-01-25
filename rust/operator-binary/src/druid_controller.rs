@@ -488,6 +488,8 @@ fn build_rolegroup_config_map(
                     deep_storage_bucket_name.map(str::to_string),
                 );
 
+                // ...
+
                 // add tls encryption / auth properties
                 druid_tls_security.add_tls_config_properties(&mut transformed_config, &role);
 

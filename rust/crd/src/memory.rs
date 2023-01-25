@@ -1,49 +1,71 @@
-use std::collections::HashMap;
+use std::{collections::BTreeMap, str::FromStr};
 
-use stackable_operator::memory::MemoryQuantity;
+use snafu::{ResultExt, Snafu};
+use stackable_operator::{
+    commons::resources::{NoRuntimeLimits, Resources},
+    config::fragment,
+    cpu::CpuQuantity,
+    memory::{BinaryMultiple, MemoryQuantity},
+    role_utils::RoleGroupRef,
+};
+use strum::{EnumDiscriminants, IntoStaticStr};
 
-use crate::{PROCESSING_BUFFER_SIZEBYTES, PROCESSING_NUMMERGEBUFFERS, PROCESSING_NUMTHREADS};
+use crate::{
+    storage::HistoricalStorage, PROCESSING_BUFFER_SIZEBYTES, PROCESSING_NUMMERGEBUFFERS,
+    PROCESSING_NUMTHREADS,
+};
 
-pub struct RuntimeSettings {
-    total_memory: usize,
-    cpu_millis: usize,
-    min_heap_ratio: f64,
-    max_buffer_size: usize,
-    os_reserved_memory: usize,
+/// This Error cannot derive PartialEq because fragment::ValidationError doesn't derive it
+#[derive(Snafu, Debug, EnumDiscriminants)]
+#[strum_discriminants(derive(IntoStaticStr))]
+#[allow(clippy::enum_variant_names)]
+pub enum Error {
+    #[snafu(display("failed to parse memory limits"))]
+    ParsingMemoryLimitFailure {
+        source: stackable_operator::error::Error,
+    },
 }
 
-impl RuntimeSettings {
-    pub fn new(total_memory: usize, cpu_millis: usize) -> Self {
+pub struct HistoricalDerivedSettings {
+    total_memory: MemoryQuantity,
+    cpu_millis: CpuQuantity,
+    min_heap_ratio: f32,
+    max_buffer_size: MemoryQuantity,
+    os_reserved_memory: MemoryQuantity,
+}
+
+impl HistoricalDerivedSettings {
+    pub fn new(total_memory: MemoryQuantity, cpu_millis: CpuQuantity) -> Self {
         Self {
             total_memory,
             cpu_millis,
             min_heap_ratio: 0.75,
-            os_reserved_memory: 300_000_000, // 300MB
-            max_buffer_size: 2_000_000_000,  // 2GB, Druid recommended
+            os_reserved_memory: MemoryQuantity::from_str("300Mi").unwrap(), // 300MB
+            max_buffer_size: MemoryQuantity::from_str("2Gi").unwrap(), // 2GB, Druid recommended
         }
     }
 
     /// The total memory we use for druid. This is what's left after we take out the OS reserved memory.
-    pub fn allocatable_memory(&self) -> usize {
+    pub fn allocatable_memory(&self) -> MemoryQuantity {
         self.total_memory - self.os_reserved_memory
     }
 
-    pub fn heap_memory(&self) -> usize {
+    pub fn heap_memory(&self) -> MemoryQuantity {
         self.allocatable_memory() - self.direct_access_memory()
     }
 
     /// The memory that is available to allocate for direct access.
-    pub fn allocatable_direct_access_memory(&self) -> usize {
-        ((self.allocatable_memory() as f64) * (1. - self.min_heap_ratio)).round() as usize
+    pub fn allocatable_direct_access_memory(&self) -> MemoryQuantity {
+        self.allocatable_memory() * (1. - self.min_heap_ratio)
     }
 
     /// The max memory to allocate to direct access. This is based on the max buffer size of a single buffer.
-    pub fn max_direct_access_memory(&self) -> usize {
-        self.max_buffer_size * (self.num_merge_buffers() + self.num_threads() + 1)
+    pub fn max_direct_access_memory(&self) -> MemoryQuantity {
+        self.max_buffer_size * (self.num_merge_buffers() + self.num_threads() + 1) as f32
     }
 
     /// How much to allocate (or keep free) for direct access.
-    pub fn direct_access_memory(&self) -> usize {
+    pub fn direct_access_memory(&self) -> MemoryQuantity {
         self.allocatable_direct_access_memory()
             .min(self.max_direct_access_memory())
     }
@@ -51,34 +73,55 @@ impl RuntimeSettings {
     /// The number of threads to use, based on the CPU millis.
     /// leaves at least 500m available to core functionalities.
     pub fn num_threads(&self) -> usize {
-        (((self.cpu_millis as f64) / 1000.).round() as usize - 1).max(1)
+        (self.cpu_millis.as_cpu_count().round() - 1.).max(1.) as usize
     }
 
     pub fn num_merge_buffers(&self) -> usize {
         ((self.num_threads() as f64 / 4.).floor() as usize).max(2)
     }
 
-    pub fn buffer_size(&self) -> usize {
-        ((self.direct_access_memory() as f64)
-            / (self.num_threads() + self.num_merge_buffers() + 1) as f64)
-            .round() as usize
+    pub fn buffer_size(&self) -> MemoryQuantity {
+        self.direct_access_memory() / (self.num_threads() + self.num_merge_buffers() + 1) as f32
     }
 
-    pub fn get_settings(&self) -> HashMap<String, String> {
-        HashMap::from([
-            (
-                PROCESSING_NUMTHREADS.to_owned(),
-                self.num_threads().to_string(),
-            ),
-            (
-                PROCESSING_NUMMERGEBUFFERS.to_owned(),
-                self.num_merge_buffers().to_string(),
-            ),
-            (
-                PROCESSING_BUFFER_SIZEBYTES.to_owned(),
-                self.buffer_size().to_string(),
-            ),
-        ])
+    pub fn add_settings(&self, config: &mut BTreeMap<String, Option<String>>) {
+        config.insert(
+            PROCESSING_NUMTHREADS.to_owned(),
+            Some(self.num_threads().to_string()),
+        );
+        config.insert(
+            PROCESSING_NUMMERGEBUFFERS.to_owned(),
+            Some(self.num_merge_buffers().to_string()),
+        );
+        config.insert(
+            PROCESSING_BUFFER_SIZEBYTES.to_owned(),
+            Some(self.buffer_size().druid_byte_format()),
+        );
+    }
+}
+
+impl TryFrom<&Resources<HistoricalStorage, NoRuntimeLimits>> for HistoricalDerivedSettings {
+    type Error = Error;
+
+    fn try_from(r: &Resources<HistoricalStorage, NoRuntimeLimits>) -> Result<Self, Self::Error> {
+        let total_memory = MemoryQuantity::try_from(r.memory.limit.clone().unwrap())
+            .context(ParsingMemoryLimitFailureSnafu)?;
+        let cpu_millis = CpuQuantity::try_from(r.cpu.max.clone().unwrap()).unwrap(); // TODO no unwrap
+        Ok(HistoricalDerivedSettings::new(total_memory, cpu_millis))
+    }
+}
+
+/// A trait to format something as the Druid Byte format: `<https://druid.apache.org/docs/latest/configuration/human-readable-byte.html>`.
+/// It supports human readable units, but only integer values, i.e. "1.5Gi" does not work, use "1536Mi" instead.
+trait AsDruidByteFormat {
+    fn druid_byte_format(&self) -> String;
+}
+
+impl AsDruidByteFormat for MemoryQuantity {
+    fn druid_byte_format(&self) -> String {
+        let k = self.scale_to(BinaryMultiple::Kibi);
+        let v = k.value.round() as usize;
+        format!("{v}Ki")
     }
 }
 
@@ -99,7 +142,9 @@ mod tests {
     #[case(3600, 3)]
     #[case(32_000, 31)]
     fn test_num_threads(#[case] cpu_millis: usize, #[case] expected_num_threads: usize) {
-        let s = RuntimeSettings::new(2_000_000_000, cpu_millis);
+        let mem = MemoryQuantity::from_str("2Gi").unwrap();
+        let cpu = CpuQuantity::from_millis(cpu_millis);
+        let s = HistoricalDerivedSettings::new(mem, cpu);
         assert_eq!(s.num_threads(), expected_num_threads);
     }
 
@@ -116,7 +161,9 @@ mod tests {
         #[case] cpu_millis: usize,
         #[case] expected_num_merge_buffers: usize,
     ) {
-        let s = RuntimeSettings::new(2_000_000_000, cpu_millis);
+        let mem = MemoryQuantity::from_str("2Gi").unwrap();
+        let cpu = CpuQuantity::from_millis(cpu_millis);
+        let s = HistoricalDerivedSettings::new(mem, cpu);
         assert_eq!(s.num_merge_buffers(), expected_num_merge_buffers);
     }
 }
