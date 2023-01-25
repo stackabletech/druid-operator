@@ -3,10 +3,8 @@ use std::{collections::BTreeMap, str::FromStr};
 use snafu::{ResultExt, Snafu};
 use stackable_operator::{
     commons::resources::{NoRuntimeLimits, Resources},
-    config::fragment,
     cpu::CpuQuantity,
     memory::{BinaryMultiple, MemoryQuantity},
-    role_utils::RoleGroupRef,
 };
 use strum::{EnumDiscriminants, IntoStaticStr};
 

@@ -8,11 +8,12 @@ use crate::{
 use crate::OPERATOR_NAME;
 use snafu::{OptionExt, ResultExt, Snafu};
 use stackable_druid_crd::{
-    authorization::DruidAuthorization, build_string_list, security::DruidTlsSecurity,
-    DeepStorageSpec, DruidCluster, DruidRole, APP_NAME, AUTH_AUTHORIZER_OPA_URI, CERTS_DIR,
-    CREDENTIALS_SECRET_PROPERTY, DRUID_CONFIG_DIRECTORY, DS_BUCKET, EXTENSIONS_LOADLIST,
-    HDFS_CONFIG_DIRECTORY, JVM_CONFIG, LOG4J2_CONFIG, RUNTIME_PROPS, RW_CONFIG_DIRECTORY,
-    S3_ENDPOINT_URL, S3_PATH_STYLE_ACCESS, S3_SECRET_DIR_NAME, ZOOKEEPER_CONNECTION_STRING,
+    authorization::DruidAuthorization, build_string_list, memory::HistoricalDerivedSettings,
+    security::DruidTlsSecurity, DeepStorageSpec, DruidCluster, DruidRole, APP_NAME,
+    AUTH_AUTHORIZER_OPA_URI, CERTS_DIR, CREDENTIALS_SECRET_PROPERTY, DRUID_CONFIG_DIRECTORY,
+    DS_BUCKET, EXTENSIONS_LOADLIST, HDFS_CONFIG_DIRECTORY, JVM_CONFIG, LOG4J2_CONFIG,
+    RUNTIME_PROPS, RW_CONFIG_DIRECTORY, S3_ENDPOINT_URL, S3_PATH_STYLE_ACCESS, S3_SECRET_DIR_NAME,
+    ZOOKEEPER_CONNECTION_STRING,
 };
 use stackable_druid_crd::{
     build_recommended_labels,
@@ -488,7 +489,13 @@ fn build_rolegroup_config_map(
                     deep_storage_bucket_name.map(str::to_string),
                 );
 
-                // ...
+                match resources {
+                    RoleResource::Historical(r) => {
+                        let settings = HistoricalDerivedSettings::try_from(r).unwrap(); // TODO fix unwrap
+                        settings.add_settings(&mut transformed_config);
+                    }
+                    RoleResource::Druid(_) => todo!(),
+                }
 
                 // add tls encryption / auth properties
                 druid_tls_security.add_tls_config_properties(&mut transformed_config, &role);
