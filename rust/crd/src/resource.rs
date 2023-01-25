@@ -104,7 +104,9 @@ impl RoleResource {
                         ))
                     });
             }
+            // TODO put my code here
         }
+        // TODO add a new if case for the JVM config and generate it here as well
     }
 
     pub fn update_volumes_and_volume_mounts(&self, cb: &mut ContainerBuilder, pb: &mut PodBuilder) {

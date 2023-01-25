@@ -24,6 +24,12 @@ pub enum Error {
     },
 }
 
+/// This struct takes the resource limits of the Pod and derives Druid settings from it.
+/// For mentioned Druid properties, consult the
+/// [Druid Configuration Reference](https://druid.apache.org/docs/latest/configuration/index.html)
+/// for additional information.
+/// Also have a look at the "Basic Cluster Tuning" documentation:
+/// `<https://druid.apache.org/docs/latest/operations/basic-cluster-tuning.html>`
 pub struct HistoricalDerivedSettings {
     total_memory: MemoryQuantity,
     cpu_millis: CpuQuantity,
@@ -48,7 +54,9 @@ impl HistoricalDerivedSettings {
         self.total_memory - self.os_reserved_memory
     }
 
+    /// How much memory to set for the JVM to use. 
     pub fn heap_memory(&self) -> MemoryQuantity {
+        // TODO also implement max limit of 24Gi, as recommended by Druid
         self.allocatable_memory() - self.direct_access_memory()
     }
 
@@ -63,6 +71,7 @@ impl HistoricalDerivedSettings {
     }
 
     /// How much to allocate (or keep free) for direct access.
+    /// this is the amount to configure in the JVM as the `MaxDirectMemorySize`.
     pub fn direct_access_memory(&self) -> MemoryQuantity {
         self.allocatable_direct_access_memory()
             .min(self.max_direct_access_memory())
@@ -70,14 +79,19 @@ impl HistoricalDerivedSettings {
 
     /// The number of threads to use, based on the CPU millis.
     /// leaves at least 500m available to core functionalities.
+    /// Druid Property: `druid.processing.numThreads`
     pub fn num_threads(&self) -> usize {
         (self.cpu_millis.as_cpu_count().round() - 1.).max(1.) as usize
     }
 
+    /// Druid property: `druid.processing.numMergeBuffers`
     pub fn num_merge_buffers(&self) -> usize {
         ((self.num_threads() as f64 / 4.).floor() as usize).max(2)
     }
 
+    /// The buffer size for intermediate result storage. By setting it ourselves, we can set it up to 2Gi.
+    /// If we leave it on the `auto` default, we only get up to 1Gi.
+    /// Druid property: `druid.processing.buffer.sizeBytes`
     pub fn buffer_size(&self) -> MemoryQuantity {
         self.direct_access_memory() / (self.num_threads() + self.num_merge_buffers() + 1) as f32
     }
