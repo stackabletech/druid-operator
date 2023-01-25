@@ -60,7 +60,7 @@ use strum::{EnumDiscriminants, IntoStaticStr};
 
 pub const CONTROLLER_NAME: &str = "druidcluster";
 
-const JVM_HEAP_FACTOR: f32 = 0.8;
+const JVM_HEAP_FACTOR: f32 = 0.7;
 const DOCKER_IMAGE_BASE_NAME: &str = "druid";
 
 pub struct Ctx {
@@ -492,9 +492,10 @@ fn build_rolegroup_config_map(
                 match resources {
                     RoleResource::Historical(r) => {
                         let settings = HistoricalDerivedSettings::try_from(r).unwrap(); // TODO fix unwrap
+                        println!("Updating Settings ################");
                         settings.add_settings(&mut transformed_config);
                     }
-                    RoleResource::Druid(_) => todo!(),
+                    RoleResource::Druid(_) => (),
                 }
 
                 // add tls encryption / auth properties
@@ -508,6 +509,15 @@ fn build_rolegroup_config_map(
                 cm_conf_data.insert(RUNTIME_PROPS.to_string(), runtime_properties);
             }
             PropertyNameKind::File(file_name) if file_name == JVM_CONFIG => {
+                match resources {
+                    RoleResource::Historical(r) => {
+                        let settings = HistoricalDerivedSettings::try_from(r).unwrap(); // TODO fix unwrap
+                        println!("Updating Settings ################");
+                        settings.add_settings(&mut transformed_config);
+
+                    }
+                    RoleResource::Druid(_) => (),
+                }
                 let heap_in_mebi = to_java_heap_value(
                     resources
                         .as_memory_limits()
