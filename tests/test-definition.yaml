@@ -38,7 +38,7 @@ dimensions:
       - "false"
   - name: ldap-no-bind-credentials
     values:
-      # - "true"
+      # - "true" # disabled, as anonymous ldap usage does not seem to be supported in druid
       - "false"
 tests:
   - name: smoke

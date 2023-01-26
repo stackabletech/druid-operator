@@ -83,17 +83,17 @@ impl DruidLdapSettings {
                 format!("{PREFIX}.credentialsValidator.bindPassword"),
                 Some(PLACEHOLDER_LDAP_BIND_PASSWORD.to_string()), // NOTE: this placeholder will be replaced from a mounted secret on container startup
             );
-        } /* else {
-              // set empty pw and user, as leaving them blank leads to null pointer exceptions
-              config.insert(
-                  format!("{PREFIX}.credentialsValidator.bindUser"),
-                  Some("".to_string()),
-              );
-              config.insert(
-                  format!("{PREFIX}.credentialsValidator.bindPassword"),
-                  Some("".to_string()),
-              );
-          }*/
+        } else {
+            // uncomment to set an empty password and user. Not-specifying these fields at all leads to null pointer exceptions
+            config.insert(
+                format!("{PREFIX}.credentialsValidator.bindUser"),
+                Some("".to_string()),
+            );
+            config.insert(
+                format!("{PREFIX}.credentialsValidator.bindPassword"),
+                Some("".to_string()),
+            );
+        }
         config.insert(
             format!("{PREFIX}.credentialsValidator.baseDn"),
             Some(self.ldap.search_base.to_string()),
