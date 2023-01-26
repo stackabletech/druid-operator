@@ -518,6 +518,7 @@ fn build_rolegroup_config_map(
                         let total_memory =
                             MemoryQuantity::try_from(r.memory.limit.as_ref().unwrap()).unwrap(); // TODO fix unwrap
                         match role {
+                            DruidRole::Historical => panic!(), // TODO fix panic; we cannot reach this arm here
                             DruidRole::Coordinator => {
                                 // The coordinator needs no direct memory
                                 let heap_memory = total_memory - *RESERVED_OS_MEMORY;
@@ -529,7 +530,6 @@ fn build_rolegroup_config_map(
                                     total_memory - *RESERVED_OS_MEMORY - direct_memory;
                                 (heap_memory, Some(direct_memory))
                             }
-                            DruidRole::Historical => panic!(), // TODO fix panic; we cannot reach this arm here
                             DruidRole::MiddleManager => {
                                 // The middle manager needs no direct memory
                                 let heap_memory = total_memory - *RESERVED_OS_MEMORY;
