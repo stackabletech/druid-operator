@@ -1,12 +1,15 @@
 use std::collections::BTreeMap;
 
+use crate::memory::HistoricalDerivedSettings;
 use crate::storage::{self, FreePercentageEmptyDirFragment};
 use crate::{
-    DruidCluster, DruidRole, PATH_SEGMENT_CACHE, PROP_SEGMENT_CACHE_LOCATIONS, RUNTIME_PROPS,
+    DruidCluster, DruidRole, PATH_SEGMENT_CACHE, PROP_SEGMENT_CACHE_LOCATIONS, RUNTIME_PROPS, JVM_CONFIG,
 };
 use lazy_static::lazy_static;
 use snafu::{ResultExt, Snafu};
 use stackable_operator::config::fragment;
+use stackable_operator::memory::MemoryQuantity;
+use stackable_operator::product_config::types::PropertyNameKind;
 use stackable_operator::role_utils::RoleGroupRef;
 use stackable_operator::{
     builder::{ContainerBuilder, PodBuilder, VolumeBuilder},
@@ -86,13 +89,13 @@ impl RoleResource {
 
     /// Update the given configuration file with resource properties.
     /// Currently it only adds the segment cache location property for historicals to runtime.properties.
+    /// This is only for runtime properties file
     pub fn update_druid_config_file(
         &self,
-        file: &str,
         config: &mut BTreeMap<String, Option<String>>,
     ) {
-        if let Self::Historical(r) = self {
-            if RUNTIME_PROPS == file {
+        match self {
+            RoleResource::Historical(r) => {
                 let free_percentage = r.storage.segment_cache.free_percentage.unwrap_or(5u16);
                 let capacity = &r.storage.segment_cache.empty_dir.capacity;
                 config
@@ -103,10 +106,12 @@ impl RoleResource {
                             PATH_SEGMENT_CACHE, capacity.0, free_percentage
                         ))
                     });
-            }
-            // TODO put my code here
+                
+                let settings = HistoricalDerivedSettings::try_from(r).unwrap(); // TODO fix unwrap
+                settings.add_settings(config);
+            },
+            RoleResource::Druid(_) => (),
         }
-        // TODO add a new if case for the JVM config and generate it here as well
     }
 
     pub fn update_volumes_and_volume_mounts(&self, cb: &mut ContainerBuilder, pb: &mut PodBuilder) {
@@ -593,7 +598,7 @@ mod test {
         let res = resources(&cluster, &DruidRole::Historical, &rolegroup_ref)?;
 
         let mut got = BTreeMap::new();
-        res.update_druid_config_file(RUNTIME_PROPS, &mut got);
+        res.update_druid_config_file(&mut got);
         let expected: BTreeMap<String, Option<String>> = vec![
             (PROP_SEGMENT_CACHE_LOCATIONS.to_string(),
              Some(r#"[{"path":"/stackable/var/druid/segment-cache","maxSize":"5g","freeSpacePercent":"3"}]"#.to_string()))
@@ -612,7 +617,7 @@ mod test {
         };
         let res = resources(&cluster, &DruidRole::Historical, &rolegroup_ref)?;
         let mut got = BTreeMap::new();
-        res.update_druid_config_file(RUNTIME_PROPS, &mut got);
+        res.update_druid_config_file(&mut got);
         let expected = vec![
             (PROP_SEGMENT_CACHE_LOCATIONS.to_string(),
              Some(r#"[{"path":"/stackable/var/druid/segment-cache","maxSize":"2g","freeSpacePercent":"7"}]"#.to_string()))

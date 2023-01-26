@@ -1,7 +1,14 @@
 use indoc::formatdoc;
 use stackable_druid_crd::{DruidRole, STACKABLE_TRUST_STORE, STACKABLE_TRUST_STORE_PASSWORD};
+use stackable_operator::memory::MemoryQuantity;
 
-pub fn get_jvm_config(role: &DruidRole, heap_in_mebi: u32) -> String {
+pub fn get_jvm_config2(role: &DruidRole, heap: MemoryQuantity, direct_memory: MemoryQuantity) -> String {
+    // TODO
+
+    todo!()
+}
+
+pub fn get_jvm_config(role: &DruidRole, heap_in_mebi: u32, direct_memory_in_mebi: Option<u32>) -> String {
   // TODO heap and direct memory should be configured differently
     let common_config = formatdoc! {"
       -server

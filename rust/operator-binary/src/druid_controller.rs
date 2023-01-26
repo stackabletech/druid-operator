@@ -439,13 +439,14 @@ fn build_rolegroup_config_map(
             .map(|(k, v)| (k.clone(), Some(v.clone())))
             .collect();
 
+
         match property_name_kind {
             PropertyNameKind::File(file_name) if file_name == RUNTIME_PROPS => {
                 // Add any properties derived from storage manifests, such as segment cache locations.
                 // This has to be done here since there is no other suitable place for it.
                 // Previously such properties were added in the compute_files() function,
                 // but that code path is now incompatible with the design of fragment merging.
-                resources.update_druid_config_file(file_name.as_str(), &mut transformed_config);
+                resources.update_druid_config_file(&mut transformed_config);
                 // NOTE: druid.host can be set manually - if it isn't, the canonical host name of
                 // the local host is used.  This should work with the agent and k8s host networking
                 // but might need to be revisited in the future
@@ -489,15 +490,6 @@ fn build_rolegroup_config_map(
                     deep_storage_bucket_name.map(str::to_string),
                 );
 
-                match resources {
-                    RoleResource::Historical(r) => {
-                        let settings = HistoricalDerivedSettings::try_from(r).unwrap(); // TODO fix unwrap
-                        println!("Updating Settings ################");
-                        settings.add_settings(&mut transformed_config);
-                    }
-                    RoleResource::Druid(_) => (),
-                }
-
                 // add tls encryption / auth properties
                 druid_tls_security.add_tls_config_properties(&mut transformed_config, &role);
 
@@ -509,15 +501,7 @@ fn build_rolegroup_config_map(
                 cm_conf_data.insert(RUNTIME_PROPS.to_string(), runtime_properties);
             }
             PropertyNameKind::File(file_name) if file_name == JVM_CONFIG => {
-                match resources {
-                    RoleResource::Historical(r) => {
-                        let settings = HistoricalDerivedSettings::try_from(r).unwrap(); // TODO fix unwrap
-                        println!("Updating Settings ################");
-                        settings.add_settings(&mut transformed_config);
 
-                    }
-                    RoleResource::Druid(_) => (),
-                }
                 let heap_in_mebi = to_java_heap_value(
                     resources
                         .as_memory_limits()
@@ -531,7 +515,7 @@ fn build_rolegroup_config_map(
                     unit: BinaryMultiple::Mebi.to_java_memory_unit(),
                 })?;
 
-                let jvm_config = get_jvm_config(&role, heap_in_mebi);
+                let jvm_config = get_jvm_config(&role, heap_in_mebi, todo!());
                 cm_conf_data.insert(JVM_CONFIG.to_string(), jvm_config);
             }
             PropertyNameKind::File(file_name) if file_name == LOG4J2_CONFIG => {
