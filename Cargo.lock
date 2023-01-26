@@ -1852,6 +1852,7 @@ dependencies = [
  "fnv",
  "futures 0.3.25",
  "indoc",
+ "lazy_static",
  "pin-project",
  "rstest",
  "semver",

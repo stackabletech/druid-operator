@@ -2,15 +2,10 @@ use std::collections::BTreeMap;
 
 use crate::memory::HistoricalDerivedSettings;
 use crate::storage::{self, FreePercentageEmptyDirFragment};
-use crate::{
-    DruidCluster, DruidRole, JVM_CONFIG, PATH_SEGMENT_CACHE, PROP_SEGMENT_CACHE_LOCATIONS,
-    RUNTIME_PROPS,
-};
+use crate::{DruidCluster, DruidRole, PATH_SEGMENT_CACHE, PROP_SEGMENT_CACHE_LOCATIONS};
 use lazy_static::lazy_static;
 use snafu::{ResultExt, Snafu};
 use stackable_operator::config::fragment;
-use stackable_operator::memory::MemoryQuantity;
-use stackable_operator::product_config::types::PropertyNameKind;
 use stackable_operator::role_utils::RoleGroupRef;
 use stackable_operator::{
     builder::{ContainerBuilder, PodBuilder, VolumeBuilder},

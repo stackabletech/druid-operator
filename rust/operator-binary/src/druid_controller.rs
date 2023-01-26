@@ -6,6 +6,7 @@ use crate::{
 };
 
 use crate::OPERATOR_NAME;
+use lazy_static::lazy_static;
 use snafu::{OptionExt, ResultExt, Snafu};
 use stackable_druid_crd::{
     authorization::DruidAuthorization, build_string_list, memory::HistoricalDerivedSettings,
@@ -43,7 +44,6 @@ use stackable_operator::{
     },
     labels::{role_group_selector_labels, role_selector_labels},
     logging::controller::ReconcilerError,
-    memory::{to_java_heap_value, BinaryMultiple},
     product_config::{types::PropertyNameKind, ProductConfigManager},
     product_config_utils::{transform_all_roles_to_config, validate_all_roles_and_groups_config},
     role_utils::RoleGroupRef,
@@ -62,8 +62,10 @@ use strum::{EnumDiscriminants, IntoStaticStr};
 
 pub const CONTROLLER_NAME: &str = "druidcluster";
 
-const JVM_HEAP_FACTOR: f32 = 0.7;
 const DOCKER_IMAGE_BASE_NAME: &str = "druid";
+lazy_static! {
+    static ref RESERVED_OS_MEMORY: MemoryQuantity = MemoryQuantity::from_mebi(300.);
+}
 
 pub struct Ctx {
     pub client: stackable_operator::client::Client,
@@ -515,27 +517,28 @@ fn build_rolegroup_config_map(
                     RoleResource::Druid(r) => {
                         let total_memory =
                             MemoryQuantity::try_from(r.memory.limit.as_ref().unwrap()).unwrap(); // TODO fix unwrap
-                        let os_reserved = MemoryQuantity::from_mebi(300.);
                         match role {
                             DruidRole::Coordinator => {
                                 // The coordinator needs no direct memory
-                                let heap_memory = total_memory - os_reserved;
+                                let heap_memory = total_memory - *RESERVED_OS_MEMORY;
                                 (heap_memory, None)
                             }
                             DruidRole::Broker => {
                                 let direct_memory = MemoryQuantity::from_mebi(400.);
-                                let heap_memory = total_memory - os_reserved - direct_memory;
+                                let heap_memory =
+                                    total_memory - *RESERVED_OS_MEMORY - direct_memory;
                                 (heap_memory, Some(direct_memory))
                             }
                             DruidRole::Historical => panic!(), // TODO fix panic; we cannot reach this arm here
                             DruidRole::MiddleManager => {
                                 // The middle manager needs no direct memory
-                                let heap_memory = total_memory - os_reserved;
+                                let heap_memory = total_memory - *RESERVED_OS_MEMORY;
                                 (heap_memory, None)
                             }
                             DruidRole::Router => {
                                 let direct_memory = MemoryQuantity::from_mebi(128.);
-                                let heap_memory = total_memory - os_reserved - direct_memory;
+                                let heap_memory =
+                                    total_memory - *RESERVED_OS_MEMORY - direct_memory;
                                 (heap_memory, Some(direct_memory))
                             }
                         }
