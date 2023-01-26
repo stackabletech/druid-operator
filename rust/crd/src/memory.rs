@@ -54,7 +54,7 @@ impl HistoricalDerivedSettings {
         self.total_memory - self.os_reserved_memory
     }
 
-    /// How much memory to set for the JVM to use. 
+    /// How much memory to set for the JVM to use.
     pub fn heap_memory(&self) -> MemoryQuantity {
         // TODO also implement max limit of 24Gi, as recommended by Druid
         self.allocatable_memory() - self.direct_access_memory()

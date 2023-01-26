@@ -19,7 +19,6 @@ use stackable_druid_crd::{
     build_recommended_labels,
     resource::{self, RoleResource},
 };
-use stackable_operator::commons::product_image_selection::ResolvedProductImage;
 use stackable_operator::{
     builder::{
         ConfigMapBuilder, ContainerBuilder, ObjectMetaBuilder, PodBuilder,
@@ -48,6 +47,9 @@ use stackable_operator::{
     product_config::{types::PropertyNameKind, ProductConfigManager},
     product_config_utils::{transform_all_roles_to_config, validate_all_roles_and_groups_config},
     role_utils::RoleGroupRef,
+};
+use stackable_operator::{
+    commons::product_image_selection::ResolvedProductImage, memory::MemoryQuantity,
 };
 use std::{
     collections::{BTreeMap, HashMap},
@@ -439,7 +441,6 @@ fn build_rolegroup_config_map(
             .map(|(k, v)| (k.clone(), Some(v.clone())))
             .collect();
 
-
         match property_name_kind {
             PropertyNameKind::File(file_name) if file_name == RUNTIME_PROPS => {
                 // Add any properties derived from storage manifests, such as segment cache locations.
@@ -501,21 +502,46 @@ fn build_rolegroup_config_map(
                 cm_conf_data.insert(RUNTIME_PROPS.to_string(), runtime_properties);
             }
             PropertyNameKind::File(file_name) if file_name == JVM_CONFIG => {
-
-                let heap_in_mebi = to_java_heap_value(
-                    resources
-                        .as_memory_limits()
-                        .limit
-                        .as_ref()
-                        .context(InvalidJavaHeapConfigSnafu)?,
-                    JVM_HEAP_FACTOR,
-                    BinaryMultiple::Mebi,
-                )
-                .context(FailedToConvertJavaHeapSnafu {
-                    unit: BinaryMultiple::Mebi.to_java_memory_unit(),
-                })?;
-
-                let jvm_config = get_jvm_config(&role, heap_in_mebi, todo!());
+                // This large match structure computes the heap and direct access memory requirements for each role.
+                // Both parameters are then used to construct the JVM config.
+                let (heap, direct) = match resources {
+                    RoleResource::Historical(r) => {
+                        let settings = HistoricalDerivedSettings::try_from(r).unwrap(); // TODO fix unwrap
+                        (
+                            settings.heap_memory(),
+                            Some(settings.direct_access_memory()),
+                        )
+                    }
+                    RoleResource::Druid(r) => {
+                        let total_memory =
+                            MemoryQuantity::try_from(r.memory.limit.as_ref().unwrap()).unwrap(); // TODO fix unwrap
+                        let os_reserved = MemoryQuantity::from_mebi(300.);
+                        match role {
+                            DruidRole::Coordinator => {
+                                // The coordinator needs no direct memory
+                                let heap_memory = total_memory - os_reserved;
+                                (heap_memory, None)
+                            }
+                            DruidRole::Broker => {
+                                let direct_memory = MemoryQuantity::from_mebi(400.);
+                                let heap_memory = total_memory - os_reserved - direct_memory;
+                                (heap_memory, Some(direct_memory))
+                            }
+                            DruidRole::Historical => panic!(), // TODO fix panic; we cannot reach this arm here
+                            DruidRole::MiddleManager => {
+                                // The middle manager needs no direct memory
+                                let heap_memory = total_memory - os_reserved;
+                                (heap_memory, None)
+                            }
+                            DruidRole::Router => {
+                                let direct_memory = MemoryQuantity::from_mebi(128.);
+                                let heap_memory = total_memory - os_reserved - direct_memory;
+                                (heap_memory, Some(direct_memory))
+                            }
+                        }
+                    }
+                };
+                let jvm_config = get_jvm_config(&role, heap, direct);
                 cm_conf_data.insert(JVM_CONFIG.to_string(), jvm_config);
             }
             PropertyNameKind::File(file_name) if file_name == LOG4J2_CONFIG => {

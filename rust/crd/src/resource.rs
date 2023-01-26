@@ -3,7 +3,8 @@ use std::collections::BTreeMap;
 use crate::memory::HistoricalDerivedSettings;
 use crate::storage::{self, FreePercentageEmptyDirFragment};
 use crate::{
-    DruidCluster, DruidRole, PATH_SEGMENT_CACHE, PROP_SEGMENT_CACHE_LOCATIONS, RUNTIME_PROPS, JVM_CONFIG,
+    DruidCluster, DruidRole, JVM_CONFIG, PATH_SEGMENT_CACHE, PROP_SEGMENT_CACHE_LOCATIONS,
+    RUNTIME_PROPS,
 };
 use lazy_static::lazy_static;
 use snafu::{ResultExt, Snafu};
@@ -90,10 +91,7 @@ impl RoleResource {
     /// Update the given configuration file with resource properties.
     /// Currently it only adds the segment cache location property for historicals to runtime.properties.
     /// This is only for runtime properties file
-    pub fn update_druid_config_file(
-        &self,
-        config: &mut BTreeMap<String, Option<String>>,
-    ) {
+    pub fn update_druid_config_file(&self, config: &mut BTreeMap<String, Option<String>>) {
         match self {
             RoleResource::Historical(r) => {
                 let free_percentage = r.storage.segment_cache.free_percentage.unwrap_or(5u16);
@@ -106,10 +104,10 @@ impl RoleResource {
                             PATH_SEGMENT_CACHE, capacity.0, free_percentage
                         ))
                     });
-                
+
                 let settings = HistoricalDerivedSettings::try_from(r).unwrap(); // TODO fix unwrap
                 settings.add_settings(config);
-            },
+            }
             RoleResource::Druid(_) => (),
         }
     }

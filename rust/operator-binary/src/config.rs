@@ -2,14 +2,13 @@ use indoc::formatdoc;
 use stackable_druid_crd::{DruidRole, STACKABLE_TRUST_STORE, STACKABLE_TRUST_STORE_PASSWORD};
 use stackable_operator::memory::MemoryQuantity;
 
-pub fn get_jvm_config2(role: &DruidRole, heap: MemoryQuantity, direct_memory: MemoryQuantity) -> String {
-    // TODO
-
-    todo!()
-}
-
-pub fn get_jvm_config(role: &DruidRole, heap_in_mebi: u32, direct_memory_in_mebi: Option<u32>) -> String {
-    // TODO heap and direct memory should be configured differently
+pub fn get_jvm_config(
+    role: &DruidRole,
+    heap: MemoryQuantity,
+    direct_memory: Option<MemoryQuantity>,
+) -> String {
+    let heap_str = heap.format_for_java().unwrap(); // TODO fix unwrap
+    let direct_memory_str = direct_memory.map(|m| m.format_for_java().unwrap()); // TODO fix unwrap
     let mut config = formatdoc! {"
         -server
         -Duser.timezone=UTC
@@ -21,12 +20,12 @@ pub fn get_jvm_config(role: &DruidRole, heap_in_mebi: u32, direct_memory_in_mebi
         -Djavax.net.ssl.trustStore={STACKABLE_TRUST_STORE}
         -Djavax.net.ssl.trustStorePassword={STACKABLE_TRUST_STORE_PASSWORD}
         -Djavax.net.ssl.trustStoreType=pkcs12
-        -Xms{heap_in_mebi}m
-        -Xmx{heap_in_mebi}m"};
+        -Xms{heap_str}
+        -Xmx{heap_str}"};
 
-    if let Some(direct_memory) = direct_memory_in_mebi {
+    if let Some(direct_memory) = direct_memory_str {
         config += &formatdoc! {"
-            -XX:MaxDirectMemorySize={direct_memory}m
+            -XX:MaxDirectMemorySize={direct_memory}
         "};
     }
 
