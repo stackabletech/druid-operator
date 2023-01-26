@@ -24,15 +24,11 @@ pub fn get_jvm_config(
         -Xmx{heap_str}"};
 
     if let Some(direct_memory) = direct_memory_str {
-        config += &formatdoc! {"
-            -XX:MaxDirectMemorySize={direct_memory}
-        "};
+        config += &format!("\n-XX:MaxDirectMemorySize={direct_memory}");
     }
 
     if role == &DruidRole::Coordinator {
-        config += &formatdoc! {"
-            -Dderby.stream.error.file=/stackable/var/druid/derby.log
-        "};
+        config += "\n-Dderby.stream.error.file=/stackable/var/druid/derby.log";
     }
     config
 }
