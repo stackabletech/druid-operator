@@ -84,7 +84,9 @@ impl DruidLdapSettings {
                 Some(PLACEHOLDER_LDAP_BIND_PASSWORD.to_string()), // NOTE: this placeholder will be replaced from a mounted secret on container startup
             );
         } else {
-            // uncomment to set an empty password and user. Not-specifying these fields at all leads to null pointer exceptions
+            // WIP: attempt to use LDAP without bind credentials.
+            // Setting an empty password and user does not work.
+            // Not-specifying these fields at all leads to null pointer exceptions.
             config.insert(
                 format!("{PREFIX}.credentialsValidator.bindUser"),
                 Some("".to_string()),
