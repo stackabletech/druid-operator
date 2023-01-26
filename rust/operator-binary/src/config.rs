@@ -9,60 +9,33 @@ pub fn get_jvm_config2(role: &DruidRole, heap: MemoryQuantity, direct_memory: Me
 }
 
 pub fn get_jvm_config(role: &DruidRole, heap_in_mebi: u32, direct_memory_in_mebi: Option<u32>) -> String {
-  // TODO heap and direct memory should be configured differently
-    let common_config = formatdoc! {"
-      -server
-      -Duser.timezone=UTC
-      -Dfile.encoding=UTF-8
-      -Djava.io.tmpdir=/tmp
-      -Djava.util.logging.manager=org.apache.logging.log4j.jul.LogManager
-      -XX:+UseG1GC
-      -XX:+ExitOnOutOfMemoryError
-      -Djavax.net.ssl.trustStore={STACKABLE_TRUST_STORE}
-      -Djavax.net.ssl.trustStorePassword={STACKABLE_TRUST_STORE_PASSWORD}
-      -Djavax.net.ssl.trustStoreType=pkcs12"};
+    // TODO heap and direct memory should be configured differently
+    let mut config = formatdoc! {"
+        -server
+        -Duser.timezone=UTC
+        -Dfile.encoding=UTF-8
+        -Djava.io.tmpdir=/tmp
+        -Djava.util.logging.manager=org.apache.logging.log4j.jul.LogManager
+        -XX:+UseG1GC
+        -XX:+ExitOnOutOfMemoryError
+        -Djavax.net.ssl.trustStore={STACKABLE_TRUST_STORE}
+        -Djavax.net.ssl.trustStorePassword={STACKABLE_TRUST_STORE_PASSWORD}
+        -Djavax.net.ssl.trustStoreType=pkcs12
+        -Xms{heap_in_mebi}m
+        -Xmx{heap_in_mebi}m"};
 
-    match role {
-        DruidRole::Broker => {
-            formatdoc! {"
-              {common_config}
-              -Xms{heap_in_mebi}m
-              -Xmx{heap_in_mebi}m
-              -XX:MaxDirectMemorySize=400m
-            "}
-        }
-        DruidRole::Coordinator => {
-            formatdoc! {"
-              {common_config}
-              -Xms{heap_in_mebi}m
-              -Xmx{heap_in_mebi}m
-              -Dderby.stream.error.file=/stackable/var/druid/derby.log
-            "}
-        }
-        DruidRole::Historical => {
-            formatdoc! {"
-              {common_config}
-              -Xms{heap_in_mebi}m
-              -Xmx{heap_in_mebi}m
-              -XX:MaxDirectMemorySize=4000m
-            "}
-        }
-        DruidRole::MiddleManager => {
-            formatdoc! {"
-              {common_config}
-              -Xms{heap_in_mebi}m
-              -Xmx{heap_in_mebi}m
-            "}
-        }
-        DruidRole::Router => {
-            formatdoc! {"
-              {common_config}
-              -Xms{heap_in_mebi}m
-              -Xmx{heap_in_mebi}m
-              -XX:MaxDirectMemorySize=128m
-            "}
-        }
+    if let Some(direct_memory) = direct_memory_in_mebi {
+        config += &formatdoc! {"
+            -XX:MaxDirectMemorySize={direct_memory}m
+        "};
     }
+
+    if role == &DruidRole::Coordinator {
+        config += &formatdoc! {"
+            -Dderby.stream.error.file=/stackable/var/druid/derby.log
+        "};
+    }
+    config
 }
 
 pub fn get_log4j_config(_role: &DruidRole) -> String {
