@@ -41,12 +41,15 @@ spec:
       default:
         replicas: 1
         config:
-         resources:
-           storage:
-             segmentCache:
-               freePercentage: 3
-               emptyDir:
-                 capacity: 2G
+          resources:
+            memory:
+              limit: 4Gi
+            storage:
+              segmentCache:
+                freePercentage: 3
+                emptyDir:
+                  capacity: 2G
+          
   middleManagers:
     config:
       resources:
