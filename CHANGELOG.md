@@ -6,9 +6,20 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+- Add support for non-TLS LDAP authentication. ([#374])
+
+### Changed
+
+- Upgrade to `operator-rs` `0.31.0` ([#374])
+
+[#374]: https://github.com/stackabletech/druid-operator/pull/374
+
+## [23.1.0] - 2023-01-23
+
+### Added
+
 - BREAKING: Support for TLS encryption (activated per default -> port changes) and TLS authentication ([#333])
 - Use emptyDir for segment cache on historicals ([#342])
-- Add support for non-TLS LDAP authentication. ([#374])
 
 ### Changed
 
@@ -20,7 +31,6 @@ All notable changes to this project will be documented in this file.
 - Do not run init container as root anymore and avoid chmod and chown ([#353])
 - Fixed role group node selector ([#362])
 - Bitnami Helm chart 12.1.5 for kuttl tests. ([#363])
-- Upgrade to `operator-rs` `0.31.0` ([#374])
 
 ### Removed
 
@@ -37,7 +47,6 @@ All notable changes to this project will be documented in this file.
 [#362]: https://github.com/stackabletech/druid-operator/pull/362
 [#363]: https://github.com/stackabletech/druid-operator/pull/363
 [#366]: https://github.com/stackabletech/druid-operator/pull/366
-[#374]: https://github.com/stackabletech/druid-operator/pull/374
 
 ## [0.8.0] - 2022-11-07
 
