@@ -1,17 +1,25 @@
-use std::{collections::BTreeMap, str::FromStr};
-
-use snafu::{ResultExt, Snafu};
+use lazy_static::lazy_static;
+use snafu::{OptionExt, ResultExt, Snafu};
 use stackable_operator::{
     commons::resources::{NoRuntimeLimits, Resources},
     cpu::CpuQuantity,
     memory::{BinaryMultiple, MemoryQuantity},
 };
+use std::{collections::BTreeMap};
 use strum::{EnumDiscriminants, IntoStaticStr};
 
 use crate::{
     storage::HistoricalStorage, PROCESSING_BUFFER_SIZEBYTES, PROCESSING_NUMMERGEBUFFERS,
     PROCESSING_NUMTHREADS,
 };
+
+static MIN_HEAP_RATIO: f32 = 0.75;
+lazy_static! {
+    pub static ref RESERVED_OS_MEMORY: MemoryQuantity = MemoryQuantity::from_mebi(300.);
+    /// Max size for direct access buffers. This is defined in Druid to be 2GB:
+    /// https://druid.apache.org/docs/latest/configuration/index.html#processing-1
+    static ref MAX_DIRECT_BUFFER_SIZE: MemoryQuantity = MemoryQuantity::from_gibi(2.);
+}
 
 /// This Error cannot derive PartialEq because fragment::ValidationError doesn't derive it
 #[derive(Snafu, Debug, EnumDiscriminants)]
@@ -22,6 +30,14 @@ pub enum Error {
     ParsingMemoryLimitFailure {
         source: stackable_operator::error::Error,
     },
+    #[snafu(display("failed to parse CPU limits"))]
+    ParsingCpuLimitFailure {
+        source: stackable_operator::error::Error,
+    },
+    #[snafu(display("could not derive memory distribution, no memory limits defined"))]
+    NoMemoryLimitsDefined,
+    #[snafu(display("could not derive memory distribution, no CPU limits defined"))]
+    NoCpuLimitsDefined,
 }
 
 /// This struct takes the resource limits of the Pod and derives Druid settings from it.
@@ -43,9 +59,9 @@ impl HistoricalDerivedSettings {
         Self {
             total_memory,
             cpu_millis,
-            min_heap_ratio: 0.75,
-            os_reserved_memory: MemoryQuantity::from_str("300Mi").unwrap(), // 300MB
-            max_buffer_size: MemoryQuantity::from_str("2Gi").unwrap(), // 2GB, Druid recommended
+            min_heap_ratio: MIN_HEAP_RATIO,
+            os_reserved_memory: *RESERVED_OS_MEMORY,
+            max_buffer_size: *MAX_DIRECT_BUFFER_SIZE,
         }
     }
 
@@ -116,9 +132,11 @@ impl TryFrom<&Resources<HistoricalStorage, NoRuntimeLimits>> for HistoricalDeriv
     type Error = Error;
 
     fn try_from(r: &Resources<HistoricalStorage, NoRuntimeLimits>) -> Result<Self, Self::Error> {
-        let total_memory = MemoryQuantity::try_from(r.memory.limit.clone().unwrap())
-            .context(ParsingMemoryLimitFailureSnafu)?;
-        let cpu_millis = CpuQuantity::try_from(r.cpu.max.clone().unwrap()).unwrap(); // TODO no unwrap
+        let total_memory =
+            MemoryQuantity::try_from(r.memory.limit.clone().context(NoMemoryLimitsDefinedSnafu)?)
+                .context(ParsingMemoryLimitFailureSnafu)?;
+        let cpu_millis = CpuQuantity::try_from(r.cpu.max.clone().context(NoCpuLimitsDefinedSnafu)?)
+            .context(ParsingCpuLimitFailureSnafu)?;
         Ok(HistoricalDerivedSettings::new(total_memory, cpu_millis))
     }
 }
@@ -154,7 +172,7 @@ mod tests {
     #[case(3600, 3)]
     #[case(32_000, 31)]
     fn test_num_threads(#[case] cpu_millis: usize, #[case] expected_num_threads: usize) {
-        let mem = MemoryQuantity::from_str("2Gi").unwrap();
+        let mem = MemoryQuantity::from_gibi(2.);
         let cpu = CpuQuantity::from_millis(cpu_millis);
         let s = HistoricalDerivedSettings::new(mem, cpu);
         assert_eq!(s.num_threads(), expected_num_threads);
@@ -173,7 +191,7 @@ mod tests {
         #[case] cpu_millis: usize,
         #[case] expected_num_merge_buffers: usize,
     ) {
-        let mem = MemoryQuantity::from_str("2Gi").unwrap();
+        let mem = MemoryQuantity::from_gibi(2.);
         let cpu = CpuQuantity::from_millis(cpu_millis);
         let s = HistoricalDerivedSettings::new(mem, cpu);
         assert_eq!(s.num_merge_buffers(), expected_num_merge_buffers);

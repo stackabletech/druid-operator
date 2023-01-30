@@ -31,6 +31,10 @@ spec:
     roleGroups:
       default:
         replicas: 1
+        config:
+          resources:
+            memory:
+              limit: 4Gi
   middleManagers:
     roleGroups:
       default:

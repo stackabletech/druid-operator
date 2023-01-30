@@ -1,15 +1,14 @@
 //! Ensures that `Pod`s are configured and running for each [`DruidCluster`]
 use crate::{
+    OPERATOR_NAME,
     config::{get_jvm_config, get_log4j_config},
     discovery::{self, build_discovery_configmaps},
     extensions::get_extension_list,
 };
 
-use crate::OPERATOR_NAME;
-use lazy_static::lazy_static;
 use snafu::{OptionExt, ResultExt, Snafu};
 use stackable_druid_crd::{
-    authorization::DruidAuthorization, build_string_list, memory::HistoricalDerivedSettings,
+    authorization::DruidAuthorization, build_string_list, memory::{HistoricalDerivedSettings, RESERVED_OS_MEMORY},
     security::DruidTlsSecurity, DeepStorageSpec, DruidCluster, DruidRole, APP_NAME,
     AUTH_AUTHORIZER_OPA_URI, CERTS_DIR, CREDENTIALS_SECRET_PROPERTY, DRUID_CONFIG_DIRECTORY,
     DS_BUCKET, EXTENSIONS_LOADLIST, HDFS_CONFIG_DIRECTORY, JVM_CONFIG, LOG4J2_CONFIG,
@@ -63,9 +62,6 @@ use strum::{EnumDiscriminants, IntoStaticStr};
 pub const CONTROLLER_NAME: &str = "druidcluster";
 
 const DOCKER_IMAGE_BASE_NAME: &str = "druid";
-lazy_static! {
-    static ref RESERVED_OS_MEMORY: MemoryQuantity = MemoryQuantity::from_mebi(300.);
-}
 
 pub struct Ctx {
     pub client: stackable_operator::client::Client,
@@ -504,7 +500,7 @@ fn build_rolegroup_config_map(
                 cm_conf_data.insert(RUNTIME_PROPS.to_string(), runtime_properties);
             }
             PropertyNameKind::File(file_name) if file_name == JVM_CONFIG => {
-                // This large match structure computes the heap and direct access memory requirements for each role.
+                // This match structure computes the heap and direct access memory requirements for each role.
                 // Both parameters are then used to construct the JVM config.
                 let (heap, direct) = match resources {
                     RoleResource::Historical(r) => {
