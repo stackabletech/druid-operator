@@ -6,6 +6,18 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+- Add support for non-TLS LDAP authentication. ([#374])
+
+### Changed
+
+- Upgrade to `operator-rs` `0.31.0` ([#374])
+
+[#374]: https://github.com/stackabletech/druid-operator/pull/374
+
+## [23.1.0] - 2023-01-23
+
+### Added
+
 - BREAKING: Support for TLS encryption (activated per default -> port changes) and TLS authentication ([#333])
 - Use emptyDir for segment cache on historicals ([#342])
 
