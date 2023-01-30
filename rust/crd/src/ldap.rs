@@ -83,19 +83,10 @@ impl DruidLdapSettings {
                 format!("{PREFIX}.credentialsValidator.bindPassword"),
                 Some(PLACEHOLDER_LDAP_BIND_PASSWORD.to_string()), // NOTE: this placeholder will be replaced from a mounted secret on container startup
             );
-        } else {
-            // WIP: attempt to use LDAP without bind credentials.
-            // Setting an empty password and user does not work.
-            // Not-specifying these fields at all leads to null pointer exceptions.
-            config.insert(
-                format!("{PREFIX}.credentialsValidator.bindUser"),
-                Some("".to_string()),
-            );
-            config.insert(
-                format!("{PREFIX}.credentialsValidator.bindPassword"),
-                Some("".to_string()),
-            );
         }
+        // TODO: Connecting to an LDAP server without bind credentials does not seem to be configurable in Druid at the moment
+        // see https://github.com/stackabletech/druid-operator/issues/383 for future work
+
         config.insert(
             format!("{PREFIX}.credentialsValidator.baseDn"),
             Some(self.ldap.search_base.to_string()),
