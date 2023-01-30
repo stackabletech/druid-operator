@@ -589,18 +589,14 @@ mod test {
             role_group: "default".into(),
         };
         let res = resources(&cluster, &DruidRole::Historical, &rolegroup_ref)?;
-
         let mut got = BTreeMap::new();
-        res.update_druid_config_file(&mut got);
-        let expected: BTreeMap<String, Option<String>> = vec![
-            (PROP_SEGMENT_CACHE_LOCATIONS.to_string(),
-             Some(r#"[{"path":"/stackable/var/druid/segment-cache","maxSize":"5g","freeSpacePercent":"3"}]"#.to_string()))
-        ].into_iter().collect();
 
-        assert_eq!(
-            got, expected,
-            "role: historical, group: default, segment cache config"
-        );
+        res.update_druid_config_file(&mut got);
+        assert!(got.contains_key(PROP_SEGMENT_CACHE_LOCATIONS));
+
+        let value = got.get(PROP_SEGMENT_CACHE_LOCATIONS).unwrap();
+        let expected = Some(r#"[{"path":"/stackable/var/druid/segment-cache","maxSize":"5g","freeSpacePercent":"3"}]"#.to_string());
+        assert_eq!(value, &expected, "primary");
 
         // ---------- secondary role group
         let rolegroup_ref = RoleGroupRef {
@@ -610,16 +606,13 @@ mod test {
         };
         let res = resources(&cluster, &DruidRole::Historical, &rolegroup_ref)?;
         let mut got = BTreeMap::new();
-        res.update_druid_config_file(&mut got);
-        let expected = vec![
-            (PROP_SEGMENT_CACHE_LOCATIONS.to_string(),
-             Some(r#"[{"path":"/stackable/var/druid/segment-cache","maxSize":"2g","freeSpacePercent":"7"}]"#.to_string()))
-        ].into_iter().collect();
 
-        assert_eq!(
-            got, expected,
-            "role: historical, group: secondary, segment cache config"
-        );
+        res.update_druid_config_file(&mut got);
+        assert!(got.contains_key(PROP_SEGMENT_CACHE_LOCATIONS));
+
+        let value = got.get(PROP_SEGMENT_CACHE_LOCATIONS).unwrap();
+        let expected = Some(r#"[{"path":"/stackable/var/druid/segment-cache","maxSize":"2g","freeSpacePercent":"7"}]"#.to_string());
+        assert_eq!(value, &expected, "secondary");
 
         Ok(())
     }

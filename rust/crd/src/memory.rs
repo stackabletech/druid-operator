@@ -5,7 +5,7 @@ use stackable_operator::{
     cpu::CpuQuantity,
     memory::{BinaryMultiple, MemoryQuantity},
 };
-use std::{collections::BTreeMap};
+use std::collections::BTreeMap;
 use strum::{EnumDiscriminants, IntoStaticStr};
 
 use crate::{
