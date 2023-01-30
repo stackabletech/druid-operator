@@ -333,6 +333,8 @@ At the moment you can either use TLS authentication or LDAP authentication. Both
 
 Communication with a TLS-secured LDAP server is currently not implemented, but will be tackled in the future.
 
+Using an LDAP server **without** bind credentials is not supported. This limitation is due to Druid not supporting this scenario.
+
 Authorization is done using the `allowAll` authorizer. Supporting for `memberOf` and OPA authorization are planned.
 
 === Authorization with Open Policy Agent (OPA)
