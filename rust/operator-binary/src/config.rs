@@ -1,4 +1,6 @@
+use crate::druid_controller::{Error, FormatMemoryStringForJavaSnafu};
 use indoc::formatdoc;
+use snafu::ResultExt;
 use stackable_druid_crd::{DruidRole, STACKABLE_TRUST_STORE, STACKABLE_TRUST_STORE_PASSWORD};
 use stackable_operator::memory::MemoryQuantity;
 
@@ -6,9 +8,18 @@ pub fn get_jvm_config(
     role: &DruidRole,
     heap: MemoryQuantity,
     direct_memory: Option<MemoryQuantity>,
-) -> String {
-    let heap_str = heap.format_for_java().unwrap(); // TODO fix unwrap
-    let direct_memory_str = direct_memory.map(|m| m.format_for_java().unwrap()); // TODO fix unwrap
+) -> Result<String, Error> {
+    let heap_str = heap
+        .format_for_java()
+        .context(FormatMemoryStringForJavaSnafu)?;
+    let direct_memory_str = if let Some(m) = direct_memory {
+        Some(
+            m.format_for_java()
+                .context(FormatMemoryStringForJavaSnafu)?,
+        )
+    } else {
+        None
+    };
     let mut config = formatdoc! {"
         -server
         -Duser.timezone=UTC
@@ -30,7 +41,7 @@ pub fn get_jvm_config(
     if role == &DruidRole::Coordinator {
         config += "\n-Dderby.stream.error.file=/stackable/var/druid/derby.log";
     }
-    config
+    Ok(config)
 }
 
 pub fn get_log4j_config(_role: &DruidRole) -> String {

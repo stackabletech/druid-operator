@@ -71,6 +71,7 @@ pub struct Ctx {
 }
 
 #[derive(Snafu, Debug, EnumDiscriminants)]
+#[snafu(visibility(pub(crate)))]
 #[strum_discriminants(derive(IntoStaticStr))]
 #[allow(clippy::enum_variant_names)]
 pub enum Error {
@@ -185,6 +186,10 @@ pub enum Error {
     #[snafu(display("failed to initialize security context"))]
     FailedToInitializeSecurityContext {
         source: stackable_druid_crd::security::Error,
+    },
+    #[snafu(display("failed to format memory quantity for Java"))]
+    FormatMemoryStringForJava {
+        source: stackable_operator::error::Error,
     },
 }
 
@@ -543,7 +548,7 @@ fn build_rolegroup_config_map(
                     }
                 };
                 let jvm_config = get_jvm_config(&role, heap, direct);
-                cm_conf_data.insert(JVM_CONFIG.to_string(), jvm_config);
+                cm_conf_data.insert(JVM_CONFIG.to_string(), jvm_config?);
             }
             PropertyNameKind::File(file_name) if file_name == LOG4J2_CONFIG => {
                 let log_config = get_log4j_config(&role);
