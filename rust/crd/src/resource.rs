@@ -598,7 +598,7 @@ mod test {
         let res = resources(&cluster, &DruidRole::Historical, &rolegroup_ref)?;
         let mut got = BTreeMap::new();
 
-        res.update_druid_config_file(&mut got);
+        assert!(res.update_druid_config_file(&mut got).is_ok());
         assert!(got.contains_key(PROP_SEGMENT_CACHE_LOCATIONS));
 
         let value = got.get(PROP_SEGMENT_CACHE_LOCATIONS).unwrap();
@@ -614,7 +614,7 @@ mod test {
         let res = resources(&cluster, &DruidRole::Historical, &rolegroup_ref)?;
         let mut got = BTreeMap::new();
 
-        res.update_druid_config_file(&mut got);
+        assert!(res.update_druid_config_file(&mut got).is_ok());
         assert!(got.contains_key(PROP_SEGMENT_CACHE_LOCATIONS));
 
         let value = got.get(PROP_SEGMENT_CACHE_LOCATIONS).unwrap();
