@@ -21,7 +21,6 @@ lazy_static! {
     static ref MAX_DIRECT_BUFFER_SIZE: MemoryQuantity = MemoryQuantity::from_gibi(2.);
 }
 
-/// This Error cannot derive PartialEq because fragment::ValidationError doesn't derive it
 #[derive(Snafu, Debug, EnumDiscriminants)]
 #[strum_discriminants(derive(IntoStaticStr))]
 #[allow(clippy::enum_variant_names)]
@@ -70,7 +69,9 @@ impl HistoricalDerivedSettings {
         self.total_memory - self.os_reserved_memory
     }
 
-    /// How much memory to set for the JVM to use.
+    /// How much memory to set for the JVM to use. The minimum ratio can be defined in the struct.
+    /// Once the direct memory is maxed out, all the remaining allocatable memory will be assigned
+    /// as heap memory.
     pub fn heap_memory(&self) -> MemoryQuantity {
         // TODO also implement max limit of 24Gi, as recommended by Druid
         self.allocatable_memory() - self.direct_access_memory()
@@ -83,7 +84,7 @@ impl HistoricalDerivedSettings {
 
     /// The max memory to allocate to direct access. This is based on the max buffer size of a single buffer.
     pub fn max_direct_access_memory(&self) -> MemoryQuantity {
-        self.max_buffer_size * (self.num_merge_buffers() + self.num_threads() + 1) as f32
+        self.max_buffer_size * self.total_num_buffers() as f32
     }
 
     /// How much to allocate (or keep free) for direct access.
@@ -105,13 +106,18 @@ impl HistoricalDerivedSettings {
         ((self.num_threads() as f64 / 4.).floor() as usize).max(2)
     }
 
+    fn total_num_buffers(&self) -> usize {
+        self.num_merge_buffers() + self.num_threads() + 1
+    }
+
     /// The buffer size for intermediate result storage. By setting it ourselves, we can set it up to 2Gi.
     /// If we leave it on the `auto` default, we only get up to 1Gi.
     /// Druid property: `druid.processing.buffer.sizeBytes`
     pub fn buffer_size(&self) -> MemoryQuantity {
-        self.direct_access_memory() / (self.num_threads() + self.num_merge_buffers() + 1) as f32
+        self.direct_access_memory() / self.total_num_buffers() as f32
     }
 
+    /// Adds derived runtime settings to the given config
     pub fn add_settings(&self, config: &mut BTreeMap<String, Option<String>>) {
         config.insert(
             PROCESSING_NUMTHREADS.to_owned(),
