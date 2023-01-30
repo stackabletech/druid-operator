@@ -655,6 +655,13 @@ fn build_rolegroup_statefulset(
     pb.node_selector_opt(druid.node_selector(rolegroup_ref));
 
     if let Some(ldap_settings) = ldap_settings {
+        // TODO: Connecting to an LDAP server without bind credentials does not seem to be configurable in Druid at the moment
+        // see https://github.com/stackabletech/druid-operator/issues/383 for future work.
+        // Expect bind credentials to be provided for now, and throw return a useful error if there are none.
+        if ldap_settings.ldap.bind_credentials.is_none() {
+            return LdapBindCredentialsAreRequiredSnafu.fail();
+        }
+
         ldap_settings
             .ldap
             .add_volumes_and_mounts(&mut pb, vec![&mut cb_druid]);
