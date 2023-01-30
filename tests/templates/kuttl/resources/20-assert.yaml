@@ -55,10 +55,10 @@ spec:
           resources:
             requests:
               cpu: 200m
-              memory: 2Gi
+              memory: 4Gi
             limits:
               cpu: "4"
-              memory: 2Gi
+              memory: 4Gi
       volumes:
         - name: tls-mount
           ephemeral:
