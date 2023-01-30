@@ -38,6 +38,8 @@ pub enum Error {
         source: Box<Error>,
         rolegroup_ref: RoleGroupRef<DruidCluster>,
     },
+    #[snafu(display("failed to derive Druid settings from resources"))]
+    DeriveMemorySettings { source: crate::memory::Error },
 }
 
 /// The sole purpose of this enum is to handle merging. It's needed because currently
@@ -86,7 +88,10 @@ impl RoleResource {
     /// Update the given configuration file with resource properties.
     /// Currently it only adds the segment cache location property for historicals to runtime.properties.
     /// This is only for runtime properties file
-    pub fn update_druid_config_file(&self, config: &mut BTreeMap<String, Option<String>>) {
+    pub fn update_druid_config_file(
+        &self,
+        config: &mut BTreeMap<String, Option<String>>,
+    ) -> Result<(), Error> {
         match self {
             RoleResource::Historical(r) => {
                 let free_percentage = r.storage.segment_cache.free_percentage.unwrap_or(5u16);
@@ -100,11 +105,13 @@ impl RoleResource {
                         ))
                     });
 
-                let settings = HistoricalDerivedSettings::try_from(r).unwrap(); // TODO fix unwrap
+                let settings =
+                    HistoricalDerivedSettings::try_from(r).context(DeriveMemorySettingsSnafu)?;
                 settings.add_settings(config);
             }
             RoleResource::Druid(_) => (),
         }
+        Ok(())
     }
 
     pub fn update_volumes_and_volume_mounts(&self, cb: &mut ContainerBuilder, pb: &mut PodBuilder) {

@@ -203,6 +203,10 @@ pub enum Error {
     },
     #[snafu(display("the operator produced an internally inconsistent state"))]
     InconsistentConfiguration,
+    #[snafu(display("failed to update Druid config from resources"))]
+    UpdateDruidConfigFromResources {
+        source: stackable_druid_crd::resource::Error,
+    },
 }
 
 type Result<T, E = Error> = std::result::Result<T, E>;
@@ -464,7 +468,9 @@ fn build_rolegroup_config_map(
                 // This has to be done here since there is no other suitable place for it.
                 // Previously such properties were added in the compute_files() function,
                 // but that code path is now incompatible with the design of fragment merging.
-                resources.update_druid_config_file(&mut transformed_config);
+                resources
+                    .update_druid_config_file(&mut transformed_config)
+                    .context(UpdateDruidConfigFromResourcesSnafu)?;
                 // NOTE: druid.host can be set manually - if it isn't, the canonical host name of
                 // the local host is used.  This should work with the agent and k8s host networking
                 // but might need to be revisited in the future
