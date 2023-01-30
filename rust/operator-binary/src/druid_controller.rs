@@ -191,6 +191,18 @@ pub enum Error {
     FormatMemoryStringForJava {
         source: stackable_operator::error::Error,
     },
+    #[snafu(display("failed to derive Druid memory settings from resources"))]
+    DeriveMemorySettings {
+        source: stackable_druid_crd::memory::Error,
+    },
+    #[snafu(display("failed to get memory limits"))]
+    GetMemoryLimit,
+    #[snafu(display("failed to parse memory quantity"))]
+    ParseMemoryQuantity {
+        source: stackable_operator::error::Error,
+    },
+    #[snafu(display("the operator produced an internally inconsistent state"))]
+    InconsistentConfiguration,
 }
 
 type Result<T, E = Error> = std::result::Result<T, E>;
@@ -511,17 +523,20 @@ fn build_rolegroup_config_map(
                 // Both parameters are then used to construct the JVM config.
                 let (heap, direct) = match resources {
                     RoleResource::Historical(r) => {
-                        let settings = HistoricalDerivedSettings::try_from(r).unwrap(); // TODO fix unwrap
+                        let settings = HistoricalDerivedSettings::try_from(r)
+                            .context(DeriveMemorySettingsSnafu)?;
                         (
                             settings.heap_memory(),
                             Some(settings.direct_access_memory()),
                         )
                     }
                     RoleResource::Druid(r) => {
-                        let total_memory =
-                            MemoryQuantity::try_from(r.memory.limit.as_ref().unwrap()).unwrap(); // TODO fix unwrap
+                        let total_memory = MemoryQuantity::try_from(
+                            r.memory.limit.as_ref().context(GetMemoryLimitSnafu)?,
+                        )
+                        .context(ParseMemoryQuantitySnafu)?;
                         match role {
-                            DruidRole::Historical => panic!(), // TODO fix panic; we cannot reach this arm here
+                            DruidRole::Historical => return Err(Error::InconsistentConfiguration),
                             DruidRole::Coordinator => {
                                 // The coordinator needs no direct memory
                                 let heap_memory = total_memory - *RESERVED_OS_MEMORY;
