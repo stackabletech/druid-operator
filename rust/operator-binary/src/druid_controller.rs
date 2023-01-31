@@ -19,7 +19,6 @@ use stackable_druid_crd::{
         PLACEHOLDER_LDAP_BIND_USER,
     },
     memory::{HistoricalDerivedSettings, RESERVED_OS_MEMORY},
-    security::DruidTlsSecurity,
     security::{resolve_authentication_classes, DruidTlsSecurity},
     DeepStorageSpec, DruidCluster, DruidRole, APP_NAME, AUTH_AUTHORIZER_OPA_URI, CERTS_DIR,
     CREDENTIALS_SECRET_PROPERTY, DRUID_CONFIG_DIRECTORY, DS_BUCKET, EXTENSIONS_LOADLIST,
@@ -55,12 +54,10 @@ use stackable_operator::{
     },
     labels::{role_group_selector_labels, role_selector_labels},
     logging::controller::ReconcilerError,
+    memory::MemoryQuantity,
     product_config::{types::PropertyNameKind, ProductConfigManager},
     product_config_utils::{transform_all_roles_to_config, validate_all_roles_and_groups_config},
     role_utils::RoleGroupRef,
-};
-use stackable_operator::{
-    commons::product_image_selection::ResolvedProductImage, memory::MemoryQuantity,
 };
 use std::{
     collections::{BTreeMap, HashMap},
