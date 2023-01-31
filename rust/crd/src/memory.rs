@@ -90,8 +90,11 @@ impl HistoricalDerivedSettings {
     /// How much to allocate (or keep free) for direct access.
     /// this is the amount to configure in the JVM as the `MaxDirectMemorySize`.
     pub fn direct_access_memory(&self) -> MemoryQuantity {
-        self.allocatable_direct_access_memory()
-            .min(self.max_direct_access_memory())
+        if self.max_direct_access_memory() < self.allocatable_direct_access_memory() {
+            self.max_direct_access_memory()
+        } else {
+            self.allocatable_direct_access_memory()
+        }
     }
 
     /// The number of threads to use, based on the CPU millis.
