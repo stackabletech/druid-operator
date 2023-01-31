@@ -1,5 +1,6 @@
 pub mod authentication;
 pub mod authorization;
+pub mod ldap;
 pub mod memory;
 pub mod resource;
 pub mod security;
@@ -251,7 +252,11 @@ impl DruidRole {
     }
 
     /// Returns the start commands for the different server types.
-    pub fn get_command(&self, s3_connection: Option<&S3ConnectionSpec>) -> Vec<String> {
+    pub fn get_command(
+        &self,
+        s3_connection: Option<&S3ConnectionSpec>,
+        ldap_auth_cmd: Vec<String>,
+    ) -> Vec<String> {
         let mut shell_cmd = vec![format!("keytool -importkeystore -srckeystore {SYSTEM_TRUST_STORE} -srcstoretype jks -srcstorepass {SYSTEM_TRUST_STORE_PASSWORD} -destkeystore {STACKABLE_TRUST_STORE} -deststoretype pkcs12 -deststorepass {STACKABLE_TRUST_STORE_PASSWORD} -noprompt")];
 
         if let Some(s3_connection) = s3_connection {
@@ -280,10 +285,12 @@ impl DruidRole {
 
         // copy hdfs config to RW_CONFIG_DIRECTORY folder (if available)
         shell_cmd.push(format!(
-            "cp -RL {hdfs_conf}/* {rw_conf} || :",
+            "cp -RL {hdfs_conf}/* {rw_conf} 2>/dev/null || :", // NOTE: the OR part is here because the command is not applicable sometimes, and would stop everything else from executing
             hdfs_conf = HDFS_CONFIG_DIRECTORY,
             rw_conf = RW_CONFIG_DIRECTORY,
         ));
+
+        shell_cmd.extend(ldap_auth_cmd);
 
         shell_cmd.push(format!(
             "{} {} {}",
