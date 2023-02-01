@@ -1,8 +1,16 @@
-use crate::druid_controller::{Error, FormatMemoryStringForJavaSnafu};
 use indoc::formatdoc;
-use snafu::ResultExt;
+use snafu::{ResultExt, Snafu};
 use stackable_druid_crd::{DruidRole, STACKABLE_TRUST_STORE, STACKABLE_TRUST_STORE_PASSWORD};
 use stackable_operator::memory::MemoryQuantity;
+
+#[derive(Snafu, Debug)]
+#[allow(clippy::enum_variant_names)]
+pub enum Error {
+    #[snafu(display("failed to format memory quantity for Java"))]
+    FormatMemoryStringForJava {
+        source: stackable_operator::error::Error,
+    },
+}
 
 pub fn get_jvm_config(
     role: &DruidRole,

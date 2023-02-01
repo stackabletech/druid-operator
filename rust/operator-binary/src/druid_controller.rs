@@ -76,7 +76,6 @@ pub struct Ctx {
 }
 
 #[derive(Snafu, Debug, EnumDiscriminants)]
-#[snafu(visibility(pub(crate)))]
 #[strum_discriminants(derive(IntoStaticStr))]
 #[allow(clippy::enum_variant_names)]
 pub enum Error {
@@ -192,10 +191,8 @@ pub enum Error {
     FailedToInitializeSecurityContext {
         source: stackable_druid_crd::security::Error,
     },
-    #[snafu(display("failed to format memory quantity for Java"))]
-    FormatMemoryStringForJava {
-        source: stackable_operator::error::Error,
-    },
+    #[snafu(display("failed to get JVM config"))]
+    GetJvmConfig { source: crate::config::Error },
     #[snafu(display("failed to derive Druid memory settings from resources"))]
     DeriveMemorySettings {
         source: stackable_druid_crd::resource::Error,
@@ -550,8 +547,8 @@ fn build_rolegroup_config_map(
                 let (heap, direct) = resources
                     .get_memory_sizes(&role)
                     .context(DeriveMemorySettingsSnafu)?;
-                let jvm_config = get_jvm_config(&role, heap, direct);
-                cm_conf_data.insert(JVM_CONFIG.to_string(), jvm_config?);
+                let jvm_config = get_jvm_config(&role, heap, direct).context(GetJvmConfigSnafu)?;
+                cm_conf_data.insert(JVM_CONFIG.to_string(), jvm_config);
             }
             PropertyNameKind::File(file_name) if file_name == LOG4J2_CONFIG => {
                 let log_config = get_log4j_config(&role);
