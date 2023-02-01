@@ -86,8 +86,7 @@ impl RoleResource {
     }
 
     /// Update the given configuration file with resource properties.
-    /// Currently it only adds the segment cache location property for historicals to runtime.properties.
-    /// This is only for runtime properties file
+    /// Currently it only adds historical-specific configs for direct memory buffers, thread counts and segment cache.
     pub fn update_druid_config_file(
         &self,
         config: &mut BTreeMap<String, Option<String>>,
