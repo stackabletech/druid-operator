@@ -6,7 +6,6 @@ use stackable_operator::{
     memory::{BinaryMultiple, MemoryQuantity},
 };
 use std::collections::BTreeMap;
-use strum::{EnumDiscriminants, IntoStaticStr};
 
 use crate::{
     storage::HistoricalStorage, PROCESSING_BUFFER_SIZEBYTES, PROCESSING_NUMMERGEBUFFERS,
@@ -21,9 +20,7 @@ lazy_static! {
     static ref MAX_DIRECT_BUFFER_SIZE: MemoryQuantity = MemoryQuantity::from_gibi(2.);
 }
 
-#[derive(Snafu, Debug, EnumDiscriminants)]
-#[strum_discriminants(derive(IntoStaticStr))]
-#[allow(clippy::enum_variant_names)]
+#[derive(Snafu, Debug)]
 pub enum Error {
     #[snafu(display("failed to parse memory limits"))]
     ParsingMemoryLimitFailure {
