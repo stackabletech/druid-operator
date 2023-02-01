@@ -92,7 +92,7 @@ impl RoleResource {
         config: &mut BTreeMap<String, Option<String>>,
     ) -> Result<(), Error> {
         match self {
-            RoleResource::Historical(r) => {
+            Self::Historical(r) => {
                 let free_percentage = r.storage.segment_cache.free_percentage.unwrap_or(5u16);
                 let capacity = &r.storage.segment_cache.empty_dir.capacity;
                 config
@@ -108,7 +108,7 @@ impl RoleResource {
                     HistoricalDerivedSettings::try_from(r).context(DeriveMemorySettingsSnafu)?;
                 settings.add_settings(config);
             }
-            RoleResource::Druid(_) => (),
+            Self::Druid(_) => (),
         }
         Ok(())
     }
