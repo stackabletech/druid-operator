@@ -1,11 +1,12 @@
 use std::collections::BTreeMap;
 
-use crate::memory::HistoricalDerivedSettings;
+use crate::memory::{HistoricalDerivedSettings, RESERVED_OS_MEMORY};
 use crate::storage::{self, FreePercentageEmptyDirFragment};
 use crate::{DruidCluster, DruidRole, PATH_SEGMENT_CACHE, PROP_SEGMENT_CACHE_LOCATIONS};
 use lazy_static::lazy_static;
-use snafu::{ResultExt, Snafu};
+use snafu::{OptionExt, ResultExt, Snafu};
 use stackable_operator::config::fragment;
+use stackable_operator::memory::MemoryQuantity;
 use stackable_operator::role_utils::RoleGroupRef;
 use stackable_operator::{
     builder::{ContainerBuilder, PodBuilder, VolumeBuilder},
@@ -40,6 +41,14 @@ pub enum Error {
     },
     #[snafu(display("failed to derive Druid settings from resources"))]
     DeriveMemorySettings { source: crate::memory::Error },
+    #[snafu(display("failed to get memory limits"))]
+    GetMemoryLimit,
+    #[snafu(display("failed to parse memory quantity"))]
+    ParseMemoryQuantity {
+        source: stackable_operator::error::Error,
+    },
+    #[snafu(display("the operator produced an internally inconsistent state"))]
+    InconsistentConfiguration,
 }
 
 /// The sole purpose of this enum is to handle merging. It's needed because currently
@@ -124,6 +133,53 @@ impl RoleResource {
                     })
                     .build(),
             );
+        }
+    }
+
+    /// Computes the heap and direct access memory sizes per role. The settings can be used to configure
+    /// the JVM accordingly. The direct memory size is an [`Option`] because not all roles require
+    /// direct access memory.
+    pub fn get_memory_sizes(
+        &self,
+        role: &DruidRole,
+    ) -> Result<(MemoryQuantity, Option<MemoryQuantity>), Error> {
+        match self {
+            Self::Historical(r) => {
+                let settings =
+                    HistoricalDerivedSettings::try_from(r).context(DeriveMemorySettingsSnafu)?;
+                Ok((
+                    settings.heap_memory(),
+                    Some(settings.direct_access_memory()),
+                ))
+            }
+            Self::Druid(r) => {
+                let total_memory =
+                    MemoryQuantity::try_from(r.memory.limit.as_ref().context(GetMemoryLimitSnafu)?)
+                        .context(ParseMemoryQuantitySnafu)?;
+                match role {
+                    DruidRole::Historical => Err(Error::InconsistentConfiguration),
+                    DruidRole::Coordinator => {
+                        // The coordinator needs no direct memory
+                        let heap_memory = total_memory - *RESERVED_OS_MEMORY;
+                        Ok((heap_memory, None))
+                    }
+                    DruidRole::Broker => {
+                        let direct_memory = MemoryQuantity::from_mebi(400.);
+                        let heap_memory = total_memory - *RESERVED_OS_MEMORY - direct_memory;
+                        Ok((heap_memory, Some(direct_memory)))
+                    }
+                    DruidRole::MiddleManager => {
+                        // The middle manager needs no direct memory
+                        let heap_memory = total_memory - *RESERVED_OS_MEMORY;
+                        Ok((heap_memory, None))
+                    }
+                    DruidRole::Router => {
+                        let direct_memory = MemoryQuantity::from_mebi(128.);
+                        let heap_memory = total_memory - *RESERVED_OS_MEMORY - direct_memory;
+                        Ok((heap_memory, Some(direct_memory)))
+                    }
+                }
+            }
         }
     }
 }

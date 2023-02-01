@@ -18,7 +18,6 @@ use stackable_druid_crd::{
         DruidLdapSettings, PLACEHOLDER_INTERNAL_CLIENT_PASSWORD, PLACEHOLDER_LDAP_BIND_PASSWORD,
         PLACEHOLDER_LDAP_BIND_USER,
     },
-    memory::{HistoricalDerivedSettings, RESERVED_OS_MEMORY},
     security::{resolve_authentication_classes, DruidTlsSecurity},
     DeepStorageSpec, DruidCluster, DruidRole, APP_NAME, AUTH_AUTHORIZER_OPA_URI, CERTS_DIR,
     CREDENTIALS_SECRET_PROPERTY, DRUID_CONFIG_DIRECTORY, DS_BUCKET, EXTENSIONS_LOADLIST,
@@ -54,7 +53,6 @@ use stackable_operator::{
     },
     labels::{role_group_selector_labels, role_selector_labels},
     logging::controller::ReconcilerError,
-    memory::MemoryQuantity,
     product_config::{types::PropertyNameKind, ProductConfigManager},
     product_config_utils::{transform_all_roles_to_config, validate_all_roles_and_groups_config},
     role_utils::RoleGroupRef,
@@ -200,7 +198,7 @@ pub enum Error {
     },
     #[snafu(display("failed to derive Druid memory settings from resources"))]
     DeriveMemorySettings {
-        source: stackable_druid_crd::memory::Error,
+        source: stackable_druid_crd::resource::Error,
     },
     #[snafu(display("failed to get memory limits"))]
     GetMemoryLimit,
@@ -557,49 +555,9 @@ fn build_rolegroup_config_map(
                 cm_conf_data.insert(RUNTIME_PROPS.to_string(), runtime_properties);
             }
             PropertyNameKind::File(file_name) if file_name == JVM_CONFIG => {
-                // This match structure computes the heap and direct access memory requirements for each role.
-                // Both parameters are then used to construct the JVM config.
-                let (heap, direct) = match resources {
-                    RoleResource::Historical(r) => {
-                        let settings = HistoricalDerivedSettings::try_from(r)
-                            .context(DeriveMemorySettingsSnafu)?;
-                        (
-                            settings.heap_memory(),
-                            Some(settings.direct_access_memory()),
-                        )
-                    }
-                    RoleResource::Druid(r) => {
-                        let total_memory = MemoryQuantity::try_from(
-                            r.memory.limit.as_ref().context(GetMemoryLimitSnafu)?,
-                        )
-                        .context(ParseMemoryQuantitySnafu)?;
-                        match role {
-                            DruidRole::Historical => return Err(Error::InconsistentConfiguration),
-                            DruidRole::Coordinator => {
-                                // The coordinator needs no direct memory
-                                let heap_memory = total_memory - *RESERVED_OS_MEMORY;
-                                (heap_memory, None)
-                            }
-                            DruidRole::Broker => {
-                                let direct_memory = MemoryQuantity::from_mebi(400.);
-                                let heap_memory =
-                                    total_memory - *RESERVED_OS_MEMORY - direct_memory;
-                                (heap_memory, Some(direct_memory))
-                            }
-                            DruidRole::MiddleManager => {
-                                // The middle manager needs no direct memory
-                                let heap_memory = total_memory - *RESERVED_OS_MEMORY;
-                                (heap_memory, None)
-                            }
-                            DruidRole::Router => {
-                                let direct_memory = MemoryQuantity::from_mebi(128.);
-                                let heap_memory =
-                                    total_memory - *RESERVED_OS_MEMORY - direct_memory;
-                                (heap_memory, Some(direct_memory))
-                            }
-                        }
-                    }
-                };
+                let (heap, direct) = resources
+                    .get_memory_sizes(&role)
+                    .context(DeriveMemorySettingsSnafu)?;
                 let jvm_config = get_jvm_config(&role, heap, direct);
                 cm_conf_data.insert(JVM_CONFIG.to_string(), jvm_config?);
             }
