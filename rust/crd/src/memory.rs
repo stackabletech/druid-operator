@@ -113,7 +113,7 @@ impl HistoricalDerivedSettings {
     /// The buffer size for intermediate result storage. By setting it ourselves, we can set it up to 2Gi.
     /// If we leave it on the `auto` default, we only get up to 1Gi.
     /// Druid property: `druid.processing.buffer.sizeBytes`
-    pub fn buffer_size(&self) -> MemoryQuantity {
+    fn buffer_size(&self) -> MemoryQuantity {
         self.direct_access_memory() / self.total_num_buffers() as f32
     }
 
