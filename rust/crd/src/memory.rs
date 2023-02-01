@@ -75,12 +75,12 @@ impl HistoricalDerivedSettings {
     }
 
     /// The memory that is available to allocate for direct access.
-    pub fn allocatable_direct_access_memory(&self) -> MemoryQuantity {
+    fn allocatable_direct_access_memory(&self) -> MemoryQuantity {
         self.allocatable_memory() * (1. - self.min_heap_ratio)
     }
 
     /// The max memory to allocate to direct access. This is based on the max buffer size of a single buffer.
-    pub fn max_direct_access_memory(&self) -> MemoryQuantity {
+    fn max_direct_access_memory(&self) -> MemoryQuantity {
         self.max_buffer_size * self.total_num_buffers() as f32
     }
 
