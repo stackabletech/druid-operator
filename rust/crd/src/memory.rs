@@ -138,11 +138,16 @@ impl TryFrom<&Resources<HistoricalStorage, NoRuntimeLimits>> for HistoricalDeriv
     type Error = Error;
 
     fn try_from(r: &Resources<HistoricalStorage, NoRuntimeLimits>) -> Result<Self, Self::Error> {
-        let total_memory =
-            MemoryQuantity::try_from(r.memory.limit.clone().context(NoMemoryLimitsDefinedSnafu)?)
-                .context(ParsingMemoryLimitFailureSnafu)?;
-        let cpu_millis = CpuQuantity::try_from(r.cpu.max.clone().context(NoCpuLimitsDefinedSnafu)?)
-            .context(ParsingCpuLimitFailureSnafu)?;
+        let total_memory = MemoryQuantity::try_from(
+            r.memory
+                .limit
+                .as_ref()
+                .context(NoMemoryLimitsDefinedSnafu)?,
+        )
+        .context(ParsingMemoryLimitFailureSnafu)?;
+        let cpu_millis =
+            CpuQuantity::try_from(r.cpu.max.as_ref().context(NoCpuLimitsDefinedSnafu)?)
+                .context(ParsingCpuLimitFailureSnafu)?;
         Ok(HistoricalDerivedSettings::new(total_memory, cpu_millis))
     }
 }
