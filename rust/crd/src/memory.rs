@@ -62,7 +62,7 @@ impl HistoricalDerivedSettings {
     }
 
     /// The total memory we use for druid. This is what's left after we take out the OS reserved memory.
-    pub fn allocatable_memory(&self) -> MemoryQuantity {
+    fn allocatable_memory(&self) -> MemoryQuantity {
         self.total_memory - self.os_reserved_memory
     }
 
