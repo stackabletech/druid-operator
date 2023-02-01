@@ -6,8 +6,11 @@ use stackable_operator::memory::MemoryQuantity;
 #[derive(Snafu, Debug)]
 #[allow(clippy::enum_variant_names)]
 pub enum Error {
-    #[snafu(display("failed to format memory quantity for Java"))]
+    #[snafu(display(
+        "failed to format memory quantity '{value:?}' for Java. try increasing the memory limit"
+    ))]
     FormatMemoryStringForJava {
+        value: MemoryQuantity,
         source: stackable_operator::error::Error,
     },
 }
@@ -19,11 +22,11 @@ pub fn get_jvm_config(
 ) -> Result<String, Error> {
     let heap_str = heap
         .format_for_java()
-        .context(FormatMemoryStringForJavaSnafu)?;
+        .with_context(|_| FormatMemoryStringForJavaSnafu { value: heap })?;
     let direct_memory_str = if let Some(m) = direct_memory {
         Some(
             m.format_for_java()
-                .context(FormatMemoryStringForJavaSnafu)?,
+                .with_context(|_| FormatMemoryStringForJavaSnafu { value: m })?,
         )
     } else {
         None
