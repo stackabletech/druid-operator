@@ -90,9 +90,9 @@ pub const MD_ST_PASSWORD: &str = "druid.metadata.storage.connector.password";
 // indexer properties
 pub const INDEXER_JAVA_OPTS: &str = "druid.indexer.runner.javaOptsArray";
 // historical settings
-pub const PROCESSING_BUFFER_SIZEBYTES: &str = "druid.processing.buffer.sizeBytes";
-pub const PROCESSING_NUMMERGEBUFFERS: &str = "druid.processing.numMergeBuffers";
-pub const PROCESSING_NUMTHREADS: &str = "druid.processing.numThreads";
+pub const PROCESSING_BUFFER_SIZE_BYTES: &str = "druid.processing.buffer.sizeBytes";
+pub const PROCESSING_NUM_MERGE_BUFFERS: &str = "druid.processing.numMergeBuffers";
+pub const PROCESSING_NUM_THREADS: &str = "druid.processing.numThreads";
 // extra
 pub const CREDENTIALS_SECRET_PROPERTY: &str = "credentialsSecret";
 // metrics

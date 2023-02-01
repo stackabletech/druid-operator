@@ -8,8 +8,8 @@ use stackable_operator::{
 use std::collections::BTreeMap;
 
 use crate::{
-    storage::HistoricalStorage, PROCESSING_BUFFER_SIZEBYTES, PROCESSING_NUMMERGEBUFFERS,
-    PROCESSING_NUMTHREADS,
+    storage::HistoricalStorage, PROCESSING_BUFFER_SIZE_BYTES, PROCESSING_NUM_MERGE_BUFFERS,
+    PROCESSING_NUM_THREADS,
 };
 
 static MIN_HEAP_RATIO: f32 = 0.75;
@@ -120,15 +120,15 @@ impl HistoricalDerivedSettings {
     /// Adds derived runtime settings to the given config
     pub fn add_settings(&self, config: &mut BTreeMap<String, Option<String>>) {
         config.insert(
-            PROCESSING_NUMTHREADS.to_owned(),
+            PROCESSING_NUM_THREADS.to_owned(),
             Some(self.num_threads().to_string()),
         );
         config.insert(
-            PROCESSING_NUMMERGEBUFFERS.to_owned(),
+            PROCESSING_NUM_MERGE_BUFFERS.to_owned(),
             Some(self.num_merge_buffers().to_string()),
         );
         config.insert(
-            PROCESSING_BUFFER_SIZEBYTES.to_owned(),
+            PROCESSING_BUFFER_SIZE_BYTES.to_owned(),
             Some(self.buffer_size().druid_byte_format()),
         );
     }
