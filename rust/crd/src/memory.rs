@@ -129,7 +129,7 @@ impl HistoricalDerivedSettings {
         );
         config.insert(
             PROCESSING_BUFFER_SIZE_BYTES.to_owned(),
-            Some(self.buffer_size().druid_byte_format()),
+            Some(format_for_druid(&self.buffer_size())),
         );
     }
 }
@@ -152,18 +152,15 @@ impl TryFrom<&Resources<HistoricalStorage, NoRuntimeLimits>> for HistoricalDeriv
     }
 }
 
-/// A trait to format something as the Druid Byte format: `<https://druid.apache.org/docs/latest/configuration/human-readable-byte.html>`.
-/// It supports human readable units, but only integer values, i.e. "1.5Gi" does not work, use "1536Mi" instead.
-trait AsDruidByteFormat {
-    fn druid_byte_format(&self) -> String;
-}
-
-impl AsDruidByteFormat for MemoryQuantity {
-    fn druid_byte_format(&self) -> String {
-        let k = self.scale_to(BinaryMultiple::Kibi);
-        let v = k.value.round() as usize;
-        format!("{v}Ki")
-    }
+/// A function to format something as the Druid Byte format:
+/// `<https://druid.apache.org/docs/latest/configuration/human-readable-byte.html>`.
+/// Only KiB precision is supported. Upd to 1KiB will be rounded away.
+fn format_for_druid(memory_quantity: &MemoryQuantity) -> String {
+    let k = memory_quantity.scale_to(BinaryMultiple::Kibi);
+    // floor instead of round so we don't accidently make the memory quantity
+    // bigger than it should be
+    let v = k.value.floor() as usize;
+    format!("{v}Ki")
 }
 
 #[cfg(test)]
