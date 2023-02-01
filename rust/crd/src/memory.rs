@@ -97,12 +97,12 @@ impl HistoricalDerivedSettings {
     /// The number of threads to use, based on the CPU millis.
     /// leaves at least 500m available to core functionalities.
     /// Druid Property: `druid.processing.numThreads`
-    pub fn num_threads(&self) -> usize {
+    fn num_threads(&self) -> usize {
         (self.cpu_millis.as_cpu_count().round() - 1.).max(1.) as usize
     }
 
     /// Druid property: `druid.processing.numMergeBuffers`
-    pub fn num_merge_buffers(&self) -> usize {
+    fn num_merge_buffers(&self) -> usize {
         ((self.num_threads() as f64 / 4.).floor() as usize).max(2)
     }
 
