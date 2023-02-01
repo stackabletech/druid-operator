@@ -200,14 +200,6 @@ pub enum Error {
     DeriveMemorySettings {
         source: stackable_druid_crd::resource::Error,
     },
-    #[snafu(display("failed to get memory limits"))]
-    GetMemoryLimit,
-    #[snafu(display("failed to parse memory quantity"))]
-    ParseMemoryQuantity {
-        source: stackable_operator::error::Error,
-    },
-    #[snafu(display("the operator produced an internally inconsistent state"))]
-    InconsistentConfiguration,
     #[snafu(display("failed to update Druid config from resources"))]
     UpdateDruidConfigFromResources {
         source: stackable_druid_crd::resource::Error,
