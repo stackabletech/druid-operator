@@ -40,8 +40,8 @@ pub enum Error {
 /// For mentioned Druid properties, consult the
 /// [Druid Configuration Reference](https://druid.apache.org/docs/latest/configuration/index.html)
 /// for additional information.
-/// Also have a look at the "Basic Cluster Tuning" documentation:
-/// `<https://druid.apache.org/docs/latest/operations/basic-cluster-tuning.html>`
+/// Also have a look at the documentation for
+/// [Basic Cluster Tuning](<https://druid.apache.org/docs/latest/operations/basic-cluster-tuning.html>).
 pub struct HistoricalDerivedSettings {
     total_memory: MemoryQuantity,
     cpu_millis: CpuQuantity,
