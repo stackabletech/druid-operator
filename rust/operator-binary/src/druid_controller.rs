@@ -552,12 +552,14 @@ fn build_rolegroup_config_map(
                     .get_memory_sizes(&role)
                     .context(DeriveMemorySettingsSnafu)?;
                 let jvm_config = get_jvm_config(&role, heap, direct).context(GetJvmConfigSnafu)?;
-                // no overrides settable
+                // the user can set overrides in the config, but currently they have no effect
+                // if this is changed in the future, make sure to respect overrides!
                 cm_conf_data.insert(JVM_CONFIG.to_string(), jvm_config);
             }
             PropertyNameKind::File(file_name) if file_name == LOG4J2_CONFIG => {
                 let log_config = get_log4j_config(&role);
-                // no overrides settable
+                // the user can set overrides in the config, but currently they have no effect
+                // if this is changed in the future, make sure to respect overrides!
                 cm_conf_data.insert(LOG4J2_CONFIG.to_string(), log_config);
             }
             _ => {}
