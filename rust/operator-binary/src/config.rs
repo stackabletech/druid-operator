@@ -4,7 +4,6 @@ use stackable_druid_crd::{DruidRole, STACKABLE_TRUST_STORE, STACKABLE_TRUST_STOR
 use stackable_operator::memory::MemoryQuantity;
 
 #[derive(Snafu, Debug)]
-#[allow(clippy::enum_variant_names)]
 pub enum Error {
     #[snafu(display(
         "failed to format memory quantity '{value:?}' for Java. try increasing the memory limit"
