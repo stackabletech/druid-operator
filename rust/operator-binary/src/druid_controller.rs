@@ -537,7 +537,7 @@ fn build_rolegroup_config_map(
                     .iter()
                     .map(|(k, v)| (k.clone(), Some(v.clone())))
                     .collect();
-                    // extend the config to respect overrides
+                // extend the config to respect overrides
                 conf.extend(transformed_config);
 
                 let runtime_properties =
