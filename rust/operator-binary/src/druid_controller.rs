@@ -537,6 +537,7 @@ fn build_rolegroup_config_map(
                     .iter()
                     .map(|(k, v)| (k.clone(), Some(v.clone())))
                     .collect();
+                    // extend the config to respect overrides
                 conf.extend(transformed_config);
 
                 let runtime_properties =
@@ -551,10 +552,12 @@ fn build_rolegroup_config_map(
                     .get_memory_sizes(&role)
                     .context(DeriveMemorySettingsSnafu)?;
                 let jvm_config = get_jvm_config(&role, heap, direct).context(GetJvmConfigSnafu)?;
+                // no overrides settable
                 cm_conf_data.insert(JVM_CONFIG.to_string(), jvm_config);
             }
             PropertyNameKind::File(file_name) if file_name == LOG4J2_CONFIG => {
                 let log_config = get_log4j_config(&role);
+                // no overrides settable
                 cm_conf_data.insert(LOG4J2_CONFIG.to_string(), log_config);
             }
             _ => {}
