@@ -7,9 +7,9 @@ use crate::{
         build_shared_internal_secret_name, create_shared_internal_secret, env_var_from_secret,
         ENV_INTERNAL_SECRET,
     },
+    OPERATOR_NAME,
 };
 
-use crate::OPERATOR_NAME;
 use snafu::{OptionExt, ResultExt, Snafu};
 use stackable_druid_crd::{
     authorization::DruidAuthorization,
@@ -53,7 +53,6 @@ use stackable_operator::{
     },
     labels::{role_group_selector_labels, role_selector_labels},
     logging::controller::ReconcilerError,
-    memory::{to_java_heap_value, BinaryMultiple},
     product_config::{types::PropertyNameKind, ProductConfigManager},
     product_config_utils::{transform_all_roles_to_config, validate_all_roles_and_groups_config},
     role_utils::RoleGroupRef,
@@ -69,7 +68,6 @@ use strum::{EnumDiscriminants, IntoStaticStr};
 
 pub const CONTROLLER_NAME: &str = "druidcluster";
 
-const JVM_HEAP_FACTOR: f32 = 0.8;
 const DOCKER_IMAGE_BASE_NAME: &str = "druid";
 
 pub struct Ctx {
@@ -192,6 +190,16 @@ pub enum Error {
     #[snafu(display("failed to initialize security context"))]
     FailedToInitializeSecurityContext {
         source: stackable_druid_crd::security::Error,
+    },
+    #[snafu(display("failed to get JVM config"))]
+    GetJvmConfig { source: crate::config::Error },
+    #[snafu(display("failed to derive Druid memory settings from resources"))]
+    DeriveMemorySettings {
+        source: stackable_druid_crd::resource::Error,
+    },
+    #[snafu(display("failed to update Druid config from resources"))]
+    UpdateDruidConfigFromResources {
+        source: stackable_druid_crd::resource::Error,
     },
     #[snafu(display("failed to retrieve secret for internal communications"))]
     FailedInternalSecretCreation {
@@ -475,7 +483,9 @@ fn build_rolegroup_config_map(
                 // This has to be done here since there is no other suitable place for it.
                 // Previously such properties were added in the compute_files() function,
                 // but that code path is now incompatible with the design of fragment merging.
-                resources.update_druid_config_file(file_name.as_str(), &mut transformed_config);
+                resources
+                    .update_druid_config_file(&mut transformed_config)
+                    .context(UpdateDruidConfigFromResourcesSnafu)?;
                 // NOTE: druid.host can be set manually - if it isn't, the canonical host name of
                 // the local host is used.  This should work with the agent and k8s host networking
                 // but might need to be revisited in the future
@@ -534,20 +544,10 @@ fn build_rolegroup_config_map(
                 cm_conf_data.insert(RUNTIME_PROPS.to_string(), runtime_properties);
             }
             PropertyNameKind::File(file_name) if file_name == JVM_CONFIG => {
-                let heap_in_mebi = to_java_heap_value(
-                    resources
-                        .as_memory_limits()
-                        .limit
-                        .as_ref()
-                        .context(InvalidJavaHeapConfigSnafu)?,
-                    JVM_HEAP_FACTOR,
-                    BinaryMultiple::Mebi,
-                )
-                .context(FailedToConvertJavaHeapSnafu {
-                    unit: BinaryMultiple::Mebi.to_java_memory_unit(),
-                })?;
-
-                let jvm_config = get_jvm_config(&role, heap_in_mebi);
+                let (heap, direct) = resources
+                    .get_memory_sizes(&role)
+                    .context(DeriveMemorySettingsSnafu)?;
+                let jvm_config = get_jvm_config(&role, heap, direct).context(GetJvmConfigSnafu)?;
                 cm_conf_data.insert(JVM_CONFIG.to_string(), jvm_config);
             }
             PropertyNameKind::File(file_name) if file_name == LOG4J2_CONFIG => {

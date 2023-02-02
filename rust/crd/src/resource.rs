@@ -1,12 +1,12 @@
 use std::collections::BTreeMap;
 
+use crate::memory::{HistoricalDerivedSettings, RESERVED_OS_MEMORY};
 use crate::storage::{self, FreePercentageEmptyDirFragment};
-use crate::{
-    DruidCluster, DruidRole, PATH_SEGMENT_CACHE, PROP_SEGMENT_CACHE_LOCATIONS, RUNTIME_PROPS,
-};
+use crate::{DruidCluster, DruidRole, PATH_SEGMENT_CACHE, PROP_SEGMENT_CACHE_LOCATIONS};
 use lazy_static::lazy_static;
-use snafu::{ResultExt, Snafu};
+use snafu::{OptionExt, ResultExt, Snafu};
 use stackable_operator::config::fragment;
+use stackable_operator::memory::MemoryQuantity;
 use stackable_operator::role_utils::RoleGroupRef;
 use stackable_operator::{
     builder::{ContainerBuilder, PodBuilder, VolumeBuilder},
@@ -39,6 +39,16 @@ pub enum Error {
         source: Box<Error>,
         rolegroup_ref: RoleGroupRef<DruidCluster>,
     },
+    #[snafu(display("failed to derive Druid settings from resources"))]
+    DeriveMemorySettings { source: crate::memory::Error },
+    #[snafu(display("failed to get memory limits"))]
+    GetMemoryLimit,
+    #[snafu(display("failed to parse memory quantity"))]
+    ParseMemoryQuantity {
+        source: stackable_operator::error::Error,
+    },
+    #[snafu(display("the operator produced an internally inconsistent state"))]
+    InconsistentConfiguration,
 }
 
 /// The sole purpose of this enum is to handle merging. It's needed because currently
@@ -85,14 +95,13 @@ impl RoleResource {
     }
 
     /// Update the given configuration file with resource properties.
-    /// Currently it only adds the segment cache location property for historicals to runtime.properties.
+    /// Currently it only adds historical-specific configs for direct memory buffers, thread counts and segment cache.
     pub fn update_druid_config_file(
         &self,
-        file: &str,
         config: &mut BTreeMap<String, Option<String>>,
-    ) {
-        if let Self::Historical(r) = self {
-            if RUNTIME_PROPS == file {
+    ) -> Result<(), Error> {
+        match self {
+            Self::Historical(r) => {
                 let free_percentage = r.storage.segment_cache.free_percentage.unwrap_or(5u16);
                 let capacity = &r.storage.segment_cache.empty_dir.capacity;
                 config
@@ -103,8 +112,14 @@ impl RoleResource {
                             PATH_SEGMENT_CACHE, capacity.0, free_percentage
                         ))
                     });
+
+                let settings =
+                    HistoricalDerivedSettings::try_from(r).context(DeriveMemorySettingsSnafu)?;
+                settings.add_settings(config);
             }
+            Self::Druid(_) => (),
         }
+        Ok(())
     }
 
     pub fn update_volumes_and_volume_mounts(&self, cb: &mut ContainerBuilder, pb: &mut PodBuilder) {
@@ -118,6 +133,53 @@ impl RoleResource {
                     })
                     .build(),
             );
+        }
+    }
+
+    /// Computes the heap and direct access memory sizes per role. The settings can be used to configure
+    /// the JVM accordingly. The direct memory size is an [`Option`] because not all roles require
+    /// direct access memory.
+    pub fn get_memory_sizes(
+        &self,
+        role: &DruidRole,
+    ) -> Result<(MemoryQuantity, Option<MemoryQuantity>), Error> {
+        match self {
+            Self::Historical(r) => {
+                let settings =
+                    HistoricalDerivedSettings::try_from(r).context(DeriveMemorySettingsSnafu)?;
+                Ok((
+                    settings.heap_memory(),
+                    Some(settings.direct_access_memory()),
+                ))
+            }
+            Self::Druid(r) => {
+                let total_memory =
+                    MemoryQuantity::try_from(r.memory.limit.as_ref().context(GetMemoryLimitSnafu)?)
+                        .context(ParseMemoryQuantitySnafu)?;
+                match role {
+                    DruidRole::Historical => Err(Error::InconsistentConfiguration),
+                    DruidRole::Coordinator => {
+                        // The coordinator needs no direct memory
+                        let heap_memory = total_memory - *RESERVED_OS_MEMORY;
+                        Ok((heap_memory, None))
+                    }
+                    DruidRole::Broker => {
+                        let direct_memory = MemoryQuantity::from_mebi(400.);
+                        let heap_memory = total_memory - *RESERVED_OS_MEMORY - direct_memory;
+                        Ok((heap_memory, Some(direct_memory)))
+                    }
+                    DruidRole::MiddleManager => {
+                        // The middle manager needs no direct memory
+                        let heap_memory = total_memory - *RESERVED_OS_MEMORY;
+                        Ok((heap_memory, None))
+                    }
+                    DruidRole::Router => {
+                        let direct_memory = MemoryQuantity::from_mebi(128.);
+                        let heap_memory = total_memory - *RESERVED_OS_MEMORY - direct_memory;
+                        Ok((heap_memory, Some(direct_memory)))
+                    }
+                }
+            }
         }
     }
 }
@@ -589,18 +651,14 @@ mod test {
             role_group: "default".into(),
         };
         let res = resources(&cluster, &DruidRole::Historical, &rolegroup_ref)?;
-
         let mut got = BTreeMap::new();
-        res.update_druid_config_file(RUNTIME_PROPS, &mut got);
-        let expected: BTreeMap<String, Option<String>> = vec![
-            (PROP_SEGMENT_CACHE_LOCATIONS.to_string(),
-             Some(r#"[{"path":"/stackable/var/druid/segment-cache","maxSize":"5g","freeSpacePercent":"3"}]"#.to_string()))
-        ].into_iter().collect();
 
-        assert_eq!(
-            got, expected,
-            "role: historical, group: default, segment cache config"
-        );
+        assert!(res.update_druid_config_file(&mut got).is_ok());
+        assert!(got.contains_key(PROP_SEGMENT_CACHE_LOCATIONS));
+
+        let value = got.get(PROP_SEGMENT_CACHE_LOCATIONS).unwrap();
+        let expected = Some(r#"[{"path":"/stackable/var/druid/segment-cache","maxSize":"5g","freeSpacePercent":"3"}]"#.to_string());
+        assert_eq!(value, &expected, "primary");
 
         // ---------- secondary role group
         let rolegroup_ref = RoleGroupRef {
@@ -610,16 +668,13 @@ mod test {
         };
         let res = resources(&cluster, &DruidRole::Historical, &rolegroup_ref)?;
         let mut got = BTreeMap::new();
-        res.update_druid_config_file(RUNTIME_PROPS, &mut got);
-        let expected = vec![
-            (PROP_SEGMENT_CACHE_LOCATIONS.to_string(),
-             Some(r#"[{"path":"/stackable/var/druid/segment-cache","maxSize":"2g","freeSpacePercent":"7"}]"#.to_string()))
-        ].into_iter().collect();
 
-        assert_eq!(
-            got, expected,
-            "role: historical, group: secondary, segment cache config"
-        );
+        assert!(res.update_druid_config_file(&mut got).is_ok());
+        assert!(got.contains_key(PROP_SEGMENT_CACHE_LOCATIONS));
+
+        let value = got.get(PROP_SEGMENT_CACHE_LOCATIONS).unwrap();
+        let expected = Some(r#"[{"path":"/stackable/var/druid/segment-cache","maxSize":"2g","freeSpacePercent":"7"}]"#.to_string());
+        assert_eq!(value, &expected, "secondary");
 
         Ok(())
     }
