@@ -508,9 +508,9 @@ historicals:
         resources:
           storage:
             segmentCache:
-              # The amount of free space to subtract from the capacity setting below.
+              # The amount of free space to subtract from the capacity setting below. Defaults to 5%
               freePercentage: 7
               emptyDir:
                 # The maximum size of the volume used to store the segment cache
-                capacity: 2g
+                capacity: 2Gi
 ----
