@@ -12,7 +12,12 @@ All notable changes to this project will be documented in this file.
 
 - Upgrade to `operator-rs` `0.31.0` ([#374])
 
+### Fixed
+
+- Configuration overrides for certain properties did not work and now work again ([#387])
+
 [#374]: https://github.com/stackabletech/druid-operator/pull/374
+[#387]: https://github.com/stackabletech/druid-operator/pull/387
 
 ## [23.1.0] - 2023-01-23
 

@@ -472,10 +472,7 @@ fn build_rolegroup_config_map(
     let mut cm_conf_data = BTreeMap::new(); // filename -> filecontent
 
     for (property_name_kind, config) in rolegroup_config {
-        let mut transformed_config: BTreeMap<String, Option<String>> = config
-            .iter()
-            .map(|(k, v)| (k.clone(), Some(v.clone())))
-            .collect();
+        let mut conf: BTreeMap<String, Option<String>> = Default::default();
 
         match property_name_kind {
             PropertyNameKind::File(file_name) if file_name == RUNTIME_PROPS => {
@@ -484,17 +481,17 @@ fn build_rolegroup_config_map(
                 // Previously such properties were added in the compute_files() function,
                 // but that code path is now incompatible with the design of fragment merging.
                 resources
-                    .update_druid_config_file(&mut transformed_config)
+                    .update_druid_config_file(&mut conf)
                     .context(UpdateDruidConfigFromResourcesSnafu)?;
                 // NOTE: druid.host can be set manually - if it isn't, the canonical host name of
                 // the local host is used.  This should work with the agent and k8s host networking
                 // but might need to be revisited in the future
-                transformed_config.insert(
+                conf.insert(
                     ZOOKEEPER_CONNECTION_STRING.to_string(),
                     Some(zk_connstr.to_string()),
                 );
 
-                transformed_config.insert(
+                conf.insert(
                     EXTENSIONS_LOADLIST.to_string(),
                     Some(build_string_list(&get_extension_list(
                         druid,
@@ -503,7 +500,7 @@ fn build_rolegroup_config_map(
                 );
 
                 if let Some(opa_str) = opa_connstr {
-                    transformed_config.insert(
+                    conf.insert(
                         AUTH_AUTHORIZER_OPA_URI.to_string(),
                         Some(opa_str.to_string()),
                     );
@@ -511,7 +508,7 @@ fn build_rolegroup_config_map(
 
                 if let Some(conn) = s3_conn {
                     if let Some(endpoint) = conn.endpoint() {
-                        transformed_config.insert(S3_ENDPOINT_URL.to_string(), Some(endpoint));
+                        conf.insert(S3_ENDPOINT_URL.to_string(), Some(endpoint));
                     }
 
                     // We did choose a match statement here to detect new access styles in the future
@@ -519,26 +516,33 @@ fn build_rolegroup_config_map(
                         S3AccessStyle::Path => true,
                         S3AccessStyle::VirtualHosted => false,
                     };
-                    transformed_config.insert(
+                    conf.insert(
                         S3_PATH_STYLE_ACCESS.to_string(),
                         Some(path_style_access.to_string()),
                     );
                 }
-                transformed_config.insert(
+                conf.insert(
                     DS_BUCKET.to_string(),
                     deep_storage_bucket_name.map(str::to_string),
                 );
 
                 // add tls encryption / auth properties
-                druid_tls_security.add_tls_config_properties(&mut transformed_config, &role);
+                druid_tls_security.add_tls_config_properties(&mut conf, &role);
 
                 if let Some(ldap_settings) = druid_ldap_settings {
-                    transformed_config.extend(ldap_settings.generate_runtime_properties_config());
+                    conf.extend(ldap_settings.generate_runtime_properties_config());
                 };
+
+                let transformed_config: BTreeMap<String, Option<String>> = config
+                    .iter()
+                    .map(|(k, v)| (k.clone(), Some(v.clone())))
+                    .collect();
+                // extend the config to respect overrides
+                conf.extend(transformed_config);
 
                 let runtime_properties =
                     stackable_operator::product_config::writer::to_java_properties_string(
-                        transformed_config.iter(),
+                        conf.iter(),
                     )
                     .context(PropertiesWriteSnafu)?;
                 cm_conf_data.insert(RUNTIME_PROPS.to_string(), runtime_properties);
@@ -548,10 +552,14 @@ fn build_rolegroup_config_map(
                     .get_memory_sizes(&role)
                     .context(DeriveMemorySettingsSnafu)?;
                 let jvm_config = get_jvm_config(&role, heap, direct).context(GetJvmConfigSnafu)?;
+                // the user can set overrides in the config, but currently they have no effect
+                // if this is changed in the future, make sure to respect overrides!
                 cm_conf_data.insert(JVM_CONFIG.to_string(), jvm_config);
             }
             PropertyNameKind::File(file_name) if file_name == LOG4J2_CONFIG => {
                 let log_config = get_log4j_config(&role);
+                // the user can set overrides in the config, but currently they have no effect
+                // if this is changed in the future, make sure to respect overrides!
                 cm_conf_data.insert(LOG4J2_CONFIG.to_string(), log_config);
             }
             _ => {}
