@@ -1,13 +1,9 @@
-mod config;
-mod discovery;
-mod druid_controller;
-mod extensions;
-mod internal_secret;
-mod testability_helpers;
+mod controller;
+mod parts;
 
 use std::sync::Arc;
 
-use crate::druid_controller::CONTROLLER_NAME;
+use crate::controller::CONTROLLER_NAME;
 use clap::Parser;
 use futures::StreamExt;
 use stackable_druid_crd::{DruidCluster, APP_NAME, OPERATOR_NAME};
@@ -82,9 +78,9 @@ async fn main() -> anyhow::Result<()> {
             )
             .shutdown_on_signal()
             .run(
-                druid_controller::reconcile_druid,
-                druid_controller::error_policy,
-                Arc::new(druid_controller::Ctx {
+                controller::reconcile_druid,
+                controller::error_policy,
+                Arc::new(controller::Ctx {
                     client: client.clone(),
                     product_config,
                 }),

@@ -1,44 +1,36 @@
-//! Ensures that `Pod`s are configured and running for each [`DruidCluster`]
 use crate::{
-    config::{get_jvm_config, get_log4j_config},
-    discovery::{self, build_discovery_configmaps},
-    extensions::get_extension_list,
-    internal_secret::{
+    parts::config::{get_jvm_config, get_log4j_config},
+    parts::discovery::{self, build_discovery_configmaps},
+    parts::extensions::get_extension_list,
+    parts::internal_secret::{
         build_shared_internal_secret, build_shared_internal_secret_name, env_var_from_secret,
         ENV_INTERNAL_SECRET,
     },
-    testability_helpers::AppliableClusterResource,
-    OPERATOR_NAME,
 };
 
-use snafu::{OptionExt, ResultExt, Snafu};
+use snafu::{ResultExt, Snafu};
 use stackable_druid_crd::{
-    authentication::ResolvedAuthenticationClasses,
-    authorization::DruidAuthorization,
+    build_recommended_labels,
+    resource::{self, RoleResource},
+};
+use stackable_druid_crd::{
     build_string_list,
     ldap::{
         DruidLdapSettings, PLACEHOLDER_INTERNAL_CLIENT_PASSWORD, PLACEHOLDER_LDAP_BIND_PASSWORD,
         PLACEHOLDER_LDAP_BIND_USER,
     },
-    security::{resolve_authentication_classes, DruidTlsSecurity},
+    security::DruidTlsSecurity,
     DeepStorageSpec, DruidCluster, DruidRole, APP_NAME, AUTH_AUTHORIZER_OPA_URI, CERTS_DIR,
     CREDENTIALS_SECRET_PROPERTY, DRUID_CONFIG_DIRECTORY, DS_BUCKET, EXTENSIONS_LOADLIST,
     HDFS_CONFIG_DIRECTORY, JVM_CONFIG, LOG4J2_CONFIG, RUNTIME_PROPS, RW_CONFIG_DIRECTORY,
     S3_ENDPOINT_URL, S3_PATH_STYLE_ACCESS, S3_SECRET_DIR_NAME, ZOOKEEPER_CONNECTION_STRING,
-};
-use stackable_druid_crd::{
-    build_recommended_labels,
-    resource::{self, RoleResource},
 };
 use stackable_operator::{
     builder::{
         ConfigMapBuilder, ContainerBuilder, ObjectMetaBuilder, PodBuilder,
         PodSecurityContextBuilder, SecretOperatorVolumeSourceBuilder, VolumeBuilder,
     },
-    client::Client,
-    cluster_resources::ClusterResources,
     commons::{
-        opa::OpaApiVersion,
         product_image_selection::ResolvedProductImage,
         s3::{S3AccessStyle, S3ConnectionSpec},
         tls::{CaCert, TlsVerification},
@@ -46,63 +38,34 @@ use stackable_operator::{
     k8s_openapi::{
         api::{
             apps::v1::{StatefulSet, StatefulSetSpec},
-            core::v1::{ConfigMap, EnvVar, Secret, Service, ServiceSpec},
+            core::v1::{ConfigMap, EnvVar, Service, ServiceSpec},
         },
         apimachinery::pkg::apis::meta::v1::LabelSelector,
     },
-    kube::{
-        runtime::{controller::Action, reflector::ObjectRef},
-        Resource, ResourceExt,
-    },
+    kube::runtime::reflector::ObjectRef,
     labels::{role_group_selector_labels, role_selector_labels},
-    logging::controller::ReconcilerError,
     product_config::{types::PropertyNameKind, ProductConfigManager},
     product_config_utils::{transform_all_roles_to_config, validate_all_roles_and_groups_config},
     role_utils::RoleGroupRef,
 };
 use std::{
     collections::{BTreeMap, HashMap},
-    ops::Deref,
     str::FromStr,
     sync::Arc,
-    time::Duration,
 };
 use strum::{EnumDiscriminants, IntoStaticStr};
 
-pub const CONTROLLER_NAME: &str = "druidcluster";
-
-const DOCKER_IMAGE_BASE_NAME: &str = "druid";
-
-pub struct Ctx {
-    pub client: stackable_operator::client::Client,
-    pub product_config: ProductConfigManager,
-}
+use super::{
+    types::{AdditionalData, AppliableClusterResource},
+    CONTROLLER_NAME,
+};
 
 #[derive(Snafu, Debug, EnumDiscriminants)]
 #[strum_discriminants(derive(IntoStaticStr))]
 #[allow(clippy::enum_variant_names)]
 pub enum Error {
-    #[snafu(display("failed to apply global Service"))]
-    ApplyRoleService {
-        source: stackable_operator::error::Error,
-    },
-    #[snafu(display("failed to apply Service for {}", rolegroup))]
-    ApplyRoleGroupService {
-        source: stackable_operator::error::Error,
-        rolegroup: RoleGroupRef<DruidCluster>,
-    },
     #[snafu(display("failed to build ConfigMap for {}", rolegroup))]
     BuildRoleGroupConfig {
-        source: stackable_operator::error::Error,
-        rolegroup: RoleGroupRef<DruidCluster>,
-    },
-    #[snafu(display("failed to apply ConfigMap for {}", rolegroup))]
-    ApplyRoleGroupConfig {
-        source: stackable_operator::error::Error,
-        rolegroup: RoleGroupRef<DruidCluster>,
-    },
-    #[snafu(display("failed to apply StatefulSet for {}", rolegroup))]
-    ApplyRoleGroupStatefulSet {
         source: stackable_operator::error::Error,
         rolegroup: RoleGroupRef<DruidCluster>,
     },
@@ -114,33 +77,6 @@ pub enum Error {
     ObjectMissingMetadataForOwnerRef {
         source: stackable_operator::error::Error,
     },
-    #[snafu(display(
-        "failed to get ZooKeeper discovery config map for cluster: {}",
-        cm_name
-    ))]
-    GetZookeeperConnStringConfigMap {
-        source: stackable_operator::error::Error,
-        cm_name: String,
-    },
-    #[snafu(display(
-        "failed to get OPA discovery config map and/or connection string for cluster: {}",
-        cm_name
-    ))]
-    GetOpaConnString {
-        source: stackable_operator::error::Error,
-        cm_name: String,
-    },
-    #[snafu(display("failed to get valid S3 connection"))]
-    GetS3Connection { source: stackable_druid_crd::Error },
-    #[snafu(display("failed to get deep storage bucket"))]
-    GetDeepStorageBucket {
-        source: stackable_operator::error::Error,
-    },
-    #[snafu(display(
-        "failed to get ZooKeeper connection string from config map {}",
-        cm_name
-    ))]
-    MissingZookeeperConnString { cm_name: String },
     #[snafu(display("failed to transform configs"))]
     ProductConfigTransform {
         source: stackable_operator::product_config_utils::ConfigError,
@@ -150,10 +86,8 @@ pub enum Error {
         source: stackable_operator::product_config::writer::PropertiesWriterError,
     },
     #[snafu(display("failed to build discovery ConfigMap"))]
-    BuildDiscoveryConfig { source: discovery::Error },
-    #[snafu(display("failed to apply discovery ConfigMap"))]
-    ApplyDiscoveryConfig {
-        source: stackable_operator::error::Error,
+    BuildDiscoveryConfig {
+        source: discovery::Error,
     },
     #[snafu(display(
         "Druid does not support skipping the verification of the tls enabled S3 server"
@@ -168,34 +102,19 @@ pub enum Error {
     FailedToResolveResourceConfig {
         source: stackable_druid_crd::resource::Error,
     },
-    #[snafu(display("invalid java heap config - missing default or value in crd?"))]
-    InvalidJavaHeapConfig,
-    #[snafu(display("failed to convert java heap config to unit [{unit}]"))]
-    FailedToConvertJavaHeap {
-        source: stackable_operator::error::Error,
-        unit: String,
-    },
-    #[snafu(display("failed to create cluster resources"))]
-    CreateClusterResources {
-        source: stackable_operator::error::Error,
-    },
-    #[snafu(display("failed to delete orphaned resources"))]
-    DeleteOrphanedResources {
-        source: stackable_operator::error::Error,
-    },
     #[snafu(display("failed to create container builder with name [{name}]"))]
     FailedContainerBuilderCreation {
         source: stackable_operator::error::Error,
         name: String,
     },
-    #[snafu(display("object defines no namespace"))]
-    ObjectHasNoNamespace,
     #[snafu(display("failed to initialize security context"))]
     FailedToInitializeSecurityContext {
         source: stackable_druid_crd::security::Error,
     },
     #[snafu(display("failed to get JVM config"))]
-    GetJvmConfig { source: crate::config::Error },
+    GetJvmConfig {
+        source: crate::parts::config::Error,
+    },
     #[snafu(display("failed to derive Druid memory settings from resources"))]
     DeriveMemorySettings {
         source: stackable_druid_crd::resource::Error,
@@ -206,201 +125,16 @@ pub enum Error {
     },
     #[snafu(display("failed to retrieve secret for internal communications"))]
     FailedInternalSecretCreation {
-        source: crate::internal_secret::Error,
+        source: crate::parts::internal_secret::Error,
     },
-    #[snafu(display(
-        "failed to access bind credentials although they are required for LDAP to work"
-    ))]
     LdapBindCredentialsAreRequired,
     #[snafu(display("failed to apply internal secret"))]
     ApplyInternalSecret {
         source: stackable_operator::error::Error,
     },
-    #[snafu(display("failed to retrieve secret for internal communications"))]
-    FailedToRetrieveInternalSecret {
-        source: stackable_operator::error::Error,
-    },
 }
 
-type Result<T, E = Error> = std::result::Result<T, E>;
-
-impl ReconcilerError for Error {
-    fn category(&self) -> &'static str {
-        ErrorDiscriminants::from(self).into()
-    }
-}
-
-struct AdditionalData {
-    opa_connstr: Option<String>,
-    resolved_authentication_classes: ResolvedAuthenticationClasses,
-    resolved_product_image: ResolvedProductImage,
-    zk_connstr: String,
-    s3_conn: Option<S3ConnectionSpec>,
-    deep_storage_bucket_name: Option<String>,
-}
-
-async fn fetch_additional_data(
-    druid: &Arc<DruidCluster>,
-    client: &Client,
-) -> Result<AdditionalData> {
-    let namespace = &druid
-        .metadata
-        .namespace
-        .clone()
-        .with_context(|| ObjectHasNoNamespaceSnafu {})?;
-    let resolved_product_image: ResolvedProductImage =
-        druid.spec.image.resolve(DOCKER_IMAGE_BASE_NAME);
-
-    let zk_confmap = druid.spec.cluster_config.zookeeper_config_map_name.clone();
-
-    let zk_connstr = client
-        .get::<ConfigMap>(&zk_confmap, namespace)
-        .await
-        .context(GetZookeeperConnStringConfigMapSnafu {
-            cm_name: zk_confmap.clone(),
-        })?
-        .data
-        .and_then(|mut data| data.remove("ZOOKEEPER"))
-        .context(MissingZookeeperConnStringSnafu {
-            cm_name: zk_confmap.clone(),
-        })?;
-
-    // Assemble the OPA connection string from the discovery and the given path, if a spec is given.
-    let opa_connstr = if let Some(DruidAuthorization { opa: opa_config }) =
-        &druid.spec.cluster_config.authorization
-    {
-        Some(
-            opa_config
-                .full_document_url_from_config_map(
-                    client,
-                    druid.deref(),
-                    Some("allow"),
-                    OpaApiVersion::V1,
-                )
-                .await
-                .context(GetOpaConnStringSnafu {
-                    cm_name: opa_config.config_map_name.clone(),
-                })?,
-        )
-    } else {
-        None
-    };
-
-    // Get the s3 connection if one is defined
-    let s3_conn = druid
-        .get_s3_connection(client)
-        .await
-        .context(GetS3ConnectionSnafu)?;
-
-    let deep_storage_bucket_name = match &druid.spec.cluster_config.deep_storage {
-        DeepStorageSpec::S3(s3_spec) => {
-            s3_spec
-                .bucket
-                .resolve(client, namespace)
-                .await
-                .context(GetDeepStorageBucketSnafu)?
-                .bucket_name
-        }
-        _ => None,
-    };
-
-    let resolved_authentication_classes = resolve_authentication_classes(client, druid)
-        .await
-        .context(FailedToInitializeSecurityContextSnafu)?;
-
-    let additional_data = AdditionalData {
-        opa_connstr,
-        resolved_authentication_classes,
-        resolved_product_image,
-        zk_connstr,
-        s3_conn,
-        deep_storage_bucket_name,
-    };
-    Ok(additional_data)
-}
-
-pub async fn handle_cluster_resources(
-    client: &Client,
-    druid: &Arc<DruidCluster>,
-    appliable_cluster_resources: Vec<AppliableClusterResource>,
-) -> Result<Action> {
-    let mut cluster_resources = ClusterResources::new(
-        APP_NAME,
-        OPERATOR_NAME,
-        CONTROLLER_NAME,
-        &druid.object_ref(&()),
-    )
-    .context(CreateClusterResourcesSnafu)?;
-
-    for cluster_resource in appliable_cluster_resources {
-        match cluster_resource {
-            AppliableClusterResource::RoleService(role_service) => {
-                cluster_resources
-                    .add(client, &role_service)
-                    .await
-                    .context(ApplyRoleServiceSnafu)?;
-            }
-            AppliableClusterResource::DiscoveryConfigMap(config_map) => {
-                cluster_resources
-                    .add(client, &config_map)
-                    .await
-                    .context(ApplyDiscoveryConfigSnafu)?;
-            }
-            AppliableClusterResource::RolegroupService(rg_service, rolegroup) => {
-                cluster_resources
-                    .add(client, &rg_service)
-                    .await
-                    .with_context(|_| ApplyRoleGroupServiceSnafu {
-                        rolegroup: rolegroup.clone(),
-                    })?;
-            }
-            AppliableClusterResource::RolegroupConfigMap(rg_configmap, rolegroup) => {
-                cluster_resources
-                    .add(client, &rg_configmap)
-                    .await
-                    .with_context(|_| ApplyRoleGroupConfigSnafu {
-                        rolegroup: rolegroup.clone(),
-                    })?;
-            }
-            AppliableClusterResource::RolegroupStatefulSet(rg_statefulset, rolegroup) => {
-                cluster_resources
-                    .add(client, &rg_statefulset)
-                    .await
-                    .with_context(|_| ApplyRoleGroupStatefulSetSnafu {
-                        rolegroup: rolegroup.clone(),
-                    })?;
-            }
-            AppliableClusterResource::InternalSecret(secret) => {
-                if client
-                    .get_opt::<Secret>(
-                        &secret.name_any(),
-                        secret
-                            .namespace()
-                            .as_deref()
-                            .context(ObjectHasNoNamespaceSnafu)?,
-                    )
-                    .await
-                    .context(FailedToRetrieveInternalSecretSnafu)?
-                    .is_none()
-                {
-                    client
-                        .apply_patch(CONTROLLER_NAME, &secret, &secret)
-                        .await
-                        .context(ApplyInternalSecretSnafu)?;
-                }
-            }
-        };
-    }
-
-    cluster_resources
-        .delete_orphaned_resources(client)
-        .await
-        .context(DeleteOrphanedResourcesSnafu)?;
-
-    Ok(Action::await_change())
-}
-
-async fn create_appliable_cluster_resources(
+pub async fn create_appliable_cluster_resources(
     druid: Arc<DruidCluster>,
     additional_data: AdditionalData,
     product_config: &ProductConfigManager,
@@ -516,17 +250,6 @@ async fn create_appliable_cluster_resources(
     }
 
     Ok(appliable_cluster_resources)
-}
-
-pub async fn reconcile_druid(druid: Arc<DruidCluster>, ctx: Arc<Ctx>) -> Result<Action> {
-    tracing::info!("Starting reconcile");
-
-    let additional_data = fetch_additional_data(&druid, &ctx.client).await?;
-    let appliable_cluster_resources =
-        create_appliable_cluster_resources(druid.clone(), additional_data, &ctx.product_config) // NOTE: clone due to weird internal function call
-            .await?;
-
-    handle_cluster_resources(&ctx.client, &druid, appliable_cluster_resources).await
 }
 
 /// The server-role service is the primary endpoint that should be used by clients that do not perform internal load balancing,
@@ -947,6 +670,8 @@ fn get_ldap_secret_placeholder_replacement_commands(
     Ok(commands)
 }
 
+type Result<T, E = Error> = std::result::Result<T, E>;
+
 fn add_config_volume_and_volume_mounts(
     rolegroup_ref: &RoleGroupRef<DruidCluster>,
     cb_druid: &mut ContainerBuilder,
@@ -1004,149 +729,4 @@ fn add_s3_volume_and_volume_mounts(
     }
 
     Ok(())
-}
-
-pub fn error_policy(_obj: Arc<DruidCluster>, _error: &Error, _ctx: Arc<Ctx>) -> Action {
-    Action::requeue(Duration::from_secs(5))
-}
-
-#[cfg(test)]
-mod test {
-    use super::*;
-    use rstest::*;
-    use stackable_druid_crd::{
-        authentication::ResolvedAuthenticationClasses, PROP_SEGMENT_CACHE_LOCATIONS,
-    };
-    use stackable_operator::product_config::{writer, ProductConfigManager};
-
-    #[derive(Snafu, Debug, EnumDiscriminants)]
-    #[strum_discriminants(derive(IntoStaticStr))]
-    #[allow(clippy::enum_variant_names)]
-    pub enum Error {
-        #[snafu(display("controller error"))]
-        Controller { source: super::Error },
-        #[snafu(display("product config error"))]
-        ProductConfig {
-            source: stackable_operator::product_config::error::Error,
-        },
-        #[snafu(display("product config utils error"))]
-        ProductConfigUtils {
-            source: stackable_operator::product_config_utils::ConfigError,
-        },
-        #[snafu(display("operator framework error"))]
-        OperatorFramework {
-            source: stackable_operator::error::Error,
-        },
-        #[snafu(display("resource error"))]
-        Resource {
-            source: stackable_druid_crd::resource::Error,
-        },
-    }
-
-    #[rstest]
-    #[case(
-        "segment_cache.yaml",
-        "default",
-        "[{\"path\":\"/stackable/var/druid/segment-cache\",\"maxSize\":\"1G\",\"freeSpacePercent\":\"5\"}]"
-    )]
-    #[case(
-        "segment_cache.yaml",
-        "secondary",
-        "[{\"path\":\"/stackable/var/druid/segment-cache\",\"maxSize\":\"5G\",\"freeSpacePercent\":\"2\"}]"
-    )]
-    fn segment_cache_location_property(
-        #[case] druid_manifest: &str,
-        #[case] tested_rolegroup_name: &str,
-        #[case] expected_druid_segment_cache_property: &str,
-    ) -> Result<(), Error> {
-        let cluster_cr =
-            std::fs::File::open(format!("test/resources/druid_controller/{druid_manifest}"))
-                .unwrap();
-        let deserializer = serde_yaml::Deserializer::from_reader(&cluster_cr);
-        let druid: DruidCluster =
-            serde_yaml::with::singleton_map_recursive::deserialize(deserializer).unwrap();
-
-        let resolved_product_image: ResolvedProductImage =
-            druid.spec.image.resolve(DOCKER_IMAGE_BASE_NAME);
-        let role_config = transform_all_roles_to_config(&druid, druid.build_role_properties());
-
-        let product_config_manager =
-            ProductConfigManager::from_yaml_file("test/resources/druid_controller/properties.yaml")
-                .context(ProductConfigSnafu)?;
-
-        let validated_role_config = validate_all_roles_and_groups_config(
-            &resolved_product_image.product_version,
-            &role_config.context(ProductConfigUtilsSnafu)?,
-            &product_config_manager,
-            false,
-            false,
-        )
-        .context(OperatorFrameworkSnafu)?;
-
-        let druid_tls_security = DruidTlsSecurity::new(
-            ResolvedAuthenticationClasses::new(vec![]),
-            Some("tls".to_string()),
-        );
-
-        let mut druid_segment_cache_property = "invalid".to_string();
-
-        for (role_name, role_config) in validated_role_config.iter() {
-            for (rolegroup_name, rolegroup_config) in role_config.iter() {
-                if rolegroup_name == tested_rolegroup_name
-                    && role_name == &DruidRole::Historical.to_string()
-                {
-                    let rolegroup_ref = RoleGroupRef {
-                        cluster: ObjectRef::from_obj(&druid),
-                        role: role_name.into(),
-                        role_group: rolegroup_name.clone(),
-                    };
-
-                    let resources =
-                        resource::resources(&druid, &DruidRole::Historical, &rolegroup_ref)
-                            .context(ResourceSnafu)?;
-                    let ldap_settings: Option<DruidLdapSettings> = None;
-
-                    let rg_configmap = build_rolegroup_config_map(
-                        &druid,
-                        &resolved_product_image,
-                        &rolegroup_ref,
-                        rolegroup_config,
-                        "zookeeper-connection-string",
-                        None,
-                        None,
-                        None,
-                        &resources,
-                        &druid_tls_security,
-                        &ldap_settings,
-                    )
-                    .context(ControllerSnafu)?;
-
-                    druid_segment_cache_property = rg_configmap
-                        .data
-                        .unwrap()
-                        .get(&RUNTIME_PROPS.to_string())
-                        .unwrap()
-                        .to_string();
-
-                    break;
-                }
-            }
-        }
-        let escaped_segment_cache_property = writer::to_java_properties_string(
-            vec![(
-                &PROP_SEGMENT_CACHE_LOCATIONS.to_string(),
-                &Some(expected_druid_segment_cache_property.to_string()),
-            )]
-            .into_iter(),
-        )
-        .unwrap();
-
-        assert!(
-            druid_segment_cache_property.contains(&escaped_segment_cache_property),
-            "role group {}",
-            tested_rolegroup_name
-        );
-
-        Ok(())
-    }
 }
