@@ -730,3 +730,147 @@ fn add_s3_volume_and_volume_mounts(
 
     Ok(())
 }
+
+// old tests
+#[cfg(test)]
+mod test {
+    use super::*;
+    use rstest::*;
+    use stackable_druid_crd::{
+        authentication::ResolvedAuthenticationClasses, PROP_SEGMENT_CACHE_LOCATIONS,
+    };
+    use stackable_operator::product_config::{writer, ProductConfigManager};
+
+    #[derive(Snafu, Debug, EnumDiscriminants)]
+    #[strum_discriminants(derive(IntoStaticStr))]
+    #[allow(clippy::enum_variant_names)]
+    pub enum Error {
+        #[snafu(display("controller error"))]
+        Controller { source: super::Error },
+        #[snafu(display("product config error"))]
+        ProductConfig {
+            source: stackable_operator::product_config::error::Error,
+        },
+        #[snafu(display("product config utils error"))]
+        ProductConfigUtils {
+            source: stackable_operator::product_config_utils::ConfigError,
+        },
+        #[snafu(display("operator framework error"))]
+        OperatorFramework {
+            source: stackable_operator::error::Error,
+        },
+        #[snafu(display("resource error"))]
+        Resource {
+            source: stackable_druid_crd::resource::Error,
+        },
+    }
+
+    #[rstest]
+    #[case(
+        "segment_cache.yaml",
+        "default",
+        "[{\"path\":\"/stackable/var/druid/segment-cache\",\"maxSize\":\"1G\",\"freeSpacePercent\":\"5\"}]"
+    )]
+    #[case(
+        "segment_cache.yaml",
+        "secondary",
+        "[{\"path\":\"/stackable/var/druid/segment-cache\",\"maxSize\":\"5G\",\"freeSpacePercent\":\"2\"}]"
+    )]
+    fn segment_cache_location_property(
+        #[case] druid_manifest: &str,
+        #[case] tested_rolegroup_name: &str,
+        #[case] expected_druid_segment_cache_property: &str,
+    ) -> Result<(), Error> {
+        let cluster_cr =
+            std::fs::File::open(format!("test/resources/druid_controller/{druid_manifest}"))
+                .unwrap();
+        let deserializer = serde_yaml::Deserializer::from_reader(&cluster_cr);
+        let druid: DruidCluster =
+            serde_yaml::with::singleton_map_recursive::deserialize(deserializer).unwrap();
+
+        let resolved_product_image: ResolvedProductImage = druid
+            .spec
+            .image
+            .resolve(crate::controller::DOCKER_IMAGE_BASE_NAME);
+        let role_config = transform_all_roles_to_config(&druid, druid.build_role_properties());
+
+        let product_config_manager =
+            ProductConfigManager::from_yaml_file("test/resources/druid_controller/properties.yaml")
+                .context(ProductConfigSnafu)?;
+
+        let validated_role_config = validate_all_roles_and_groups_config(
+            &resolved_product_image.product_version,
+            &role_config.context(ProductConfigUtilsSnafu)?,
+            &product_config_manager,
+            false,
+            false,
+        )
+        .context(OperatorFrameworkSnafu)?;
+
+        let druid_tls_security = DruidTlsSecurity::new(
+            ResolvedAuthenticationClasses::new(vec![]),
+            Some("tls".to_string()),
+        );
+
+        let mut druid_segment_cache_property = "invalid".to_string();
+
+        for (role_name, role_config) in validated_role_config.iter() {
+            for (rolegroup_name, rolegroup_config) in role_config.iter() {
+                if rolegroup_name == tested_rolegroup_name
+                    && role_name == &DruidRole::Historical.to_string()
+                {
+                    let rolegroup_ref = RoleGroupRef {
+                        cluster: ObjectRef::from_obj(&druid),
+                        role: role_name.into(),
+                        role_group: rolegroup_name.clone(),
+                    };
+
+                    let resources =
+                        resource::resources(&druid, &DruidRole::Historical, &rolegroup_ref)
+                            .context(ResourceSnafu)?;
+                    let ldap_settings: Option<DruidLdapSettings> = None;
+
+                    let rg_configmap = build_rolegroup_config_map(
+                        &druid,
+                        &resolved_product_image,
+                        &rolegroup_ref,
+                        rolegroup_config,
+                        "zookeeper-connection-string",
+                        None,
+                        None,
+                        None,
+                        &resources,
+                        &druid_tls_security,
+                        &ldap_settings,
+                    )
+                    .context(ControllerSnafu)?;
+
+                    druid_segment_cache_property = rg_configmap
+                        .data
+                        .unwrap()
+                        .get(&RUNTIME_PROPS.to_string())
+                        .unwrap()
+                        .to_string();
+
+                    break;
+                }
+            }
+        }
+        let escaped_segment_cache_property = writer::to_java_properties_string(
+            vec![(
+                &PROP_SEGMENT_CACHE_LOCATIONS.to_string(),
+                &Some(expected_druid_segment_cache_property.to_string()),
+            )]
+            .into_iter(),
+        )
+        .unwrap();
+
+        assert!(
+            druid_segment_cache_property.contains(&escaped_segment_cache_property),
+            "role group {}",
+            tested_rolegroup_name
+        );
+
+        Ok(())
+    }
+}
