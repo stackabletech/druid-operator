@@ -3,6 +3,7 @@ mod discovery;
 mod druid_controller;
 mod extensions;
 mod internal_secret;
+mod testability_helpers;
 
 use std::sync::Arc;
 

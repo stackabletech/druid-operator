@@ -1,10 +1,8 @@
-use snafu::{OptionExt, ResultExt, Snafu};
+use snafu::{ResultExt, Snafu};
 use stackable_druid_crd::DruidCluster;
 use stackable_operator::k8s_openapi::api::core::v1::{EnvVar, EnvVarSource, SecretKeySelector};
 use stackable_operator::kube::ResourceExt;
-use stackable_operator::{
-    builder::ObjectMetaBuilder, client::Client, k8s_openapi::api::core::v1::Secret,
-};
+use stackable_operator::{builder::ObjectMetaBuilder, k8s_openapi::api::core::v1::Secret};
 use std::collections::BTreeMap;
 use strum::{EnumDiscriminants, IntoStaticStr};
 
@@ -14,47 +12,12 @@ pub const ENV_INTERNAL_SECRET: &str = "INTERNAL_SECRET";
 #[strum_discriminants(derive(IntoStaticStr))]
 #[allow(clippy::enum_variant_names)]
 pub enum Error {
-    #[snafu(display("failed to apply internal secret"))]
-    ApplyInternalSecret {
-        source: stackable_operator::error::Error,
-    },
-    #[snafu(display("failed to retrieve secret for internal communications"))]
-    FailedToRetrieveInternalSecret {
-        source: stackable_operator::error::Error,
-    },
     #[snafu(display("object defines no namespace"))]
     ObjectHasNoNamespace,
     #[snafu(display("object is missing metadata to build owner reference"))]
     ObjectMissingMetadataForOwnerRef {
         source: stackable_operator::error::Error,
     },
-}
-
-pub async fn create_shared_internal_secret(
-    druid: &DruidCluster,
-    client: &Client,
-    controller_name: &str,
-) -> Result<(), Error> {
-    let secret = build_shared_internal_secret(druid)?;
-    if client
-        .get_opt::<Secret>(
-            &secret.name_any(),
-            secret
-                .namespace()
-                .as_deref()
-                .context(ObjectHasNoNamespaceSnafu)?,
-        )
-        .await
-        .context(FailedToRetrieveInternalSecretSnafu)?
-        .is_none()
-    {
-        client
-            .apply_patch(controller_name, &secret, &secret)
-            .await
-            .context(ApplyInternalSecretSnafu)?;
-    }
-
-    Ok(())
 }
 
 pub fn build_shared_internal_secret(druid: &DruidCluster) -> Result<Secret, Error> {

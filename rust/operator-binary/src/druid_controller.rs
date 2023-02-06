@@ -4,14 +4,16 @@ use crate::{
     discovery::{self, build_discovery_configmaps},
     extensions::get_extension_list,
     internal_secret::{
-        build_shared_internal_secret_name, create_shared_internal_secret, env_var_from_secret,
+        build_shared_internal_secret, build_shared_internal_secret_name, env_var_from_secret,
         ENV_INTERNAL_SECRET,
     },
+    testability_helpers::AppliableClusterResource,
     OPERATOR_NAME,
 };
 
 use snafu::{OptionExt, ResultExt, Snafu};
 use stackable_druid_crd::{
+    authentication::ResolvedAuthenticationClasses,
     authorization::DruidAuthorization,
     build_string_list,
     ldap::{
@@ -33,6 +35,7 @@ use stackable_operator::{
         ConfigMapBuilder, ContainerBuilder, ObjectMetaBuilder, PodBuilder,
         PodSecurityContextBuilder, SecretOperatorVolumeSourceBuilder, VolumeBuilder,
     },
+    client::Client,
     cluster_resources::ClusterResources,
     commons::{
         opa::OpaApiVersion,
@@ -43,13 +46,13 @@ use stackable_operator::{
     k8s_openapi::{
         api::{
             apps::v1::{StatefulSet, StatefulSetSpec},
-            core::v1::{ConfigMap, EnvVar, Service, ServiceSpec},
+            core::v1::{ConfigMap, EnvVar, Secret, Service, ServiceSpec},
         },
         apimachinery::pkg::apis::meta::v1::LabelSelector,
     },
     kube::{
         runtime::{controller::Action, reflector::ObjectRef},
-        Resource,
+        Resource, ResourceExt,
     },
     labels::{role_group_selector_labels, role_selector_labels},
     logging::controller::ReconcilerError,
@@ -209,6 +212,14 @@ pub enum Error {
         "failed to access bind credentials although they are required for LDAP to work"
     ))]
     LdapBindCredentialsAreRequired,
+    #[snafu(display("failed to apply internal secret"))]
+    ApplyInternalSecret {
+        source: stackable_operator::error::Error,
+    },
+    #[snafu(display("failed to retrieve secret for internal communications"))]
+    FailedToRetrieveInternalSecret {
+        source: stackable_operator::error::Error,
+    },
 }
 
 type Result<T, E = Error> = std::result::Result<T, E>;
@@ -219,9 +230,19 @@ impl ReconcilerError for Error {
     }
 }
 
-pub async fn reconcile_druid(druid: Arc<DruidCluster>, ctx: Arc<Ctx>) -> Result<Action> {
-    tracing::info!("Starting reconcile");
-    let client = &ctx.client;
+struct AdditionalData {
+    opa_connstr: Option<String>,
+    resolved_authentication_classes: ResolvedAuthenticationClasses,
+    resolved_product_image: ResolvedProductImage,
+    zk_connstr: String,
+    s3_conn: Option<S3ConnectionSpec>,
+    deep_storage_bucket_name: Option<String>,
+}
+
+async fn fetch_additional_data(
+    druid: &Arc<DruidCluster>,
+    client: &Client,
+) -> Result<AdditionalData> {
     let namespace = &druid
         .metadata
         .namespace
@@ -231,6 +252,7 @@ pub async fn reconcile_druid(druid: Arc<DruidCluster>, ctx: Arc<Ctx>) -> Result<
         druid.spec.image.resolve(DOCKER_IMAGE_BASE_NAME);
 
     let zk_confmap = druid.spec.cluster_config.zookeeper_config_map_name.clone();
+
     let zk_connstr = client
         .get::<ConfigMap>(&zk_confmap, namespace)
         .await
@@ -282,27 +304,26 @@ pub async fn reconcile_druid(druid: Arc<DruidCluster>, ctx: Arc<Ctx>) -> Result<
         _ => None,
     };
 
-    let resolved_authentication_classes = resolve_authentication_classes(client, &druid)
+    let resolved_authentication_classes = resolve_authentication_classes(client, druid)
         .await
         .context(FailedToInitializeSecurityContextSnafu)?;
 
-    let druid_ldap_settings = DruidLdapSettings::new_from(&resolved_authentication_classes);
+    let additional_data = AdditionalData {
+        opa_connstr,
+        resolved_authentication_classes,
+        resolved_product_image,
+        zk_connstr,
+        s3_conn,
+        deep_storage_bucket_name,
+    };
+    Ok(additional_data)
+}
 
-    let druid_tls_security =
-        DruidTlsSecurity::new_from_druid_cluster(&druid, resolved_authentication_classes);
-
-    // False positive, auto-deref breaks type inference
-    #[allow(clippy::explicit_auto_deref)]
-    let role_config = transform_all_roles_to_config(&*druid, druid.build_role_properties());
-    let validated_role_config = validate_all_roles_and_groups_config(
-        &resolved_product_image.product_version,
-        &role_config.context(ProductConfigTransformSnafu)?,
-        &ctx.product_config,
-        false,
-        false,
-    )
-    .context(InvalidProductConfigSnafu)?;
-
+pub async fn handle_cluster_resources(
+    client: &Client,
+    druid: &Arc<DruidCluster>,
+    appliable_cluster_resources: Vec<AppliableClusterResource>,
+) -> Result<Action> {
     let mut cluster_resources = ClusterResources::new(
         APP_NAME,
         OPERATOR_NAME,
@@ -311,6 +332,101 @@ pub async fn reconcile_druid(druid: Arc<DruidCluster>, ctx: Arc<Ctx>) -> Result<
     )
     .context(CreateClusterResourcesSnafu)?;
 
+    for cluster_resource in appliable_cluster_resources {
+        match cluster_resource {
+            AppliableClusterResource::RoleService(role_service) => {
+                cluster_resources
+                    .add(client, &role_service)
+                    .await
+                    .context(ApplyRoleServiceSnafu)?;
+            }
+            AppliableClusterResource::DiscoveryConfigMap(config_map) => {
+                cluster_resources
+                    .add(client, &config_map)
+                    .await
+                    .context(ApplyDiscoveryConfigSnafu)?;
+            }
+            AppliableClusterResource::RolegroupService(rg_service, rolegroup) => {
+                cluster_resources
+                    .add(client, &rg_service)
+                    .await
+                    .with_context(|_| ApplyRoleGroupServiceSnafu {
+                        rolegroup: rolegroup.clone(),
+                    })?;
+            }
+            AppliableClusterResource::RolegroupConfigMap(rg_configmap, rolegroup) => {
+                cluster_resources
+                    .add(client, &rg_configmap)
+                    .await
+                    .with_context(|_| ApplyRoleGroupConfigSnafu {
+                        rolegroup: rolegroup.clone(),
+                    })?;
+            }
+            AppliableClusterResource::RolegroupStatefulSet(rg_statefulset, rolegroup) => {
+                cluster_resources
+                    .add(client, &rg_statefulset)
+                    .await
+                    .with_context(|_| ApplyRoleGroupStatefulSetSnafu {
+                        rolegroup: rolegroup.clone(),
+                    })?;
+            }
+            AppliableClusterResource::InternalSecret(secret) => {
+                if client
+                    .get_opt::<Secret>(
+                        &secret.name_any(),
+                        secret
+                            .namespace()
+                            .as_deref()
+                            .context(ObjectHasNoNamespaceSnafu)?,
+                    )
+                    .await
+                    .context(FailedToRetrieveInternalSecretSnafu)?
+                    .is_none()
+                {
+                    client
+                        .apply_patch(CONTROLLER_NAME, &secret, &secret)
+                        .await
+                        .context(ApplyInternalSecretSnafu)?;
+                }
+            }
+        };
+    }
+
+    cluster_resources
+        .delete_orphaned_resources(client)
+        .await
+        .context(DeleteOrphanedResourcesSnafu)?;
+
+    Ok(Action::await_change())
+}
+
+async fn create_appliable_cluster_resources(
+    druid: Arc<DruidCluster>,
+    additional_data: AdditionalData,
+    product_config: &ProductConfigManager,
+) -> Result<Vec<AppliableClusterResource>> {
+    let mut appliable_cluster_resources: Vec<AppliableClusterResource> = Vec::new();
+
+    let druid_ldap_settings =
+        DruidLdapSettings::new_from(&additional_data.resolved_authentication_classes);
+
+    let druid_tls_security = DruidTlsSecurity::new_from_druid_cluster(
+        &druid,
+        additional_data.resolved_authentication_classes,
+    );
+
+    // False positive, auto-deref breaks type inference
+    #[allow(clippy::explicit_auto_deref)]
+    let role_config = transform_all_roles_to_config(&*druid, druid.build_role_properties());
+    let validated_role_config = validate_all_roles_and_groups_config(
+        &additional_data.resolved_product_image.product_version,
+        &role_config.context(ProductConfigTransformSnafu)?,
+        product_config,
+        false,
+        false,
+    )
+    .context(InvalidProductConfigSnafu)?;
+
     for (role_name, role_config) in validated_role_config.iter() {
         let druid_role = DruidRole::from_str(role_name).context(UnidentifiedDruidRoleSnafu {
             role: role_name.to_string(),
@@ -318,18 +434,17 @@ pub async fn reconcile_druid(druid: Arc<DruidCluster>, ctx: Arc<Ctx>) -> Result<
 
         let role_service = build_role_service(
             &druid,
-            &resolved_product_image,
+            &additional_data.resolved_product_image,
             &druid_role,
             &druid_tls_security,
         )?;
-        cluster_resources
-            .add(client, &role_service)
-            .await
-            .context(ApplyRoleServiceSnafu)?;
 
-        create_shared_internal_secret(&druid, client, CONTROLLER_NAME)
-            .await
-            .context(FailedInternalSecretCreationSnafu)?;
+        appliable_cluster_resources
+            .push(AppliableClusterResource::RoleService(role_service.clone()));
+
+        let internal_secret =
+            build_shared_internal_secret(&druid).context(FailedInternalSecretCreationSnafu)?;
+        appliable_cluster_resources.push(AppliableClusterResource::InternalSecret(internal_secret));
 
         for (rolegroup_name, rolegroup_config) in role_config.iter() {
             let rolegroup = RoleGroupRef {
@@ -343,51 +458,46 @@ pub async fn reconcile_druid(druid: Arc<DruidCluster>, ctx: Arc<Ctx>) -> Result<
 
             let rg_service = build_rolegroup_services(
                 &druid,
-                &resolved_product_image,
+                &additional_data.resolved_product_image,
                 &rolegroup,
                 &druid_tls_security,
             )?;
             let rg_configmap = build_rolegroup_config_map(
                 &druid,
-                &resolved_product_image,
+                &additional_data.resolved_product_image,
                 &rolegroup,
                 rolegroup_config,
-                &zk_connstr,
-                opa_connstr.as_deref(),
-                s3_conn.as_ref(),
-                deep_storage_bucket_name.as_deref(),
+                &additional_data.zk_connstr,
+                additional_data.opa_connstr.as_deref(),
+                additional_data.s3_conn.as_ref(),
+                additional_data.deep_storage_bucket_name.as_deref(),
                 &resources,
                 &druid_tls_security,
                 &druid_ldap_settings,
             )?;
             let rg_statefulset = build_rolegroup_statefulset(
                 &druid,
-                &resolved_product_image,
+                &additional_data.resolved_product_image,
                 &rolegroup,
                 rolegroup_config,
-                s3_conn.as_ref(),
+                additional_data.s3_conn.as_ref(),
                 &resources,
                 &druid_tls_security,
                 &druid_ldap_settings,
             )?;
-            cluster_resources
-                .add(client, &rg_service)
-                .await
-                .with_context(|_| ApplyRoleGroupServiceSnafu {
-                    rolegroup: rolegroup.clone(),
-                })?;
-            cluster_resources
-                .add(client, &rg_configmap)
-                .await
-                .with_context(|_| ApplyRoleGroupConfigSnafu {
-                    rolegroup: rolegroup.clone(),
-                })?;
-            cluster_resources
-                .add(client, &rg_statefulset)
-                .await
-                .with_context(|_| ApplyRoleGroupStatefulSetSnafu {
-                    rolegroup: rolegroup.clone(),
-                })?;
+
+            appliable_cluster_resources.push(AppliableClusterResource::RolegroupService(
+                rg_service,
+                rolegroup.clone(),
+            ));
+            appliable_cluster_resources.push(AppliableClusterResource::RolegroupConfigMap(
+                rg_configmap,
+                rolegroup.clone(),
+            ));
+            appliable_cluster_resources.push(AppliableClusterResource::RolegroupStatefulSet(
+                rg_statefulset,
+                rolegroup.clone(),
+            ));
         }
     }
 
@@ -395,24 +505,28 @@ pub async fn reconcile_druid(druid: Arc<DruidCluster>, ctx: Arc<Ctx>) -> Result<
     for discovery_cm in build_discovery_configmaps(
         &druid,
         &*druid,
-        &resolved_product_image,
+        &additional_data.resolved_product_image,
         &druid_tls_security,
     )
     .await
     .context(BuildDiscoveryConfigSnafu)?
     {
-        cluster_resources
-            .add(client, &discovery_cm)
-            .await
-            .context(ApplyDiscoveryConfigSnafu)?;
+        appliable_cluster_resources
+            .push(AppliableClusterResource::DiscoveryConfigMap(discovery_cm));
     }
 
-    cluster_resources
-        .delete_orphaned_resources(client)
-        .await
-        .context(DeleteOrphanedResourcesSnafu)?;
+    Ok(appliable_cluster_resources)
+}
 
-    Ok(Action::await_change())
+pub async fn reconcile_druid(druid: Arc<DruidCluster>, ctx: Arc<Ctx>) -> Result<Action> {
+    tracing::info!("Starting reconcile");
+
+    let additional_data = fetch_additional_data(&druid, &ctx.client).await?;
+    let appliable_cluster_resources =
+        create_appliable_cluster_resources(druid.clone(), additional_data, &ctx.product_config) // NOTE: clone due to weird internal function call
+            .await?;
+
+    handle_cluster_resources(&ctx.client, &druid, appliable_cluster_resources).await
 }
 
 /// The server-role service is the primary endpoint that should be used by clients that do not perform internal load balancing,
