@@ -8,6 +8,7 @@ use stackable_operator::{
     role_utils::RoleGroupRef,
 };
 
+#[derive(Debug)]
 pub struct AdditionalData {
     pub opa_connstr: Option<String>,
     pub resolved_authentication_classes: ResolvedAuthenticationClasses,
@@ -17,6 +18,7 @@ pub struct AdditionalData {
     pub deep_storage_bucket_name: Option<String>,
 }
 
+#[derive(Debug)]
 pub enum AppliableClusterResource {
     RoleService(Service),
     DiscoveryConfigMap(ConfigMap),

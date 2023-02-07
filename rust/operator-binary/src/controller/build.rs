@@ -182,3 +182,49 @@ pub async fn create_appliable_cluster_resources(
 
     Ok(appliable_cluster_resources)
 }
+
+#[cfg(test)]
+mod tests {
+    use std::sync::Arc;
+
+    use crate::controller::types::AdditionalData;
+
+    use super::create_appliable_cluster_resources;
+    use stackable_druid_crd::{authentication::ResolvedAuthenticationClasses, DruidCluster};
+    use stackable_operator::{
+        commons::product_image_selection::ResolvedProductImage,
+        product_config::ProductConfigManager,
+    };
+
+    #[tokio::test]
+    async fn test_build_step_just_runs() {
+        let cluster_cr = std::fs::File::open("test/smoke/druid_cluster.yaml").unwrap();
+        let deserializer = serde_yaml::Deserializer::from_reader(&cluster_cr);
+        let druid_cluster: DruidCluster =
+            serde_yaml::with::singleton_map_recursive::deserialize(deserializer).unwrap();
+        let product_config_manager =
+            ProductConfigManager::from_yaml_file("test/smoke/properties.yaml").unwrap();
+
+        let result = create_appliable_cluster_resources(
+            Arc::new(druid_cluster),
+            AdditionalData {
+                opa_connstr: None,
+                resolved_authentication_classes: ResolvedAuthenticationClasses::new(vec![]),
+                resolved_product_image: ResolvedProductImage {
+                    product_version: "0.1.0".to_string(),
+                    app_version_label: "".to_string(),
+                    image: "".to_string(),
+                    image_pull_policy: "".to_string(),
+                    pull_secrets: None,
+                },
+                zk_connstr: "".to_string(),
+                s3_conn: None,
+                deep_storage_bucket_name: None,
+            },
+            &product_config_manager,
+        )
+        .await;
+
+        assert!(result.is_ok(), "we want an ok, instead we got {:?}", result);
+    }
+}
