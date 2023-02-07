@@ -1,11 +1,14 @@
-use crate::{
-    parts::config::{get_jvm_config, get_log4j_config},
-    parts::discovery::{self, build_discovery_configmaps},
-    parts::extensions::get_extension_list,
-    parts::internal_secret::{
-        build_shared_internal_secret, build_shared_internal_secret_name, env_var_from_secret,
-        ENV_INTERNAL_SECRET,
-    },
+pub mod config;
+pub mod discovery;
+pub mod extensions;
+pub mod internal_secret;
+
+use config::{get_jvm_config, get_log4j_config};
+use discovery::build_discovery_configmaps;
+use extensions::get_extension_list;
+use internal_secret::{
+    build_shared_internal_secret, build_shared_internal_secret_name, env_var_from_secret,
+    ENV_INTERNAL_SECRET,
 };
 
 use snafu::{ResultExt, Snafu};
@@ -113,7 +116,7 @@ pub enum Error {
     },
     #[snafu(display("failed to get JVM config"))]
     GetJvmConfig {
-        source: crate::parts::config::Error,
+        source: config::Error,
     },
     #[snafu(display("failed to derive Druid memory settings from resources"))]
     DeriveMemorySettings {
@@ -125,7 +128,7 @@ pub enum Error {
     },
     #[snafu(display("failed to retrieve secret for internal communications"))]
     FailedInternalSecretCreation {
-        source: crate::parts::internal_secret::Error,
+        source: internal_secret::Error,
     },
     LdapBindCredentialsAreRequired,
     #[snafu(display("failed to apply internal secret"))]
