@@ -5,13 +5,13 @@ use super::internal_secret::{
 };
 
 use snafu::{ResultExt, Snafu};
-use stackable_druid_crd::{build_recommended_labels, resource::RoleResource};
 use stackable_druid_crd::{
-    build_string_list,
+    build_recommended_labels, build_string_list,
     ldap::{
         DruidLdapSettings, PLACEHOLDER_INTERNAL_CLIENT_PASSWORD, PLACEHOLDER_LDAP_BIND_PASSWORD,
         PLACEHOLDER_LDAP_BIND_USER,
     },
+    resource::RoleResource,
     security::DruidTlsSecurity,
     DeepStorageSpec, DruidCluster, DruidRole, APP_NAME, AUTH_AUTHORIZER_OPA_URI, CERTS_DIR,
     CREDENTIALS_SECRET_PROPERTY, DRUID_CONFIG_DIRECTORY, DS_BUCKET, EXTENSIONS_LOADLIST,
@@ -580,7 +580,6 @@ fn add_s3_volume_and_volume_mounts(
     Ok(())
 }
 
-// old tests
 #[cfg(test)]
 mod test {
     use super::*;
