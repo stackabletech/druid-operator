@@ -120,6 +120,7 @@ pub async fn handle_cluster_resources(
                     })?;
             }
             AppliableClusterResource::InternalSecret(secret) => {
+                // TODO: I must admit, I don't quite know what's going on here right now
                 if client
                     .get_opt::<Secret>(
                         &secret.name_any(),
