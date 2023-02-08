@@ -35,11 +35,6 @@ pub enum Error {
     ApplyDiscoveryConfig {
         source: stackable_operator::error::Error,
     },
-    #[snafu(display("failed to build ConfigMap for {}", rolegroup))]
-    BuildRoleGroupConfig {
-        source: stackable_operator::error::Error,
-        rolegroup: RoleGroupRef<DruidCluster>,
-    },
     #[snafu(display("failed to apply ConfigMap for {}", rolegroup))]
     ApplyRoleGroupConfig {
         source: stackable_operator::error::Error,

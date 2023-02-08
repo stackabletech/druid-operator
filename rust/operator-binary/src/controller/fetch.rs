@@ -63,6 +63,7 @@ pub async fn fetch_additional_data(
         .namespace
         .clone()
         .with_context(|| ObjectHasNoNamespaceSnafu {})?;
+
     let resolved_product_image: ResolvedProductImage =
         druid.spec.image.resolve(DOCKER_IMAGE_BASE_NAME);
 

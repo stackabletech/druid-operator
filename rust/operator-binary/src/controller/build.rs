@@ -70,9 +70,8 @@ pub async fn create_appliable_cluster_resources(
 
     let druid_ldap_settings =
         DruidLdapSettings::new_from(&additional_data.resolved_authentication_classes);
-
     let druid_tls_security = DruidTlsSecurity::new_from_druid_cluster(
-        &druid,
+        &druid.spec.cluster_config.tls,
         additional_data.resolved_authentication_classes,
     );
 

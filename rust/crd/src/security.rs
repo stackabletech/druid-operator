@@ -1,5 +1,6 @@
 use crate::{
     authentication::{self, ResolvedAuthenticationClasses},
+    tls::DruidTls,
     DruidCluster, DruidRole, METRICS_PORT,
 };
 use snafu::{ResultExt, Snafu};
@@ -94,15 +95,12 @@ impl DruidTlsSecurity {
     /// Create a `DruidTlsSecurity` struct from the Druid custom resource and resolve
     /// all provided `AuthenticationClass` references.
     pub fn new_from_druid_cluster(
-        druid: &DruidCluster,
+        druid_tls: &Option<DruidTls>,
         resolved_authentication_classes: ResolvedAuthenticationClasses,
     ) -> Self {
         DruidTlsSecurity {
             resolved_authentication_classes,
-            server_and_internal_secret_class: druid
-                .spec
-                .cluster_config
-                .tls
+            server_and_internal_secret_class: druid_tls
                 .as_ref()
                 .and_then(|tls| tls.server_and_internal_secret_class.clone()),
         }
