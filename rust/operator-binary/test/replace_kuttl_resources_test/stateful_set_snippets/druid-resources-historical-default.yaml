@@ -1,0 +1,38 @@
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: druid-resources-historical-default
+spec:
+  template:
+    spec:
+      containers:
+        - name: druid
+          resources:
+            requests:
+              cpu: 200m
+              memory: 4Gi
+            limits:
+              cpu: "4"
+              memory: 4Gi
+      volumes:
+        - name: tls-mount
+          ephemeral:
+            volumeClaimTemplate:
+              metadata:
+                annotations:
+                  secrets.stackable.tech/class: tls
+                  secrets.stackable.tech/scope: pod,node
+                creationTimestamp: null
+              spec:
+                storageClassName: secrets.stackable.tech
+        - name: tls
+          emptyDir: {}
+        - name: config
+          configMap:
+            name: druid-resources-historical-default
+        - name: rwconfig
+          emptyDir: {}
+        - name: segment-cache
+          emptyDir:
+            sizeLimit: 2G
