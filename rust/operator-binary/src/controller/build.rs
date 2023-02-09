@@ -264,25 +264,30 @@ mod tests {
             yaml_path: String,
         }
 
-        let stateful_set_tests: Vec<StatefulSetYamlTestCases> = vec![StatefulSetYamlTestCases {
-            stateful_set_name: "druid-resources-historical-default".to_string(),
-            // NOTE: removed line "creation_timestamp: null"
-            yaml_path: "test/replace_kuttl_resources_test/stateful_set_snippets/druid-resources-historical-default.yaml"
-                .to_string(),
-        }];
+        let stateful_set_tests: [&str; 6] = [
+            "druid-resources-broker-default",
+            "druid-resources-coordinator-default",
+            "druid-resources-historical-default",
+            "druid-resources-middlemanager-resources-from-role",
+            "druid-resources-middlemanager-resources-from-role-group",
+            "druid-resources-router-default",
+        ];
 
         // NOTE: this part tries to replicate the "expected yaml fields show up" part of the kuttl test resources/20-assert.yaml
-        for test_entry in stateful_set_tests {
+        for test_stateful_set_name in stateful_set_tests {
+            let test_data_yaml_path =
+                format!("test/replace_kuttl_resources_test/stateful_set_snippets/{test_stateful_set_name}.yaml");
+
             let mut checked = false;
             for entry in list_of_appliable_resources.iter() {
                 if let AppliableClusterResource::RolegroupStatefulSet(the_set, _) = entry {
-                    if the_set.name_unchecked() == test_entry.stateful_set_name {
+                    if the_set.name_unchecked() == test_stateful_set_name {
                         let generated_json_string = serde_json::to_string(&the_set).unwrap(); // TODO: convert the_set to a yaml, and to a blank dict
                         let actual_generated_json: serde_json::Value =
                             serde_json::from_str::<serde_json::Value>(&generated_json_string)
                                 .unwrap();
 
-                        let yaml_file = std::fs::File::open(&test_entry.yaml_path).unwrap();
+                        let yaml_file = std::fs::File::open(&test_data_yaml_path).unwrap();
                         let deserializer = serde_yaml::Deserializer::from_reader(&yaml_file);
                         let expected_json: serde_json::Value =
                             serde_yaml::with::singleton_map_recursive::deserialize(deserializer)
@@ -299,7 +304,7 @@ mod tests {
                         if let Err(error_string) = compare_result {
                             panic!(
                                 "{} does not contain content of path {}, diff: \n\n{}\n\n",
-                                test_entry.stateful_set_name, test_entry.yaml_path, error_string
+                                test_stateful_set_name, test_data_yaml_path, error_string
                             );
                         }
 
@@ -312,7 +317,7 @@ mod tests {
             if !checked {
                 panic!(
                     "expected stateful set {} was not found",
-                    test_entry.stateful_set_name
+                    test_stateful_set_name
                 );
             }
         }
