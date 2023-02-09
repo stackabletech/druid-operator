@@ -267,14 +267,19 @@ mod tests {
         .await
         .expect("failed to create cluster resources");
 
+        let mut checked = false;
         for entry in list_of_appliable_resources.iter() {
             if let AppliableClusterResource::RolegroupConfigMap(the_cm, _) = entry {
                 if the_cm.name_unchecked() == "testcluster-broker-default" {
                     let runtime_properties_string =
                         the_cm.data.as_ref().unwrap()["runtime.properties"].clone();
                     runtime_properties_string.contains(r#"druid.extensions.loadList=\"[\\ \\\\\"druid-basic-security\\\\\",\\ \\\\\"prometheus-emitter\\\\\",\\ \\\\\"druid-kafka-indexing-service\\\\\",\\ \\\\\"druid-parquet-extensions\\\\\",\\ \\\\\"druid-histogram\\\\\",\\ \\\\\"druid-datasketches\\\\\",\\ \\\\\"druid-lookups-cached-global\\\\\",\\ \\\\\"druid-hdfs-storage\\\\\",\\ \\\\\"druid-opa-authorizer\\\\\",\\ \\\\\"postgresql-metadata-storage\\\\\",\\ \\\\\"druid-multi-stage-query\\\\\",\\ \\\\\"druid-s3-extensions\\\\\",\\ \\\\\"druid-moving-average-query\\\\\"\\ ]"#);
+                    checked = true;
                 }
             }
+        }
+        if !checked {
+            panic!("config map was not found");
         }
     }
 
