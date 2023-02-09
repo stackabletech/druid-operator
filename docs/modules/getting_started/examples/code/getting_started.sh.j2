@@ -95,7 +95,7 @@ kubectl rollout status --watch statefulset/simple-druid-router-default
 
 echo "Starting port-forwarding of port 8888"
 # tag::port-forwarding[]
-kubectl port-forward svc/simple-druid-router 8888 2>&1 >/dev/null &
+kubectl port-forward svc/simple-druid-router 8888 > /dev/null 2>&1 &
 # end::port-forwarding[]
 PORT_FORWARD_PID=$!
 trap "kill $PORT_FORWARD_PID" EXIT
