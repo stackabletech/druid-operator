@@ -23,7 +23,6 @@ spec:
                 annotations:
                   secrets.stackable.tech/class: tls
                   secrets.stackable.tech/scope: pod,node
-                creationTimestamp: null
               spec:
                 storageClassName: secrets.stackable.tech
         - name: tls
