@@ -68,6 +68,9 @@ pub async fn create_appliable_cluster_resources(
 ) -> Result<Vec<AppliableClusterResource>> {
     let mut appliable_cluster_resources: Vec<AppliableClusterResource> = Vec::new();
 
+    // NOTE: these are in-between helper data structures.
+    // derived from existing data
+    // passed to the stuff-building functions, but not producing anything by themselves
     let druid_ldap_settings =
         DruidLdapSettings::new_from(&additional_data.resolved_authentication_classes);
     let druid_tls_security = DruidTlsSecurity::new_from_druid_cluster(
@@ -103,6 +106,7 @@ pub async fn create_appliable_cluster_resources(
         appliable_cluster_resources
             .push(AppliableClusterResource::RoleService(role_service.clone()));
 
+        // TODO: this only needs to happen once, can be moved out of this loop
         let internal_secret =
             build_shared_internal_secret(&druid).context(FailedInternalSecretCreationSnafu)?;
         appliable_cluster_resources.push(AppliableClusterResource::InternalSecret(internal_secret));
@@ -226,6 +230,52 @@ mod tests {
         .await;
 
         assert!(result.is_ok(), "we want an ok, instead we got {:?}", result);
+    }
+
+    // Felix test suggestions:
+    //  * testing vs not testing? decided not to, due to overhead: https://github.com/stackabletech/druid-operator/issues/381
+    //  * check values in config maps https://github.com/stackabletech/druid-operator/blob/main/tests/templates/kuttl/resources/30-assert.yaml
+    //  * checking pod template for content https://github.com/stackabletech/druid-operator/blob/main/tests/templates/kuttl/resources/20-assert.yaml
+
+    #[tokio::test]
+    async fn test_override_runtime_properties() {
+        let cluster_cr = std::fs::File::open("test/override/druid_cluster.yaml").unwrap();
+        let deserializer = serde_yaml::Deserializer::from_reader(&cluster_cr);
+        let druid_cluster: DruidCluster =
+            serde_yaml::with::singleton_map_recursive::deserialize(deserializer).unwrap();
+        let product_config_manager =
+            ProductConfigManager::from_yaml_file("test/smoke/properties.yaml").unwrap(); // dummy value
+
+        let list_of_appliable_resources = create_appliable_cluster_resources(
+            Arc::new(druid_cluster),
+            AdditionalData {
+                opa_connstr: None,
+                resolved_authentication_classes: ResolvedAuthenticationClasses::new(vec![]),
+                resolved_product_image: ResolvedProductImage {
+                    product_version: "0.1.0".to_string(),
+                    app_version_label: "".to_string(),
+                    image: "".to_string(),
+                    image_pull_policy: "".to_string(),
+                    pull_secrets: None,
+                },
+                zk_connstr: "".to_string(),
+                s3_conn: None,
+                deep_storage_bucket_name: None,
+            },
+            &product_config_manager,
+        )
+        .await
+        .expect("failed to create cluster resources");
+
+        for entry in list_of_appliable_resources.iter() {
+            if let AppliableClusterResource::RolegroupConfigMap(the_cm, _) = entry {
+                if the_cm.name_unchecked() == "testcluster-broker-default" {
+                    let runtime_properties_string =
+                        the_cm.data.as_ref().unwrap()["runtime.properties"].clone();
+                    runtime_properties_string.contains(r#"druid.extensions.loadList=\"[\\ \\\\\"druid-basic-security\\\\\",\\ \\\\\"prometheus-emitter\\\\\",\\ \\\\\"druid-kafka-indexing-service\\\\\",\\ \\\\\"druid-parquet-extensions\\\\\",\\ \\\\\"druid-histogram\\\\\",\\ \\\\\"druid-datasketches\\\\\",\\ \\\\\"druid-lookups-cached-global\\\\\",\\ \\\\\"druid-hdfs-storage\\\\\",\\ \\\\\"druid-opa-authorizer\\\\\",\\ \\\\\"postgresql-metadata-storage\\\\\",\\ \\\\\"druid-multi-stage-query\\\\\",\\ \\\\\"druid-s3-extensions\\\\\",\\ \\\\\"druid-moving-average-query\\\\\"\\ ]"#);
+                }
+            }
+        }
     }
 
     #[tokio::test]
@@ -395,9 +445,21 @@ mod tests {
         }
     }
 
-    // Felix test suggestions:
-    //  * check values in config maps https://github.com/stackabletech/druid-operator/blob/main/tests/templates/kuttl/resources/30-assert.yaml
-    //  * checking pod template for content https://github.com/stackabletech/druid-operator/blob/main/tests/templates/kuttl/resources/20-assert.yaml
-    //  * testing vs not testing? decided not to, due to overhead: https://github.com/stackabletech/druid-operator/issues/381
+    // ----------
 
+    // Testing ideas
+    // * check that some command exists in commands of main container
+    // * check that some command exists in commands of init container
+    // * check that file mount exists
+    // * assert something about the config map
+    // * assert something about all roles (their stateful sets?)
+    // * assert something about the role service?
+
+    /*
+
+    Scenario: tls is enabled
+      * we want a volume mount of the trust store
+      * we want commands to fill that trust store (init container?)
+      * we want configs in the runtime.properties
+     */
 }

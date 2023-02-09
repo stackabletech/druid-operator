@@ -1,0 +1,45 @@
+---
+apiVersion: druid.stackable.tech/v1alpha1
+kind: DruidCluster
+metadata:
+  name: testcluster
+  namespace: default
+  uid: test-uid
+spec:
+  image:
+    productVersion: 24.0.0
+    stackableVersion: 0.3.0
+  clusterConfig:
+    deepStorage:
+      hdfs:
+        configMapName: druid-hdfs
+        directory: /druid
+    metadataStorageDatabase:
+      dbType: derby
+      connString: jdbc:derby://localhost:1527/var/druid/metadata.db;create=true
+      host: localhost
+      port: 1527
+    zookeeperConfigMapName: druid-znode
+  brokers:
+    configOverrides:
+      runtime.properties:
+        druid.extensions.loadList: '"[ \"druid-basic-security\", \"prometheus-emitter\", \"druid-kafka-indexing-service\", \"druid-parquet-extensions\", \"druid-histogram\", \"druid-datasketches\", \"druid-lookups-cached-global\", \"druid-hdfs-storage\", \"druid-opa-authorizer\", \"postgresql-metadata-storage\", \"druid-multi-stage-query\", \"druid-s3-extensions\", \"druid-moving-average-query\" ]"'
+    roleGroups:
+      default:
+        replicas: 1
+  coordinators:
+    roleGroups:
+      default:
+        replicas: 1
+  historicals:
+    roleGroups:
+      default:
+        replicas: 1
+  middleManagers:
+    roleGroups:
+      default:
+        replicas: 1
+  routers:
+    roleGroups:
+      default:
+        replicas: 1
