@@ -54,8 +54,7 @@ pub async fn reconcile_druid(druid: Arc<DruidCluster>, ctx: Arc<Ctx>) -> Result<
         .await
         .context(FetchSnafu)?;
     let appliable_cluster_resources =
-        create_appliable_cluster_resources(druid.clone(), additional_data, &ctx.product_config) // NOTE: clone due to weird internal function call
-            .await
+        create_appliable_cluster_resources(druid.clone(), additional_data, &ctx.product_config)
             .context(BuildSnafu)?;
 
     handle_cluster_resources(&ctx.client, &druid, appliable_cluster_resources)

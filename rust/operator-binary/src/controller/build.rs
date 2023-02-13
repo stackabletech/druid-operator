@@ -61,7 +61,7 @@ pub enum Error {
 
 type Result<T, E = Error> = std::result::Result<T, E>;
 
-pub async fn create_appliable_cluster_resources(
+pub fn create_appliable_cluster_resources(
     druid: Arc<DruidCluster>,
     additional_data: AdditionalData,
     product_config: &ProductConfigManager,
@@ -176,7 +176,6 @@ pub async fn create_appliable_cluster_resources(
         &additional_data.resolved_product_image,
         &druid_tls_security,
     )
-    .await
     .context(BuildDiscoveryConfigSnafu)?
     {
         appliable_cluster_resources
@@ -200,8 +199,8 @@ mod tests {
         product_config::ProductConfigManager,
     };
 
-    #[tokio::test]
-    async fn test_build_step_just_runs() {
+    #[test]
+    fn test_build_step_just_runs() {
         let cluster_cr = std::fs::File::open("test/smoke/druid_cluster.yaml").unwrap();
         let deserializer = serde_yaml::Deserializer::from_reader(&cluster_cr);
         let druid_cluster: DruidCluster =
@@ -226,8 +225,7 @@ mod tests {
                 deep_storage_bucket_name: None,
             },
             &product_config_manager,
-        )
-        .await;
+        );
 
         assert!(result.is_ok(), "we want an ok, instead we got {:?}", result);
     }
@@ -237,8 +235,8 @@ mod tests {
     //  * check values in config maps https://github.com/stackabletech/druid-operator/blob/main/tests/templates/kuttl/resources/30-assert.yaml
     //  * checking pod template for content https://github.com/stackabletech/druid-operator/blob/main/tests/templates/kuttl/resources/20-assert.yaml
 
-    #[tokio::test]
-    async fn test_override_runtime_properties() {
+    #[test]
+    fn test_override_runtime_properties() {
         let cluster_cr = std::fs::File::open("test/override/druid_cluster.yaml").unwrap();
         let deserializer = serde_yaml::Deserializer::from_reader(&cluster_cr);
         let druid_cluster: DruidCluster =
@@ -264,7 +262,6 @@ mod tests {
             },
             &product_config_manager,
         )
-        .await
         .expect("failed to create cluster resources");
 
         let mut checked = false;
@@ -283,8 +280,8 @@ mod tests {
         }
     }
 
-    #[tokio::test]
-    async fn test_replace_kuttl_resources_test() {
+    #[test]
+    fn test_replace_kuttl_resources_test() {
         let cluster_cr =
             std::fs::File::open("test/replace_kuttl_resources_test/druid_cluster.yaml").unwrap();
         let deserializer = serde_yaml::Deserializer::from_reader(&cluster_cr);
@@ -311,7 +308,6 @@ mod tests {
             },
             &product_config_manager,
         )
-        .await
         .expect("failed to create cluster resources");
 
         struct StatefulSetYamlTestCases {
