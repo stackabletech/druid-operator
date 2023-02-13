@@ -307,24 +307,24 @@ spec:
 
 ==== LDAP
 
-Druid supports xref:home:concepts:authentication.adoc[authentication] of users against an LDAP server.
-This requires setting up an xref:home:concepts:authentication.adoc#authenticationclass[AuthenticationClass] for the LDAP server:
+Druid supports xref:concepts:authentication.adoc[authentication] of users against an LDAP server.
+This requires setting up an xref:concepts:authentication.adoc#authenticationclass[AuthenticationClass] for the LDAP server:
 
 [source,yaml]
 ----
-include::example$code/druid-ldap-authentication.yaml[tag=authclass]
+include::example$druid-ldap-authentication.yaml[tag=authclass]
 ----
 
-NOTE: You can follow the xref:home:tutorials:authentication_with_openldap.adoc[] tutorial to learn how to create an AuthenticationClass for an LDAP server.
+NOTE: You can follow the xref:tutorials:authentication_with_openldap.adoc[] tutorial to learn how to create an AuthenticationClass for an LDAP server.
 
 Reference the AuthenticationClass in your DruidCluster resource:
 
 [source,yaml]
 ----
-include::example$code/druid-ldap-authentication.yaml[tag=druid]
+include::example$druid-ldap-authentication.yaml[tag=druid]
 ----
 
-Check out the xref:home:tutorials:authentication_with_openldap.adoc[] tutorial to see a complete example of how to set LDAP authentication for another Stackable operator. You can also consult the xref:home:reference:authenticationclass.adoc[] reference, or
+Check out the xref:tutorials:authentication_with_openldap.adoc[] tutorial to see a complete example of how to set LDAP authentication for another Stackable operator. You can also consult the home:reference:authenticationclass.adoc[] reference, or
 https://github.com/stackabletech/druid-operator/tree/main/tests/templates/kuttl/ldap-authentication[the LDAP test] suite.
 
 ==== Current Limitations and Upcoming Work
@@ -388,7 +388,7 @@ The operator creates a `ConfigMap` with the name of the cluster which contains c
 == Monitoring
 
 The managed Druid instances are automatically configured to export Prometheus metrics. See
-xref:home:operators:monitoring.adoc[] for more details.
+xref:operators:monitoring.adoc[] for more details.
 
 == Configuration & Environment Overrides
 
