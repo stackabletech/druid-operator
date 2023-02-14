@@ -1,0 +1,3 @@
+= Stackable Operator for Apache Druid
+
+The docs can now be found at xref:home:druid:index.adoc[]
