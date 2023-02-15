@@ -375,7 +375,7 @@ fn try_merge_private(
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::storage::FreePercentageEmptyDir;
+    use crate::{storage::FreePercentageEmptyDir, tests::deserialize_yaml_file};
 
     use rstest::*;
     use stackable_operator::{
@@ -573,9 +573,7 @@ mod test {
 
     #[test]
     fn test_resources() -> Result<(), Error> {
-        let cluster_cr =
-            std::fs::File::open("test/resources/resource_merge/druid_cluster.yaml").unwrap();
-        let cluster: DruidCluster = serde_yaml::from_reader(&cluster_cr).unwrap();
+        let cluster = deserialize_yaml_file("test/resources/resource_merge/druid_cluster.yaml");
 
         let resources_from_role_group = RoleGroupRef {
             cluster: ObjectRef::from_obj(&cluster),
@@ -640,9 +638,7 @@ mod test {
 
     #[test]
     fn test_segment_cache() -> Result<(), Error> {
-        let cluster_cr =
-            std::fs::File::open("test/resources/resource_merge/segment_cache.yaml").unwrap();
-        let cluster: DruidCluster = serde_yaml::from_reader(&cluster_cr).unwrap();
+        let cluster = deserialize_yaml_file("test/resources/resource_merge/segment_cache.yaml");
 
         // ---------- default role group
         let rolegroup_ref = RoleGroupRef {
