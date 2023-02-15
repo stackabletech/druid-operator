@@ -31,7 +31,10 @@ pub fn tls_default() -> Option<String> {
 
 #[cfg(test)]
 mod tests {
-    use crate::{authentication::DruidAuthentication, tls::DruidTls, DruidClusterConfig};
+    use crate::{
+        authentication::DruidAuthentication, tests::deserialize_yaml_str, tls::DruidTls,
+        DruidClusterConfig,
+    };
     use indoc::formatdoc;
 
     const BASE_DRUID_CONFIGURATION: &str = r#"
@@ -49,8 +52,8 @@ zookeeperConfigMapName: zk-config-map
 
     #[test]
     fn test_tls_default() {
-        let druid_cluster_config: DruidClusterConfig =
-            serde_yaml::from_str(BASE_DRUID_CONFIGURATION).expect("illegal test input");
+        let druid_cluster_config =
+            deserialize_yaml_str::<DruidClusterConfig>(BASE_DRUID_CONFIGURATION);
 
         assert_eq!(
             druid_cluster_config.tls,
@@ -69,8 +72,7 @@ zookeeperConfigMapName: zk-config-map
           serverAndInternalSecretClass: druid-secret-class
         "};
         dbg!(&input);
-        let druid_cluster_config: DruidClusterConfig =
-            serde_yaml::from_str(&input).expect("illegal test input");
+        let druid_cluster_config = deserialize_yaml_str::<DruidClusterConfig>(&input);
 
         assert_eq!(
             druid_cluster_config.tls,
@@ -88,8 +90,7 @@ zookeeperConfigMapName: zk-config-map
         tls: null
         "};
         dbg!(&input);
-        let druid_cluster_config: DruidClusterConfig =
-            serde_yaml::from_str(&input).expect("illegal test input");
+        let druid_cluster_config = deserialize_yaml_str::<DruidClusterConfig>(&input);
 
         assert_eq!(druid_cluster_config.tls, None,);
         assert_eq!(druid_cluster_config.authentication, vec![]);
@@ -103,8 +104,7 @@ zookeeperConfigMapName: zk-config-map
           serverAndInternalSecretClass: null
         "};
         dbg!(&input);
-        let druid_cluster_config: DruidClusterConfig =
-            serde_yaml::from_str(&input).expect("illegal test input");
+        let druid_cluster_config = deserialize_yaml_str::<DruidClusterConfig>(&input);
 
         assert_eq!(
             druid_cluster_config.tls,
@@ -125,8 +125,7 @@ zookeeperConfigMapName: zk-config-map
           - authenticationClass: druid-user-authentication-class
         "};
         dbg!(&input);
-        let druid_cluster_config: DruidClusterConfig =
-            serde_yaml::from_str(&input).expect("illegal test input");
+        let druid_cluster_config = deserialize_yaml_str::<DruidClusterConfig>(&input);
 
         assert_eq!(
             druid_cluster_config.tls,

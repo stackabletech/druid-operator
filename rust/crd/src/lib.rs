@@ -890,9 +890,8 @@ mod tests {
 
     #[test]
     fn test_service_name_generation() {
-        let cluster_cr =
-            std::fs::File::open("test/resources/role_service/druid_cluster.yaml").unwrap();
-        let cluster: DruidCluster = serde_yaml::from_reader(&cluster_cr).unwrap();
+        let cluster =
+            deserialize_yaml_file::<DruidCluster>("test/resources/role_service/druid_cluster.yaml");
 
         assert_eq!(cluster.metadata.name, Some("testcluster".to_string()));
 
@@ -905,5 +904,16 @@ mod tests {
             cluster.role_service_fqdn(&DruidRole::Router),
             Some("testcluster-router.default.svc.cluster.local".to_string())
         )
+    }
+
+    pub fn deserialize_yaml_str<'a, T: serde::de::Deserialize<'a>>(value: &'a str) -> T {
+        let deserializer = serde_yaml::Deserializer::from_str(value);
+        serde_yaml::with::singleton_map_recursive::deserialize(deserializer).unwrap()
+    }
+
+    pub fn deserialize_yaml_file<'a, T: serde::de::Deserialize<'a>>(path: &'a str) -> T {
+        let file = std::fs::File::open(path).unwrap();
+        let deserializer = serde_yaml::Deserializer::from_reader(file);
+        serde_yaml::with::singleton_map_recursive::deserialize(deserializer).unwrap()
     }
 }

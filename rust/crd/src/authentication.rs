@@ -181,7 +181,10 @@ impl ResolvedAuthenticationClasses {
 
 #[cfg(test)]
 mod tests {
-    use crate::authentication::{Error, ResolvedAuthenticationClasses};
+    use crate::{
+        authentication::{Error, ResolvedAuthenticationClasses},
+        tests::deserialize_yaml_str,
+    };
     use stackable_operator::{commons::authentication::AuthenticationClass, kube::ResourceExt};
 
     #[test]
@@ -311,7 +314,7 @@ spec:
   provider:
     tls: {}
 "#;
-        serde_yaml::from_str(input).expect("illegal test input")
+        deserialize_yaml_str(input)
     }
 
     fn get_tls_authentication_class_with_secret_class_tls() -> AuthenticationClass {
@@ -325,7 +328,7 @@ spec:
     tls:
       clientCertSecretClass: tls
 "#;
-        serde_yaml::from_str(input).expect("illegal test input")
+        deserialize_yaml_str(input)
     }
 
     fn get_tls_authentication_class_with_secret_class_druid_clients() -> AuthenticationClass {
@@ -339,7 +342,7 @@ spec:
     tls:
       clientCertSecretClass: druid-clients
 "#;
-        serde_yaml::from_str(input).expect("illegal test input")
+        deserialize_yaml_str(input)
     }
 
     fn get_ldap_authentication_class() -> AuthenticationClass {
@@ -355,6 +358,6 @@ spec:
       port: 389
       searchBase: ou=users,dc=example,dc=org
 "#;
-        serde_yaml::from_str(input).expect("illegal test input")
+        deserialize_yaml_str(input)
     }
 }
