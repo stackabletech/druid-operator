@@ -15,8 +15,10 @@ All notable changes to this project will be documented in this file.
 ### Fixed
 
 - Configuration overrides for certain properties did not work and now work again ([#387])
+- Fix OOM error with manual buffer size specification ([#380])
 
 [#374]: https://github.com/stackabletech/druid-operator/pull/374
+[#380]: https://github.com/stackabletech/druid-operator/pull/380
 [#387]: https://github.com/stackabletech/druid-operator/pull/387
 
 ## [23.1.0] - 2023-01-23
