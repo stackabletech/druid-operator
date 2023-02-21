@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 
 use crate::memory::{HistoricalDerivedSettings, RESERVED_OS_MEMORY};
-use crate::storage::{self, FreePercentageEmptyDirFragment};
+use crate::storage::{self, default_free_percentage_empty_dir_fragment};
 use crate::{DruidCluster, DruidRole, PATH_SEGMENT_CACHE, PROP_SEGMENT_CACHE_LOCATIONS};
 use lazy_static::lazy_static;
 use snafu::{OptionExt, ResultExt, Snafu};
@@ -208,7 +208,7 @@ lazy_static! {
                 runtime_limits: NoRuntimeLimitsFragment {},
             },
             storage: storage::HistoricalStorageFragment {
-                segment_cache: FreePercentageEmptyDirFragment::default(),
+                segment_cache: default_free_percentage_empty_dir_fragment(),
             },
         };
 }
@@ -224,48 +224,23 @@ fn default_resources(role: &DruidRole) -> Option<RoleResourceFragment> {
     }
 }
 
-fn role_resources(druid: &DruidCluster, role: &DruidRole) -> Option<RoleResourceFragment> {
+fn role_resources(druid: &DruidCluster, role: &DruidRole) -> RoleResourceFragment {
     match role {
-        DruidRole::Broker => druid
-            .spec
-            .brokers
-            .config
-            .config
-            .resources
-            .clone()
-            .map(RoleResourceFragment::DruidFragment),
-        DruidRole::Coordinator => druid
-            .spec
-            .coordinators
-            .config
-            .config
-            .resources
-            .clone()
-            .map(RoleResourceFragment::DruidFragment),
-        DruidRole::Historical => druid
-            .spec
-            .historicals
-            .config
-            .config
-            .resources
-            .clone()
-            .map(RoleResourceFragment::HistoricalFragment),
-        DruidRole::MiddleManager => druid
-            .spec
-            .middle_managers
-            .config
-            .config
-            .resources
-            .clone()
-            .map(RoleResourceFragment::DruidFragment),
-        DruidRole::Router => druid
-            .spec
-            .routers
-            .config
-            .config
-            .resources
-            .clone()
-            .map(RoleResourceFragment::DruidFragment),
+        DruidRole::Broker => {
+            RoleResourceFragment::DruidFragment(druid.spec.brokers.config.config.resources.clone())
+        }
+        DruidRole::Coordinator => RoleResourceFragment::DruidFragment(
+            druid.spec.coordinators.config.config.resources.clone(),
+        ),
+        DruidRole::Historical => RoleResourceFragment::HistoricalFragment(
+            druid.spec.historicals.config.config.resources.clone(),
+        ),
+        DruidRole::MiddleManager => RoleResourceFragment::DruidFragment(
+            druid.spec.middle_managers.config.config.resources.clone(),
+        ),
+        DruidRole::Router => {
+            RoleResourceFragment::DruidFragment(druid.spec.routers.config.config.resources.clone())
+        }
     }
 }
 
@@ -280,40 +255,35 @@ fn rolegroup_resources(
             .brokers
             .role_groups
             .get(&rolegroup_ref.role_group)
-            .map(|rg| &rg.config.config)
-            .and_then(|rg| rg.resources.clone())
+            .map(|rg| rg.config.config.resources.clone())
             .map(RoleResourceFragment::DruidFragment),
         DruidRole::Coordinator => druid
             .spec
             .coordinators
             .role_groups
             .get(&rolegroup_ref.role_group)
-            .map(|rg| &rg.config.config)
-            .and_then(|rg| rg.resources.clone())
+            .map(|rg| rg.config.config.resources.clone())
             .map(RoleResourceFragment::DruidFragment),
         DruidRole::MiddleManager => druid
             .spec
             .middle_managers
             .role_groups
             .get(&rolegroup_ref.role_group)
-            .map(|rg| &rg.config.config)
-            .and_then(|rg| rg.resources.clone())
+            .map(|rg| rg.config.config.resources.clone())
             .map(RoleResourceFragment::DruidFragment),
         DruidRole::Historical => druid
             .spec
             .historicals
             .role_groups
             .get(&rolegroup_ref.role_group)
-            .map(|rg| &rg.config.config)
-            .and_then(|rg| rg.resources.clone())
+            .map(|rg| rg.config.config.resources.clone())
             .map(RoleResourceFragment::HistoricalFragment),
         DruidRole::Router => druid
             .spec
             .routers
             .role_groups
             .get(&rolegroup_ref.role_group)
-            .map(|rg| &rg.config.config)
-            .and_then(|rg| rg.resources.clone())
+            .map(|rg| rg.config.config.resources.clone())
             .map(RoleResourceFragment::DruidFragment),
     }
 }
@@ -326,7 +296,7 @@ pub fn resources(
 ) -> Result<RoleResource, Error> {
     try_merge(&[
         rolegroup_resources(druid, role, rolegroup_ref),
-        role_resources(druid, role),
+        Some(role_resources(druid, role)),
         default_resources(role),
     ])
     .with_context(|_| ResourcesMergeSnafu {
@@ -355,8 +325,6 @@ fn try_merge_private(
     match (ra, rb) {
         (RoleResourceFragment::DruidFragment(a), RoleResourceFragment::DruidFragment(b)) => {
             a.merge(b);
-            let _: Resources<storage::DruidStorage, NoRuntimeLimits> =
-                fragment::validate(a.clone()).context(ResourceValidationSnafu)?;
             Ok(RoleResourceFragment::DruidFragment(a.clone()))
         }
         (
@@ -364,8 +332,6 @@ fn try_merge_private(
             RoleResourceFragment::HistoricalFragment(b),
         ) => {
             a.merge(b);
-            let _: Resources<storage::HistoricalStorage, NoRuntimeLimits> =
-                fragment::validate(a.clone()).context(ResourceValidationSnafu)?;
             Ok(RoleResourceFragment::HistoricalFragment(a.clone()))
         }
         _ => Err(Error::IncompatibleStorageMerging),
@@ -375,7 +341,7 @@ fn try_merge_private(
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::{storage::FreePercentageEmptyDir, tests::deserialize_yaml_file};
+    use crate::{storage::default_free_percentage_empty_dir, tests::deserialize_yaml_file};
 
     use rstest::*;
     use stackable_operator::{
@@ -399,7 +365,7 @@ mod test {
                 runtime_limits: NoRuntimeLimitsFragment{},
             },
             storage: storage::HistoricalStorageFragment{
-                segment_cache: FreePercentageEmptyDirFragment::default(),
+                segment_cache: default_free_percentage_empty_dir_fragment(),
             },
         })),
         None,
@@ -414,7 +380,7 @@ mod test {
                 runtime_limits: NoRuntimeLimits{},
             },
             storage: storage::HistoricalStorage{
-                segment_cache: FreePercentageEmptyDir::default(),
+                segment_cache: default_free_percentage_empty_dir(),
             },
         }),
      )]
@@ -429,7 +395,7 @@ mod test {
                 runtime_limits: NoRuntimeLimitsFragment  {},
             },
             storage: storage::HistoricalStorageFragment  {
-                segment_cache: FreePercentageEmptyDirFragment::default(),
+                segment_cache: default_free_percentage_empty_dir_fragment(),
             },
         })),
         Some(RoleResourceFragment::HistoricalFragment(ResourcesFragment  {
@@ -442,7 +408,7 @@ mod test {
                 runtime_limits: NoRuntimeLimitsFragment {},
             },
             storage: storage::HistoricalStorageFragment {
-                segment_cache: FreePercentageEmptyDirFragment::default(),
+                segment_cache: default_free_percentage_empty_dir_fragment(),
             },
         })),
         None,
@@ -456,7 +422,7 @@ mod test {
                 runtime_limits: NoRuntimeLimits {},
             },
             storage: storage::HistoricalStorage {
-                segment_cache: FreePercentageEmptyDir::default(),
+                segment_cache: default_free_percentage_empty_dir(),
             },
         }),
      )]
@@ -471,7 +437,7 @@ mod test {
                 runtime_limits: NoRuntimeLimitsFragment  {},
             },
             storage: storage::HistoricalStorageFragment  {
-                segment_cache: FreePercentageEmptyDirFragment::default(),
+                segment_cache: default_free_percentage_empty_dir_fragment(),
             },
         })),
         Some(RoleResourceFragment::HistoricalFragment (ResourcesFragment  {
@@ -484,7 +450,7 @@ mod test {
                 runtime_limits: NoRuntimeLimitsFragment  {},
             },
             storage: storage::HistoricalStorageFragment  {
-                segment_cache: FreePercentageEmptyDirFragment::default(),
+                segment_cache: default_free_percentage_empty_dir_fragment(),
             },
         })),
         Some(RoleResourceFragment::HistoricalFragment (ResourcesFragment  {
@@ -497,7 +463,7 @@ mod test {
                 runtime_limits: NoRuntimeLimitsFragment  {},
             },
             storage: storage::HistoricalStorageFragment  {
-                segment_cache: FreePercentageEmptyDirFragment::default(),
+                segment_cache: default_free_percentage_empty_dir_fragment(),
             },
         })),
         RoleResource::Historical(Resources {
@@ -510,7 +476,7 @@ mod test {
                 runtime_limits: NoRuntimeLimits {},
             },
             storage: storage::HistoricalStorage {
-                segment_cache: FreePercentageEmptyDir::default(),
+                segment_cache: default_free_percentage_empty_dir(),
             },
         }),
      )]
@@ -537,7 +503,7 @@ mod test {
                 runtime_limits: NoRuntimeLimitsFragment  {},
             },
             storage: storage::HistoricalStorageFragment  {
-                segment_cache: FreePercentageEmptyDirFragment::default(),
+                segment_cache: default_free_percentage_empty_dir_fragment(),
             },
         })),
         Some(RoleResourceFragment ::DruidFragment (ResourcesFragment  {

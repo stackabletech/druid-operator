@@ -17,10 +17,11 @@ use stackable_operator::{
     client::Client,
     commons::{
         product_image_selection::ProductImage,
-        resources::{NoRuntimeLimits, ResourcesFragment},
+        resources::{NoRuntimeLimits, Resources},
         s3::{InlinedS3BucketSpec, S3BucketDef, S3ConnectionDef, S3ConnectionSpec},
         tls::{CaCert, Tls, TlsServerVerification, TlsVerification},
     },
+    config::{fragment::Fragment, merge::Merge},
     k8s_openapi::apimachinery::pkg::apis::meta::v1::LabelSelector,
     kube::{CustomResource, ResourceExt},
     labels::ObjectLabels,
@@ -152,15 +153,15 @@ pub struct DruidClusterSpec {
     /// The Druid image to use
     pub image: ProductImage,
     /// Configuration of the broker role
-    pub brokers: Role<BrokerConfig>,
+    pub brokers: Role<BrokerConfigFragment>,
     /// Configuration of the coordinator role
-    pub coordinators: Role<CoordinatorConfig>,
+    pub coordinators: Role<CoordinatorConfigFragment>,
     /// Configuration of the historical role
-    pub historicals: Role<HistoricalConfig>,
+    pub historicals: Role<HistoricalConfigFragment>,
     /// Configuration of the middle managed role
-    pub middle_managers: Role<MiddleManagerConfig>,
+    pub middle_managers: Role<MiddleManagerConfigFragment>,
     /// Configuration of the router role
-    pub routers: Role<RouterConfig>,
+    pub routers: Role<RouterConfigFragment>,
     /// Common cluster wide configuration that can not differ or be overridden on a role or role group level
     pub cluster_config: DruidClusterConfig,
 }
@@ -664,37 +665,102 @@ pub struct IngestionSpec {
     pub s3connection: Option<S3ConnectionDef>,
 }
 
-#[derive(Clone, Debug, Default, Deserialize, JsonSchema, PartialEq, Serialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Clone, Debug, Default, Fragment, JsonSchema, PartialEq)]
+#[fragment_attrs(
+    derive(
+        Clone,
+        Debug,
+        Default,
+        Deserialize,
+        Merge,
+        JsonSchema,
+        PartialEq,
+        Serialize
+    ),
+    serde(rename_all = "camelCase")
+)]
 pub struct BrokerConfig {
-    resources: Option<ResourcesFragment<storage::DruidStorage, NoRuntimeLimits>>,
+    #[fragment_attrs(serde(default))]
+    resources: Resources<storage::DruidStorage, NoRuntimeLimits>,
 }
 
-#[derive(Clone, Debug, Default, Deserialize, JsonSchema, PartialEq, Serialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Clone, Debug, Default, Fragment, JsonSchema, PartialEq)]
+#[fragment_attrs(
+    derive(
+        Clone,
+        Debug,
+        Default,
+        Deserialize,
+        Merge,
+        JsonSchema,
+        PartialEq,
+        Serialize
+    ),
+    serde(rename_all = "camelCase")
+)]
 pub struct CoordinatorConfig {
-    resources: Option<ResourcesFragment<storage::DruidStorage, NoRuntimeLimits>>,
+    #[fragment_attrs(serde(default))]
+    resources: Resources<storage::DruidStorage, NoRuntimeLimits>,
 }
 
-#[derive(Clone, Debug, Default, Deserialize, JsonSchema, PartialEq, Serialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Clone, Debug, Default, Fragment, JsonSchema, PartialEq)]
+#[fragment_attrs(
+    derive(
+        Clone,
+        Debug,
+        Default,
+        Deserialize,
+        Merge,
+        JsonSchema,
+        PartialEq,
+        Serialize
+    ),
+    serde(rename_all = "camelCase")
+)]
 pub struct MiddleManagerConfig {
-    resources: Option<ResourcesFragment<storage::DruidStorage, NoRuntimeLimits>>,
+    #[fragment_attrs(serde(default))]
+    resources: Resources<storage::DruidStorage, NoRuntimeLimits>,
 }
 
-#[derive(Clone, Debug, Default, Deserialize, JsonSchema, PartialEq, Serialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Clone, Debug, Default, Fragment, JsonSchema, PartialEq)]
+#[fragment_attrs(
+    derive(
+        Clone,
+        Debug,
+        Default,
+        Deserialize,
+        Merge,
+        JsonSchema,
+        PartialEq,
+        Serialize
+    ),
+    serde(rename_all = "camelCase")
+)]
 pub struct RouterConfig {
-    resources: Option<ResourcesFragment<storage::DruidStorage, NoRuntimeLimits>>,
+    #[fragment_attrs(serde(default))]
+    resources: Resources<storage::DruidStorage, NoRuntimeLimits>,
 }
 
-#[derive(Clone, Debug, Default, Deserialize, JsonSchema, PartialEq, Serialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Clone, Debug, Default, Fragment, JsonSchema, PartialEq)]
+#[fragment_attrs(
+    derive(
+        Clone,
+        Debug,
+        Default,
+        Deserialize,
+        Merge,
+        JsonSchema,
+        PartialEq,
+        Serialize
+    ),
+    serde(rename_all = "camelCase")
+)]
 pub struct HistoricalConfig {
-    resources: Option<ResourcesFragment<storage::HistoricalStorage, NoRuntimeLimits>>,
+    #[fragment_attrs(serde(default))]
+    resources: Resources<storage::HistoricalStorage, NoRuntimeLimits>,
 }
 
-impl Configuration for BrokerConfig {
+impl Configuration for BrokerConfigFragment {
     type Configurable = DruidCluster;
 
     fn compute_env(
@@ -724,7 +790,7 @@ impl Configuration for BrokerConfig {
     }
 }
 
-impl Configuration for HistoricalConfig {
+impl Configuration for HistoricalConfigFragment {
     type Configurable = DruidCluster;
 
     fn compute_env(
@@ -754,7 +820,7 @@ impl Configuration for HistoricalConfig {
     }
 }
 
-impl Configuration for RouterConfig {
+impl Configuration for RouterConfigFragment {
     type Configurable = DruidCluster;
 
     fn compute_env(
@@ -784,7 +850,7 @@ impl Configuration for RouterConfig {
     }
 }
 
-impl Configuration for MiddleManagerConfig {
+impl Configuration for MiddleManagerConfigFragment {
     type Configurable = DruidCluster;
 
     fn compute_env(
@@ -823,7 +889,7 @@ impl Configuration for MiddleManagerConfig {
     }
 }
 
-impl Configuration for CoordinatorConfig {
+impl Configuration for CoordinatorConfigFragment {
     type Configurable = DruidCluster;
 
     fn compute_env(
