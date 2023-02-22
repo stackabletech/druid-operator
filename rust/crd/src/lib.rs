@@ -125,8 +125,6 @@ pub enum Error {
     },
     #[snafu(display("2 differing s3 connections were given, this is unsupported by Druid"))]
     IncompatibleS3Connections,
-    #[snafu(display("Unknown Druid role found {role}. Should be one of {roles:?}"))]
-    UnknownDruidRole { role: String, roles: Vec<String> },
     #[snafu(display("the role group {rolegroup_name} is not defined"))]
     CannotRetrieveRoleGroup { rolegroup_name: String },
     #[snafu(display("missing namespace for resource {name}"))]

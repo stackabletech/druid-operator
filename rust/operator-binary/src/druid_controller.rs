@@ -158,21 +158,10 @@ pub enum Error {
         source: strum::ParseError,
         role: String,
     },
-    #[snafu(display("failed to resolve and merge resource config for role and role group"))]
-    FailedToResolveResourceConfig {
-        source: stackable_druid_crd::resource::Error,
-    },
     #[snafu(display("failed to resolve and merge config for role and role group"))]
     FailedToResolveConfig { source: stackable_druid_crd::Error },
     #[snafu(display("invalid configuration"))]
     InvalidConfiguration { source: stackable_druid_crd::Error },
-    #[snafu(display("invalid java heap config - missing default or value in crd?"))]
-    InvalidJavaHeapConfig,
-    #[snafu(display("failed to convert java heap config to unit [{unit}]"))]
-    FailedToConvertJavaHeap {
-        source: stackable_operator::error::Error,
-        unit: String,
-    },
     #[snafu(display("failed to create cluster resources"))]
     CreateClusterResources {
         source: stackable_operator::error::Error,
@@ -930,10 +919,6 @@ mod test {
         #[snafu(display("operator framework error"))]
         OperatorFramework {
             source: stackable_operator::error::Error,
-        },
-        #[snafu(display("resource error"))]
-        Resource {
-            source: stackable_druid_crd::resource::Error,
         },
         #[snafu(display("failed to resolve and merge config for role and role group"))]
         FailedToResolveConfig { source: stackable_druid_crd::Error },
