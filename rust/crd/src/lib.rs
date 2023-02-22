@@ -31,10 +31,13 @@ use stackable_operator::{
     labels::ObjectLabels,
     product_config::types::PropertyNameKind,
     product_config_utils::{ConfigError, Configuration},
-    role_utils::{CommonConfiguration, Role, RoleGroup},
+    role_utils::{CommonConfiguration, Role, RoleGroup, RoleGroupRef},
     schemars::{self, JsonSchema},
 };
-use std::collections::{BTreeMap, HashMap};
+use std::{
+    collections::{BTreeMap, HashMap},
+    str::FromStr,
+};
 use strum::{Display, EnumDiscriminants, EnumIter, EnumString, IntoStaticStr};
 use tls::default_druid_tls;
 
@@ -125,8 +128,8 @@ pub enum Error {
     },
     #[snafu(display("2 differing s3 connections were given, this is unsupported by Druid"))]
     IncompatibleS3Connections,
-    #[snafu(display("the role group {rolegroup_name} is not defined"))]
-    CannotRetrieveRoleGroup { rolegroup_name: String },
+    #[snafu(display("Unknown Druid role found {role}. Should be one of {roles:?}"))]
+    UnknownDruidRole { role: String, roles: Vec<String> },
     #[snafu(display("missing namespace for resource {name}"))]
     MissingNamespace { name: String },
     #[snafu(display("fragment validation failure"))]
@@ -194,98 +197,74 @@ pub struct DruidClusterConfig {
     pub zookeeper_config_map_name: String,
 }
 
-/// Common configuration for all role groups
-pub struct CommonRoleGroupConfig {
-    pub resources: RoleResource,
-    pub replicas: Option<u16>,
-    pub selector: Option<LabelSelector>,
-}
-
-/// Container for the merged and validated role group configurations
-///
-/// This structure contains for every role a map from the role group names to their configurations.
-/// The role group configurations are merged with the role and default configurations. The product
-/// configuration is not applied.
 pub struct MergedConfig {
-    /// Merged configuration of the broker role
-    pub brokers: HashMap<String, RoleGroup<BrokerConfig>>,
-    /// Merged configuration of the coordinator role
-    pub coordinators: HashMap<String, RoleGroup<CoordinatorConfig>>,
-    /// Merged configuration of the historical role
-    pub historicals: HashMap<String, RoleGroup<HistoricalConfig>>,
-    /// Merged configuration of the middle manager role
-    pub middle_managers: HashMap<String, RoleGroup<MiddleManagerConfig>>,
-    /// Merged configuration of the router role
-    pub routers: HashMap<String, RoleGroup<RouterConfig>>,
+    pub brokers: HashMap<String, BrokerConfig>,
+    pub coordinators: HashMap<String, CoordinatorConfig>,
+    pub historicals: HashMap<String, HistoricalConfig>,
+    pub middle_managers: HashMap<String, MiddleManagerConfig>,
+    pub routers: HashMap<String, RouterConfig>,
 }
 
 impl MergedConfig {
-    /// Returns the common configuration for the given role and rolegroup name
-    pub fn common_config(
-        &self,
-        role: DruidRole,
-        rolegroup_name: &str,
-    ) -> Result<CommonRoleGroupConfig, Error> {
+    pub fn resources(&self, role: DruidRole, role_group: &str) -> RoleResource {
+        self.common_config(role, role_group).resources
+    }
+
+    pub fn common_config(&self, role: DruidRole, role_group: &str) -> CommonConfig {
         match role {
             DruidRole::Broker => {
-                let rolegroup = self
+                let config = self
                     .brokers
-                    .get(rolegroup_name)
-                    .context(CannotRetrieveRoleGroupSnafu { rolegroup_name })?;
-                Ok(CommonRoleGroupConfig {
-                    resources: RoleResource::Druid(rolegroup.config.config.resources.to_owned()),
-                    replicas: rolegroup.replicas,
-                    selector: rolegroup.selector.to_owned(),
-                })
+                    .get(role_group)
+                    .cloned()
+                    // TODO default?
+                    .unwrap_or_default();
+                CommonConfig {
+                    resources: RoleResource::Druid(config.resources),
+                }
             }
             DruidRole::Coordinator => {
-                let rolegroup = self
+                let config = self
                     .coordinators
-                    .get(rolegroup_name)
-                    .context(CannotRetrieveRoleGroupSnafu { rolegroup_name })?;
-                Ok(CommonRoleGroupConfig {
-                    resources: RoleResource::Druid(rolegroup.config.config.resources.to_owned()),
-                    replicas: rolegroup.replicas,
-                    selector: rolegroup.selector.to_owned(),
-                })
+                    .get(role_group)
+                    .cloned()
+                    .unwrap_or_default();
+                CommonConfig {
+                    resources: RoleResource::Druid(config.resources),
+                }
             }
             DruidRole::Historical => {
-                let rolegroup = self
+                let config = self
                     .historicals
-                    .get(rolegroup_name)
-                    .context(CannotRetrieveRoleGroupSnafu { rolegroup_name })?;
-                Ok(CommonRoleGroupConfig {
-                    resources: RoleResource::Historical(
-                        rolegroup.config.config.resources.to_owned(),
-                    ),
-                    replicas: rolegroup.replicas,
-                    selector: rolegroup.selector.to_owned(),
-                })
+                    .get(role_group)
+                    .cloned()
+                    .unwrap_or_default();
+                CommonConfig {
+                    resources: RoleResource::Historical(config.resources),
+                }
             }
             DruidRole::MiddleManager => {
-                let rolegroup = self
+                let config = self
                     .middle_managers
-                    .get(rolegroup_name)
-                    .context(CannotRetrieveRoleGroupSnafu { rolegroup_name })?;
-                Ok(CommonRoleGroupConfig {
-                    resources: RoleResource::Druid(rolegroup.config.config.resources.to_owned()),
-                    replicas: rolegroup.replicas,
-                    selector: rolegroup.selector.to_owned(),
-                })
+                    .get(role_group)
+                    .cloned()
+                    .unwrap_or_default();
+                CommonConfig {
+                    resources: RoleResource::Druid(config.resources),
+                }
             }
             DruidRole::Router => {
-                let rolegroup = self
-                    .routers
-                    .get(rolegroup_name)
-                    .context(CannotRetrieveRoleGroupSnafu { rolegroup_name })?;
-                Ok(CommonRoleGroupConfig {
-                    resources: RoleResource::Druid(rolegroup.config.config.resources.to_owned()),
-                    replicas: rolegroup.replicas,
-                    selector: rolegroup.selector.to_owned(),
-                })
+                let config = self.routers.get(role_group).cloned().unwrap_or_default();
+                CommonConfig {
+                    resources: RoleResource::Druid(config.resources),
+                }
             }
         }
     }
+}
+
+pub struct CommonConfig {
+    pub resources: RoleResource,
 }
 
 #[derive(
@@ -469,6 +448,86 @@ impl DruidCluster {
         Ok(result)
     }
 
+    /// Takes a rolegoup_ref (with role and role group name) and returns the selector defined for
+    /// that role group.
+    pub fn node_selector(
+        &self,
+        rolegroup_ref: &RoleGroupRef<DruidCluster>,
+    ) -> Option<LabelSelector> {
+        match DruidRole::from_str(rolegroup_ref.role.as_str()).unwrap() {
+            DruidRole::Broker => self
+                .spec
+                .brokers
+                .role_groups
+                .get(&rolegroup_ref.role_group)
+                .and_then(|rg| rg.selector.clone()),
+            DruidRole::MiddleManager => self
+                .spec
+                .middle_managers
+                .role_groups
+                .get(&rolegroup_ref.role_group)
+                .and_then(|rg| rg.selector.clone()),
+            DruidRole::Coordinator => self
+                .spec
+                .coordinators
+                .role_groups
+                .get(&rolegroup_ref.role_group)
+                .and_then(|rg| rg.selector.clone()),
+            DruidRole::Historical => self
+                .spec
+                .historicals
+                .role_groups
+                .get(&rolegroup_ref.role_group)
+                .and_then(|rg| rg.selector.clone()),
+            DruidRole::Router => self
+                .spec
+                .routers
+                .role_groups
+                .get(&rolegroup_ref.role_group)
+                .and_then(|rg| rg.selector.clone()),
+        }
+    }
+
+    pub fn replicas(&self, rolegroup_ref: &RoleGroupRef<DruidCluster>) -> Option<i32> {
+        match DruidRole::from_str(rolegroup_ref.role.as_str()).unwrap() {
+            DruidRole::Broker => self
+                .spec
+                .brokers
+                .role_groups
+                .get(&rolegroup_ref.role_group)
+                .and_then(|rg| rg.replicas)
+                .map(i32::from),
+            DruidRole::MiddleManager => self
+                .spec
+                .middle_managers
+                .role_groups
+                .get(&rolegroup_ref.role_group)
+                .and_then(|rg| rg.replicas)
+                .map(i32::from),
+            DruidRole::Coordinator => self
+                .spec
+                .coordinators
+                .role_groups
+                .get(&rolegroup_ref.role_group)
+                .and_then(|rg| rg.replicas)
+                .map(i32::from),
+            DruidRole::Historical => self
+                .spec
+                .historicals
+                .role_groups
+                .get(&rolegroup_ref.role_group)
+                .and_then(|rg| rg.replicas)
+                .map(i32::from),
+            DruidRole::Router => self
+                .spec
+                .routers
+                .role_groups
+                .get(&rolegroup_ref.role_group)
+                .and_then(|rg| rg.replicas)
+                .map(i32::from),
+        }
+    }
+
     pub fn build_role_properties(
         &self,
     ) -> HashMap<
@@ -610,80 +669,64 @@ impl DruidCluster {
         s3_ingestion || s3_storage
     }
 
-    /// Returns the merged and validated configuration for all roles
     pub fn merged_config(&self) -> Result<MergedConfig, Error> {
         Ok(MergedConfig {
-            brokers: DruidCluster::merged_role(
+            brokers: DruidCluster::merged_role_config(
                 &self.spec.brokers,
                 &BrokerConfig::default_config(),
             )?,
-            coordinators: DruidCluster::merged_role(
+            coordinators: DruidCluster::merged_role_config(
                 &self.spec.coordinators,
                 &CoordinatorConfig::default_config(),
             )?,
-            historicals: DruidCluster::merged_role(
+            historicals: DruidCluster::merged_role_config(
                 &self.spec.historicals,
                 &HistoricalConfig::default_config(),
             )?,
-            middle_managers: DruidCluster::merged_role(
+            middle_managers: DruidCluster::merged_role_config(
                 &self.spec.middle_managers,
                 &MiddleManagerConfig::default_config(),
             )?,
-            routers: DruidCluster::merged_role(
+            routers: DruidCluster::merged_role_config(
                 &self.spec.routers,
                 &RouterConfig::default_config(),
             )?,
         })
     }
 
-    /// Merges and validates the role groups of the given role with the given default configuration
-    fn merged_role<T>(
+    fn merged_role_config<T>(
         role: &Role<T::Fragment>,
         default_config: &T::Fragment,
-    ) -> Result<HashMap<String, RoleGroup<T>>, Error>
+    ) -> Result<HashMap<String, T>, Error>
     where
         T: FromFragment,
         T::Fragment: Clone + Merge,
     {
         let mut merged_role_config = HashMap::new();
 
-        for (rolegroup_name, rolegroup) in &role.role_groups {
-            let merged_rolegroup_config =
-                DruidCluster::merged_rolegroup(rolegroup, &role.config.config, default_config)?;
+        for (
+            rolegroup_name,
+            RoleGroup {
+                config:
+                    CommonConfiguration {
+                        config: rolegroup_config,
+                        ..
+                    },
+                ..
+            },
+        ) in &role.role_groups
+        {
+            let merged_rolegroup_config = DruidCluster::merged_rolegroup_config(
+                rolegroup_config,
+                &role.config.config,
+                default_config,
+            )?;
             merged_role_config.insert(rolegroup_name.to_owned(), merged_rolegroup_config);
         }
 
         Ok(merged_role_config)
     }
 
-    /// Merges and validates the given role group with the given role and default configurations
-    fn merged_rolegroup<T>(
-        rolegroup: &RoleGroup<T::Fragment>,
-        role_config: &T::Fragment,
-        default_config: &T::Fragment,
-    ) -> Result<RoleGroup<T>, Error>
-    where
-        T: FromFragment,
-        T::Fragment: Clone + Merge,
-    {
-        let merged_config = DruidCluster::merged_rolegroup_config(
-            &rolegroup.config.config,
-            role_config,
-            default_config,
-        )?;
-        Ok(RoleGroup {
-            config: CommonConfiguration {
-                config: merged_config,
-                config_overrides: rolegroup.config.config_overrides.to_owned(),
-                env_overrides: rolegroup.config.env_overrides.to_owned(),
-                cli_overrides: rolegroup.config.cli_overrides.to_owned(),
-            },
-            replicas: rolegroup.replicas,
-            selector: rolegroup.selector.to_owned(),
-        })
-    }
-
-    /// Merges and validates the given role group, role, and default configurations
     pub fn merged_rolegroup_config<T>(
         rolegroup_config: &T::Fragment,
         role_config: &T::Fragment,

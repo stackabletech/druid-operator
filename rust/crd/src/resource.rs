@@ -52,8 +52,8 @@ impl RoleResource {
 
     pub fn as_memory_limits(&self) -> MemoryLimits<NoRuntimeLimits> {
         match self {
-            Self::Druid(r) => r.memory.clone(),
-            Self::Historical(r) => r.memory.clone(),
+            Self::Druid(r) => r.clone().memory,
+            Self::Historical(r) => r.clone().memory,
         }
     }
 
@@ -192,7 +192,6 @@ mod test {
             NoRuntimeLimitsFragment,
         },
         k8s_openapi::apimachinery::pkg::api::resource::Quantity,
-        role_utils::{CommonConfiguration, RoleGroup},
     };
 
     #[rstest]
@@ -344,16 +343,8 @@ mod test {
         );
 
         let config = cluster.merged_config().unwrap();
-        if let Some(RoleGroup {
-            config:
-                CommonConfiguration {
-                    config:
-                        MiddleManagerConfig {
-                            resources: middlemanager_resources_from_rg,
-                        },
-                    ..
-                },
-            ..
+        if let Some(MiddleManagerConfig {
+            resources: middlemanager_resources_from_rg,
         }) = config.middle_managers.get("resources-from-role-group")
         {
             let expected = Resources {
@@ -376,16 +367,8 @@ mod test {
             panic!("No role group named [resources-from-role-group] found");
         }
 
-        if let Some(RoleGroup {
-            config:
-                CommonConfiguration {
-                    config:
-                        MiddleManagerConfig {
-                            resources: middlemanager_resources_from_rg,
-                        },
-                    ..
-                },
-            ..
+        if let Some(MiddleManagerConfig {
+            resources: middlemanager_resources_from_rg,
         }) = config.middle_managers.get("resources-from-role")
         {
             let expected = Resources {
@@ -419,10 +402,7 @@ mod test {
 
         // ---------- default role group
         let config = cluster.merged_config().unwrap();
-        let res = config
-            .common_config(DruidRole::Historical, "default")
-            .unwrap()
-            .resources;
+        let res = config.resources(DruidRole::Historical, "default");
         let mut got = BTreeMap::new();
 
         assert!(res.update_druid_config_file(&mut got).is_ok());
@@ -433,10 +413,7 @@ mod test {
         assert_eq!(value, &expected, "primary");
 
         // ---------- secondary role group
-        let res = config
-            .common_config(DruidRole::Historical, "secondary")
-            .unwrap()
-            .resources;
+        let res = config.resources(DruidRole::Historical, "secondary");
         let mut got = BTreeMap::new();
 
         assert!(res.update_druid_config_file(&mut got).is_ok());
