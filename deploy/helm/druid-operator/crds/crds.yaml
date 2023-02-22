@@ -36,7 +36,14 @@ spec:
                       default: {}
                       properties:
                         resources:
-                          nullable: true
+                          default:
+                            memory:
+                              limit: null
+                              runtimeLimits: {}
+                            cpu:
+                              min: null
+                              max: null
+                            storage: {}
                           properties:
                             cpu:
                               default:
@@ -89,7 +96,14 @@ spec:
                             default: {}
                             properties:
                               resources:
-                                nullable: true
+                                default:
+                                  memory:
+                                    limit: null
+                                    runtimeLimits: {}
+                                  cpu:
+                                    min: null
+                                    max: null
+                                  storage: {}
                                 properties:
                                   cpu:
                                     default:
@@ -523,7 +537,14 @@ spec:
                       default: {}
                       properties:
                         resources:
-                          nullable: true
+                          default:
+                            memory:
+                              limit: null
+                              runtimeLimits: {}
+                            cpu:
+                              min: null
+                              max: null
+                            storage: {}
                           properties:
                             cpu:
                               default:
@@ -576,7 +597,14 @@ spec:
                             default: {}
                             properties:
                               resources:
-                                nullable: true
+                                default:
+                                  memory:
+                                    limit: null
+                                    runtimeLimits: {}
+                                  cpu:
+                                    min: null
+                                    max: null
+                                  storage: {}
                                 properties:
                                   cpu:
                                     default:
@@ -670,7 +698,17 @@ spec:
                       default: {}
                       properties:
                         resources:
-                          nullable: true
+                          default:
+                            memory:
+                              limit: null
+                              runtimeLimits: {}
+                            cpu:
+                              min: null
+                              max: null
+                            storage:
+                              segmentCache:
+                                emptyDir:
+                                  capacity: null
                           properties:
                             cpu:
                               default:
@@ -699,10 +737,8 @@ spec:
                               properties:
                                 segmentCache:
                                   default:
-                                    freePercentage: 5
                                     emptyDir:
-                                      capacity: 1G
-                                      medium: ''
+                                      capacity: null
                                   properties:
                                     emptyDir:
                                       default:
@@ -749,7 +785,17 @@ spec:
                             default: {}
                             properties:
                               resources:
-                                nullable: true
+                                default:
+                                  memory:
+                                    limit: null
+                                    runtimeLimits: {}
+                                  cpu:
+                                    min: null
+                                    max: null
+                                  storage:
+                                    segmentCache:
+                                      emptyDir:
+                                        capacity: null
                                 properties:
                                   cpu:
                                     default:
@@ -778,10 +824,8 @@ spec:
                                     properties:
                                       segmentCache:
                                         default:
-                                          freePercentage: 5
                                           emptyDir:
-                                            capacity: 1G
-                                            medium: ''
+                                            capacity: null
                                         properties:
                                           emptyDir:
                                             default:
@@ -912,7 +956,14 @@ spec:
                       default: {}
                       properties:
                         resources:
-                          nullable: true
+                          default:
+                            memory:
+                              limit: null
+                              runtimeLimits: {}
+                            cpu:
+                              min: null
+                              max: null
+                            storage: {}
                           properties:
                             cpu:
                               default:
@@ -965,7 +1016,14 @@ spec:
                             default: {}
                             properties:
                               resources:
-                                nullable: true
+                                default:
+                                  memory:
+                                    limit: null
+                                    runtimeLimits: {}
+                                  cpu:
+                                    min: null
+                                    max: null
+                                  storage: {}
                                 properties:
                                   cpu:
                                     default:
@@ -1059,7 +1117,14 @@ spec:
                       default: {}
                       properties:
                         resources:
-                          nullable: true
+                          default:
+                            memory:
+                              limit: null
+                              runtimeLimits: {}
+                            cpu:
+                              min: null
+                              max: null
+                            storage: {}
                           properties:
                             cpu:
                               default:
@@ -1112,7 +1177,14 @@ spec:
                             default: {}
                             properties:
                               resources:
-                                nullable: true
+                                default:
+                                  memory:
+                                    limit: null
+                                    runtimeLimits: {}
+                                  cpu:
+                                    min: null
+                                    max: null
+                                  storage: {}
                                 properties:
                                   cpu:
                                     default:
