@@ -194,27 +194,45 @@ pub struct DruidClusterConfig {
     pub zookeeper_config_map_name: String,
 }
 
+/// Common configuration for all role groups
+pub struct CommonRoleGroupConfig {
+    pub resources: RoleResource,
+    pub replicas: Option<u16>,
+    pub selector: Option<LabelSelector>,
+}
+
+/// Container for the merged and validated role group configurations
+///
+/// This structure contains for every role a map from the role group names to their configurations.
+/// The role group configurations are merged with the role and default configurations. The product
+/// configuration is not applied.
 pub struct MergedConfig {
+    /// Merged configuration of the broker role
     pub brokers: HashMap<String, RoleGroup<BrokerConfig>>,
+    /// Merged configuration of the coordinator role
     pub coordinators: HashMap<String, RoleGroup<CoordinatorConfig>>,
+    /// Merged configuration of the historical role
     pub historicals: HashMap<String, RoleGroup<HistoricalConfig>>,
+    /// Merged configuration of the middle manager role
     pub middle_managers: HashMap<String, RoleGroup<MiddleManagerConfig>>,
+    /// Merged configuration of the router role
     pub routers: HashMap<String, RoleGroup<RouterConfig>>,
 }
 
 impl MergedConfig {
+    /// Returns the common configuration for the given role and rolegroup name
     pub fn common_config(
         &self,
         role: DruidRole,
         rolegroup_name: &str,
-    ) -> Result<CommonConfig, Error> {
+    ) -> Result<CommonRoleGroupConfig, Error> {
         match role {
             DruidRole::Broker => {
                 let rolegroup = self
                     .brokers
                     .get(rolegroup_name)
                     .context(CannotRetrieveRoleGroupSnafu { rolegroup_name })?;
-                Ok(CommonConfig {
+                Ok(CommonRoleGroupConfig {
                     resources: RoleResource::Druid(rolegroup.config.config.resources.to_owned()),
                     replicas: rolegroup.replicas,
                     selector: rolegroup.selector.to_owned(),
@@ -225,7 +243,7 @@ impl MergedConfig {
                     .coordinators
                     .get(rolegroup_name)
                     .context(CannotRetrieveRoleGroupSnafu { rolegroup_name })?;
-                Ok(CommonConfig {
+                Ok(CommonRoleGroupConfig {
                     resources: RoleResource::Druid(rolegroup.config.config.resources.to_owned()),
                     replicas: rolegroup.replicas,
                     selector: rolegroup.selector.to_owned(),
@@ -236,7 +254,7 @@ impl MergedConfig {
                     .historicals
                     .get(rolegroup_name)
                     .context(CannotRetrieveRoleGroupSnafu { rolegroup_name })?;
-                Ok(CommonConfig {
+                Ok(CommonRoleGroupConfig {
                     resources: RoleResource::Historical(
                         rolegroup.config.config.resources.to_owned(),
                     ),
@@ -249,7 +267,7 @@ impl MergedConfig {
                     .middle_managers
                     .get(rolegroup_name)
                     .context(CannotRetrieveRoleGroupSnafu { rolegroup_name })?;
-                Ok(CommonConfig {
+                Ok(CommonRoleGroupConfig {
                     resources: RoleResource::Druid(rolegroup.config.config.resources.to_owned()),
                     replicas: rolegroup.replicas,
                     selector: rolegroup.selector.to_owned(),
@@ -260,7 +278,7 @@ impl MergedConfig {
                     .routers
                     .get(rolegroup_name)
                     .context(CannotRetrieveRoleGroupSnafu { rolegroup_name })?;
-                Ok(CommonConfig {
+                Ok(CommonRoleGroupConfig {
                     resources: RoleResource::Druid(rolegroup.config.config.resources.to_owned()),
                     replicas: rolegroup.replicas,
                     selector: rolegroup.selector.to_owned(),
@@ -268,12 +286,6 @@ impl MergedConfig {
             }
         }
     }
-}
-
-pub struct CommonConfig {
-    pub resources: RoleResource,
-    pub replicas: Option<u16>,
-    pub selector: Option<LabelSelector>,
 }
 
 #[derive(
@@ -598,6 +610,7 @@ impl DruidCluster {
         s3_ingestion || s3_storage
     }
 
+    /// Returns the merged and validated configuration for all roles
     pub fn merged_config(&self) -> Result<MergedConfig, Error> {
         Ok(MergedConfig {
             brokers: DruidCluster::merged_role(
@@ -623,6 +636,7 @@ impl DruidCluster {
         })
     }
 
+    /// Merges and validates the role groups of the given role with the given default configuration
     fn merged_role<T>(
         role: &Role<T::Fragment>,
         default_config: &T::Fragment,
@@ -642,6 +656,7 @@ impl DruidCluster {
         Ok(merged_role_config)
     }
 
+    /// Merges and validates the given role group with the given role and default configurations
     fn merged_rolegroup<T>(
         rolegroup: &RoleGroup<T::Fragment>,
         role_config: &T::Fragment,
@@ -651,13 +666,14 @@ impl DruidCluster {
         T: FromFragment,
         T::Fragment: Clone + Merge,
     {
+        let merged_config = DruidCluster::merged_rolegroup_config(
+            &rolegroup.config.config,
+            role_config,
+            default_config,
+        )?;
         Ok(RoleGroup {
             config: CommonConfiguration {
-                config: DruidCluster::merged_rolegroup_config(
-                    &rolegroup.config.config,
-                    role_config,
-                    default_config,
-                )?,
+                config: merged_config,
                 config_overrides: rolegroup.config.config_overrides.to_owned(),
                 env_overrides: rolegroup.config.env_overrides.to_owned(),
                 cli_overrides: rolegroup.config.cli_overrides.to_owned(),
@@ -667,6 +683,7 @@ impl DruidCluster {
         })
     }
 
+    /// Merges and validates the given role group, role, and default configurations
     pub fn merged_rolegroup_config<T>(
         rolegroup_config: &T::Fragment,
         role_config: &T::Fragment,
