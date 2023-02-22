@@ -56,7 +56,15 @@ echo "Installing ZooKeeper from zookeeper.yaml"
 kubectl apply -f zookeeper.yaml
 # end::install-zookeeper[]
 
-sleep 5
+for (( i=1; i<=15; i++ ))
+do
+  echo "Waiting for ZookeeperCluster to appear ..."
+  if eval kubectl get statefulset simple-zk-server-default; then
+    break
+  fi
+
+  sleep 1
+done
 
 echo "Awaiting ZooKeeper rollout finish"
 # tag::watch-zookeeper-rollout[]
@@ -68,7 +76,15 @@ echo "Installing HDFS from hdfs.yaml"
 kubectl apply -f hdfs.yaml
 # end::install-hdfs[]
 
-sleep 5
+for (( i=1; i<=15; i++ ))
+do
+  echo "Waiting for HdfsCluster to appear ..."
+  if eval kubectl get statefulset simple-hdfs-datanode-default; then
+    break
+  fi
+
+  sleep 1
+done
 
 echo "Awaiting HDFS rollout finish"
 # tag::watch-hdfs-rollout[]
@@ -82,7 +98,15 @@ echo "Install DruidCluster from druid.yaml"
 kubectl apply -f druid.yaml
 # end::install-druid[]
 
-sleep 5
+for (( i=1; i<=15; i++ ))
+do
+  echo "Waiting for DruidCluster to appear ..."
+  if eval kubectl get statefulset simple-druid-broker-default; then
+    break
+  fi
+
+  sleep 1
+done
 
 echo "Awaiting Druid rollout finish"
 # tag::watch-druid-rollout[]
