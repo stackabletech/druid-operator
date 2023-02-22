@@ -11,6 +11,7 @@ use crate::{
 };
 
 use snafu::{OptionExt, ResultExt, Snafu};
+use stackable_druid_crd::build_recommended_labels;
 use stackable_druid_crd::{
     authorization::DruidAuthorization,
     build_string_list,
@@ -19,14 +20,10 @@ use stackable_druid_crd::{
         PLACEHOLDER_LDAP_BIND_USER,
     },
     security::{resolve_authentication_classes, DruidTlsSecurity},
-    DeepStorageSpec, DruidCluster, DruidRole, APP_NAME, AUTH_AUTHORIZER_OPA_URI, CERTS_DIR,
-    CREDENTIALS_SECRET_PROPERTY, DRUID_CONFIG_DIRECTORY, DS_BUCKET, EXTENSIONS_LOADLIST,
+    CommonConfig, DeepStorageSpec, DruidCluster, DruidRole, APP_NAME, AUTH_AUTHORIZER_OPA_URI,
+    CERTS_DIR, CREDENTIALS_SECRET_PROPERTY, DRUID_CONFIG_DIRECTORY, DS_BUCKET, EXTENSIONS_LOADLIST,
     HDFS_CONFIG_DIRECTORY, JVM_CONFIG, LOG4J2_CONFIG, RUNTIME_PROPS, RW_CONFIG_DIRECTORY,
     S3_ENDPOINT_URL, S3_PATH_STYLE_ACCESS, S3_SECRET_DIR_NAME, ZOOKEEPER_CONNECTION_STRING,
-};
-use stackable_druid_crd::{
-    build_recommended_labels,
-    resource::{self, RoleResource},
 };
 use stackable_operator::{
     builder::{
@@ -167,6 +164,8 @@ pub enum Error {
     },
     #[snafu(display("failed to resolve and merge config for role and role group"))]
     FailedToResolveConfig { source: stackable_druid_crd::Error },
+    #[snafu(display("invalid configuration"))]
+    InvalidConfiguration { source: stackable_druid_crd::Error },
     #[snafu(display("invalid java heap config - missing default or value in crd?"))]
     InvalidJavaHeapConfig,
     #[snafu(display("failed to convert java heap config to unit [{unit}]"))]
@@ -313,7 +312,7 @@ pub async fn reconcile_druid(druid: Arc<DruidCluster>, ctx: Arc<Ctx>) -> Result<
     )
     .context(CreateClusterResourcesSnafu)?;
 
-    let config = druid.merged_config().context(FailedToResolveConfigSnafu)?;
+    let merged_config = druid.merged_config().context(FailedToResolveConfigSnafu)?;
 
     for (role_name, role_config) in validated_role_config.iter() {
         let druid_role = DruidRole::from_str(role_name).context(UnidentifiedDruidRoleSnafu {
@@ -342,7 +341,9 @@ pub async fn reconcile_druid(druid: Arc<DruidCluster>, ctx: Arc<Ctx>) -> Result<
                 role_group: rolegroup_name.into(),
             };
 
-            let resources = config.resources(druid_role.clone(), rolegroup_name);
+            let merged_rolegroup_config = merged_config
+                .common_config(druid_role.clone(), rolegroup_name)
+                .context(FailedToResolveConfigSnafu)?;
 
             let rg_service = build_rolegroup_services(
                 &druid,
@@ -355,11 +356,11 @@ pub async fn reconcile_druid(druid: Arc<DruidCluster>, ctx: Arc<Ctx>) -> Result<
                 &resolved_product_image,
                 &rolegroup,
                 rolegroup_config,
+                &merged_rolegroup_config,
                 &zk_connstr,
                 opa_connstr.as_deref(),
                 s3_conn.as_ref(),
                 deep_storage_bucket_name.as_deref(),
-                &resources,
                 &druid_tls_security,
                 &druid_ldap_settings,
             )?;
@@ -368,8 +369,8 @@ pub async fn reconcile_druid(druid: Arc<DruidCluster>, ctx: Arc<Ctx>) -> Result<
                 &resolved_product_image,
                 &rolegroup,
                 rolegroup_config,
+                &merged_rolegroup_config,
                 s3_conn.as_ref(),
-                &resources,
                 &druid_tls_security,
                 &druid_ldap_settings,
             )?;
@@ -463,11 +464,11 @@ fn build_rolegroup_config_map(
     resolved_product_image: &ResolvedProductImage,
     rolegroup: &RoleGroupRef<DruidCluster>,
     rolegroup_config: &HashMap<PropertyNameKind, BTreeMap<String, String>>,
+    merged_rolegroup_config: &CommonConfig,
     zk_connstr: &str,
     opa_connstr: Option<&str>,
     s3_conn: Option<&S3ConnectionSpec>,
     deep_storage_bucket_name: Option<&str>,
-    resources: &RoleResource,
     druid_tls_security: &DruidTlsSecurity,
     druid_ldap_settings: &Option<DruidLdapSettings>,
 ) -> Result<ConfigMap> {
@@ -483,7 +484,8 @@ fn build_rolegroup_config_map(
                 // This has to be done here since there is no other suitable place for it.
                 // Previously such properties were added in the compute_files() function,
                 // but that code path is now incompatible with the design of fragment merging.
-                resources
+                merged_rolegroup_config
+                    .resources
                     .update_druid_config_file(&mut conf)
                     .context(UpdateDruidConfigFromResourcesSnafu)?;
                 // NOTE: druid.host can be set manually - if it isn't, the canonical host name of
@@ -551,7 +553,8 @@ fn build_rolegroup_config_map(
                 cm_conf_data.insert(RUNTIME_PROPS.to_string(), runtime_properties);
             }
             PropertyNameKind::File(file_name) if file_name == JVM_CONFIG => {
-                let (heap, direct) = resources
+                let (heap, direct) = merged_rolegroup_config
+                    .resources
                     .get_memory_sizes(&role)
                     .context(DeriveMemorySettingsSnafu)?;
                 let jvm_config = get_jvm_config(&role, heap, direct).context(GetJvmConfigSnafu)?;
@@ -646,8 +649,8 @@ fn build_rolegroup_statefulset(
     resolved_product_image: &ResolvedProductImage,
     rolegroup_ref: &RoleGroupRef<DruidCluster>,
     rolegroup_config: &HashMap<PropertyNameKind, BTreeMap<String, String>>,
+    merged_rolegroup_config: &CommonConfig,
     s3_conn: Option<&S3ConnectionSpec>,
-    resources: &RoleResource,
     druid_tls_security: &DruidTlsSecurity,
     ldap_settings: &Option<DruidLdapSettings>,
 ) -> Result<StatefulSet> {
@@ -663,7 +666,7 @@ fn build_rolegroup_statefulset(
         .context(FailedContainerBuilderCreationSnafu { name: APP_NAME })?;
     // init pod builder
     let mut pb = PodBuilder::new();
-    pb.node_selector_opt(druid.node_selector(rolegroup_ref));
+    pb.node_selector_opt(merged_rolegroup_config.selector.to_owned());
 
     if let Some(ldap_settings) = ldap_settings {
         // TODO: Connecting to an LDAP server without bind credentials does not seem to be configurable in Druid at the moment
@@ -690,7 +693,9 @@ fn build_rolegroup_statefulset(
         &mut cb_druid,
         &mut pb,
     );
-    resources.update_volumes_and_volume_mounts(&mut cb_druid, &mut pb);
+    merged_rolegroup_config
+        .resources
+        .update_volumes_and_volume_mounts(&mut cb_druid, &mut pb);
 
     let prepare_container_command = druid_tls_security.build_tls_key_stores_cmd();
 
@@ -727,7 +732,7 @@ fn build_rolegroup_statefulset(
         .readiness_probe(druid_tls_security.get_tcp_socket_probe(10, 10, 1, 3))
         // 10s * 3 = 30s to be restarted
         .liveness_probe(druid_tls_security.get_tcp_socket_probe(10, 10, 3, 3))
-        .resources(resources.as_resource_requirements());
+        .resources(merged_rolegroup_config.resources.as_resource_requirements());
 
     pb.image_pull_secrets_from_product_image(resolved_product_image)
         .add_init_container(cb_prepare.build())
@@ -768,7 +773,7 @@ fn build_rolegroup_statefulset(
             replicas: if druid.spec.stopped.unwrap_or(false) {
                 Some(0)
             } else {
-                druid.replicas(rolegroup_ref)
+                merged_rolegroup_config.replicas.map(i32::from)
             },
             selector: LabelSelector {
                 match_labels: Some(role_group_selector_labels(
@@ -932,6 +937,8 @@ mod test {
         },
         #[snafu(display("failed to resolve and merge config for role and role group"))]
         FailedToResolveConfig { source: stackable_druid_crd::Error },
+        #[snafu(display("invalid configuration"))]
+        InvalidConfiguration { source: stackable_druid_crd::Error },
     }
 
     #[rstest]
@@ -994,7 +1001,9 @@ mod test {
                         role_group: rolegroup_name.clone(),
                     };
 
-                    let resources = config.resources(DruidRole::Historical, rolegroup_name);
+                    let merged_rolegroup_config = config
+                        .common_config(DruidRole::Historical, rolegroup_name)
+                        .context(InvalidConfigurationSnafu)?;
 
                     let ldap_settings: Option<DruidLdapSettings> = None;
 
@@ -1003,11 +1012,11 @@ mod test {
                         &resolved_product_image,
                         &rolegroup_ref,
                         rolegroup_config,
+                        &merged_rolegroup_config,
                         "zookeeper-connection-string",
                         None,
                         None,
                         None,
-                        &resources,
                         &druid_tls_security,
                         &ldap_settings,
                     )
