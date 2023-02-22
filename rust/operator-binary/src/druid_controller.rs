@@ -20,10 +20,11 @@ use stackable_druid_crd::{
         PLACEHOLDER_LDAP_BIND_USER,
     },
     security::{resolve_authentication_classes, DruidTlsSecurity},
-    CommonConfig, DeepStorageSpec, DruidCluster, DruidRole, APP_NAME, AUTH_AUTHORIZER_OPA_URI,
-    CERTS_DIR, CREDENTIALS_SECRET_PROPERTY, DRUID_CONFIG_DIRECTORY, DS_BUCKET, EXTENSIONS_LOADLIST,
-    HDFS_CONFIG_DIRECTORY, JVM_CONFIG, LOG4J2_CONFIG, RUNTIME_PROPS, RW_CONFIG_DIRECTORY,
-    S3_ENDPOINT_URL, S3_PATH_STYLE_ACCESS, S3_SECRET_DIR_NAME, ZOOKEEPER_CONNECTION_STRING,
+    CommonRoleGroupConfig, DeepStorageSpec, DruidCluster, DruidRole, APP_NAME,
+    AUTH_AUTHORIZER_OPA_URI, CERTS_DIR, CREDENTIALS_SECRET_PROPERTY, DRUID_CONFIG_DIRECTORY,
+    DS_BUCKET, EXTENSIONS_LOADLIST, HDFS_CONFIG_DIRECTORY, JVM_CONFIG, LOG4J2_CONFIG,
+    RUNTIME_PROPS, RW_CONFIG_DIRECTORY, S3_ENDPOINT_URL, S3_PATH_STYLE_ACCESS, S3_SECRET_DIR_NAME,
+    ZOOKEEPER_CONNECTION_STRING,
 };
 use stackable_operator::{
     builder::{
@@ -453,7 +454,7 @@ fn build_rolegroup_config_map(
     resolved_product_image: &ResolvedProductImage,
     rolegroup: &RoleGroupRef<DruidCluster>,
     rolegroup_config: &HashMap<PropertyNameKind, BTreeMap<String, String>>,
-    merged_rolegroup_config: &CommonConfig,
+    merged_rolegroup_config: &CommonRoleGroupConfig,
     zk_connstr: &str,
     opa_connstr: Option<&str>,
     s3_conn: Option<&S3ConnectionSpec>,
@@ -638,7 +639,7 @@ fn build_rolegroup_statefulset(
     resolved_product_image: &ResolvedProductImage,
     rolegroup_ref: &RoleGroupRef<DruidCluster>,
     rolegroup_config: &HashMap<PropertyNameKind, BTreeMap<String, String>>,
-    merged_rolegroup_config: &CommonConfig,
+    merged_rolegroup_config: &CommonRoleGroupConfig,
     s3_conn: Option<&S3ConnectionSpec>,
     druid_tls_security: &DruidTlsSecurity,
     ldap_settings: &Option<DruidLdapSettings>,
