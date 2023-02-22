@@ -11,6 +11,7 @@ use crate::authentication::DruidAuthentication;
 use crate::tls::DruidTls;
 
 use authorization::DruidAuthorization;
+use resource::RoleResource;
 use serde::{Deserialize, Serialize};
 use snafu::{OptionExt, ResultExt, Snafu};
 use stackable_operator::{
@@ -21,13 +22,16 @@ use stackable_operator::{
         s3::{InlinedS3BucketSpec, S3BucketDef, S3ConnectionDef, S3ConnectionSpec},
         tls::{CaCert, Tls, TlsServerVerification, TlsVerification},
     },
-    config::{fragment::Fragment, merge::Merge},
+    config::{
+        fragment::{self, Fragment, FromFragment, ValidationError},
+        merge::Merge,
+    },
     k8s_openapi::apimachinery::pkg::apis::meta::v1::LabelSelector,
     kube::{CustomResource, ResourceExt},
     labels::ObjectLabels,
     product_config::types::PropertyNameKind,
     product_config_utils::{ConfigError, Configuration},
-    role_utils::{Role, RoleGroupRef},
+    role_utils::{CommonConfiguration, Role, RoleGroup, RoleGroupRef},
     schemars::{self, JsonSchema},
 };
 use std::{
@@ -128,6 +132,8 @@ pub enum Error {
     UnknownDruidRole { role: String, roles: Vec<String> },
     #[snafu(display("missing namespace for resource {name}"))]
     MissingNamespace { name: String },
+    #[snafu(display("fragment validation failure"))]
+    FragmentValidationFailure { source: ValidationError },
 }
 
 #[derive(Clone, CustomResource, Debug, Deserialize, JsonSchema, Serialize)]
@@ -189,6 +195,76 @@ pub struct DruidClusterConfig {
     pub tls: Option<DruidTls>,
     /// ZooKeeper discovery ConfigMap
     pub zookeeper_config_map_name: String,
+}
+
+pub struct MergedConfig {
+    pub brokers: HashMap<String, BrokerConfig>,
+    pub coordinators: HashMap<String, CoordinatorConfig>,
+    pub historicals: HashMap<String, HistoricalConfig>,
+    pub middle_managers: HashMap<String, MiddleManagerConfig>,
+    pub routers: HashMap<String, RouterConfig>,
+}
+
+impl MergedConfig {
+    pub fn resources(&self, role: DruidRole, role_group: &str) -> RoleResource {
+        self.common_config(role, role_group).resources
+    }
+
+    pub fn common_config(&self, role: DruidRole, role_group: &str) -> CommonConfig {
+        match role {
+            DruidRole::Broker => {
+                let config = self
+                    .brokers
+                    .get(role_group)
+                    .cloned()
+                    // TODO default?
+                    .unwrap_or_default();
+                CommonConfig {
+                    resources: RoleResource::Druid(config.resources),
+                }
+            }
+            DruidRole::Coordinator => {
+                let config = self
+                    .coordinators
+                    .get(role_group)
+                    .cloned()
+                    .unwrap_or_default();
+                CommonConfig {
+                    resources: RoleResource::Druid(config.resources),
+                }
+            }
+            DruidRole::Historical => {
+                let config = self
+                    .historicals
+                    .get(role_group)
+                    .cloned()
+                    .unwrap_or_default();
+                CommonConfig {
+                    resources: RoleResource::Historical(config.resources),
+                }
+            }
+            DruidRole::MiddleManager => {
+                let config = self
+                    .middle_managers
+                    .get(role_group)
+                    .cloned()
+                    .unwrap_or_default();
+                CommonConfig {
+                    resources: RoleResource::Druid(config.resources),
+                }
+            }
+            DruidRole::Router => {
+                let config = self.routers.get(role_group).cloned().unwrap_or_default();
+                CommonConfig {
+                    resources: RoleResource::Druid(config.resources),
+                }
+            }
+        }
+    }
+}
+
+pub struct CommonConfig {
+    pub resources: RoleResource,
 }
 
 #[derive(
@@ -592,6 +668,82 @@ impl DruidCluster {
         let s3_storage = self.spec.cluster_config.deep_storage.is_s3();
         s3_ingestion || s3_storage
     }
+
+    pub fn merged_config(&self) -> Result<MergedConfig, Error> {
+        Ok(MergedConfig {
+            brokers: DruidCluster::merged_role_config(
+                &self.spec.brokers,
+                &BrokerConfig::default_config(),
+            )?,
+            coordinators: DruidCluster::merged_role_config(
+                &self.spec.coordinators,
+                &CoordinatorConfig::default_config(),
+            )?,
+            historicals: DruidCluster::merged_role_config(
+                &self.spec.historicals,
+                &HistoricalConfig::default_config(),
+            )?,
+            middle_managers: DruidCluster::merged_role_config(
+                &self.spec.middle_managers,
+                &MiddleManagerConfig::default_config(),
+            )?,
+            routers: DruidCluster::merged_role_config(
+                &self.spec.routers,
+                &RouterConfig::default_config(),
+            )?,
+        })
+    }
+
+    fn merged_role_config<T>(
+        role: &Role<T::Fragment>,
+        default_config: &T::Fragment,
+    ) -> Result<HashMap<String, T>, Error>
+    where
+        T: FromFragment,
+        T::Fragment: Clone + Merge,
+    {
+        let mut merged_role_config = HashMap::new();
+
+        for (
+            rolegroup_name,
+            RoleGroup {
+                config:
+                    CommonConfiguration {
+                        config: rolegroup_config,
+                        ..
+                    },
+                ..
+            },
+        ) in &role.role_groups
+        {
+            let merged_rolegroup_config = DruidCluster::merged_rolegroup_config(
+                rolegroup_config,
+                &role.config.config,
+                default_config,
+            )?;
+            merged_role_config.insert(rolegroup_name.to_owned(), merged_rolegroup_config);
+        }
+
+        Ok(merged_role_config)
+    }
+
+    pub fn merged_rolegroup_config<T>(
+        rolegroup_config: &T::Fragment,
+        role_config: &T::Fragment,
+        default_config: &T::Fragment,
+    ) -> Result<T, Error>
+    where
+        T: FromFragment,
+        T::Fragment: Clone + Merge,
+    {
+        let mut role_config = role_config.to_owned();
+        let mut rolegroup_config = rolegroup_config.to_owned();
+
+        role_config.merge(default_config);
+        rolegroup_config.merge(&role_config);
+
+        fragment::validate(rolegroup_config).context(FragmentValidationFailureSnafu)
+    }
 }
 
 #[derive(Clone, Debug, Default, Deserialize, JsonSchema, Serialize)]
@@ -684,6 +836,14 @@ pub struct BrokerConfig {
     resources: Resources<storage::DruidStorage, NoRuntimeLimits>,
 }
 
+impl BrokerConfig {
+    fn default_config() -> BrokerConfigFragment {
+        BrokerConfigFragment {
+            resources: resource::DEFAULT_RESOURCES.to_owned(),
+        }
+    }
+}
+
 #[derive(Clone, Debug, Default, Fragment, JsonSchema, PartialEq)]
 #[fragment_attrs(
     derive(
@@ -701,6 +861,14 @@ pub struct BrokerConfig {
 pub struct CoordinatorConfig {
     #[fragment_attrs(serde(default))]
     resources: Resources<storage::DruidStorage, NoRuntimeLimits>,
+}
+
+impl CoordinatorConfig {
+    fn default_config() -> CoordinatorConfigFragment {
+        CoordinatorConfigFragment {
+            resources: resource::DEFAULT_RESOURCES.to_owned(),
+        }
+    }
 }
 
 #[derive(Clone, Debug, Default, Fragment, JsonSchema, PartialEq)]
@@ -722,6 +890,14 @@ pub struct MiddleManagerConfig {
     resources: Resources<storage::DruidStorage, NoRuntimeLimits>,
 }
 
+impl MiddleManagerConfig {
+    fn default_config() -> MiddleManagerConfigFragment {
+        MiddleManagerConfigFragment {
+            resources: resource::DEFAULT_RESOURCES.to_owned(),
+        }
+    }
+}
+
 #[derive(Clone, Debug, Default, Fragment, JsonSchema, PartialEq)]
 #[fragment_attrs(
     derive(
@@ -741,6 +917,14 @@ pub struct RouterConfig {
     resources: Resources<storage::DruidStorage, NoRuntimeLimits>,
 }
 
+impl RouterConfig {
+    fn default_config() -> RouterConfigFragment {
+        RouterConfigFragment {
+            resources: resource::DEFAULT_RESOURCES.to_owned(),
+        }
+    }
+}
+
 #[derive(Clone, Debug, Default, Fragment, JsonSchema, PartialEq)]
 #[fragment_attrs(
     derive(
@@ -758,6 +942,14 @@ pub struct RouterConfig {
 pub struct HistoricalConfig {
     #[fragment_attrs(serde(default))]
     resources: Resources<storage::HistoricalStorage, NoRuntimeLimits>,
+}
+
+impl HistoricalConfig {
+    fn default_config() -> HistoricalConfigFragment {
+        HistoricalConfigFragment {
+            resources: resource::HISTORICAL_RESOURCES.to_owned(),
+        }
+    }
 }
 
 impl Configuration for BrokerConfigFragment {

@@ -165,6 +165,8 @@ pub enum Error {
     FailedToResolveResourceConfig {
         source: stackable_druid_crd::resource::Error,
     },
+    #[snafu(display("failed to resolve and merge config for role and role group"))]
+    FailedToResolveConfig { source: stackable_druid_crd::Error },
     #[snafu(display("invalid java heap config - missing default or value in crd?"))]
     InvalidJavaHeapConfig,
     #[snafu(display("failed to convert java heap config to unit [{unit}]"))]
@@ -311,6 +313,8 @@ pub async fn reconcile_druid(druid: Arc<DruidCluster>, ctx: Arc<Ctx>) -> Result<
     )
     .context(CreateClusterResourcesSnafu)?;
 
+    let config = druid.merged_config().context(FailedToResolveConfigSnafu)?;
+
     for (role_name, role_config) in validated_role_config.iter() {
         let druid_role = DruidRole::from_str(role_name).context(UnidentifiedDruidRoleSnafu {
             role: role_name.to_string(),
@@ -338,8 +342,7 @@ pub async fn reconcile_druid(druid: Arc<DruidCluster>, ctx: Arc<Ctx>) -> Result<
                 role_group: rolegroup_name.into(),
             };
 
-            let resources = resource::resources(&druid, &druid_role, &rolegroup)
-                .context(FailedToResolveResourceConfigSnafu)?;
+            let resources = config.resources(druid_role.clone(), rolegroup_name);
 
             let rg_service = build_rolegroup_services(
                 &druid,
@@ -927,6 +930,8 @@ mod test {
         Resource {
             source: stackable_druid_crd::resource::Error,
         },
+        #[snafu(display("failed to resolve and merge config for role and role group"))]
+        FailedToResolveConfig { source: stackable_druid_crd::Error },
     }
 
     #[rstest]
@@ -976,6 +981,8 @@ mod test {
 
         let mut druid_segment_cache_property = "invalid".to_string();
 
+        let config = druid.merged_config().context(FailedToResolveConfigSnafu)?;
+
         for (role_name, role_config) in validated_role_config.iter() {
             for (rolegroup_name, rolegroup_config) in role_config.iter() {
                 if rolegroup_name == tested_rolegroup_name
@@ -987,9 +994,8 @@ mod test {
                         role_group: rolegroup_name.clone(),
                     };
 
-                    let resources =
-                        resource::resources(&druid, &DruidRole::Historical, &rolegroup_ref)
-                            .context(ResourceSnafu)?;
+                    let resources = config.resources(DruidRole::Historical, rolegroup_name);
+
                     let ldap_settings: Option<DruidLdapSettings> = None;
 
                     let rg_configmap = build_rolegroup_config_map(
