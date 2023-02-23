@@ -31,6 +31,7 @@ use stackable_operator::{
     labels::ObjectLabels,
     product_config::types::PropertyNameKind,
     product_config_utils::{ConfigError, Configuration},
+    product_logging::{self, spec::Logging},
     role_utils::{CommonConfiguration, Role, RoleGroup},
     schemars::{self, JsonSchema},
 };
@@ -44,12 +45,13 @@ pub const OPERATOR_NAME: &str = "druid.stackable.tech";
 // config directories
 pub const DRUID_CONFIG_DIRECTORY: &str = "/stackable/config";
 pub const HDFS_CONFIG_DIRECTORY: &str = "/stackable/hdfs";
+pub const LOG_CONFIG_DIRECTORY: &str = "/stackable/log_config";
 pub const RW_CONFIG_DIRECTORY: &str = "/stackable/rwconfig";
 
 // config file names
 pub const JVM_CONFIG: &str = "jvm.config";
 pub const RUNTIME_PROPS: &str = "runtime.properties";
-pub const LOG4J2_CONFIG: &str = "log4j2.xml";
+pub const LOG4J2_CONFIG: &str = "log4j2.properties";
 
 // store directories
 pub const SYSTEM_TRUST_STORE: &str = "/etc/pki/java/cacerts";
@@ -57,6 +59,10 @@ pub const SYSTEM_TRUST_STORE_PASSWORD: &str = "changeit";
 pub const STACKABLE_TRUST_STORE: &str = "/stackable/truststore.p12";
 pub const STACKABLE_TRUST_STORE_PASSWORD: &str = "changeit";
 pub const CERTS_DIR: &str = "/stackable/certificates";
+pub const LOG_DIR: &str = "/stackable/log";
+
+// store file names
+pub const DRUID_LOG_FILE: &str = "druid.log4j2.xml";
 
 pub const PROP_SEGMENT_CACHE_LOCATIONS: &str = "druid.segmentCache.locations";
 pub const PATH_SEGMENT_CACHE: &str = "/stackable/var/druid/segment-cache";
@@ -97,6 +103,11 @@ pub const PROCESSING_NUM_MERGE_BUFFERS: &str = "druid.processing.numMergeBuffers
 pub const PROCESSING_NUM_THREADS: &str = "druid.processing.numThreads";
 // extra
 pub const CREDENTIALS_SECRET_PROPERTY: &str = "credentialsSecret";
+// logs
+pub const MAX_DRUID_LOG_FILES_SIZE_IN_MIB: u32 = 10;
+const MAX_PREPARE_LOG_FILE_SIZE_IN_MIB: u32 = 1;
+pub const LOG_VOLUME_SIZE_IN_MIB: u32 =
+    MAX_DRUID_LOG_FILES_SIZE_IN_MIB + MAX_PREPARE_LOG_FILE_SIZE_IN_MIB;
 // metrics
 pub const PROMETHEUS_PORT: &str = "druid.emitter.prometheus.port";
 pub const METRICS_PORT: u16 = 9090;
@@ -169,6 +180,27 @@ pub struct DruidClusterSpec {
     pub cluster_config: DruidClusterConfig,
 }
 
+#[derive(
+    Clone,
+    Debug,
+    Deserialize,
+    Display,
+    Eq,
+    EnumIter,
+    JsonSchema,
+    Ord,
+    PartialEq,
+    PartialOrd,
+    Serialize,
+)]
+#[serde(rename_all = "kebab-case")]
+#[strum(serialize_all = "kebab-case")]
+pub enum Container {
+    Prepare,
+    Vector,
+    Druid,
+}
+
 #[derive(Clone, Debug, Deserialize, JsonSchema, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DruidClusterConfig {
@@ -192,11 +224,16 @@ pub struct DruidClusterConfig {
     pub tls: Option<DruidTls>,
     /// ZooKeeper discovery ConfigMap
     pub zookeeper_config_map_name: String,
+    /// Name of the Vector aggregator discovery ConfigMap.
+    /// It must contain the key `ADDRESS` with the address of the Vector aggregator.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub vector_aggregator_config_map_name: Option<String>,
 }
 
 /// Common configuration for all role groups
 pub struct CommonRoleGroupConfig {
     pub resources: RoleResource,
+    pub logging: Logging<Container>,
     pub replicas: Option<u16>,
     pub selector: Option<LabelSelector>,
 }
@@ -234,6 +271,7 @@ impl MergedConfig {
                     .context(CannotRetrieveRoleGroupSnafu { rolegroup_name })?;
                 Ok(CommonRoleGroupConfig {
                     resources: RoleResource::Druid(rolegroup.config.config.resources.to_owned()),
+                    logging: rolegroup.config.config.logging.to_owned(),
                     replicas: rolegroup.replicas,
                     selector: rolegroup.selector.to_owned(),
                 })
@@ -245,6 +283,7 @@ impl MergedConfig {
                     .context(CannotRetrieveRoleGroupSnafu { rolegroup_name })?;
                 Ok(CommonRoleGroupConfig {
                     resources: RoleResource::Druid(rolegroup.config.config.resources.to_owned()),
+                    logging: rolegroup.config.config.logging.to_owned(),
                     replicas: rolegroup.replicas,
                     selector: rolegroup.selector.to_owned(),
                 })
@@ -258,6 +297,7 @@ impl MergedConfig {
                     resources: RoleResource::Historical(
                         rolegroup.config.config.resources.to_owned(),
                     ),
+                    logging: rolegroup.config.config.logging.to_owned(),
                     replicas: rolegroup.replicas,
                     selector: rolegroup.selector.to_owned(),
                 })
@@ -269,6 +309,7 @@ impl MergedConfig {
                     .context(CannotRetrieveRoleGroupSnafu { rolegroup_name })?;
                 Ok(CommonRoleGroupConfig {
                     resources: RoleResource::Druid(rolegroup.config.config.resources.to_owned()),
+                    logging: rolegroup.config.config.logging.to_owned(),
                     replicas: rolegroup.replicas,
                     selector: rolegroup.selector.to_owned(),
                 })
@@ -280,6 +321,7 @@ impl MergedConfig {
                     .context(CannotRetrieveRoleGroupSnafu { rolegroup_name })?;
                 Ok(CommonRoleGroupConfig {
                     resources: RoleResource::Druid(rolegroup.config.config.resources.to_owned()),
+                    logging: rolegroup.config.config.logging.to_owned(),
                     replicas: rolegroup.replicas,
                     selector: rolegroup.selector.to_owned(),
                 })
@@ -381,6 +423,13 @@ impl DruidRole {
             rw_conf = RW_CONFIG_DIRECTORY
         ));
 
+        // copy log config to rw config
+        shell_cmd.push(format!(
+            "cp -RL {conf}/* {rw_conf}",
+            conf = LOG_CONFIG_DIRECTORY,
+            rw_conf = RW_CONFIG_DIRECTORY
+        ));
+
         // copy hdfs config to RW_CONFIG_DIRECTORY folder (if available)
         shell_cmd.push(format!(
             "cp -RL {hdfs_conf}/* {rw_conf} 2>/dev/null || :", // NOTE: the OR part is here because the command is not applicable sometimes, and would stop everything else from executing
@@ -462,7 +511,6 @@ impl DruidCluster {
                 // metrics
                 result.insert(PROMETHEUS_PORT.to_string(), Some(METRICS_PORT.to_string()));
             }
-            LOG4J2_CONFIG => {}
             _ => {}
         }
 
@@ -481,7 +529,6 @@ impl DruidCluster {
         let config_files = vec![
             PropertyNameKind::Env,
             PropertyNameKind::File(JVM_CONFIG.to_string()),
-            PropertyNameKind::File(LOG4J2_CONFIG.to_string()),
             PropertyNameKind::File(RUNTIME_PROPS.to_string()),
         ];
 
@@ -791,12 +838,15 @@ pub struct IngestionSpec {
 pub struct BrokerConfig {
     #[fragment_attrs(serde(default))]
     resources: Resources<storage::DruidStorage, NoRuntimeLimits>,
+    #[fragment_attrs(serde(default))]
+    pub logging: Logging<Container>,
 }
 
 impl BrokerConfig {
     fn default_config() -> BrokerConfigFragment {
         BrokerConfigFragment {
             resources: resource::DEFAULT_RESOURCES.to_owned(),
+            logging: product_logging::spec::default_logging(),
         }
     }
 }
@@ -818,12 +868,15 @@ impl BrokerConfig {
 pub struct CoordinatorConfig {
     #[fragment_attrs(serde(default))]
     resources: Resources<storage::DruidStorage, NoRuntimeLimits>,
+    #[fragment_attrs(serde(default))]
+    pub logging: Logging<Container>,
 }
 
 impl CoordinatorConfig {
     fn default_config() -> CoordinatorConfigFragment {
         CoordinatorConfigFragment {
             resources: resource::DEFAULT_RESOURCES.to_owned(),
+            logging: product_logging::spec::default_logging(),
         }
     }
 }
@@ -845,12 +898,15 @@ impl CoordinatorConfig {
 pub struct MiddleManagerConfig {
     #[fragment_attrs(serde(default))]
     resources: Resources<storage::DruidStorage, NoRuntimeLimits>,
+    #[fragment_attrs(serde(default))]
+    pub logging: Logging<Container>,
 }
 
 impl MiddleManagerConfig {
     fn default_config() -> MiddleManagerConfigFragment {
         MiddleManagerConfigFragment {
             resources: resource::DEFAULT_RESOURCES.to_owned(),
+            logging: product_logging::spec::default_logging(),
         }
     }
 }
@@ -872,12 +928,15 @@ impl MiddleManagerConfig {
 pub struct RouterConfig {
     #[fragment_attrs(serde(default))]
     resources: Resources<storage::DruidStorage, NoRuntimeLimits>,
+    #[fragment_attrs(serde(default))]
+    pub logging: Logging<Container>,
 }
 
 impl RouterConfig {
     fn default_config() -> RouterConfigFragment {
         RouterConfigFragment {
             resources: resource::DEFAULT_RESOURCES.to_owned(),
+            logging: product_logging::spec::default_logging(),
         }
     }
 }
@@ -899,12 +958,15 @@ impl RouterConfig {
 pub struct HistoricalConfig {
     #[fragment_attrs(serde(default))]
     resources: Resources<storage::HistoricalStorage, NoRuntimeLimits>,
+    #[fragment_attrs(serde(default))]
+    pub logging: Logging<Container>,
 }
 
 impl HistoricalConfig {
     fn default_config() -> HistoricalConfigFragment {
         HistoricalConfigFragment {
             resources: resource::HISTORICAL_RESOURCES.to_owned(),
+            logging: product_logging::spec::default_logging(),
         }
     }
 }

@@ -47,6 +47,8 @@ spec:
             name: druid-historical-default
         - name: rwconfig
           emptyDir: {}
+        - name: log-config
+        - name: log
         - name: hdfs
           configMap:
             name: druid-hdfs

@@ -77,6 +77,8 @@ spec:
             name: druid-resources-historical-default
         - name: rwconfig
           emptyDir: {}
+        - name: log-config
+        - name: log
         - name: segment-cache
           emptyDir:
             sizeLimit: 2G

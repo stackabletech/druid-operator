@@ -1,17 +1,17 @@
 //! Ensures that `Pod`s are configured and running for each [`DruidCluster`]
 use crate::{
-    config::{get_jvm_config, get_log4j_config},
+    config::get_jvm_config,
     discovery::{self, build_discovery_configmaps},
     extensions::get_extension_list,
     internal_secret::{
         build_shared_internal_secret_name, create_shared_internal_secret, env_var_from_secret,
         ENV_INTERNAL_SECRET,
     },
+    product_logging::{extend_role_group_config_map, resolve_vector_aggregator_address},
     OPERATOR_NAME,
 };
 
 use snafu::{OptionExt, ResultExt, Snafu};
-use stackable_druid_crd::build_recommended_labels;
 use stackable_druid_crd::{
     authorization::DruidAuthorization,
     build_string_list,
@@ -22,10 +22,11 @@ use stackable_druid_crd::{
     security::{resolve_authentication_classes, DruidTlsSecurity},
     CommonRoleGroupConfig, DeepStorageSpec, DruidCluster, DruidRole, APP_NAME,
     AUTH_AUTHORIZER_OPA_URI, CERTS_DIR, CREDENTIALS_SECRET_PROPERTY, DRUID_CONFIG_DIRECTORY,
-    DS_BUCKET, EXTENSIONS_LOADLIST, HDFS_CONFIG_DIRECTORY, JVM_CONFIG, LOG4J2_CONFIG,
-    RUNTIME_PROPS, RW_CONFIG_DIRECTORY, S3_ENDPOINT_URL, S3_PATH_STYLE_ACCESS, S3_SECRET_DIR_NAME,
-    ZOOKEEPER_CONNECTION_STRING,
+    DS_BUCKET, EXTENSIONS_LOADLIST, HDFS_CONFIG_DIRECTORY, JVM_CONFIG, LOG_CONFIG_DIRECTORY,
+    LOG_DIR, LOG_VOLUME_SIZE_IN_MIB, RUNTIME_PROPS, RW_CONFIG_DIRECTORY, S3_ENDPOINT_URL,
+    S3_PATH_STYLE_ACCESS, S3_SECRET_DIR_NAME, ZOOKEEPER_CONNECTION_STRING,
 };
+use stackable_druid_crd::{build_recommended_labels, Container};
 use stackable_operator::{
     builder::{
         ConfigMapBuilder, ContainerBuilder, ObjectMetaBuilder, PodBuilder,
@@ -43,7 +44,7 @@ use stackable_operator::{
             apps::v1::{StatefulSet, StatefulSetSpec},
             core::v1::{ConfigMap, EnvVar, Service, ServiceSpec},
         },
-        apimachinery::pkg::apis::meta::v1::LabelSelector,
+        apimachinery::pkg::{api::resource::Quantity, apis::meta::v1::LabelSelector},
     },
     kube::{
         runtime::{controller::Action, reflector::ObjectRef},
@@ -53,6 +54,13 @@ use stackable_operator::{
     logging::controller::ReconcilerError,
     product_config::{types::PropertyNameKind, ProductConfigManager},
     product_config_utils::{transform_all_roles_to_config, validate_all_roles_and_groups_config},
+    product_logging::{
+        self,
+        spec::{
+            ConfigMapLogConfig, ContainerLogConfig, ContainerLogConfigChoice,
+            CustomContainerLogConfig,
+        },
+    },
     role_utils::RoleGroupRef,
 };
 use std::{
@@ -200,6 +208,15 @@ pub enum Error {
         "failed to access bind credentials although they are required for LDAP to work"
     ))]
     LdapBindCredentialsAreRequired,
+    #[snafu(display("failed to resolve the Vector aggregator address"))]
+    ResolveVectorAggregatorAddress {
+        source: crate::product_logging::Error,
+    },
+    #[snafu(display("failed to add the logging configuration to the ConfigMap [{cm_name}]"))]
+    InvalidLoggingConfig {
+        source: crate::product_logging::Error,
+        cm_name: String,
+    },
 }
 
 type Result<T, E = Error> = std::result::Result<T, E>;
@@ -233,6 +250,10 @@ pub async fn reconcile_druid(druid: Arc<DruidCluster>, ctx: Arc<Ctx>) -> Result<
         .context(MissingZookeeperConnStringSnafu {
             cm_name: zk_confmap.clone(),
         })?;
+
+    let vector_aggregator_address = resolve_vector_aggregator_address(&druid, client)
+        .await
+        .context(ResolveVectorAggregatorAddressSnafu)?;
 
     // Assemble the OPA connection string from the discovery and the given path, if a spec is given.
     let opa_connstr = if let Some(DruidAuthorization { opa: opa_config }) =
@@ -348,6 +369,7 @@ pub async fn reconcile_druid(druid: Arc<DruidCluster>, ctx: Arc<Ctx>) -> Result<
                 rolegroup_config,
                 &merged_rolegroup_config,
                 &zk_connstr,
+                vector_aggregator_address.as_deref(),
                 opa_connstr.as_deref(),
                 s3_conn.as_ref(),
                 deep_storage_bucket_name.as_deref(),
@@ -456,6 +478,7 @@ fn build_rolegroup_config_map(
     rolegroup_config: &HashMap<PropertyNameKind, BTreeMap<String, String>>,
     merged_rolegroup_config: &CommonRoleGroupConfig,
     zk_connstr: &str,
+    vector_aggregator_address: Option<&str>,
     opa_connstr: Option<&str>,
     s3_conn: Option<&S3ConnectionSpec>,
     deep_storage_bucket_name: Option<&str>,
@@ -552,12 +575,6 @@ fn build_rolegroup_config_map(
                 // if this is changed in the future, make sure to respect overrides!
                 cm_conf_data.insert(JVM_CONFIG.to_string(), jvm_config);
             }
-            PropertyNameKind::File(file_name) if file_name == LOG4J2_CONFIG => {
-                let log_config = get_log4j_config(&role);
-                // the user can set overrides in the config, but currently they have no effect
-                // if this is changed in the future, make sure to respect overrides!
-                cm_conf_data.insert(LOG4J2_CONFIG.to_string(), log_config);
-            }
             _ => {}
         }
     }
@@ -581,6 +598,17 @@ fn build_rolegroup_config_map(
     for (filename, file_content) in cm_conf_data.iter() {
         config_map_builder.add_data(filename, file_content);
     }
+
+    extend_role_group_config_map(
+        rolegroup,
+        vector_aggregator_address,
+        &merged_rolegroup_config.logging,
+        &mut config_map_builder,
+    )
+    .context(InvalidLoggingConfigSnafu {
+        cm_name: rolegroup.object_name(),
+    })?;
+
     config_map_builder
         .build()
         .with_context(|_| BuildRoleGroupConfigSnafu {
@@ -649,11 +677,17 @@ fn build_rolegroup_statefulset(
     })?;
 
     // init container builder
-    let mut cb_prepare = ContainerBuilder::new("prepare")
-        .context(FailedContainerBuilderCreationSnafu { name: "prepare" })?;
+    let mut cb_prepare = ContainerBuilder::new(&Container::Prepare.to_string()).context(
+        FailedContainerBuilderCreationSnafu {
+            name: Container::Prepare.to_string(),
+        },
+    )?;
     // druid container builder
-    let mut cb_druid = ContainerBuilder::new(APP_NAME)
-        .context(FailedContainerBuilderCreationSnafu { name: APP_NAME })?;
+    let mut cb_druid = ContainerBuilder::new(&Container::Druid.to_string()).context(
+        FailedContainerBuilderCreationSnafu {
+            name: Container::Druid.to_string(),
+        },
+    )?;
     // init pod builder
     let mut pb = PodBuilder::new();
     pb.node_selector_opt(merged_rolegroup_config.selector.to_owned());
@@ -678,6 +712,13 @@ fn build_rolegroup_statefulset(
         .context(FailedToInitializeSecurityContextSnafu)?;
     add_s3_volume_and_volume_mounts(s3_conn, &mut cb_druid, &mut pb)?;
     add_config_volume_and_volume_mounts(rolegroup_ref, &mut cb_druid, &mut pb);
+    add_log_config_volume_and_volume_mounts(
+        rolegroup_ref,
+        merged_rolegroup_config,
+        &mut cb_druid,
+        &mut pb,
+    );
+    add_log_volume_and_volume_mounts(&mut cb_druid, &mut cb_prepare, &mut pb);
     add_hdfs_cm_volume_and_volume_mounts(
         &druid.spec.cluster_config.deep_storage,
         &mut cb_druid,
@@ -687,7 +728,23 @@ fn build_rolegroup_statefulset(
         .resources
         .update_volumes_and_volume_mounts(&mut cb_druid, &mut pb);
 
-    let prepare_container_command = druid_tls_security.build_tls_key_stores_cmd();
+    let mut prepare_container_command = vec![];
+
+    if let Some(ContainerLogConfig {
+        choice: Some(ContainerLogConfigChoice::Automatic(log_config)),
+    }) = merged_rolegroup_config
+        .logging
+        .containers
+        .get(&Container::Prepare)
+    {
+        prepare_container_command.push(product_logging::framework::capture_shell_output(
+            LOG_DIR,
+            &Container::Prepare.to_string(),
+            log_config,
+        ));
+    }
+
+    prepare_container_command.extend(druid_tls_security.build_tls_key_stores_cmd());
 
     cb_prepare
         .image_from_product_image(resolved_product_image)
@@ -743,6 +800,18 @@ fn build_rolegroup_statefulset(
                 .fs_group(1000)
                 .build(),
         );
+
+    if merged_rolegroup_config.logging.enable_vector_agent {
+        pb.add_container(product_logging::framework::vector_container(
+            resolved_product_image,
+            "config",
+            "log",
+            merged_rolegroup_config
+                .logging
+                .containers
+                .get(&Container::Vector),
+        ));
+    }
 
     Ok(StatefulSet {
         metadata: ObjectMetaBuilder::new()
@@ -846,6 +915,53 @@ fn add_config_volume_and_volume_mounts(
     pb.add_volume(
         VolumeBuilder::new("rwconfig")
             .with_empty_dir(Some(""), None)
+            .build(),
+    );
+}
+
+fn add_log_config_volume_and_volume_mounts(
+    rolegroup_ref: &RoleGroupRef<DruidCluster>,
+    merged_rolegroup_config: &CommonRoleGroupConfig,
+    cb_druid: &mut ContainerBuilder,
+    pb: &mut PodBuilder,
+) {
+    cb_druid.add_volume_mount("log-config", LOG_CONFIG_DIRECTORY);
+
+    let config_map = if let Some(ContainerLogConfig {
+        choice:
+            Some(ContainerLogConfigChoice::Custom(CustomContainerLogConfig {
+                custom: ConfigMapLogConfig { config_map },
+            })),
+    }) = merged_rolegroup_config
+        .logging
+        .containers
+        .get(&Container::Druid)
+    {
+        config_map.into()
+    } else {
+        rolegroup_ref.object_name()
+    };
+
+    pb.add_volume(
+        VolumeBuilder::new("log-config")
+            .with_config_map(config_map)
+            .build(),
+    );
+}
+
+fn add_log_volume_and_volume_mounts(
+    cb_druid: &mut ContainerBuilder,
+    cb_prepare: &mut ContainerBuilder,
+    pb: &mut PodBuilder,
+) {
+    cb_druid.add_volume_mount("log", LOG_DIR);
+    cb_prepare.add_volume_mount("log", LOG_DIR);
+    pb.add_volume(
+        VolumeBuilder::new("log")
+            .with_empty_dir(
+                Some(""),
+                Some(Quantity(format!("{LOG_VOLUME_SIZE_IN_MIB}Mi"))),
+            )
             .build(),
     );
 }
@@ -1000,6 +1116,7 @@ mod test {
                         rolegroup_config,
                         &merged_rolegroup_config,
                         "zookeeper-connection-string",
+                        None,
                         None,
                         None,
                         None,
