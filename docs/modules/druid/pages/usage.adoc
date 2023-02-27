@@ -549,3 +549,31 @@ historicals:
                 # The maximum size of the volume used to store the segment cache
                 capacity: 2Gi
 ----
+
+=== Pod placement
+
+You can configure the Pod placement of the Druid pods as described in xref:concepts:pod_placement.adoc[].
+
+The default affinities created by the operator are:
+
+1. Distribute all Pods within the same role (brokers, coordinators, historicals, middle-managers, routers) (weight 70)
+
+Some of the Druid roles do frequently communicate with each other.
+To address this, some affinities will be created to attract these roles:
+
+*For brokers:*
+
+1. Co-locate with historicals (weight 60)
+2. Co-locate with middle-managers (weight 40)
+
+*For routers:*
+
+1. Co-locate with brokers (weight 40)
+
+*For historicals and middle-managers:*
+
+1. Co-locate the middle-managers and historicals with the hdfs datanodes if hdfs is used as deep storage (weight 50)
+
+*For coordinators:*
+
+- No affinities

@@ -1,3 +1,4 @@
+pub mod affinity;
 pub mod authentication;
 pub mod authorization;
 pub mod ldap;
@@ -10,6 +11,7 @@ pub mod tls;
 use crate::authentication::DruidAuthentication;
 use crate::tls::DruidTls;
 
+use affinity::{get_affinity, migrate_legacy_selector};
 use authorization::DruidAuthorization;
 use resource::RoleResource;
 use serde::{Deserialize, Serialize};
@@ -17,6 +19,7 @@ use snafu::{OptionExt, ResultExt, Snafu};
 use stackable_operator::{
     client::Client,
     commons::{
+        affinity::StackableAffinity,
         product_image_selection::ProductImage,
         resources::{NoRuntimeLimits, Resources},
         s3::{InlinedS3BucketSpec, S3BucketDef, S3ConnectionDef, S3ConnectionSpec},
@@ -236,6 +239,7 @@ pub struct CommonRoleGroupConfig {
     pub logging: Logging<Container>,
     pub replicas: Option<u16>,
     pub selector: Option<LabelSelector>,
+    pub affinity: StackableAffinity,
 }
 
 /// Container for the merged and validated role group configurations
@@ -274,6 +278,7 @@ impl MergedConfig {
                     logging: rolegroup.config.config.logging.to_owned(),
                     replicas: rolegroup.replicas,
                     selector: rolegroup.selector.to_owned(),
+                    affinity: rolegroup.config.config.affinity.clone(),
                 })
             }
             DruidRole::Coordinator => {
@@ -286,6 +291,7 @@ impl MergedConfig {
                     logging: rolegroup.config.config.logging.to_owned(),
                     replicas: rolegroup.replicas,
                     selector: rolegroup.selector.to_owned(),
+                    affinity: rolegroup.config.config.affinity.clone(),
                 })
             }
             DruidRole::Historical => {
@@ -300,6 +306,7 @@ impl MergedConfig {
                     logging: rolegroup.config.config.logging.to_owned(),
                     replicas: rolegroup.replicas,
                     selector: rolegroup.selector.to_owned(),
+                    affinity: rolegroup.config.config.affinity.clone(),
                 })
             }
             DruidRole::MiddleManager => {
@@ -312,6 +319,7 @@ impl MergedConfig {
                     logging: rolegroup.config.config.logging.to_owned(),
                     replicas: rolegroup.replicas,
                     selector: rolegroup.selector.to_owned(),
+                    affinity: rolegroup.config.config.affinity.clone(),
                 })
             }
             DruidRole::Router => {
@@ -324,6 +332,7 @@ impl MergedConfig {
                     logging: rolegroup.config.config.logging.to_owned(),
                     replicas: rolegroup.replicas,
                     selector: rolegroup.selector.to_owned(),
+                    affinity: rolegroup.config.config.affinity.clone(),
                 })
             }
         }
@@ -659,26 +668,41 @@ impl DruidCluster {
 
     /// Returns the merged and validated configuration for all roles
     pub fn merged_config(&self) -> Result<MergedConfig, Error> {
+        let deep_storage = &self.spec.cluster_config.deep_storage;
+        let migrated_druid_cluster_spec = migrate_legacy_selector(&self.spec);
+
         Ok(MergedConfig {
             brokers: DruidCluster::merged_role(
-                &self.spec.brokers,
-                &BrokerConfig::default_config(),
+                &migrated_druid_cluster_spec.brokers,
+                &BrokerConfig::default_config(&self.name_any(), &DruidRole::Broker, deep_storage),
             )?,
             coordinators: DruidCluster::merged_role(
-                &self.spec.coordinators,
-                &CoordinatorConfig::default_config(),
+                &migrated_druid_cluster_spec.coordinators,
+                &CoordinatorConfig::default_config(
+                    &self.name_any(),
+                    &DruidRole::Coordinator,
+                    deep_storage,
+                ),
             )?,
             historicals: DruidCluster::merged_role(
-                &self.spec.historicals,
-                &HistoricalConfig::default_config(),
+                &migrated_druid_cluster_spec.historicals,
+                &HistoricalConfig::default_config(
+                    &self.name_any(),
+                    &DruidRole::Historical,
+                    deep_storage,
+                ),
             )?,
             middle_managers: DruidCluster::merged_role(
-                &self.spec.middle_managers,
-                &MiddleManagerConfig::default_config(),
+                &migrated_druid_cluster_spec.middle_managers,
+                &MiddleManagerConfig::default_config(
+                    &self.name_any(),
+                    &DruidRole::MiddleManager,
+                    deep_storage,
+                ),
             )?,
             routers: DruidCluster::merged_role(
-                &self.spec.routers,
-                &RouterConfig::default_config(),
+                &migrated_druid_cluster_spec.routers,
+                &RouterConfig::default_config(&self.name_any(), &DruidRole::Router, deep_storage),
             )?,
         })
     }
@@ -840,13 +864,20 @@ pub struct BrokerConfig {
     resources: Resources<storage::DruidStorage, NoRuntimeLimits>,
     #[fragment_attrs(serde(default))]
     pub logging: Logging<Container>,
+    #[fragment_attrs(serde(default))]
+    pub affinity: StackableAffinity,
 }
 
 impl BrokerConfig {
-    fn default_config() -> BrokerConfigFragment {
+    fn default_config(
+        cluster_name: &str,
+        role: &DruidRole,
+        deep_storage: &DeepStorageSpec,
+    ) -> BrokerConfigFragment {
         BrokerConfigFragment {
             resources: resource::DEFAULT_RESOURCES.to_owned(),
             logging: product_logging::spec::default_logging(),
+            affinity: get_affinity(cluster_name, role, deep_storage),
         }
     }
 }
@@ -870,13 +901,20 @@ pub struct CoordinatorConfig {
     resources: Resources<storage::DruidStorage, NoRuntimeLimits>,
     #[fragment_attrs(serde(default))]
     pub logging: Logging<Container>,
+    #[fragment_attrs(serde(default))]
+    pub affinity: StackableAffinity,
 }
 
 impl CoordinatorConfig {
-    fn default_config() -> CoordinatorConfigFragment {
+    fn default_config(
+        cluster_name: &str,
+        role: &DruidRole,
+        deep_storage: &DeepStorageSpec,
+    ) -> CoordinatorConfigFragment {
         CoordinatorConfigFragment {
             resources: resource::DEFAULT_RESOURCES.to_owned(),
             logging: product_logging::spec::default_logging(),
+            affinity: get_affinity(cluster_name, role, deep_storage),
         }
     }
 }
@@ -900,13 +938,20 @@ pub struct MiddleManagerConfig {
     resources: Resources<storage::DruidStorage, NoRuntimeLimits>,
     #[fragment_attrs(serde(default))]
     pub logging: Logging<Container>,
+    #[fragment_attrs(serde(default))]
+    pub affinity: StackableAffinity,
 }
 
 impl MiddleManagerConfig {
-    fn default_config() -> MiddleManagerConfigFragment {
+    fn default_config(
+        cluster_name: &str,
+        role: &DruidRole,
+        deep_storage: &DeepStorageSpec,
+    ) -> MiddleManagerConfigFragment {
         MiddleManagerConfigFragment {
             resources: resource::DEFAULT_RESOURCES.to_owned(),
             logging: product_logging::spec::default_logging(),
+            affinity: get_affinity(cluster_name, role, deep_storage),
         }
     }
 }
@@ -930,13 +975,20 @@ pub struct RouterConfig {
     resources: Resources<storage::DruidStorage, NoRuntimeLimits>,
     #[fragment_attrs(serde(default))]
     pub logging: Logging<Container>,
+    #[fragment_attrs(serde(default))]
+    pub affinity: StackableAffinity,
 }
 
 impl RouterConfig {
-    fn default_config() -> RouterConfigFragment {
+    fn default_config(
+        cluster_name: &str,
+        role: &DruidRole,
+        deep_storage: &DeepStorageSpec,
+    ) -> RouterConfigFragment {
         RouterConfigFragment {
             resources: resource::DEFAULT_RESOURCES.to_owned(),
             logging: product_logging::spec::default_logging(),
+            affinity: get_affinity(cluster_name, role, deep_storage),
         }
     }
 }
@@ -960,13 +1012,20 @@ pub struct HistoricalConfig {
     resources: Resources<storage::HistoricalStorage, NoRuntimeLimits>,
     #[fragment_attrs(serde(default))]
     pub logging: Logging<Container>,
+    #[fragment_attrs(serde(default))]
+    pub affinity: StackableAffinity,
 }
 
 impl HistoricalConfig {
-    fn default_config() -> HistoricalConfigFragment {
+    fn default_config(
+        cluster_name: &str,
+        role: &DruidRole,
+        deep_storage: &DeepStorageSpec,
+    ) -> HistoricalConfigFragment {
         HistoricalConfigFragment {
             resources: resource::HISTORICAL_RESOURCES.to_owned(),
             logging: product_logging::spec::default_logging(),
+            affinity: get_affinity(cluster_name, role, deep_storage),
         }
     }
 }
