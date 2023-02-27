@@ -390,6 +390,41 @@ The operator creates a `ConfigMap` with the name of the cluster which contains c
 The managed Druid instances are automatically configured to export Prometheus metrics. See
 xref:operators:monitoring.adoc[] for more details.
 
+== Log aggregation
+
+The logs can be forwarded to a Vector log aggregator by providing a discovery
+ConfigMap for the aggregator and by enabling the log agent:
+
+[source,yaml]
+----
+spec:
+  clusterConfig:
+    vectorAggregatorConfigMapName: vector-aggregator-discovery
+  brokers:
+    config:
+      logging:
+        enableVectorAgent: true
+  coordinators:
+    config:
+      logging:
+        enableVectorAgent: true
+  historicals:
+    config:
+      logging:
+        enableVectorAgent: true
+  middleManagers:
+    config:
+      logging:
+        enableVectorAgent: true
+  routers:
+    config:
+      logging:
+        enableVectorAgent: true
+----
+
+Further information on how to configure logging, can be found in
+xref:home:concepts:logging.adoc[].
+
 == Configuration & Environment Overrides
 
 The cluster definition also supports overriding configuration properties and environment variables, either per role or per role group, where the more specific override (role group) has precedence over the less specific one (role).
