@@ -7,12 +7,50 @@ use stackable_operator::{
 
 use crate::{DeepStorageSpec, DruidClusterSpec, DruidRole, HdfsDeepStorageSpec, APP_NAME};
 
+/// Please have a look at the architecture diagram in https://druid.apache.org/docs/latest/assets/druid-architecture.png
+/// to understand which roles do communicate with each other.
 pub fn get_affinity(
     cluster_name: &str,
     role: &DruidRole,
     deep_storage: &DeepStorageSpec,
 ) -> StackableAffinityFragment {
     let mut affinities = vec![affinity_between_cluster_pods(APP_NAME, cluster_name, 20)];
+
+    // Add affinities between roles
+    match role {
+        // Manages data availability on the cluster
+        DruidRole::Coordinator => {}
+        // Handles queries from external clients
+        DruidRole::Broker => {
+            affinities.push(affinity_between_role_pods(
+                APP_NAME,
+                cluster_name,
+                &DruidRole::Historical.to_string(),
+                60, // The historicals store all the queryable data, so the affinity is more important than the affinity to the MiddleManagers
+            ));
+            affinities.push(affinity_between_role_pods(
+                APP_NAME,
+                cluster_name,
+                &DruidRole::MiddleManager.to_string(),
+                40,
+            ));
+        }
+        // Stores queryable data
+        DruidRole::Historical => {}
+        // Ingests data
+        DruidRole::MiddleManager => {}
+        // Routes requests to Brokers, Coordinators, and Overlords
+        DruidRole::Router => {
+            affinities.push(affinity_between_role_pods(
+                APP_NAME,
+                cluster_name,
+                &DruidRole::Broker.to_string(),
+                40,
+            ));
+        }
+    }
+
+    // Add affinity to hdfs if used as deep storage
     match role {
         DruidRole::MiddleManager | DruidRole::Historical => {
             if let DeepStorageSpec::HDFS(HdfsDeepStorageSpec {
@@ -187,6 +225,76 @@ mod tests {
         }];
 
         match role {
+            DruidRole::Broker => {
+                expected_affinities.push(WeightedPodAffinityTerm {
+                    pod_affinity_term: PodAffinityTerm {
+                        label_selector: Some(LabelSelector {
+                            match_expressions: None,
+                            match_labels: Some(BTreeMap::from([
+                                ("app.kubernetes.io/name".to_string(), "druid".to_string()),
+                                (
+                                    "app.kubernetes.io/instance".to_string(),
+                                    "simple-druid".to_string(),
+                                ),
+                                (
+                                    "app.kubernetes.io/component".to_string(),
+                                    "historical".to_string(),
+                                ),
+                            ])),
+                        }),
+                        namespace_selector: None,
+                        namespaces: None,
+                        topology_key: "kubernetes.io/hostname".to_string(),
+                    },
+                    weight: 60,
+                });
+                expected_affinities.push(WeightedPodAffinityTerm {
+                    pod_affinity_term: PodAffinityTerm {
+                        label_selector: Some(LabelSelector {
+                            match_expressions: None,
+                            match_labels: Some(BTreeMap::from([
+                                ("app.kubernetes.io/name".to_string(), "druid".to_string()),
+                                (
+                                    "app.kubernetes.io/instance".to_string(),
+                                    "simple-druid".to_string(),
+                                ),
+                                (
+                                    "app.kubernetes.io/component".to_string(),
+                                    "middlemanager".to_string(),
+                                ),
+                            ])),
+                        }),
+                        namespace_selector: None,
+                        namespaces: None,
+                        topology_key: "kubernetes.io/hostname".to_string(),
+                    },
+                    weight: 40,
+                });
+            }
+            DruidRole::Router => {
+                expected_affinities.push(WeightedPodAffinityTerm {
+                    pod_affinity_term: PodAffinityTerm {
+                        label_selector: Some(LabelSelector {
+                            match_expressions: None,
+                            match_labels: Some(BTreeMap::from([
+                                ("app.kubernetes.io/name".to_string(), "druid".to_string()),
+                                (
+                                    "app.kubernetes.io/instance".to_string(),
+                                    "simple-druid".to_string(),
+                                ),
+                                (
+                                    "app.kubernetes.io/component".to_string(),
+                                    "broker".to_string(),
+                                ),
+                            ])),
+                        }),
+                        namespace_selector: None,
+                        namespaces: None,
+                        topology_key: "kubernetes.io/hostname".to_string(),
+                    },
+                    weight: 40,
+                });
+            }
             DruidRole::MiddleManager | DruidRole::Historical => {
                 expected_affinities.push(WeightedPodAffinityTerm {
                     pod_affinity_term: PodAffinityTerm {
@@ -282,6 +390,10 @@ mod tests {
             roleGroups:
               default:
                 replicas: 1
+          coordinators:
+            roleGroups:
+              default:
+                replicas: 1
                 selector:
                   matchLabels:
                     disktype: ssd
@@ -291,10 +403,6 @@ mod tests {
                       values:
                         - antarctica-east1
                         - antarctica-west1
-          coordinators:
-            roleGroups:
-              default:
-                replicas: 1
           historicals:
             roleGroups:
               default:
@@ -314,7 +422,7 @@ mod tests {
         let merged_config = druid
             .merged_config()
             .unwrap()
-            .common_config(DruidRole::Broker, "default")
+            .common_config(DruidRole::Coordinator, "default")
             .unwrap();
 
         assert_eq!(
@@ -357,7 +465,7 @@ mod tests {
                                         ),
                                         (
                                             "app.kubernetes.io/component".to_string(),
-                                            "broker".to_string(),
+                                            "coordinator".to_string(),
                                         )
                                     ]))
                                 }),
