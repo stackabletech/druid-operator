@@ -525,4 +525,5 @@ The default affinities created by the operator are:
 2. Distribute all Pods within the same role (brokers, coordinators, historicals, middle-managers, routers) (weight 70)
 
 Additionally, if hdfs is used for deep storage, the following rules are created:
+
 1. Co-locate the middle-managers and historicals with the hdfs datanodes (weight 50)
