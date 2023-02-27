@@ -315,7 +315,7 @@ mod tests {
                                         ),
                                         (
                                             "app.kubernetes.io/component".to_string(),
-                                            "master".to_string(),
+                                            "broker".to_string(),
                                         )
                                     ]))
                                 }),

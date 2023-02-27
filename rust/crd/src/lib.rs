@@ -619,16 +619,60 @@ impl DruidCluster {
         s3_ingestion || s3_storage
     }
 
+    /// Migrate old `selector` attribute, see ADR 26 affinities.
+    /// TODO Can be removed after support for the old `selector` field is dropped.
+    fn migrate_legacy_selector(&self) -> DruidClusterSpec {
+        let mut druid = self.spec.clone();
+        druid.brokers.role_groups.values_mut().for_each(|rg| {
+            if let Some(selector) = &rg.selector {
+                #[allow(deprecated)]
+                rg.config.config.affinity.add_legacy_selector(selector);
+            }
+        });
+        druid.coordinators.role_groups.values_mut().for_each(|rg| {
+            if let Some(selector) = &rg.selector {
+                #[allow(deprecated)]
+                rg.config.config.affinity.add_legacy_selector(selector);
+            }
+        });
+        druid.historicals.role_groups.values_mut().for_each(|rg| {
+            if let Some(selector) = &rg.selector {
+                #[allow(deprecated)]
+                rg.config.config.affinity.add_legacy_selector(selector);
+            }
+        });
+        druid
+            .middle_managers
+            .role_groups
+            .values_mut()
+            .for_each(|rg| {
+                if let Some(selector) = &rg.selector {
+                    #[allow(deprecated)]
+                    rg.config.config.affinity.add_legacy_selector(selector);
+                }
+            });
+        druid.routers.role_groups.values_mut().for_each(|rg| {
+            if let Some(selector) = &rg.selector {
+                #[allow(deprecated)]
+                rg.config.config.affinity.add_legacy_selector(selector);
+            }
+        });
+
+        druid
+    }
+
     /// Returns the merged and validated configuration for all roles
     pub fn merged_config(&self) -> Result<MergedConfig, Error> {
         let deep_storage = &self.spec.cluster_config.deep_storage;
+        let migrated_druid_cluster_spec = self.migrate_legacy_selector();
+
         Ok(MergedConfig {
             brokers: DruidCluster::merged_role(
-                &self.spec.brokers,
+                &migrated_druid_cluster_spec.brokers,
                 &BrokerConfig::default_config(&self.name_any(), &DruidRole::Broker, deep_storage),
             )?,
             coordinators: DruidCluster::merged_role(
-                &self.spec.coordinators,
+                &migrated_druid_cluster_spec.coordinators,
                 &CoordinatorConfig::default_config(
                     &self.name_any(),
                     &DruidRole::Coordinator,
@@ -636,7 +680,7 @@ impl DruidCluster {
                 ),
             )?,
             historicals: DruidCluster::merged_role(
-                &self.spec.historicals,
+                &migrated_druid_cluster_spec.historicals,
                 &HistoricalConfig::default_config(
                     &self.name_any(),
                     &DruidRole::Historical,
@@ -644,7 +688,7 @@ impl DruidCluster {
                 ),
             )?,
             middle_managers: DruidCluster::merged_role(
-                &self.spec.middle_managers,
+                &migrated_druid_cluster_spec.middle_managers,
                 &MiddleManagerConfig::default_config(
                     &self.name_any(),
                     &DruidRole::MiddleManager,
@@ -652,7 +696,7 @@ impl DruidCluster {
                 ),
             )?,
             routers: DruidCluster::merged_role(
-                &self.spec.routers,
+                &migrated_druid_cluster_spec.routers,
                 &RouterConfig::default_config(&self.name_any(), &DruidRole::Router, deep_storage),
             )?,
         })
