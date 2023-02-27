@@ -350,6 +350,7 @@ mod test {
                     config:
                         MiddleManagerConfig {
                             resources: middlemanager_resources_from_rg,
+                            ..
                         },
                     ..
                 },
@@ -382,6 +383,7 @@ mod test {
                     config:
                         MiddleManagerConfig {
                             resources: middlemanager_resources_from_rg,
+                            ..
                         },
                     ..
                 },
