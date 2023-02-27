@@ -1,73 +1,62 @@
 use stackable_operator::{
-    commons::affinity::{
-        affinity_between_cluster_pods, affinity_between_role_pods, StackableAffinityFragment,
-    },
+    commons::affinity::{affinity_between_role_pods, StackableAffinityFragment},
     k8s_openapi::api::core::v1::{PodAffinity, PodAntiAffinity},
 };
 
 use crate::{DeepStorageSpec, DruidClusterSpec, DruidRole, HdfsDeepStorageSpec, APP_NAME};
 
-/// Please have a look at the architecture diagram in https://druid.apache.org/docs/latest/assets/druid-architecture.png
+/// Please have a look at the architecture diagram in <https://druid.apache.org/docs/latest/assets/druid-architecture.png>
 /// to understand which roles do communicate with each other.
 pub fn get_affinity(
     cluster_name: &str,
     role: &DruidRole,
     deep_storage: &DeepStorageSpec,
 ) -> StackableAffinityFragment {
-    let mut affinities = vec![affinity_between_cluster_pods(APP_NAME, cluster_name, 20)];
-
     // Add affinities between roles
-    match role {
+    let affinities = match role {
         // Manages data availability on the cluster
-        DruidRole::Coordinator => {}
+        DruidRole::Coordinator => vec![],
         // Handles queries from external clients
-        DruidRole::Broker => {
-            affinities.push(affinity_between_role_pods(
-                APP_NAME,
-                cluster_name,
-                &DruidRole::Historical.to_string(),
-                60, // The historicals store all the queryable data, so the affinity is more important than the affinity to the MiddleManagers
-            ));
-            affinities.push(affinity_between_role_pods(
-                APP_NAME,
-                cluster_name,
-                &DruidRole::MiddleManager.to_string(),
-                40,
-            ));
-        }
+        DruidRole::Broker => vec![affinity_between_role_pods(
+            APP_NAME,
+            cluster_name,
+            &DruidRole::Historical.to_string(),
+            60, // The historicals store all the queryable data, so the affinity is more important than the affinity to the MiddleManagers
+        ), affinity_between_role_pods(
+            APP_NAME,
+            cluster_name,
+            &DruidRole::MiddleManager.to_string(),
+            40,
+        )],
         // Stores queryable data
-        DruidRole::Historical => {}
+        DruidRole::Historical |
         // Ingests data
-        DruidRole::MiddleManager => {}
-        // Routes requests to Brokers, Coordinators, and Overlords
-        DruidRole::Router => {
-            affinities.push(affinity_between_role_pods(
-                APP_NAME,
-                cluster_name,
-                &DruidRole::Broker.to_string(),
-                40,
-            ));
-        }
-    }
-
-    // Add affinity to hdfs if used as deep storage
-    match role {
-        DruidRole::MiddleManager | DruidRole::Historical => {
+        DruidRole::MiddleManager => {
             if let DeepStorageSpec::HDFS(HdfsDeepStorageSpec {
                 config_map_name: hdfs_discovery_cm_name,
                 ..
             }) = deep_storage
             {
-                affinities.push(affinity_between_role_pods(
+                vec![affinity_between_role_pods(
                     "hdfs",
                     hdfs_discovery_cm_name, // The discovery cm has the same name as the HdfsCluster itself
                     "datanode",
                     50,
-                ))
+                )]
+            } else {
+                vec![]
             }
         }
-        _ => (),
-    }
+        // Routes requests to Brokers, Coordinators, and Overlords
+        DruidRole::Router => {
+            vec![affinity_between_role_pods(
+                APP_NAME,
+                cluster_name,
+                &DruidRole::Broker.to_string(),
+                40,
+            )]
+        }
+    };
 
     StackableAffinityFragment {
         pod_affinity: Some(PodAffinity {
@@ -205,24 +194,7 @@ mod tests {
             .common_config(role.clone(), "default")
             .unwrap();
 
-        let mut expected_affinities = vec![WeightedPodAffinityTerm {
-            pod_affinity_term: PodAffinityTerm {
-                label_selector: Some(LabelSelector {
-                    match_expressions: None,
-                    match_labels: Some(BTreeMap::from([
-                        ("app.kubernetes.io/name".to_string(), "druid".to_string()),
-                        (
-                            "app.kubernetes.io/instance".to_string(),
-                            "simple-druid".to_string(),
-                        ),
-                    ])),
-                }),
-                namespace_selector: None,
-                namespaces: None,
-                topology_key: "kubernetes.io/hostname".to_string(),
-            },
-            weight: 20,
-        }];
+        let mut expected_affinities = vec![];
 
         match role {
             DruidRole::Broker => {
@@ -429,26 +401,7 @@ mod tests {
             merged_config.affinity,
             StackableAffinity {
                 pod_affinity: Some(PodAffinity {
-                    preferred_during_scheduling_ignored_during_execution: Some(vec![
-                        WeightedPodAffinityTerm {
-                            pod_affinity_term: PodAffinityTerm {
-                                label_selector: Some(LabelSelector {
-                                    match_expressions: None,
-                                    match_labels: Some(BTreeMap::from([
-                                        ("app.kubernetes.io/name".to_string(), "druid".to_string(),),
-                                        (
-                                            "app.kubernetes.io/instance".to_string(),
-                                            "simple-druid".to_string(),
-                                        ),
-                                    ]))
-                                }),
-                                namespace_selector: None,
-                                namespaces: None,
-                                topology_key: "kubernetes.io/hostname".to_string(),
-                            },
-                            weight: 20
-                        }
-                    ]),
+                    preferred_during_scheduling_ignored_during_execution: Some(vec![]),
                     required_during_scheduling_ignored_during_execution: None,
                 }),
                 pod_anti_affinity: Some(PodAntiAffinity {
