@@ -11,7 +11,7 @@ pub mod tls;
 use crate::authentication::DruidAuthentication;
 use crate::tls::DruidTls;
 
-use affinity::get_affinity;
+use affinity::{get_affinity, migrate_legacy_selector};
 use authorization::DruidAuthorization;
 use resource::RoleResource;
 use serde::{Deserialize, Serialize};
@@ -619,52 +619,10 @@ impl DruidCluster {
         s3_ingestion || s3_storage
     }
 
-    /// Migrate old `selector` attribute, see ADR 26 affinities.
-    /// TODO Can be removed after support for the old `selector` field is dropped.
-    fn migrate_legacy_selector(&self) -> DruidClusterSpec {
-        let mut druid = self.spec.clone();
-        druid.brokers.role_groups.values_mut().for_each(|rg| {
-            if let Some(selector) = &rg.selector {
-                #[allow(deprecated)]
-                rg.config.config.affinity.add_legacy_selector(selector);
-            }
-        });
-        druid.coordinators.role_groups.values_mut().for_each(|rg| {
-            if let Some(selector) = &rg.selector {
-                #[allow(deprecated)]
-                rg.config.config.affinity.add_legacy_selector(selector);
-            }
-        });
-        druid.historicals.role_groups.values_mut().for_each(|rg| {
-            if let Some(selector) = &rg.selector {
-                #[allow(deprecated)]
-                rg.config.config.affinity.add_legacy_selector(selector);
-            }
-        });
-        druid
-            .middle_managers
-            .role_groups
-            .values_mut()
-            .for_each(|rg| {
-                if let Some(selector) = &rg.selector {
-                    #[allow(deprecated)]
-                    rg.config.config.affinity.add_legacy_selector(selector);
-                }
-            });
-        druid.routers.role_groups.values_mut().for_each(|rg| {
-            if let Some(selector) = &rg.selector {
-                #[allow(deprecated)]
-                rg.config.config.affinity.add_legacy_selector(selector);
-            }
-        });
-
-        druid
-    }
-
     /// Returns the merged and validated configuration for all roles
     pub fn merged_config(&self) -> Result<MergedConfig, Error> {
         let deep_storage = &self.spec.cluster_config.deep_storage;
-        let migrated_druid_cluster_spec = self.migrate_legacy_selector();
+        let migrated_druid_cluster_spec = migrate_legacy_selector(&self.spec);
 
         Ok(MergedConfig {
             brokers: DruidCluster::merged_role(
