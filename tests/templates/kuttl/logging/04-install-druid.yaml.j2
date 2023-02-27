@@ -5,6 +5,23 @@ metadata:
   name: install-druid
 timeout: 600
 ---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: druid-log-config
+data:
+  log4j2.properties: |-
+    appenders = FILE
+
+    appender.FILE.type = File
+    appender.FILE.name = FILE
+    appender.FILE.fileName = /stackable/log/druid/druid.log4j2.xml
+    appender.FILE.layout.type = XMLLayout
+
+    rootLogger.level=INFO
+    rootLogger.appenderRefs = FILE
+    rootLogger.appenderRef.FILE.ref = FILE
+---
 apiVersion: druid.stackable.tech/v1alpha1
 kind: DruidCluster
 metadata:
@@ -64,29 +81,8 @@ spec:
             enableVectorAgent: true
             containers:
               druid:
-                console:
-                  level: INFO
-                file:
-                  level: INFO
-                loggers:
-                  ROOT:
-                    level: INFO
-              prepare:
-                console:
-                  level: INFO
-                file:
-                  level: INFO
-                loggers:
-                  ROOT:
-                    level: INFO
-              vector:
-                console:
-                  level: INFO
-                file:
-                  level: INFO
-                loggers:
-                  ROOT:
-                    level: INFO
+                custom:
+                  configMap: druid-log-config
   coordinators:
     roleGroups:
       automatic-log-config:
@@ -126,29 +122,8 @@ spec:
             enableVectorAgent: true
             containers:
               druid:
-                console:
-                  level: INFO
-                file:
-                  level: INFO
-                loggers:
-                  ROOT:
-                    level: INFO
-              prepare:
-                console:
-                  level: INFO
-                file:
-                  level: INFO
-                loggers:
-                  ROOT:
-                    level: INFO
-              vector:
-                console:
-                  level: INFO
-                file:
-                  level: INFO
-                loggers:
-                  ROOT:
-                    level: INFO
+                custom:
+                  configMap: druid-log-config
   historicals:
     roleGroups:
       automatic-log-config:
@@ -188,29 +163,8 @@ spec:
             enableVectorAgent: true
             containers:
               druid:
-                console:
-                  level: INFO
-                file:
-                  level: INFO
-                loggers:
-                  ROOT:
-                    level: INFO
-              prepare:
-                console:
-                  level: INFO
-                file:
-                  level: INFO
-                loggers:
-                  ROOT:
-                    level: INFO
-              vector:
-                console:
-                  level: INFO
-                file:
-                  level: INFO
-                loggers:
-                  ROOT:
-                    level: INFO
+                custom:
+                  configMap: druid-log-config
   middleManagers:
     roleGroups:
       automatic-log-config:
@@ -250,29 +204,8 @@ spec:
             enableVectorAgent: true
             containers:
               druid:
-                console:
-                  level: INFO
-                file:
-                  level: INFO
-                loggers:
-                  ROOT:
-                    level: INFO
-              prepare:
-                console:
-                  level: INFO
-                file:
-                  level: INFO
-                loggers:
-                  ROOT:
-                    level: INFO
-              vector:
-                console:
-                  level: INFO
-                file:
-                  level: INFO
-                loggers:
-                  ROOT:
-                    level: INFO
+                custom:
+                  configMap: druid-log-config
   routers:
     roleGroups:
       automatic-log-config:
@@ -312,26 +245,5 @@ spec:
             enableVectorAgent: true
             containers:
               druid:
-                console:
-                  level: INFO
-                file:
-                  level: INFO
-                loggers:
-                  ROOT:
-                    level: INFO
-              prepare:
-                console:
-                  level: INFO
-                file:
-                  level: INFO
-                loggers:
-                  ROOT:
-                    level: INFO
-              vector:
-                console:
-                  level: INFO
-                file:
-                  level: INFO
-                loggers:
-                  ROOT:
-                    level: INFO
+                custom:
+                  configMap: druid-log-config
