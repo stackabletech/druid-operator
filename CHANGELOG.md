@@ -10,7 +10,8 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
-- Upgrade to `operator-rs` `0.31.0` ([#374])
+- Upgrade to `operator-rs` `0.35.0` ([#374], [#380], [#404])
+- Merging and validation of the configuration refactored ([#404]).
 
 ### Fixed
 
@@ -20,6 +21,7 @@ All notable changes to this project will be documented in this file.
 [#374]: https://github.com/stackabletech/druid-operator/pull/374
 [#380]: https://github.com/stackabletech/druid-operator/pull/380
 [#387]: https://github.com/stackabletech/druid-operator/pull/387
+[#404]: https://github.com/stackabletech/druid-operator/pull/404
 
 ## [23.1.0] - 2023-01-23
 
