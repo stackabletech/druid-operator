@@ -1,0 +1,6 @@
+---
+apiVersion: kuttl.dev/v1beta1
+kind: TestAssert
+commands:
+  - script: kubectl exec -n $NAMESPACE druid-hdfs-namenode-default-0 -- ./bin/hdfs dfs -ls /druid | grep -q /druid/wikipedia-2015-09-12
+timeout: 30
