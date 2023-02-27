@@ -7,10 +7,11 @@ All notable changes to this project will be documented in this file.
 ### Added
 
 - Add support for non-TLS LDAP authentication. ([#374])
+- Deploy default and support custom affinities ([#406]).
 
 ### Changed
 
-- Upgrade to `operator-rs` `0.35.0` ([#374], [#380], [#404])
+- Upgrade to `operator-rs` `0.36.0` ([#374], [#380], [#404], [#406])
 - Merging and validation of the configuration refactored ([#404]).
 
 ### Fixed
@@ -22,6 +23,7 @@ All notable changes to this project will be documented in this file.
 [#380]: https://github.com/stackabletech/druid-operator/pull/380
 [#387]: https://github.com/stackabletech/druid-operator/pull/387
 [#404]: https://github.com/stackabletech/druid-operator/pull/404
+[#406]: https://github.com/stackabletech/druid-operator/pull/406
 
 ## [23.1.0] - 2023-01-23
 

@@ -654,7 +654,7 @@ fn build_rolegroup_statefulset(
         .context(FailedContainerBuilderCreationSnafu { name: APP_NAME })?;
     // init pod builder
     let mut pb = PodBuilder::new();
-    pb.node_selector_opt(merged_rolegroup_config.selector.to_owned());
+    pb.affinity(&merged_rolegroup_config.affinity);
 
     if let Some(ldap_settings) = ldap_settings {
         // TODO: Connecting to an LDAP server without bind credentials does not seem to be configurable in Druid at the moment
