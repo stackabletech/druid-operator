@@ -76,6 +76,8 @@ pub async fn apply_cluster_resources(
     )
     .context(CreateClusterResourcesSnafu)?;
 
+    let mut delete_orphaned = false;
+
     for cluster_resource in appliable_cluster_resources {
         match cluster_resource {
             BuiltClusterResource::RoleService(role_service) => {
@@ -135,12 +137,16 @@ pub async fn apply_cluster_resources(
                 }
             }
             BuiltClusterResource::DeleteOrphaned => {
-                cluster_resources
-                    .delete_orphaned_resources(client)
-                    .await
-                    .context(DeleteOrphanedResourcesSnafu)?;
+                delete_orphaned = true;
             }
         };
+    }
+
+    if delete_orphaned {
+        cluster_resources
+            .delete_orphaned_resources(client)
+            .await
+            .context(DeleteOrphanedResourcesSnafu)?;
     }
 
     Ok(Action::await_change())
