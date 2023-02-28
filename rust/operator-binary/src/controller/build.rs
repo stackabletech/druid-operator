@@ -153,14 +153,6 @@ pub fn build_cluster_resources(
     )
     .context(InvalidProductConfigSnafu)?;
 
-    let mut cluster_resources = ClusterResources::new(
-        APP_NAME,
-        OPERATOR_NAME,
-        CONTROLLER_NAME,
-        &druid.object_ref(&()),
-    )
-    .context(CreateClusterResourcesSnafu)?;
-
     let merged_config = druid.merged_config().context(FailedToResolveConfigSnafu)?;
 
     for (role_name, role_config) in validated_role_config.iter() {
@@ -173,11 +165,9 @@ pub fn build_cluster_resources(
             &resolved_product_image,
             &druid_role,
             &druid_tls_security,
-        )?;
-        cluster_resources
-            .add(client, &role_service)
-            .await
-            .context(ApplyRoleServiceSnafu)?;
+        )
+        .context(RoleBuildSnafu)?;
+        built_cluster_resources.push(BuiltClusterResource::RoleService(role_service.clone()));
 
         create_shared_internal_secret(&druid, client, CONTROLLER_NAME)
             .await
@@ -224,24 +214,18 @@ pub fn build_cluster_resources(
                 &druid_tls_security,
                 &druid_ldap_settings,
             )?;
-            cluster_resources
-                .add(client, &rg_service)
-                .await
-                .with_context(|_| ApplyRoleGroupServiceSnafu {
-                    rolegroup: rolegroup.clone(),
-                })?;
-            cluster_resources
-                .add(client, &rg_configmap)
-                .await
-                .with_context(|_| ApplyRoleGroupConfigSnafu {
-                    rolegroup: rolegroup.clone(),
-                })?;
-            cluster_resources
-                .add(client, &rg_statefulset)
-                .await
-                .with_context(|_| ApplyRoleGroupStatefulSetSnafu {
-                    rolegroup: rolegroup.clone(),
-                })?;
+            built_cluster_resources.push(BuiltClusterResource::RolegroupService(
+                rg_service,
+                rolegroup.clone(),
+            ));
+            built_cluster_resources.push(BuiltClusterResource::RolegroupConfigMap(
+                rg_configmap,
+                rolegroup.clone(),
+            ));
+            built_cluster_resources.push(BuiltClusterResource::RolegroupStatefulSet(
+                rg_statefulset,
+                rolegroup.clone(),
+            ));
         }
     }
 
@@ -255,16 +239,10 @@ pub fn build_cluster_resources(
     .await
     .context(BuildDiscoveryConfigSnafu)?
     {
-        cluster_resources
-            .add(client, &discovery_cm)
-            .await
-            .context(ApplyDiscoveryConfigSnafu)?;
+        built_cluster_resources.push(BuiltClusterResource::DiscoveryConfigMap(discovery_cm));
     }
 
-    cluster_resources
-        .delete_orphaned_resources(client)
-        .await
-        .context(DeleteOrphanedResourcesSnafu)?;
+    built_cluster_resources.push(BuiltClusterResource::DeleteOrphaned);
 
     Ok(built_cluster_resources)
 }
