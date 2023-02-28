@@ -2,7 +2,7 @@ mod controller;
 
 use std::sync::Arc;
 
-use crate::druid_controller::CONTROLLER_NAME;
+use crate::controller::CONTROLLER_NAME;
 use clap::{crate_description, crate_version, Parser};
 use futures::StreamExt;
 use stackable_druid_crd::{DruidCluster, APP_NAME, OPERATOR_NAME};
@@ -78,9 +78,9 @@ async fn main() -> anyhow::Result<()> {
             )
             .shutdown_on_signal()
             .run(
-                druid_controller::reconcile_druid,
-                druid_controller::error_policy,
-                Arc::new(druid_controller::Ctx {
+                controller::reconcile_druid,
+                controller::error_policy,
+                Arc::new(controller::Ctx {
                     client: client.clone(),
                     product_config,
                 }),
