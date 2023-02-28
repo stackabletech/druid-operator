@@ -50,6 +50,8 @@ pub enum Error {
         source: strum::ParseError,
         role: String,
     },
+    #[snafu(display("failed to resolve and merge config for role and role group"))]
+    FailedToResolveConfig { source: stackable_druid_crd::Error },
     #[snafu(display("failed to resolve and merge resource config for role and role group"))]
     FailedToResolveResourceConfig {
         source: stackable_druid_crd::resource::Error,
