@@ -1,3 +1,13 @@
+
+use crate::controller::{CONTROLLER_NAME, DOCKER_IMAGE_BASE_NAME};
+
+// volume names
+const DRUID_CONFIG_VOLUME_NAME: &str = "config";
+const HDFS_CONFIG_VOLUME_NAME: &str = "hdfs";
+const LOG_CONFIG_VOLUME_NAME: &str = "log-config";
+const LOG_VOLUME_NAME: &str = "log";
+const RW_CONFIG_VOLUME_NAME: &str = "rwconfig";
+
 /// The server-role service is the primary endpoint that should be used by clients that do not perform internal load balancing,
 /// including targets outside of the cluster.
 pub fn build_role_service(

@@ -72,17 +72,6 @@ use std::{
 };
 use strum::{EnumDiscriminants, IntoStaticStr};
 
-pub const CONTROLLER_NAME: &str = "druidcluster";
-
-const DOCKER_IMAGE_BASE_NAME: &str = "druid";
-
-// volume names
-const DRUID_CONFIG_VOLUME_NAME: &str = "config";
-const HDFS_CONFIG_VOLUME_NAME: &str = "hdfs";
-const LOG_CONFIG_VOLUME_NAME: &str = "log-config";
-const LOG_VOLUME_NAME: &str = "log";
-const RW_CONFIG_VOLUME_NAME: &str = "rwconfig";
-
 pub struct Ctx {
     pub client: stackable_operator::client::Client,
     pub product_config: ProductConfigManager,
