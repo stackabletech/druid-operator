@@ -2,7 +2,7 @@ mod config;
 mod discovery;
 mod extensions;
 mod internal_secret;
-mod product_logging;
+pub mod product_logging;
 mod roles;
 
 use discovery::build_discovery_configmaps;
@@ -10,7 +10,7 @@ use internal_secret::build_shared_internal_secret;
 
 use snafu::{ResultExt, Snafu};
 use stackable_druid_crd::{
-    ldap::DruidLdapSettings, resource, security::DruidTlsSecurity, DruidCluster, DruidRole,
+    ldap::DruidLdapSettings, security::DruidTlsSecurity, DruidCluster, DruidRole,
 };
 use stackable_operator::{
     kube::runtime::reflector::ObjectRef,
@@ -26,10 +26,7 @@ use self::roles::{
     build_rolegroup_statefulset,
 };
 
-use super::{
-    types::{BuiltClusterResource, FetchedAdditionalData},
-    CONTROLLER_NAME,
-};
+use super::types::{BuiltClusterResource, FetchedAdditionalData};
 
 #[derive(Snafu, Debug, EnumDiscriminants)]
 #[strum_discriminants(derive(IntoStaticStr))]
@@ -139,7 +136,8 @@ pub fn build_cluster_resources(
                 &resolved_product_image,
                 &rolegroup,
                 &druid_tls_security,
-            )?;
+            )
+            .context(RoleBuildSnafu)?;
             let rg_configmap = build_rolegroup_config_map(
                 &druid,
                 &resolved_product_image,
@@ -153,7 +151,8 @@ pub fn build_cluster_resources(
                 deep_storage_bucket_name.as_deref(),
                 &druid_tls_security,
                 &druid_ldap_settings,
-            )?;
+            )
+            .context(RoleBuildSnafu)?;
             let rg_statefulset = build_rolegroup_statefulset(
                 &druid,
                 &resolved_product_image,
@@ -163,7 +162,8 @@ pub fn build_cluster_resources(
                 s3_conn.as_ref(),
                 &druid_tls_security,
                 &druid_ldap_settings,
-            )?;
+            )
+            .context(RoleBuildSnafu)?;
             built_cluster_resources.push(BuiltClusterResource::RolegroupService(
                 rg_service,
                 rolegroup.clone(),
