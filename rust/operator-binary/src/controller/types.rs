@@ -16,6 +16,7 @@ pub struct FetchedAdditionalData {
     pub zk_connstr: String,
     pub s3_conn: Option<S3ConnectionSpec>,
     pub deep_storage_bucket_name: Option<String>,
+    pub vector_aggregator_address: Option<String>,
 }
 
 #[derive(Debug)]
@@ -26,4 +27,5 @@ pub enum BuiltClusterResource {
     RolegroupService(Service, RoleGroupRef<DruidCluster>),
     RolegroupConfigMap(ConfigMap, RoleGroupRef<DruidCluster>),
     RolegroupStatefulSet(StatefulSet, RoleGroupRef<DruidCluster>),
+    DeleteOrphaned,
 }

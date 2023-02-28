@@ -284,6 +284,7 @@ mod tests {
                 zk_connstr: "".to_string(),
                 s3_conn: None,
                 deep_storage_bucket_name: None,
+                vector_aggregator_address: None,
             },
             &product_config_manager,
         );
@@ -320,6 +321,7 @@ mod tests {
                 zk_connstr: "".to_string(),
                 s3_conn: None,
                 deep_storage_bucket_name: None,
+                vector_aggregator_address: None,
             },
             &product_config_manager,
         )
@@ -366,6 +368,7 @@ mod tests {
                 zk_connstr: "".to_string(),
                 s3_conn: None,
                 deep_storage_bucket_name: None,
+                vector_aggregator_address: None,
             },
             &product_config_manager,
         )
