@@ -2,6 +2,7 @@ mod config;
 mod discovery;
 mod extensions;
 mod internal_secret;
+mod product_logging;
 mod roles;
 
 use discovery::build_discovery_configmaps;
