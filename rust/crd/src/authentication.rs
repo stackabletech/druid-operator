@@ -2,7 +2,9 @@ use serde::{Deserialize, Serialize};
 use snafu::{ResultExt, Snafu};
 use stackable_operator::{
     client::Client,
-    commons::authentication::{AuthenticationClass, AuthenticationClassProvider},
+    commons::authentication::{
+        AuthenticationClass, AuthenticationClassProvider, AuthenticationClassSpec,
+    },
     kube::runtime::reflector::ObjectRef,
     schemars::{self, JsonSchema},
 };
@@ -28,6 +30,8 @@ pub enum Error {
         authentication_class: ObjectRef<AuthenticationClass>,
         provider: String,
     },
+    #[snafu(display("LDAP authentication without bind credentials is currently not supported. See https://github.com/stackabletech/druid-operator/issues/383 for details"))]
+    LdapAuthenticationWithoutBindCredentialsNotSupported {},
     #[snafu(display(
         "client authentication using TLS (as requested by AuthenticationClass {authentication_class}) can not be used when Druid server and internal TLS is disabled",
     ))]
@@ -49,20 +53,8 @@ pub struct DruidAuthentication {
     /// The AuthenticationClass <https://docs.stackable.tech/home/nightly/concepts/authenticationclass.html> to use.
     ///
     /// ## TLS provider
-    ///
-    /// Only affects client connections. This setting controls:
-    /// - If clients need to authenticate themselves against Druid via TLS
-    /// - Which ca.crt to use when validating the provided client certs
-    ///
     /// Please note that the SecretClass used to authenticate users needs to be the same
     /// as the SecretClass used for internal communication.
-    ///
-    /// ## LDAP provider
-    ///
-    /// Only affects client connections. This setting controls:
-    /// - If clients need to authenticate themselves against Druid via LDAP
-    /// - Which ca.crt to use when validating the provided client certs (currently not supported)
-    ///
     pub authentication_class: String,
 }
 
@@ -147,7 +139,19 @@ impl ResolvedAuthenticationClasses {
             }
         }
 
-        // TODO: verify LDAP case
+        // TODO https://github.com/stackabletech/druid-operator/issues/383
+        if let Some(AuthenticationClass {
+            spec:
+                AuthenticationClassSpec {
+                    provider: AuthenticationClassProvider::Ldap(ldap),
+                },
+            ..
+        }) = self.get_ldap_authentication_class()
+        {
+            if ldap.bind_credentials.is_none() {
+                return LdapAuthenticationWithoutBindCredentialsNotSupportedSnafu.fail();
+            }
+        }
 
         if let Some(tls_auth_class) = self.get_tls_authentication_class() {
             match &server_and_internal_secret_class {
@@ -218,6 +222,12 @@ mod tests {
             "Supported: Server tls, no AuthenticationClasses"
         );
 
+        let classes = ResolvedAuthenticationClasses::new(vec![get_ldap_authentication_class()]);
+        assert!(
+            classes.validate(Some("tls".to_string())).is_ok(),
+            "Supported: Server tls, LDAP authentication class"
+        );
+
         let classes = ResolvedAuthenticationClasses::new(vec![
             get_tls_authentication_class_without_secret_class(),
         ]);
@@ -243,6 +253,17 @@ mod tests {
                 Err(Error::TlsAuthenticationClassSecretClassDiffersFromDruidServerTls{ authentication_class, server_and_internal_secret_class }) if authentication_class.name == "tls-druid-clients" && server_and_internal_secret_class == "tls-druid"
             ),
             "Not supported: Server tls, TLS authentication class with *different* SecretClass as Druid cluster"
+        );
+
+        let classes = ResolvedAuthenticationClasses::new(vec![
+            get_ldap_authentication_class_without_bind_credentials(),
+        ]);
+        assert!(
+            matches!(
+                classes.validate(Some("tls".to_string())),
+                Err(Error::LdapAuthenticationWithoutBindCredentialsNotSupported {})
+            ),
+            "Not supported: Server tls, LDAP authentication class without bind credentials"
         );
 
         let classes = ResolvedAuthenticationClasses::new(vec![
@@ -346,6 +367,24 @@ spec:
     }
 
     fn get_ldap_authentication_class() -> AuthenticationClass {
+        let input = r#"
+apiVersion: authentication.stackable.tech/v1alpha1
+kind: AuthenticationClass
+metadata:
+  name: ldap
+spec:
+  provider:
+    ldap:
+      hostname: my.ldap.server
+      port: 389
+      searchBase: ou=users,dc=example,dc=org
+      bindCredentials:
+        secretClass: ldap-bind-credentials
+"#;
+        deserialize_yaml_str(input)
+    }
+
+    fn get_ldap_authentication_class_without_bind_credentials() -> AuthenticationClass {
         let input = r#"
 apiVersion: authentication.stackable.tech/v1alpha1
 kind: AuthenticationClass
