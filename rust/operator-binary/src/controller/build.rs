@@ -69,6 +69,203 @@ pub fn build_cluster_resources(
 ) -> Result<Vec<BuiltClusterResource>> {
     let mut appliable_cluster_resources: Vec<BuiltClusterResource> = Vec::new();
 
+    let client = &ctx.client;
+    let namespace = &druid
+        .metadata
+        .namespace
+        .clone()
+        .with_context(|| ObjectHasNoNamespaceSnafu {})?;
+    let resolved_product_image: ResolvedProductImage =
+        druid.spec.image.resolve(DOCKER_IMAGE_BASE_NAME);
+
+    let zk_confmap = druid.spec.cluster_config.zookeeper_config_map_name.clone();
+    let zk_connstr = client
+        .get::<ConfigMap>(&zk_confmap, namespace)
+        .await
+        .context(GetZookeeperConnStringConfigMapSnafu {
+            cm_name: zk_confmap.clone(),
+        })?
+        .data
+        .and_then(|mut data| data.remove("ZOOKEEPER"))
+        .context(MissingZookeeperConnStringSnafu {
+            cm_name: zk_confmap.clone(),
+        })?;
+
+    let vector_aggregator_address = resolve_vector_aggregator_address(&druid, client)
+        .await
+        .context(ResolveVectorAggregatorAddressSnafu)?;
+
+    // Assemble the OPA connection string from the discovery and the given path, if a spec is given.
+    let opa_connstr = if let Some(DruidAuthorization { opa: opa_config }) =
+        &druid.spec.cluster_config.authorization
+    {
+        Some(
+            opa_config
+                .full_document_url_from_config_map(
+                    client,
+                    druid.deref(),
+                    Some("allow"),
+                    OpaApiVersion::V1,
+                )
+                .await
+                .context(GetOpaConnStringSnafu {
+                    cm_name: opa_config.config_map_name.clone(),
+                })?,
+        )
+    } else {
+        None
+    };
+
+    // Get the s3 connection if one is defined
+    let s3_conn = druid
+        .get_s3_connection(client)
+        .await
+        .context(GetS3ConnectionSnafu)?;
+
+    let deep_storage_bucket_name = match &druid.spec.cluster_config.deep_storage {
+        DeepStorageSpec::S3(s3_spec) => {
+            s3_spec
+                .bucket
+                .resolve(client, namespace)
+                .await
+                .context(GetDeepStorageBucketSnafu)?
+                .bucket_name
+        }
+        _ => None,
+    };
+
+    let resolved_authentication_classes = resolve_authentication_classes(client, &druid)
+        .await
+        .context(FailedToInitializeSecurityContextSnafu)?;
+
+    let druid_ldap_settings = DruidLdapSettings::new_from(&resolved_authentication_classes);
+
+    let druid_tls_security =
+        DruidTlsSecurity::new_from_druid_cluster(&druid, resolved_authentication_classes);
+
+    let role_config = transform_all_roles_to_config(druid.as_ref(), druid.build_role_properties());
+    let validated_role_config = validate_all_roles_and_groups_config(
+        &resolved_product_image.product_version,
+        &role_config.context(ProductConfigTransformSnafu)?,
+        &ctx.product_config,
+        false,
+        false,
+    )
+    .context(InvalidProductConfigSnafu)?;
+
+    let mut cluster_resources = ClusterResources::new(
+        APP_NAME,
+        OPERATOR_NAME,
+        CONTROLLER_NAME,
+        &druid.object_ref(&()),
+    )
+    .context(CreateClusterResourcesSnafu)?;
+
+    let merged_config = druid.merged_config().context(FailedToResolveConfigSnafu)?;
+
+    for (role_name, role_config) in validated_role_config.iter() {
+        let druid_role = DruidRole::from_str(role_name).context(UnidentifiedDruidRoleSnafu {
+            role: role_name.to_string(),
+        })?;
+
+        let role_service = build_role_service(
+            &druid,
+            &resolved_product_image,
+            &druid_role,
+            &druid_tls_security,
+        )?;
+        cluster_resources
+            .add(client, &role_service)
+            .await
+            .context(ApplyRoleServiceSnafu)?;
+
+        create_shared_internal_secret(&druid, client, CONTROLLER_NAME)
+            .await
+            .context(FailedInternalSecretCreationSnafu)?;
+
+        for (rolegroup_name, rolegroup_config) in role_config.iter() {
+            let rolegroup = RoleGroupRef {
+                cluster: ObjectRef::from_obj(&*druid),
+                role: role_name.into(),
+                role_group: rolegroup_name.into(),
+            };
+
+            let merged_rolegroup_config = merged_config
+                .common_config(druid_role.clone(), rolegroup_name)
+                .context(FailedToResolveConfigSnafu)?;
+
+            let rg_service = build_rolegroup_services(
+                &druid,
+                &resolved_product_image,
+                &rolegroup,
+                &druid_tls_security,
+            )?;
+            let rg_configmap = build_rolegroup_config_map(
+                &druid,
+                &resolved_product_image,
+                &rolegroup,
+                rolegroup_config,
+                &merged_rolegroup_config,
+                &zk_connstr,
+                vector_aggregator_address.as_deref(),
+                opa_connstr.as_deref(),
+                s3_conn.as_ref(),
+                deep_storage_bucket_name.as_deref(),
+                &druid_tls_security,
+                &druid_ldap_settings,
+            )?;
+            let rg_statefulset = build_rolegroup_statefulset(
+                &druid,
+                &resolved_product_image,
+                &rolegroup,
+                rolegroup_config,
+                &merged_rolegroup_config,
+                s3_conn.as_ref(),
+                &druid_tls_security,
+                &druid_ldap_settings,
+            )?;
+            cluster_resources
+                .add(client, &rg_service)
+                .await
+                .with_context(|_| ApplyRoleGroupServiceSnafu {
+                    rolegroup: rolegroup.clone(),
+                })?;
+            cluster_resources
+                .add(client, &rg_configmap)
+                .await
+                .with_context(|_| ApplyRoleGroupConfigSnafu {
+                    rolegroup: rolegroup.clone(),
+                })?;
+            cluster_resources
+                .add(client, &rg_statefulset)
+                .await
+                .with_context(|_| ApplyRoleGroupStatefulSetSnafu {
+                    rolegroup: rolegroup.clone(),
+                })?;
+        }
+    }
+
+    // discovery
+    for discovery_cm in build_discovery_configmaps(
+        &druid,
+        &*druid,
+        &resolved_product_image,
+        &druid_tls_security,
+    )
+    .await
+    .context(BuildDiscoveryConfigSnafu)?
+    {
+        cluster_resources
+            .add(client, &discovery_cm)
+            .await
+            .context(ApplyDiscoveryConfigSnafu)?;
+    }
+
+    cluster_resources
+        .delete_orphaned_resources(client)
+        .await
+        .context(DeleteOrphanedResourcesSnafu)?;
+
     Ok(appliable_cluster_resources)
 }
 
