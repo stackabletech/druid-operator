@@ -169,9 +169,9 @@ pub fn build_cluster_resources(
         .context(RoleBuildSnafu)?;
         built_cluster_resources.push(BuiltClusterResource::RoleService(role_service.clone()));
 
-        create_shared_internal_secret(&druid, client, CONTROLLER_NAME)
-            .await
-            .context(FailedInternalSecretCreationSnafu)?;
+        let internal_secret =
+            build_shared_internal_secret(&druid).context(FailedInternalSecretCreationSnafu)?;
+        built_cluster_resources.push(BuiltClusterResource::InternalSecret(internal_secret));
 
         for (rolegroup_name, rolegroup_config) in role_config.iter() {
             let rolegroup = RoleGroupRef {

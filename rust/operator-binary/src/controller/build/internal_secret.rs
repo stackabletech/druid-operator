@@ -30,33 +30,6 @@ pub enum Error {
     },
 }
 
-pub async fn create_shared_internal_secret(
-    druid: &DruidCluster,
-    client: &Client,
-    controller_name: &str,
-) -> Result<(), Error> {
-    let secret = build_shared_internal_secret(druid)?;
-    if client
-        .get_opt::<Secret>(
-            &secret.name_any(),
-            secret
-                .namespace()
-                .as_deref()
-                .context(ObjectHasNoNamespaceSnafu)?,
-        )
-        .await
-        .context(FailedToRetrieveInternalSecretSnafu)?
-        .is_none()
-    {
-        client
-            .apply_patch(controller_name, &secret, &secret)
-            .await
-            .context(ApplyInternalSecretSnafu)?;
-    }
-
-    Ok(())
-}
-
 pub fn build_shared_internal_secret(druid: &DruidCluster) -> Result<Secret, Error> {
     let mut internal_secret = BTreeMap::new();
     internal_secret.insert(ENV_INTERNAL_SECRET.to_string(), get_random_base64());
