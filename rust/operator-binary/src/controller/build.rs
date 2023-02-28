@@ -103,7 +103,7 @@ pub fn build_cluster_resources(
     let validated_role_config = validate_all_roles_and_groups_config(
         &resolved_product_image.product_version,
         &role_config.context(ProductConfigTransformSnafu)?,
-        &ctx.product_config,
+        &product_config,
         false,
         false,
     )
