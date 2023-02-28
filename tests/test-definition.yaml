@@ -41,51 +41,51 @@ dimensions:
       # - "true" # disabled, as anonymous ldap usage does not seem to be supported in druid
       - "false"
 tests:
-#   - name: smoke
-#     dimensions:
-#       - druid
-#       - zookeeper
-#       - hadoop
-#   - name: authorizer
-#     dimensions:
-#       - druid
-#       - zookeeper-latest
-#       - opa
-#       - hadoop
-#   - name: ingestion-no-s3-ext
-#     dimensions:
-#       - druid-latest
-#       - zookeeper-latest
-#       - hadoop
-#   - name: ingestion-s3-ext
-#     dimensions:
-#       - druid-latest
-#       - zookeeper-latest
-#       - hadoop
-#   - name: s3-deep-storage
-#     dimensions:
-#       - druid-latest
-#       - zookeeper-latest
-#       - s3-use-tls
-#   - name: hdfs-deep-storage
-#     dimensions:
-#       - druid-latest
-#       - hadoop
-#       - zookeeper-latest
-#   - name: resources
-#     dimensions:
-#       - druid-latest
-#       - zookeeper-latest
-#   - name: orphaned-resources
-#     dimensions:
-#       - druid-latest
-#       - zookeeper-latest
-#       - hadoop
-#   - name: tls
-#     dimensions:
-#       - druid-latest
-#       - zookeeper-latest
-#       - tls-mode
+  - name: smoke
+    dimensions:
+      - druid
+      - zookeeper
+      - hadoop
+  - name: authorizer
+    dimensions:
+      - druid
+      - zookeeper-latest
+      - opa
+      - hadoop
+  - name: ingestion-no-s3-ext
+    dimensions:
+      - druid-latest
+      - zookeeper-latest
+      - hadoop
+  - name: ingestion-s3-ext
+    dimensions:
+      - druid-latest
+      - zookeeper-latest
+      - hadoop
+  - name: s3-deep-storage
+    dimensions:
+      - druid-latest
+      - zookeeper-latest
+      - s3-use-tls
+  - name: hdfs-deep-storage
+    dimensions:
+      - druid-latest
+      - hadoop
+      - zookeeper-latest
+  - name: resources
+    dimensions:
+      - druid-latest
+      - zookeeper-latest
+  - name: orphaned-resources
+    dimensions:
+      - druid-latest
+      - zookeeper-latest
+      - hadoop
+  - name: tls
+    dimensions:
+      - druid-latest
+      - zookeeper-latest
+      - tls-mode
   - name: ldap-authentication
     dimensions:
       - druid
