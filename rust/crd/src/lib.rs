@@ -199,9 +199,9 @@ pub struct DruidClusterSpec {
 #[serde(rename_all = "kebab-case")]
 #[strum(serialize_all = "kebab-case")]
 pub enum Container {
+    Druid,
     Prepare,
     Vector,
-    Druid,
 }
 
 #[derive(Clone, Debug, Deserialize, JsonSchema, Serialize)]

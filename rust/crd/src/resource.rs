@@ -52,8 +52,8 @@ impl RoleResource {
 
     pub fn as_memory_limits(&self) -> MemoryLimits<NoRuntimeLimits> {
         match self {
-            Self::Druid(r) => r.clone().memory,
-            Self::Historical(r) => r.clone().memory,
+            Self::Druid(r) => r.memory.clone(),
+            Self::Historical(r) => r.memory.clone(),
         }
     }
 

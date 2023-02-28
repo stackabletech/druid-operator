@@ -303,9 +303,7 @@ pub async fn reconcile_druid(druid: Arc<DruidCluster>, ctx: Arc<Ctx>) -> Result<
     let druid_tls_security =
         DruidTlsSecurity::new_from_druid_cluster(&druid, resolved_authentication_classes);
 
-    // False positive, auto-deref breaks type inference
-    #[allow(clippy::explicit_auto_deref)]
-    let role_config = transform_all_roles_to_config(&*druid, druid.build_role_properties());
+    let role_config = transform_all_roles_to_config(druid.as_ref(), druid.build_role_properties());
     let validated_role_config = validate_all_roles_and_groups_config(
         &resolved_product_image.product_version,
         &role_config.context(ProductConfigTransformSnafu)?,
