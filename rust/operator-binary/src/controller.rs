@@ -4,8 +4,7 @@ mod fetch;
 mod types;
 
 use crate::controller::{
-    apply::handle_cluster_resources, build::create_appliable_cluster_resources,
-    fetch::fetch_additional_data,
+    apply::apply_cluster_resources, build::build_cluster_resources, fetch::fetch_additional_data,
 };
 
 use snafu::{ResultExt, Snafu};
@@ -19,7 +18,6 @@ use std::{sync::Arc, time::Duration};
 use strum::{EnumDiscriminants, IntoStaticStr};
 
 pub const CONTROLLER_NAME: &str = "druidcluster";
-
 const DOCKER_IMAGE_BASE_NAME: &str = "druid";
 
 pub struct Ctx {
