@@ -1,3 +1,5 @@
+pub mod ldap;
+
 use serde::{Deserialize, Serialize};
 use snafu::{ResultExt, Snafu};
 use stackable_operator::{

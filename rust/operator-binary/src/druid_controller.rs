@@ -13,12 +13,12 @@ use crate::{
 use snafu::{OptionExt, ResultExt, Snafu};
 use stackable_druid_crd::build_recommended_labels;
 use stackable_druid_crd::{
-    authorization::DruidAuthorization,
-    build_string_list,
-    ldap::{
+    authentication::ldap::{
         DruidLdapSettings, PLACEHOLDER_INTERNAL_CLIENT_PASSWORD, PLACEHOLDER_LDAP_BIND_PASSWORD,
         PLACEHOLDER_LDAP_BIND_USER,
     },
+    authorization::DruidAuthorization,
+    build_string_list,
     security::{resolve_authentication_classes, DruidTlsSecurity},
     CommonRoleGroupConfig, DeepStorageSpec, DruidCluster, DruidRole, APP_NAME,
     AUTH_AUTHORIZER_OPA_URI, CERTS_DIR, CREDENTIALS_SECRET_PROPERTY, DRUID_CONFIG_DIRECTORY,

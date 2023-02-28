@@ -1,7 +1,6 @@
 pub mod affinity;
 pub mod authentication;
 pub mod authorization;
-pub mod ldap;
 pub mod memory;
 pub mod resource;
 pub mod security;
