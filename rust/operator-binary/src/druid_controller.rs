@@ -76,6 +76,13 @@ pub const CONTROLLER_NAME: &str = "druidcluster";
 
 const DOCKER_IMAGE_BASE_NAME: &str = "druid";
 
+// volume names
+const DRUID_CONFIG_VOLUME_NAME: &str = "config";
+const HDFS_CONFIG_VOLUME_NAME: &str = "hdfs";
+const LOG_CONFIG_VOLUME_NAME: &str = "log-config";
+const LOG_VOLUME_NAME: &str = "log";
+const RW_CONFIG_VOLUME_NAME: &str = "rwconfig";
+
 pub struct Ctx {
     pub client: stackable_operator::client::Client,
     pub product_config: ProductConfigManager,
@@ -802,8 +809,8 @@ fn build_rolegroup_statefulset(
     if merged_rolegroup_config.logging.enable_vector_agent {
         pb.add_container(product_logging::framework::vector_container(
             resolved_product_image,
-            "config",
-            "log",
+            DRUID_CONFIG_VOLUME_NAME,
+            LOG_VOLUME_NAME,
             merged_rolegroup_config
                 .logging
                 .containers
@@ -856,9 +863,9 @@ fn add_hdfs_cm_volume_and_volume_mounts(
 ) {
     // hdfs deep storage mount
     if let DeepStorageSpec::HDFS(hdfs) = deep_storage_spec {
-        cb_druid.add_volume_mount("hdfs", HDFS_CONFIG_DIRECTORY);
+        cb_druid.add_volume_mount(HDFS_CONFIG_VOLUME_NAME, HDFS_CONFIG_DIRECTORY);
         pb.add_volume(
-            VolumeBuilder::new("hdfs")
+            VolumeBuilder::new(HDFS_CONFIG_VOLUME_NAME)
                 .with_config_map(&hdfs.config_map_name)
                 .build(),
         );
@@ -903,15 +910,15 @@ fn add_config_volume_and_volume_mounts(
     cb_druid: &mut ContainerBuilder,
     pb: &mut PodBuilder,
 ) {
-    cb_druid.add_volume_mount("config", DRUID_CONFIG_DIRECTORY);
+    cb_druid.add_volume_mount(DRUID_CONFIG_VOLUME_NAME, DRUID_CONFIG_DIRECTORY);
     pb.add_volume(
-        VolumeBuilder::new("config")
+        VolumeBuilder::new(DRUID_CONFIG_VOLUME_NAME)
             .with_config_map(rolegroup_ref.object_name())
             .build(),
     );
-    cb_druid.add_volume_mount("rwconfig", RW_CONFIG_DIRECTORY);
+    cb_druid.add_volume_mount(RW_CONFIG_VOLUME_NAME, RW_CONFIG_DIRECTORY);
     pb.add_volume(
-        VolumeBuilder::new("rwconfig")
+        VolumeBuilder::new(RW_CONFIG_VOLUME_NAME)
             .with_empty_dir(Some(""), None)
             .build(),
     );
@@ -923,7 +930,7 @@ fn add_log_config_volume_and_volume_mounts(
     cb_druid: &mut ContainerBuilder,
     pb: &mut PodBuilder,
 ) {
-    cb_druid.add_volume_mount("log-config", LOG_CONFIG_DIRECTORY);
+    cb_druid.add_volume_mount(LOG_CONFIG_VOLUME_NAME, LOG_CONFIG_DIRECTORY);
 
     let config_map = if let Some(ContainerLogConfig {
         choice:
@@ -941,7 +948,7 @@ fn add_log_config_volume_and_volume_mounts(
     };
 
     pb.add_volume(
-        VolumeBuilder::new("log-config")
+        VolumeBuilder::new(LOG_CONFIG_VOLUME_NAME)
             .with_config_map(config_map)
             .build(),
     );
@@ -952,10 +959,10 @@ fn add_log_volume_and_volume_mounts(
     cb_prepare: &mut ContainerBuilder,
     pb: &mut PodBuilder,
 ) {
-    cb_druid.add_volume_mount("log", LOG_DIR);
-    cb_prepare.add_volume_mount("log", LOG_DIR);
+    cb_druid.add_volume_mount(LOG_VOLUME_NAME, LOG_DIR);
+    cb_prepare.add_volume_mount(LOG_VOLUME_NAME, LOG_DIR);
     pb.add_volume(
-        VolumeBuilder::new("log")
+        VolumeBuilder::new(LOG_VOLUME_NAME)
             .with_empty_dir(
                 Some(""),
                 Some(Quantity(format!("{LOG_VOLUME_SIZE_IN_MIB}Mi"))),

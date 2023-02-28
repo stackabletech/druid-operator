@@ -81,6 +81,10 @@ impl DruidTlsSecurity {
     const STACKABLE_MOUNT_TLS_DIR: &str = "/stackable/mount_tls";
     const STACKABLE_TLS_DIR: &str = "/stackable/tls";
 
+    // volume names
+    const TLS_VOLUME_NAME: &str = "tls";
+    const TLS_MOUNT_VOLUME_NAME: &str = "tls-mount";
+
     pub fn new(
         resolved_authentication_classes: ResolvedAuthenticationClasses,
         server_and_internal_secret_class: Option<String>,
@@ -178,7 +182,7 @@ impl DruidTlsSecurity {
         // uses the same SecretClass as the Druid server itself.
         if let Some(secret_class) = &self.server_and_internal_secret_class {
             pod.add_volume(
-                VolumeBuilder::new("tls-mount")
+                VolumeBuilder::new(Self::TLS_MOUNT_VOLUME_NAME)
                     .ephemeral(
                         SecretOperatorVolumeSourceBuilder::new(secret_class)
                             .with_pod_scope()
@@ -187,16 +191,16 @@ impl DruidTlsSecurity {
                     )
                     .build(),
             );
-            prepare.add_volume_mount("tls-mount", Self::STACKABLE_MOUNT_TLS_DIR);
-            druid.add_volume_mount("tls-mount", Self::STACKABLE_MOUNT_TLS_DIR);
+            prepare.add_volume_mount(Self::TLS_MOUNT_VOLUME_NAME, Self::STACKABLE_MOUNT_TLS_DIR);
+            druid.add_volume_mount(Self::TLS_MOUNT_VOLUME_NAME, Self::STACKABLE_MOUNT_TLS_DIR);
 
             pod.add_volume(
-                VolumeBuilder::new("tls")
+                VolumeBuilder::new(Self::TLS_VOLUME_NAME)
                     .with_empty_dir(Option::<&str>::None, None)
                     .build(),
             );
-            prepare.add_volume_mount("tls", Self::STACKABLE_TLS_DIR);
-            druid.add_volume_mount("tls", Self::STACKABLE_TLS_DIR);
+            prepare.add_volume_mount(Self::TLS_VOLUME_NAME, Self::STACKABLE_TLS_DIR);
+            druid.add_volume_mount(Self::TLS_VOLUME_NAME, Self::STACKABLE_TLS_DIR);
         }
         Ok(())
     }
