@@ -67,7 +67,7 @@ pub fn build_cluster_resources(
     additional_data: FetchedAdditionalData,
     product_config: &ProductConfigManager,
 ) -> Result<Vec<BuiltClusterResource>> {
-    let mut appliable_cluster_resources: Vec<BuiltClusterResource> = Vec::new();
+    let mut built_cluster_resources: Vec<BuiltClusterResource> = Vec::new();
 
     let client = &ctx.client;
     let namespace = &druid
@@ -266,7 +266,7 @@ pub fn build_cluster_resources(
         .await
         .context(DeleteOrphanedResourcesSnafu)?;
 
-    Ok(appliable_cluster_resources)
+    Ok(built_cluster_resources)
 }
 
 #[cfg(test)]
