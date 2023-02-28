@@ -163,7 +163,7 @@ pub fn build_role_service(
 
 #[allow(clippy::too_many_arguments)]
 /// The rolegroup [`ConfigMap`] configures the rolegroup based on the configuration given by the administrator
-fn build_rolegroup_config_map(
+pub fn build_rolegroup_config_map(
     druid: &DruidCluster,
     resolved_product_image: &ResolvedProductImage,
     rolegroup: &RoleGroupRef<DruidCluster>,
@@ -311,7 +311,7 @@ fn build_rolegroup_config_map(
 /// The rolegroup [`Service`] is a headless service that allows direct access to the instances of a certain rolegroup
 ///
 /// This is mostly useful for internal communication between peers, or for clients that perform client-side load balancing.
-fn build_rolegroup_services(
+pub fn build_rolegroup_services(
     druid: &DruidCluster,
     resolved_product_image: &ResolvedProductImage,
     rolegroup: &RoleGroupRef<DruidCluster>,
@@ -354,7 +354,7 @@ fn build_rolegroup_services(
 /// The rolegroup [`StatefulSet`] runs the rolegroup, as configured by the administrator.
 ///
 /// The [`Pod`](`stackable_operator::k8s_openapi::api::core::v1::Pod`)s are accessible through the corresponding [`Service`] (from [`build_rolegroup_services`]).
-fn build_rolegroup_statefulset(
+pub fn build_rolegroup_statefulset(
     druid: &DruidCluster,
     resolved_product_image: &ResolvedProductImage,
     rolegroup_ref: &RoleGroupRef<DruidCluster>,
@@ -705,6 +705,7 @@ mod test {
     use stackable_druid_crd::{
         authentication::ResolvedAuthenticationClasses, PROP_SEGMENT_CACHE_LOCATIONS,
     };
+    use stackable_operator::kube::runtime::reflector::ObjectRef;
     use stackable_operator::product_config::{writer, ProductConfigManager};
 
     #[derive(Snafu, Debug, EnumDiscriminants)]
@@ -756,20 +757,24 @@ mod test {
 
         let resolved_product_image: ResolvedProductImage =
             druid.spec.image.resolve(DOCKER_IMAGE_BASE_NAME);
-        let role_config = transform_all_roles_to_config(&druid, druid.build_role_properties());
+        let role_config = stackable_operator::product_config_utils::transform_all_roles_to_config(
+            &druid,
+            druid.build_role_properties(),
+        );
 
         let product_config_manager =
             ProductConfigManager::from_yaml_file("test/resources/druid_controller/properties.yaml")
                 .context(ProductConfigSnafu)?;
 
-        let validated_role_config = validate_all_roles_and_groups_config(
-            &resolved_product_image.product_version,
-            &role_config.context(ProductConfigUtilsSnafu)?,
-            &product_config_manager,
-            false,
-            false,
-        )
-        .context(OperatorFrameworkSnafu)?;
+        let validated_role_config =
+            stackable_operator::product_config_utils::validate_all_roles_and_groups_config(
+                &resolved_product_image.product_version,
+                &role_config.context(ProductConfigUtilsSnafu)?,
+                &product_config_manager,
+                false,
+                false,
+            )
+            .context(OperatorFrameworkSnafu)?;
 
         let druid_tls_security = DruidTlsSecurity::new(
             ResolvedAuthenticationClasses::new(vec![]),
