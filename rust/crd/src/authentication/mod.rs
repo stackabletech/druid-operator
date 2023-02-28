@@ -4,9 +4,7 @@ use serde::{Deserialize, Serialize};
 use snafu::{ResultExt, Snafu};
 use stackable_operator::{
     client::Client,
-    commons::authentication::{
-        AuthenticationClass, AuthenticationClassProvider, AuthenticationClassSpec,
-    },
+    commons::authentication::{AuthenticationClass, AuthenticationClassProvider},
     kube::runtime::reflector::ObjectRef,
     schemars::{self, JsonSchema},
 };
@@ -34,6 +32,8 @@ pub enum Error {
     },
     #[snafu(display("LDAP authentication without bind credentials is currently not supported. See https://github.com/stackabletech/druid-operator/issues/383 for details"))]
     LdapAuthenticationWithoutBindCredentialsNotSupported {},
+    #[snafu(display("LDAP authentication requires server and internal tls to be enabled"))]
+    LdapAuthenticationWithoutServerTlsNotSupported {},
     #[snafu(display(
         "client authentication using TLS (as requested by AuthenticationClass {authentication_class}) can not be used when Druid server and internal TLS is disabled",
     ))]
@@ -131,27 +131,22 @@ impl ResolvedAuthenticationClasses {
         for auth_class in &self.resolved_authentication_classes {
             match &auth_class.spec.provider {
                 AuthenticationClassProvider::Tls(_) => {}
-                AuthenticationClassProvider::Ldap(_) => {}
+                AuthenticationClassProvider::Ldap(ldap) => {
+                    if server_and_internal_secret_class.is_none() {
+                        // We want the truststore to exist when using LDAP so that we can point to it
+                        return LdapAuthenticationWithoutServerTlsNotSupportedSnafu.fail();
+                    }
+                    if ldap.bind_credentials.is_none() {
+                        // https://github.com/stackabletech/druid-operator/issues/383
+                        return LdapAuthenticationWithoutBindCredentialsNotSupportedSnafu.fail();
+                    }
+                }
                 _ => {
                     return Err(Error::AuthenticationProviderNotSupported {
                         authentication_class: ObjectRef::from_obj(auth_class),
                         provider: auth_class.spec.provider.to_string(),
                     })
                 }
-            }
-        }
-
-        // TODO https://github.com/stackabletech/druid-operator/issues/383
-        if let Some(AuthenticationClass {
-            spec:
-                AuthenticationClassSpec {
-                    provider: AuthenticationClassProvider::Ldap(ldap),
-                },
-            ..
-        }) = self.get_ldap_authentication_class()
-        {
-            if ldap.bind_credentials.is_none() {
-                return LdapAuthenticationWithoutBindCredentialsNotSupportedSnafu.fail();
             }
         }
 
@@ -214,8 +209,11 @@ mod tests {
 
         let classes = ResolvedAuthenticationClasses::new(vec![get_ldap_authentication_class()]);
         assert!(
-            classes.validate(None).is_ok(),
-            "Supported: No server tls, LDAP authentication class"
+            matches!(
+                classes.validate(None),
+                Err(Error::LdapAuthenticationWithoutServerTlsNotSupported {})
+            ),
+            "Not supported: No server tls, LDAP authentication class"
         );
 
         let classes = ResolvedAuthenticationClasses::new(vec![]);

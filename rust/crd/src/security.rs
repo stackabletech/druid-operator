@@ -426,11 +426,7 @@ pub fn add_cert_to_trust_store_cmd(
 ) -> Vec<String> {
     vec![
         format!(
-            "echo Cleaning up truststore [{trust_store_directory}/truststore.p12] - just in case"
-        ),
-        format!("rm -f {trust_store_directory}/truststore.p12"),
-        format!(
-            "echo Creating truststore [{trust_store_directory}/truststore.p12]"
+            "echo Adding certificate [{cert_directory}/ca.crt] to truststore [{trust_store_directory}/truststore.p12]"
         ),
         format!("keytool -importcert -file {cert_directory}/ca.crt -keystore {trust_store_directory}/truststore.p12 -storetype pkcs12 -alias {alias_name} -storepass {store_password} -noprompt")
     ]
