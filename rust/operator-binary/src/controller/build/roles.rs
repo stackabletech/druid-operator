@@ -1,3 +1,57 @@
+use super::config::get_jvm_config;
+use super::extensions::get_extension_list;
+use super::internal_secret::{
+    build_shared_internal_secret_name, env_var_from_secret, ENV_INTERNAL_SECRET,
+};
+use super::product_logging::extend_role_group_config_map;
+
+use snafu::{ResultExt, Snafu};
+use stackable_druid_crd::{
+    build_recommended_labels, build_string_list,
+    ldap::{
+        DruidLdapSettings, PLACEHOLDER_INTERNAL_CLIENT_PASSWORD, PLACEHOLDER_LDAP_BIND_PASSWORD,
+        PLACEHOLDER_LDAP_BIND_USER,
+    },
+    security::DruidTlsSecurity,
+    DeepStorageSpec, DruidCluster, DruidRole, APP_NAME, AUTH_AUTHORIZER_OPA_URI, CERTS_DIR,
+    CREDENTIALS_SECRET_PROPERTY, DRUID_CONFIG_DIRECTORY, DS_BUCKET, EXTENSIONS_LOADLIST,
+    HDFS_CONFIG_DIRECTORY, JVM_CONFIG, RUNTIME_PROPS, RW_CONFIG_DIRECTORY, S3_ENDPOINT_URL,
+    S3_PATH_STYLE_ACCESS, S3_SECRET_DIR_NAME, ZOOKEEPER_CONNECTION_STRING,
+};
+use stackable_druid_crd::{
+    CommonRoleGroupConfig, Container, LOG_CONFIG_DIRECTORY, LOG_DIR, LOG_VOLUME_SIZE_IN_MIB,
+};
+use stackable_operator::k8s_openapi::apimachinery::pkg::api::resource::Quantity;
+use stackable_operator::product_logging;
+use stackable_operator::product_logging::spec::{
+    ConfigMapLogConfig, ContainerLogConfig, ContainerLogConfigChoice, CustomContainerLogConfig,
+};
+use stackable_operator::{
+    builder::{
+        ConfigMapBuilder, ContainerBuilder, ObjectMetaBuilder, PodBuilder,
+        PodSecurityContextBuilder, SecretOperatorVolumeSourceBuilder, VolumeBuilder,
+    },
+    commons::{
+        product_image_selection::ResolvedProductImage,
+        s3::{S3AccessStyle, S3ConnectionSpec},
+        tls::{CaCert, TlsVerification},
+    },
+    k8s_openapi::{
+        api::{
+            apps::v1::{StatefulSet, StatefulSetSpec},
+            core::v1::{ConfigMap, EnvVar, Service, ServiceSpec},
+        },
+        apimachinery::pkg::apis::meta::v1::LabelSelector,
+    },
+    labels::{role_group_selector_labels, role_selector_labels},
+    product_config::types::PropertyNameKind,
+    role_utils::RoleGroupRef,
+};
+use std::{
+    collections::{BTreeMap, HashMap},
+    str::FromStr,
+};
+use strum::{EnumDiscriminants, IntoStaticStr};
 
 use crate::controller::{CONTROLLER_NAME, DOCKER_IMAGE_BASE_NAME};
 
@@ -7,6 +61,67 @@ const HDFS_CONFIG_VOLUME_NAME: &str = "hdfs";
 const LOG_CONFIG_VOLUME_NAME: &str = "log-config";
 const LOG_VOLUME_NAME: &str = "log";
 const RW_CONFIG_VOLUME_NAME: &str = "rwconfig";
+
+#[derive(Snafu, Debug, EnumDiscriminants)]
+#[strum_discriminants(derive(IntoStaticStr))]
+#[allow(clippy::enum_variant_names)]
+pub enum Error {
+    #[snafu(display("failed to build ConfigMap for {}", rolegroup))]
+    BuildRoleGroupConfig {
+        source: stackable_operator::error::Error,
+        rolegroup: RoleGroupRef<DruidCluster>,
+    },
+    #[snafu(display("object is missing metadata to build owner reference"))]
+    ObjectMissingMetadataForOwnerRef {
+        source: stackable_operator::error::Error,
+    },
+    #[snafu(display("failed to format runtime properties"))]
+    PropertiesWriteError {
+        source: stackable_operator::product_config::writer::PropertiesWriterError,
+    },
+    #[snafu(display(
+        "Druid does not support skipping the verification of the tls enabled S3 server"
+    ))]
+    S3TlsNoVerificationNotSupported,
+    #[snafu(display("could not parse Druid role [{role}]"))]
+    UnidentifiedDruidRole {
+        source: strum::ParseError,
+        role: String,
+    },
+    #[snafu(display("failed to create container builder with name [{name}]"))]
+    FailedContainerBuilderCreation {
+        source: stackable_operator::error::Error,
+        name: String,
+    },
+    #[snafu(display("failed to initialize security context"))]
+    FailedToInitializeSecurityContext {
+        source: stackable_druid_crd::security::Error,
+    },
+    #[snafu(display("failed to get JVM config"))]
+    GetJvmConfig {
+        source: super::config::Error,
+    },
+    #[snafu(display("failed to derive Druid memory settings from resources"))]
+    DeriveMemorySettings {
+        source: stackable_druid_crd::resource::Error,
+    },
+    #[snafu(display("failed to update Druid config from resources"))]
+    UpdateDruidConfigFromResources {
+        source: stackable_druid_crd::resource::Error,
+    },
+    LdapBindCredentialsAreRequired,
+    #[snafu(display("failed to apply internal secret"))]
+    ApplyInternalSecret {
+        source: stackable_operator::error::Error,
+    },
+    #[snafu(display("failed to add the logging configuration to the ConfigMap [{cm_name}]"))]
+    InvalidLoggingConfig {
+        source: super::product_logging::Error,
+        cm_name: String,
+    },
+}
+
+type Result<T, E = Error> = std::result::Result<T, E>;
 
 /// The server-role service is the primary endpoint that should be used by clients that do not perform internal load balancing,
 /// including targets outside of the cluster.
