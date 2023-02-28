@@ -124,6 +124,10 @@ pub async fn fetch_additional_data(
         .await
         .context(FailedToInitializeSecurityContextSnafu)?;
 
+    let vector_aggregator_address = resolve_vector_aggregator_address(&druid, client)
+        .await
+        .context(ResolveVectorAggregatorAddressSnafu)?;
+
     let additional_data = FetchedAdditionalData {
         opa_connstr,
         resolved_authentication_classes,
@@ -131,6 +135,7 @@ pub async fn fetch_additional_data(
         zk_connstr,
         s3_conn,
         deep_storage_bucket_name,
+        vector_aggregator_address,
     };
     Ok(additional_data)
 }

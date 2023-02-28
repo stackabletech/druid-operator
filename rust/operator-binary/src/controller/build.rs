@@ -75,68 +75,22 @@ pub fn build_cluster_resources(
         .namespace
         .clone()
         .with_context(|| ObjectHasNoNamespaceSnafu {})?;
-    let resolved_product_image: ResolvedProductImage =
-        druid.spec.image.resolve(DOCKER_IMAGE_BASE_NAME);
+    let resolved_product_image = additional_data.resolved_product_image;
 
     let zk_confmap = druid.spec.cluster_config.zookeeper_config_map_name.clone();
-    let zk_connstr = client
-        .get::<ConfigMap>(&zk_confmap, namespace)
-        .await
-        .context(GetZookeeperConnStringConfigMapSnafu {
-            cm_name: zk_confmap.clone(),
-        })?
-        .data
-        .and_then(|mut data| data.remove("ZOOKEEPER"))
-        .context(MissingZookeeperConnStringSnafu {
-            cm_name: zk_confmap.clone(),
-        })?;
+    let zk_connstr = additional_data.zk_connstr;
 
-    let vector_aggregator_address = resolve_vector_aggregator_address(&druid, client)
-        .await
-        .context(ResolveVectorAggregatorAddressSnafu)?;
+    let vector_aggregator_address = additional_data.vector_aggregator_address;
 
     // Assemble the OPA connection string from the discovery and the given path, if a spec is given.
-    let opa_connstr = if let Some(DruidAuthorization { opa: opa_config }) =
-        &druid.spec.cluster_config.authorization
-    {
-        Some(
-            opa_config
-                .full_document_url_from_config_map(
-                    client,
-                    druid.deref(),
-                    Some("allow"),
-                    OpaApiVersion::V1,
-                )
-                .await
-                .context(GetOpaConnStringSnafu {
-                    cm_name: opa_config.config_map_name.clone(),
-                })?,
-        )
-    } else {
-        None
-    };
+    let opa_connstr = additional_data.opa_connstr;
 
     // Get the s3 connection if one is defined
-    let s3_conn = druid
-        .get_s3_connection(client)
-        .await
-        .context(GetS3ConnectionSnafu)?;
+    let s3_conn = additional_data.s3_conn;
 
-    let deep_storage_bucket_name = match &druid.spec.cluster_config.deep_storage {
-        DeepStorageSpec::S3(s3_spec) => {
-            s3_spec
-                .bucket
-                .resolve(client, namespace)
-                .await
-                .context(GetDeepStorageBucketSnafu)?
-                .bucket_name
-        }
-        _ => None,
-    };
+    let deep_storage_bucket_name = additional_data.deep_storage_bucket_name;
 
-    let resolved_authentication_classes = resolve_authentication_classes(client, &druid)
-        .await
-        .context(FailedToInitializeSecurityContextSnafu)?;
+    let resolved_authentication_classes = additional_data.resolved_authentication_classes;
 
     let druid_ldap_settings = DruidLdapSettings::new_from(&resolved_authentication_classes);
 
