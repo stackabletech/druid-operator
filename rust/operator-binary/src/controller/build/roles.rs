@@ -573,10 +573,6 @@ fn add_s3_volume_and_volume_mounts(
     Ok(())
 }
 
-pub fn error_policy(_obj: Arc<DruidCluster>, _error: &Error, _ctx: Arc<Ctx>) -> Action {
-    Action::requeue(Duration::from_secs(5))
-}
-
 #[cfg(test)]
 mod test {
     use super::*;

@@ -435,3 +435,7 @@ pub async fn reconcile_druid(druid: Arc<DruidCluster>, ctx: Arc<Ctx>) -> Result<
 
     Ok(Action::await_change())
 }
+
+pub fn error_policy(_obj: Arc<DruidCluster>, _error: &Error, _ctx: Arc<Ctx>) -> Action {
+    Action::requeue(Duration::from_secs(5))
+}
