@@ -134,13 +134,14 @@ pub async fn apply_cluster_resources(
                         .context(ApplyInternalSecretSnafu)?;
                 }
             }
+            BuiltClusterResource::DeleteOrphaned => {
+                cluster_resources
+                    .delete_orphaned_resources(client)
+                    .await
+                    .context(DeleteOrphanedResourcesSnafu)?;
+            }
         };
     }
-
-    cluster_resources
-        .delete_orphaned_resources(client)
-        .await
-        .context(DeleteOrphanedResourcesSnafu)?;
 
     Ok(Action::await_change())
 }
