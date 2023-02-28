@@ -19,10 +19,10 @@ dimensions:
       - 0.45.0-stackable23.4.0-rc2
   - name: hadoop
     values:
-      - 3.3.4-stackable23.4.0-rc1
+      - 3.3.4-stackable23.4.0-rc2
   - name: hadoop-latest
     values:
-      - 3.3.4-stackable23.4.0-rc1
+      - 3.3.4-stackable23.4.0-rc2
   - name: s3-use-tls
     values:
       - "true"
