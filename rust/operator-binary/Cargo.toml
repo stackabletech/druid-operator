@@ -35,3 +35,4 @@ stackable-druid-crd = { path = "../crd" }
 
 [dev-dependencies]
 rstest = "0.16"
+assert-json-diff = "2.0"
