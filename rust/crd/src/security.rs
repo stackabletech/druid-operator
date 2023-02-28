@@ -40,47 +40,52 @@ pub async fn resolve_authentication_classes(
     .context(InvalidAuthenticationClassConfigurationSnafu)
 }
 
+// Ports
+const ENABLE_PLAINTEXT_PORT: &str = "druid.enablePlaintextPort";
+const PLAINTEXT_PORT: &str = "druid.plaintextPort";
+const ENABLE_TLS_PORT: &str = "druid.enableTlsPort";
+const TLS_PORT: &str = "druid.tlsPort";
+// Port names
+const PLAINTEXT_PORT_NAME: &str = "http";
+const TLS_PORT_NAME: &str = "https";
+const METRICS_PORT_NAME: &str = "metrics";
+// Client side (Druid) TLS
+const CLIENT_HTTPS_KEY_STORE_PATH: &str = "druid.client.https.keyStorePath";
+const CLIENT_HTTPS_KEY_STORE_TYPE: &str = "druid.client.https.keyStoreType";
+const CLIENT_HTTPS_KEY_STORE_PASSWORD: &str = "druid.client.https.keyStorePassword";
+const CLIENT_HTTPS_TRUST_STORE_PATH: &str = "druid.client.https.trustStorePath";
+const CLIENT_HTTPS_TRUST_STORE_TYPE: &str = "druid.client.https.trustStoreType";
+const CLIENT_HTTPS_TRUST_STORE_PASSWORD: &str = "druid.client.https.trustStorePassword";
+const CLIENT_HTTPS_CERT_ALIAS: &str = "druid.client.https.certAlias";
+const CLIENT_HTTPS_VALIDATE_HOST_NAMES: &str = "druid.client.https.validateHostnames";
+const CLIENT_HTTPS_KEY_MANAGER_PASSWORD: &str = "druid.client.https.keyManagerPassword";
+// Server side TLS
+const SERVER_HTTPS_KEY_STORE_PATH: &str = "druid.server.https.keyStorePath";
+const SERVER_HTTPS_KEY_STORE_TYPE: &str = "druid.server.https.keyStoreType";
+const SERVER_HTTPS_KEY_STORE_PASSWORD: &str = "druid.server.https.keyStorePassword";
+const SERVER_HTTPS_TRUST_STORE_PATH: &str = "druid.server.https.trustStorePath";
+const SERVER_HTTPS_TRUST_STORE_TYPE: &str = "druid.server.https.trustStoreType";
+const SERVER_HTTPS_TRUST_STORE_PASSWORD: &str = "druid.server.https.trustStorePassword";
+const SERVER_HTTPS_CERT_ALIAS: &str = "druid.server.https.certAlias";
+const SERVER_HTTPS_VALIDATE_HOST_NAMES: &str = "druid.server.https.validateHostnames";
+const SERVER_HTTPS_KEY_MANAGER_PASSWORD: &str = "druid.server.https.keyManagerPassword";
+const SERVER_HTTPS_REQUIRE_CLIENT_CERTIFICATE: &str = "druid.server.https.requireClientCertificate";
+const TLS_ALIAS_NAME: &str = "tls";
+pub const AUTH_TRUST_STORE_PATH: &str = "druid.auth.basic.ssl.trustStorePath";
+pub const AUTH_TRUST_STORE_TYPE: &str = "druid.auth.basic.ssl.trustStoreType";
+pub const AUTH_TRUST_STORE_PASSWORD: &str = "druid.auth.basic.ssl.trustStorePassword";
+// Misc TLS
+pub const TLS_STORE_PASSWORD: &str = "changeit";
+pub const TLS_STORE_TYPE: &str = "pkcs12";
+const SYSTEM_TRUST_STORE: &str = "/etc/pki/java/cacerts";
+const SYSTEM_TRUST_STORE_PASSWORD: &str = "changeit";
+
+// directories
+const STACKABLE_MOUNT_TLS_DIR: &str = "/stackable/mount_tls";
+pub const STACKABLE_TLS_DIR: &str = "/stackable/tls";
+// pub const STACKABLE_EXTERNAL_AUTH_TLS_DIR: &str = "/stackable/tls/external-auth-systems";
+
 impl DruidTlsSecurity {
-    // Ports
-    const ENABLE_PLAINTEXT_PORT: &str = "druid.enablePlaintextPort";
-    const PLAINTEXT_PORT: &str = "druid.plaintextPort";
-    const ENABLE_TLS_PORT: &str = "druid.enableTlsPort";
-    const TLS_PORT: &str = "druid.tlsPort";
-    // Port names
-    const PLAINTEXT_PORT_NAME: &str = "http";
-    const TLS_PORT_NAME: &str = "https";
-    const METRICS_PORT_NAME: &str = "metrics";
-    // Client side (Druid) TLS
-    const CLIENT_HTTPS_KEY_STORE_PATH: &str = "druid.client.https.keyStorePath";
-    const CLIENT_HTTPS_KEY_STORE_TYPE: &str = "druid.client.https.keyStoreType";
-    const CLIENT_HTTPS_KEY_STORE_PASSWORD: &str = "druid.client.https.keyStorePassword";
-    const CLIENT_HTTPS_TRUST_STORE_PATH: &str = "druid.client.https.trustStorePath";
-    const CLIENT_HTTPS_TRUST_STORE_TYPE: &str = "druid.client.https.trustStoreType";
-    const CLIENT_HTTPS_TRUST_STORE_PASSWORD: &str = "druid.client.https.trustStorePassword";
-    const CLIENT_HTTPS_CERT_ALIAS: &str = "druid.client.https.certAlias";
-    const CLIENT_HTTPS_VALIDATE_HOST_NAMES: &str = "druid.client.https.validateHostnames";
-    const CLIENT_HTTPS_KEY_MANAGER_PASSWORD: &str = "druid.client.https.keyManagerPassword";
-    // Server side TLS
-    const SERVER_HTTPS_KEY_STORE_PATH: &str = "druid.server.https.keyStorePath";
-    const SERVER_HTTPS_KEY_STORE_TYPE: &str = "druid.server.https.keyStoreType";
-    const SERVER_HTTPS_KEY_STORE_PASSWORD: &str = "druid.server.https.keyStorePassword";
-    const SERVER_HTTPS_TRUST_STORE_PATH: &str = "druid.server.https.trustStorePath";
-    const SERVER_HTTPS_TRUST_STORE_TYPE: &str = "druid.server.https.trustStoreType";
-    const SERVER_HTTPS_TRUST_STORE_PASSWORD: &str = "druid.server.https.trustStorePassword";
-    const SERVER_HTTPS_CERT_ALIAS: &str = "druid.server.https.certAlias";
-    const SERVER_HTTPS_VALIDATE_HOST_NAMES: &str = "druid.server.https.validateHostnames";
-    const SERVER_HTTPS_KEY_MANAGER_PASSWORD: &str = "druid.server.https.keyManagerPassword";
-    const SERVER_HTTPS_REQUIRE_CLIENT_CERTIFICATE: &str =
-        "druid.server.https.requireClientCertificate";
-    const TLS_ALIAS_NAME: &str = "tls";
-    // Misc TLS
-    const TLS_STORE_PASSWORD: &str = "changeit";
-    const TLS_STORE_TYPE: &str = "pkcs12";
-
-    // directories
-    const STACKABLE_MOUNT_TLS_DIR: &str = "/stackable/mount_tls";
-    const STACKABLE_TLS_DIR: &str = "/stackable/tls";
-
     pub fn new(
         resolved_authentication_classes: ResolvedAuthenticationClasses,
         server_and_internal_secret_class: Option<String>,
@@ -155,12 +160,12 @@ impl DruidTlsSecurity {
     }
 
     fn exposed_ports(&self, role: &DruidRole) -> Vec<(String, u16)> {
-        let mut ports = vec![(Self::METRICS_PORT_NAME.to_string(), METRICS_PORT)];
+        let mut ports = vec![(METRICS_PORT_NAME.to_string(), METRICS_PORT)];
 
         if self.tls_enabled() {
-            ports.push((Self::TLS_PORT_NAME.to_string(), role.get_https_port()));
+            ports.push((TLS_PORT_NAME.to_string(), role.get_https_port()));
         } else {
-            ports.push((Self::PLAINTEXT_PORT_NAME.to_string(), role.get_http_port()));
+            ports.push((PLAINTEXT_PORT_NAME.to_string(), role.get_http_port()));
         }
 
         ports
@@ -187,16 +192,16 @@ impl DruidTlsSecurity {
                     )
                     .build(),
             );
-            prepare.add_volume_mount("tls-mount", Self::STACKABLE_MOUNT_TLS_DIR);
-            druid.add_volume_mount("tls-mount", Self::STACKABLE_MOUNT_TLS_DIR);
+            prepare.add_volume_mount("tls-mount", STACKABLE_MOUNT_TLS_DIR);
+            druid.add_volume_mount("tls-mount", STACKABLE_MOUNT_TLS_DIR);
 
             pod.add_volume(
                 VolumeBuilder::new("tls")
                     .with_empty_dir(Option::<&str>::None, None)
                     .build(),
             );
-            prepare.add_volume_mount("tls", Self::STACKABLE_TLS_DIR);
-            druid.add_volume_mount("tls", Self::STACKABLE_TLS_DIR);
+            prepare.add_volume_mount("tls", STACKABLE_TLS_DIR);
+            druid.add_volume_mount("tls", STACKABLE_TLS_DIR);
         }
         Ok(())
     }
@@ -208,25 +213,19 @@ impl DruidTlsSecurity {
     ) {
         // no secure communication
         if !self.tls_enabled() {
+            config.insert(ENABLE_PLAINTEXT_PORT.to_string(), Some("true".to_string()));
+            config.insert(ENABLE_TLS_PORT.to_string(), Some("false".to_string()));
             config.insert(
-                Self::ENABLE_PLAINTEXT_PORT.to_string(),
-                Some("true".to_string()),
-            );
-            config.insert(Self::ENABLE_TLS_PORT.to_string(), Some("false".to_string()));
-            config.insert(
-                Self::PLAINTEXT_PORT.to_string(),
+                PLAINTEXT_PORT.to_string(),
                 Some(role.get_http_port().to_string()),
             );
         }
         // only allow secure communication
         else {
+            config.insert(ENABLE_PLAINTEXT_PORT.to_string(), Some("false".to_string()));
+            config.insert(ENABLE_TLS_PORT.to_string(), Some("true".to_string()));
             config.insert(
-                Self::ENABLE_PLAINTEXT_PORT.to_string(),
-                Some("false".to_string()),
-            );
-            config.insert(Self::ENABLE_TLS_PORT.to_string(), Some("true".to_string()));
-            config.insert(
-                Self::TLS_PORT.to_string(),
+                TLS_PORT.to_string(),
                 Some(role.get_https_port().to_string()),
             );
         }
@@ -241,11 +240,7 @@ impl DruidTlsSecurity {
         self.add_tls_port_config_properties(config, role);
 
         if self.tls_enabled() {
-            Self::add_tls_encryption_config_properties(
-                config,
-                Self::STACKABLE_TLS_DIR,
-                Self::TLS_ALIAS_NAME,
-            );
+            Self::add_tls_encryption_config_properties(config, STACKABLE_TLS_DIR, TLS_ALIAS_NAME);
         }
 
         if self
@@ -253,11 +248,7 @@ impl DruidTlsSecurity {
             .get_tls_authentication_class()
             .is_some()
         {
-            Self::add_tls_auth_config_properties(
-                config,
-                Self::STACKABLE_TLS_DIR,
-                Self::TLS_ALIAS_NAME,
-            );
+            Self::add_tls_auth_config_properties(config, STACKABLE_TLS_DIR, TLS_ALIAS_NAME);
         }
     }
 
@@ -269,33 +260,48 @@ impl DruidTlsSecurity {
         // We need a truststore in addition to a keystore here, because server and internal tls
         // can only be enabled/disabled together
         config.insert(
-            Self::CLIENT_HTTPS_TRUST_STORE_PATH.to_string(),
+            CLIENT_HTTPS_TRUST_STORE_PATH.to_string(),
             Some(format!("{}/truststore.p12", store_directory)),
         );
         config.insert(
-            Self::CLIENT_HTTPS_TRUST_STORE_TYPE.to_string(),
-            Some(Self::TLS_STORE_TYPE.to_string()),
+            CLIENT_HTTPS_TRUST_STORE_TYPE.to_string(),
+            Some(TLS_STORE_TYPE.to_string()),
         );
         config.insert(
-            Self::CLIENT_HTTPS_TRUST_STORE_PASSWORD.to_string(),
-            Some(Self::TLS_STORE_PASSWORD.to_string()),
+            CLIENT_HTTPS_TRUST_STORE_PASSWORD.to_string(),
+            Some(TLS_STORE_PASSWORD.to_string()),
         );
 
         config.insert(
-            Self::SERVER_HTTPS_KEY_STORE_PATH.to_string(),
+            SERVER_HTTPS_KEY_STORE_PATH.to_string(),
             Some(format!("{}/keystore.p12", store_directory)),
         );
         config.insert(
-            Self::SERVER_HTTPS_KEY_STORE_TYPE.to_string(),
-            Some(Self::TLS_STORE_TYPE.to_string()),
+            SERVER_HTTPS_KEY_STORE_TYPE.to_string(),
+            Some(TLS_STORE_TYPE.to_string()),
         );
         config.insert(
-            Self::SERVER_HTTPS_KEY_STORE_PASSWORD.to_string(),
-            Some(Self::TLS_STORE_PASSWORD.to_string()),
+            SERVER_HTTPS_KEY_STORE_PASSWORD.to_string(),
+            Some(TLS_STORE_PASSWORD.to_string()),
         );
         config.insert(
-            Self::SERVER_HTTPS_CERT_ALIAS.to_string(),
+            SERVER_HTTPS_CERT_ALIAS.to_string(),
             Some(store_alias.to_string()),
+        );
+
+        // We also need to configure the truststore for authentication related stuff,
+        // such as verifying the LDAP server
+        config.insert(
+            AUTH_TRUST_STORE_PATH.to_string(),
+            Some(format!("{}/truststore.p12", store_directory)),
+        );
+        config.insert(
+            AUTH_TRUST_STORE_TYPE.to_string(),
+            Some(TLS_STORE_TYPE.to_string()),
+        );
+        config.insert(
+            AUTH_TRUST_STORE_PASSWORD.to_string(),
+            Some(TLS_STORE_PASSWORD.to_string()),
         );
     }
 
@@ -305,16 +311,16 @@ impl DruidTlsSecurity {
         store_alias: &str,
     ) {
         config.insert(
-            Self::CLIENT_HTTPS_KEY_STORE_PATH.to_string(),
+            CLIENT_HTTPS_KEY_STORE_PATH.to_string(),
             Some(format!("{store_directory}/keystore.p12")),
         );
         config.insert(
-            Self::CLIENT_HTTPS_KEY_STORE_TYPE.to_string(),
-            Some(Self::TLS_STORE_TYPE.to_string()),
+            CLIENT_HTTPS_KEY_STORE_TYPE.to_string(),
+            Some(TLS_STORE_TYPE.to_string()),
         );
         config.insert(
-            Self::CLIENT_HTTPS_KEY_STORE_PASSWORD.to_string(),
-            Some(Self::TLS_STORE_PASSWORD.to_string()),
+            CLIENT_HTTPS_KEY_STORE_PASSWORD.to_string(),
+            Some(TLS_STORE_PASSWORD.to_string()),
         );
         // This is required because PKCS12 does not use any key passwords but it will
         // be checked and would lead to an exception:
@@ -322,37 +328,37 @@ impl DruidTlsSecurity {
         // Must be set to the store password or we get a bad padding exception:
         // javax.crypto.BadPaddingException: Given final block not properly padded. Such issues can arise if a bad key is used during decryption.
         config.insert(
-            Self::CLIENT_HTTPS_KEY_MANAGER_PASSWORD.to_string(),
-            Some(Self::TLS_STORE_PASSWORD.to_string()),
+            CLIENT_HTTPS_KEY_MANAGER_PASSWORD.to_string(),
+            Some(TLS_STORE_PASSWORD.to_string()),
         );
         config.insert(
-            Self::CLIENT_HTTPS_CERT_ALIAS.to_string(),
+            CLIENT_HTTPS_CERT_ALIAS.to_string(),
             Some(store_alias.to_string()),
         );
         // FIXME: https://github.com/stackabletech/druid-operator/issues/372
         // This is required because the server will send its pod ip which is not in the SANs of the certificates
         config.insert(
-            Self::CLIENT_HTTPS_VALIDATE_HOST_NAMES.to_string(),
+            CLIENT_HTTPS_VALIDATE_HOST_NAMES.to_string(),
             Some("false".to_string()),
         );
 
         // This will enforce the client to authenticate itself
         config.insert(
-            Self::SERVER_HTTPS_REQUIRE_CLIENT_CERTIFICATE.to_string(),
+            SERVER_HTTPS_REQUIRE_CLIENT_CERTIFICATE.to_string(),
             Some("true".to_string()),
         );
 
         config.insert(
-            Self::SERVER_HTTPS_TRUST_STORE_PATH.to_string(),
+            SERVER_HTTPS_TRUST_STORE_PATH.to_string(),
             Some(format!("{store_directory}/truststore.p12")),
         );
         config.insert(
-            Self::SERVER_HTTPS_TRUST_STORE_TYPE.to_string(),
-            Some(Self::TLS_STORE_TYPE.to_string()),
+            SERVER_HTTPS_TRUST_STORE_TYPE.to_string(),
+            Some(TLS_STORE_TYPE.to_string()),
         );
         config.insert(
-            Self::SERVER_HTTPS_TRUST_STORE_PASSWORD.to_string(),
-            Some(Self::TLS_STORE_PASSWORD.to_string()),
+            SERVER_HTTPS_TRUST_STORE_PASSWORD.to_string(),
+            Some(TLS_STORE_PASSWORD.to_string()),
         );
         // This is required because PKCS12 does not use any key passwords but it will
         // be checked and would lead to an exception:
@@ -360,34 +366,40 @@ impl DruidTlsSecurity {
         // Must be set to the store password or we get a bad padding exception:
         // javax.crypto.BadPaddingException: Given final block not properly padded. Such issues can arise if a bad key is used during decryption.
         config.insert(
-            Self::SERVER_HTTPS_KEY_MANAGER_PASSWORD.to_string(),
-            Some(Self::TLS_STORE_PASSWORD.to_string()),
+            SERVER_HTTPS_KEY_MANAGER_PASSWORD.to_string(),
+            Some(TLS_STORE_PASSWORD.to_string()),
         );
         // FIXME: https://github.com/stackabletech/druid-operator/issues/372
         // This is required because the client will send its pod ip which is not in the SANs of the certificates
         config.insert(
-            Self::SERVER_HTTPS_VALIDATE_HOST_NAMES.to_string(),
+            SERVER_HTTPS_VALIDATE_HOST_NAMES.to_string(),
             Some("false".to_string()),
         );
     }
 
     pub fn build_tls_key_stores_cmd(&self) -> Vec<String> {
-        let mut command = vec![];
+        let mut commands = vec![
+            format!(
+                "echo Cleaning up truststore [{STACKABLE_TLS_DIR}/truststore.p12] - just in case"
+            ),
+            format!("rm -f {STACKABLE_TLS_DIR}/truststore.p12"),
+            format!("keytool -importkeystore -srckeystore {SYSTEM_TRUST_STORE} -srcstoretype jks -srcstorepass {SYSTEM_TRUST_STORE_PASSWORD} -destkeystore {STACKABLE_TLS_DIR}/truststore.p12 -deststoretype pkcs12 -deststorepass {TLS_STORE_PASSWORD} -noprompt")
+        ];
         if self.tls_enabled() {
-            command.extend(add_cert_to_trust_store_cmd(
-                Self::STACKABLE_MOUNT_TLS_DIR,
-                Self::STACKABLE_TLS_DIR,
-                Self::TLS_ALIAS_NAME,
-                Self::TLS_STORE_PASSWORD,
+            commands.extend(add_cert_to_trust_store_cmd(
+                &format!("{}/ca.crt", STACKABLE_MOUNT_TLS_DIR),
+                STACKABLE_TLS_DIR,
+                TLS_ALIAS_NAME,
+                TLS_STORE_PASSWORD,
             ));
-            command.extend(add_key_pair_to_key_store_cmd(
-                Self::STACKABLE_MOUNT_TLS_DIR,
-                Self::STACKABLE_TLS_DIR,
-                Self::TLS_ALIAS_NAME,
-                Self::TLS_STORE_PASSWORD,
+            commands.extend(add_key_pair_to_key_store_cmd(
+                STACKABLE_MOUNT_TLS_DIR,
+                STACKABLE_TLS_DIR,
+                TLS_ALIAS_NAME,
+                TLS_STORE_PASSWORD,
             ));
         }
-        command
+        commands
     }
 
     pub fn get_tcp_socket_probe(
@@ -398,9 +410,9 @@ impl DruidTlsSecurity {
         timeout_seconds: i32,
     ) -> Probe {
         let port = if self.tls_enabled() {
-            IntOrString::String(Self::TLS_PORT_NAME.to_string())
+            IntOrString::String(TLS_PORT_NAME.to_string())
         } else {
-            IntOrString::String(Self::PLAINTEXT_PORT_NAME.to_string())
+            IntOrString::String(PLAINTEXT_PORT_NAME.to_string())
         };
 
         Probe {
@@ -419,16 +431,16 @@ impl DruidTlsSecurity {
 
 /// Generate a script to add a CA to a truststore
 pub fn add_cert_to_trust_store_cmd(
-    cert_directory: &str,
+    cert: &str,
     trust_store_directory: &str,
     alias_name: &str,
     store_password: &str,
 ) -> Vec<String> {
     vec![
         format!(
-            "echo Adding certificate [{cert_directory}/ca.crt] to truststore [{trust_store_directory}/truststore.p12]"
+            "echo Adding certificate [{cert}] to truststore [{trust_store_directory}/truststore.p12]"
         ),
-        format!("keytool -importcert -file {cert_directory}/ca.crt -keystore {trust_store_directory}/truststore.p12 -storetype pkcs12 -alias {alias_name} -storepass {store_password} -noprompt")
+        format!("keytool -importcert -file {cert} -keystore {trust_store_directory}/truststore.p12 -storetype pkcs12 -alias {alias_name} -storepass {store_password} -noprompt")
     ]
 }
 

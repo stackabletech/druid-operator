@@ -1,5 +1,5 @@
 use snafu::{OptionExt, ResultExt, Snafu};
-use stackable_druid_crd::DruidCluster;
+use stackable_druid_crd::{DruidCluster, ENV_INTERNAL_SECRET};
 use stackable_operator::k8s_openapi::api::core::v1::{EnvVar, EnvVarSource, SecretKeySelector};
 use stackable_operator::kube::ResourceExt;
 use stackable_operator::{
@@ -7,8 +7,6 @@ use stackable_operator::{
 };
 use std::collections::BTreeMap;
 use strum::{EnumDiscriminants, IntoStaticStr};
-
-pub const ENV_INTERNAL_SECRET: &str = "INTERNAL_SECRET";
 
 #[derive(Snafu, Debug, EnumDiscriminants)]
 #[strum_discriminants(derive(IntoStaticStr))]

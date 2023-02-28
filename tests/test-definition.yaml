@@ -34,8 +34,8 @@ dimensions:
       - "internal-and-server-tls-and-tls-client-auth"
   - name: ldap-use-tls
     values:
-      # - "true"
-      - "false"
+      - "true"
+      # - "false"
   - name: ldap-no-bind-credentials
     values:
       # - "true" # disabled, as anonymous ldap usage does not seem to be supported in druid

@@ -54,8 +54,6 @@ pub const RUNTIME_PROPS: &str = "runtime.properties";
 pub const LOG4J2_CONFIG: &str = "log4j2.xml";
 
 // store directories
-pub const SYSTEM_TRUST_STORE: &str = "/etc/pki/java/cacerts";
-pub const SYSTEM_TRUST_STORE_PASSWORD: &str = "changeit";
 pub const STACKABLE_TRUST_STORE: &str = "/stackable/truststore.p12";
 pub const STACKABLE_TRUST_STORE_PASSWORD: &str = "changeit";
 pub const CERTS_DIR: &str = "/stackable/certificates";
@@ -112,6 +110,8 @@ const SECRET_KEY_S3_SECRET_KEY: &str = "secretKey";
 pub const SC_LOCATIONS: &str = "druid.segmentCache.locations";
 pub const SC_DIRECTORY: &str = "/stackable/var/druid/segment-cache";
 pub const SC_VOLUME_NAME: &str = "segment-cache";
+
+pub const ENV_INTERNAL_SECRET: &str = "INTERNAL_SECRET";
 
 #[derive(Snafu, Debug, EnumDiscriminants)]
 #[strum_discriminants(derive(IntoStaticStr))]
@@ -357,13 +357,11 @@ impl DruidRole {
         }
     }
 
-    /// Returns the start commands for the different server types.
-    pub fn get_command(
+    pub fn main_container_prepare_commands(
         &self,
         s3_connection: Option<&S3ConnectionSpec>,
-        ldap_auth_cmd: Vec<String>,
     ) -> Vec<String> {
-        let mut shell_cmd = vec![format!("keytool -importkeystore -srckeystore {SYSTEM_TRUST_STORE} -srcstoretype jks -srcstorepass {SYSTEM_TRUST_STORE_PASSWORD} -destkeystore {STACKABLE_TRUST_STORE} -deststoretype pkcs12 -deststorepass {STACKABLE_TRUST_STORE_PASSWORD} -noprompt")];
+        let mut commands = vec![];
 
         if let Some(s3_connection) = s3_connection {
             if let Some(Tls {
@@ -373,42 +371,37 @@ impl DruidRole {
                     }),
             }) = &s3_connection.tls
             {
-                shell_cmd.push(format!("keytool -importcert -file {CERTS_DIR}/{secret_class}-tls-certificate/ca.crt -alias stackable-{secret_class} -keystore {STACKABLE_TRUST_STORE} -storepass {STACKABLE_TRUST_STORE_PASSWORD} -noprompt"));
+                commands.push(format!("keytool -importcert -file {CERTS_DIR}/{secret_class}-tls-certificate/ca.crt -alias stackable-{secret_class} -keystore {STACKABLE_TRUST_STORE} -storepass {STACKABLE_TRUST_STORE_PASSWORD} -noprompt"));
             }
 
             if s3_connection.credentials.is_some() {
-                shell_cmd.push(format!("export {ENV_S3_ACCESS_KEY}=$(cat {S3_SECRET_DIR_NAME}/{SECRET_KEY_S3_ACCESS_KEY})"));
-                shell_cmd.push(format!("export {ENV_S3_SECRET_KEY}=$(cat {S3_SECRET_DIR_NAME}/{SECRET_KEY_S3_SECRET_KEY})"));
+                commands.push(format!("export {ENV_S3_ACCESS_KEY}=$(cat {S3_SECRET_DIR_NAME}/{SECRET_KEY_S3_ACCESS_KEY})"));
+                commands.push(format!("export {ENV_S3_SECRET_KEY}=$(cat {S3_SECRET_DIR_NAME}/{SECRET_KEY_S3_SECRET_KEY})"));
             }
         }
 
         // copy druid config to rw config
-        shell_cmd.push(format!(
+        commands.push(format!(
             "cp -RL {conf}/* {rw_conf}",
             conf = DRUID_CONFIG_DIRECTORY,
             rw_conf = RW_CONFIG_DIRECTORY
         ));
 
         // copy hdfs config to RW_CONFIG_DIRECTORY folder (if available)
-        shell_cmd.push(format!(
+        commands.push(format!(
             "cp -RL {hdfs_conf}/* {rw_conf} 2>/dev/null || :", // NOTE: the OR part is here because the command is not applicable sometimes, and would stop everything else from executing
             hdfs_conf = HDFS_CONFIG_DIRECTORY,
             rw_conf = RW_CONFIG_DIRECTORY,
         ));
 
-        shell_cmd.extend(ldap_auth_cmd);
+        commands
+    }
 
-        shell_cmd.push(format!(
-            "{} {} {}",
-            "/stackable/druid/bin/run-druid",
+    pub fn main_container_start_command(&self) -> String {
+        format!(
+            "/stackable/druid/bin/run-druid {} {RW_CONFIG_DIRECTORY}",
             self.get_process_name(),
-            RW_CONFIG_DIRECTORY,
-        ));
-        vec![
-            "/bin/sh".to_string(),
-            "-c".to_string(),
-            shell_cmd.join(" && "),
-        ]
+        )
     }
 }
 

@@ -5,51 +5,6 @@ metadata:
   name: install-druid
 timeout: 600
 ---
-apiVersion: authentication.stackable.tech/v1alpha1
-kind: AuthenticationClass
-metadata:
-  name: druid-ldap-auth-class
-spec:
-  provider:
-    ldap:
-      hostname: openldap
-      searchBase: ou=users,dc=example,dc=org
-      searchFilter: (uid=%s)
-{% if test_scenario['values']['ldap-use-tls'] == 'false' %}
-      port: 1389
-{% else %}
-      port: 1636
-      tls:
-        verification:
-          server:
-            caCert:
-              secretClass: openldap-tls
-{% endif %}
-{% if test_scenario['values']['ldap-no-bind-credentials'] == 'false' %}
-      bindCredentials:
-        secretClass: druid-ldap-secret
----
-apiVersion: secrets.stackable.tech/v1alpha1
-kind: SecretClass
-metadata:
-  name: druid-ldap-secret
-spec:
-  backend:
-    k8sSearch:
-      searchNamespace:
-        pod: {}
----
-apiVersion: v1
-kind: Secret
-metadata:
-  name: druid-ldap-secret
-  labels:
-    secrets.stackable.tech/class: druid-ldap-secret
-stringData:
-  user: cn=admin,dc=example,dc=org
-  password: admin
-{% endif %}
----
 apiVersion: druid.stackable.tech/v1alpha1
 kind: DruidCluster
 metadata:

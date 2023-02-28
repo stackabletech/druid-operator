@@ -5,18 +5,13 @@ use crate::{
     extensions::get_extension_list,
     internal_secret::{
         build_shared_internal_secret_name, create_shared_internal_secret, env_var_from_secret,
-        ENV_INTERNAL_SECRET,
     },
     OPERATOR_NAME,
 };
 
 use snafu::{OptionExt, ResultExt, Snafu};
-use stackable_druid_crd::build_recommended_labels;
 use stackable_druid_crd::{
-    authentication::ldap::{
-        DruidLdapSettings, PLACEHOLDER_INTERNAL_CLIENT_PASSWORD, PLACEHOLDER_LDAP_BIND_PASSWORD,
-        PLACEHOLDER_LDAP_BIND_USER,
-    },
+    authentication::ldap::DruidLdapSettings,
     authorization::DruidAuthorization,
     build_string_list,
     security::{resolve_authentication_classes, DruidTlsSecurity},
@@ -26,6 +21,7 @@ use stackable_druid_crd::{
     RUNTIME_PROPS, RW_CONFIG_DIRECTORY, S3_ENDPOINT_URL, S3_PATH_STYLE_ACCESS, S3_SECRET_DIR_NAME,
     ZOOKEEPER_CONNECTION_STRING,
 };
+use stackable_druid_crd::{build_recommended_labels, ENV_INTERNAL_SECRET};
 use stackable_operator::{
     builder::{
         ConfigMapBuilder, ContainerBuilder, ObjectMetaBuilder, PodBuilder,
@@ -656,6 +652,9 @@ fn build_rolegroup_statefulset(
     let mut pb = PodBuilder::new();
     pb.affinity(&merged_rolegroup_config.affinity);
 
+    let mut prepare_container_commands = druid_tls_security.build_tls_key_stores_cmd();
+    let mut main_container_commands = role.main_container_prepare_commands(s3_conn);
+
     if let Some(ldap_settings) = ldap_settings {
         // TODO: Connecting to an LDAP server without bind credentials does not seem to be configurable in Druid at the moment
         // see https://github.com/stackabletech/druid-operator/issues/383 for future work.
@@ -666,9 +665,11 @@ fn build_rolegroup_statefulset(
 
         ldap_settings
             .ldap
-            .add_volumes_and_mounts(&mut pb, vec![&mut cb_druid]);
+            .add_volumes_and_mounts(&mut pb, vec![&mut cb_druid, &mut cb_prepare]);
+
+        prepare_container_commands.extend(ldap_settings.init_container_commands());
+        main_container_commands.extend(ldap_settings.main_container_commands());
     }
-    let ldap_auth_cmd = get_ldap_secret_placeholder_replacement_commands(ldap_settings)?;
 
     // volume and volume mounts
     druid_tls_security
@@ -685,12 +686,10 @@ fn build_rolegroup_statefulset(
         .resources
         .update_volumes_and_volume_mounts(&mut cb_druid, &mut pb);
 
-    let prepare_container_command = druid_tls_security.build_tls_key_stores_cmd();
-
     cb_prepare
         .image_from_product_image(resolved_product_image)
         .command(vec!["/bin/bash".to_string(), "-c".to_string()])
-        .args(vec![prepare_container_command.join(" && ")])
+        .args(vec![prepare_container_commands.join(" && ")])
         .build();
 
     // rest of env
@@ -709,9 +708,11 @@ fn build_rolegroup_statefulset(
     let secret_name = build_shared_internal_secret_name(druid);
     rest_env.push(env_var_from_secret(&secret_name, None, ENV_INTERNAL_SECRET));
 
+    main_container_commands.push(role.main_container_start_command());
     cb_druid
         .image_from_product_image(resolved_product_image)
-        .command(role.get_command(s3_conn, ldap_auth_cmd))
+        .command(vec!["/bin/bash".to_string(), "-c".to_string()])
+        .args(vec![main_container_commands.join(" && ")])
         .add_env_vars(rest_env)
         .add_container_ports(druid_tls_security.container_ports(&role))
         // 10s * 30 = 300s to come up
@@ -794,39 +795,6 @@ fn add_hdfs_cm_volume_and_volume_mounts(
                 .build(),
         );
     }
-}
-
-fn get_ldap_secret_placeholder_replacement_commands(
-    ldap_settings: &Option<DruidLdapSettings>,
-) -> Result<Vec<String>, Error> {
-    let mut commands = Vec::new();
-
-    if let Some(ldap_settings) = ldap_settings {
-        let runtime_properties_file: String = format!("{RW_CONFIG_DIRECTORY}/{RUNTIME_PROPS}");
-
-        let internal_client_password = format!("$(echo ${ENV_INTERNAL_SECRET})");
-
-        commands
-                .push(r#"echo "Replacing LDAP placeholders with their proper values in {RUNTIME_PROPERTIES_FILE}""#.to_string());
-        commands.push(format!(
-            r#"sed "s|{PLACEHOLDER_INTERNAL_CLIENT_PASSWORD}|{internal_client_password}|g" -i {runtime_properties_file}"# // using another delimeter (|) here because of base64 string
-        ));
-
-        if let Some((ldap_bind_user_path, ldap_bind_password_path)) =
-            ldap_settings.ldap.bind_credentials_mount_paths()
-        {
-            let ldap_bind_user = format!("$(cat {ldap_bind_user_path})");
-            let ldap_bind_password = format!("$(cat {ldap_bind_password_path})");
-
-            commands.push(format!(
-                    r#"sed "s/{PLACEHOLDER_LDAP_BIND_USER}/{ldap_bind_user}/g" -i {runtime_properties_file}"#
-                ));
-            commands.push(format!(
-                    r#"sed "s/{PLACEHOLDER_LDAP_BIND_PASSWORD}/{ldap_bind_password}/g" -i {runtime_properties_file}"#
-                ));
-        }
-    }
-    Ok(commands)
 }
 
 fn add_config_volume_and_volume_mounts(
