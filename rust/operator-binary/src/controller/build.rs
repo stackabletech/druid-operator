@@ -71,12 +71,6 @@ pub fn build_cluster_resources(
 ) -> Result<Vec<BuiltClusterResource>> {
     let mut built_cluster_resources: Vec<BuiltClusterResource> = Vec::new();
 
-    let client = &ctx.client;
-    let namespace = &druid
-        .metadata
-        .namespace
-        .clone()
-        .with_context(|| ObjectHasNoNamespaceSnafu {})?;
     let resolved_product_image = additional_data.resolved_product_image;
 
     let zk_confmap = druid.spec.cluster_config.zookeeper_config_map_name.clone();
