@@ -1,9 +1,4 @@
-mod config;
-mod discovery;
-mod druid_controller;
-mod extensions;
-mod internal_secret;
-mod product_logging;
+mod controller;
 
 use std::sync::Arc;
 
