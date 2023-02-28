@@ -236,7 +236,6 @@ pub fn build_cluster_resources(
         &resolved_product_image,
         &druid_tls_security,
     )
-    .await
     .context(BuildDiscoveryConfigSnafu)?
     {
         built_cluster_resources.push(BuiltClusterResource::DiscoveryConfigMap(discovery_cm));

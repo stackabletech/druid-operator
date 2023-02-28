@@ -30,7 +30,7 @@ pub enum Error {
 }
 
 /// Builds discovery [`ConfigMap`]s for connecting to a [`DruidCluster`]
-pub async fn build_discovery_configmaps(
+pub fn build_discovery_configmaps(
     druid: &DruidCluster,
     owner: &impl Resource<DynamicType = ()>,
     resolved_product_image: &ResolvedProductImage,
