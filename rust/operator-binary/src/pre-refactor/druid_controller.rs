@@ -215,14 +215,6 @@ pub enum Error {
     },
 }
 
-type Result<T, E = Error> = std::result::Result<T, E>;
-
-impl ReconcilerError for Error {
-    fn category(&self) -> &'static str {
-        ErrorDiscriminants::from(self).into()
-    }
-}
-
 pub async fn reconcile_druid(druid: Arc<DruidCluster>, ctx: Arc<Ctx>) -> Result<Action> {
     tracing::info!("Starting reconcile");
     let client = &ctx.client;
@@ -423,8 +415,4 @@ pub async fn reconcile_druid(druid: Arc<DruidCluster>, ctx: Arc<Ctx>) -> Result<
         .context(DeleteOrphanedResourcesSnafu)?;
 
     Ok(Action::await_change())
-}
-
-pub fn error_policy(_obj: Arc<DruidCluster>, _error: &Error, _ctx: Arc<Ctx>) -> Action {
-    Action::requeue(Duration::from_secs(5))
 }
