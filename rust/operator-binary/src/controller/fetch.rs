@@ -11,7 +11,10 @@ use stackable_operator::{
 use std::{ops::Deref, sync::Arc};
 use strum::{EnumDiscriminants, IntoStaticStr};
 
-use super::{types::FetchedAdditionalData, DOCKER_IMAGE_BASE_NAME};
+use super::{
+    build::product_logging::resolve_vector_aggregator_address, types::FetchedAdditionalData,
+    DOCKER_IMAGE_BASE_NAME,
+};
 
 #[derive(Snafu, Debug, EnumDiscriminants)]
 #[strum_discriminants(derive(IntoStaticStr))]
@@ -49,6 +52,10 @@ pub enum Error {
     #[snafu(display("failed to initialize security context"))]
     FailedToInitializeSecurityContext {
         source: stackable_druid_crd::security::Error,
+    },
+    #[snafu(display("failed to resolve the Vector aggregator address"))]
+    ResolveVectorAggregatorAddress {
+        source: super::build::product_logging::Error,
     },
 }
 
