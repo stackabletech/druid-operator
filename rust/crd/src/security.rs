@@ -378,27 +378,29 @@ impl DruidTlsSecurity {
     }
 
     pub fn build_tls_key_stores_cmd(&self) -> Vec<String> {
-        let mut commands = vec![
-            format!(
-                "echo Cleaning up truststore [{STACKABLE_TLS_DIR}/truststore.p12] - just in case"
-            ),
-            format!("rm -f {STACKABLE_TLS_DIR}/truststore.p12"),
-            format!("keytool -importkeystore -srckeystore {SYSTEM_TRUST_STORE} -srcstoretype jks -srcstorepass {SYSTEM_TRUST_STORE_PASSWORD} -destkeystore {STACKABLE_TLS_DIR}/truststore.p12 -deststoretype pkcs12 -deststorepass {TLS_STORE_PASSWORD} -noprompt")
-        ];
-        if self.tls_enabled() {
-            commands.extend(add_cert_to_trust_store_cmd(
-                &format!("{}/ca.crt", STACKABLE_MOUNT_TLS_DIR),
-                STACKABLE_TLS_DIR,
-                TLS_ALIAS_NAME,
-                TLS_STORE_PASSWORD,
-            ));
-            commands.extend(add_key_pair_to_key_store_cmd(
-                STACKABLE_MOUNT_TLS_DIR,
-                STACKABLE_TLS_DIR,
-                TLS_ALIAS_NAME,
-                TLS_STORE_PASSWORD,
-            ));
+        if !self.tls_enabled() {
+            return vec![];
         }
+
+        let mut commands = vec![
+                format!(
+                    "echo Cleaning up truststore [{STACKABLE_TLS_DIR}/truststore.p12] - just in case"
+                ),
+                format!("rm -f {STACKABLE_TLS_DIR}/truststore.p12"),
+                format!("keytool -importkeystore -srckeystore {SYSTEM_TRUST_STORE} -srcstoretype jks -srcstorepass {SYSTEM_TRUST_STORE_PASSWORD} -destkeystore {STACKABLE_TLS_DIR}/truststore.p12 -deststoretype pkcs12 -deststorepass {TLS_STORE_PASSWORD} -noprompt"),
+            ];
+        commands.extend(add_cert_to_trust_store_cmd(
+            &format!("{}/ca.crt", STACKABLE_MOUNT_TLS_DIR),
+            STACKABLE_TLS_DIR,
+            TLS_ALIAS_NAME,
+            TLS_STORE_PASSWORD,
+        ));
+        commands.extend(add_key_pair_to_key_store_cmd(
+            STACKABLE_MOUNT_TLS_DIR,
+            STACKABLE_TLS_DIR,
+            TLS_ALIAS_NAME,
+            TLS_STORE_PASSWORD,
+        ));
         commands
     }
 
