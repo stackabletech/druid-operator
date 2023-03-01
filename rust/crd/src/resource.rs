@@ -19,6 +19,9 @@ use stackable_operator::{
 };
 use strum::{EnumDiscriminants, IntoStaticStr};
 
+// volume names
+const SEGMENT_CACHE_VOLUME_NAME: &str = "segment-cache";
+
 /// This Error cannot derive PartialEq because fragment::ValidationError doesn't derive it
 #[derive(Snafu, Debug, EnumDiscriminants)]
 #[strum_discriminants(derive(IntoStaticStr))]
@@ -87,9 +90,9 @@ impl RoleResource {
 
     pub fn update_volumes_and_volume_mounts(&self, cb: &mut ContainerBuilder, pb: &mut PodBuilder) {
         if let Self::Historical(r) = self {
-            cb.add_volume_mount("segment-cache", PATH_SEGMENT_CACHE);
+            cb.add_volume_mount(SEGMENT_CACHE_VOLUME_NAME, PATH_SEGMENT_CACHE);
             pb.add_volume(
-                VolumeBuilder::new("segment-cache")
+                VolumeBuilder::new(SEGMENT_CACHE_VOLUME_NAME)
                     .empty_dir(EmptyDirVolumeSource {
                         medium: r.storage.segment_cache.empty_dir.medium.clone(),
                         size_limit: Some(r.storage.segment_cache.empty_dir.capacity.clone()),

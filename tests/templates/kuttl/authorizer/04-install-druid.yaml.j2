@@ -1,0 +1,99 @@
+---
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+metadata:
+  name: install-druid
+timeout: 600
+---
+apiVersion: druid.stackable.tech/v1alpha1
+kind: DruidCluster
+metadata:
+  name: derby-druid
+spec:
+  image:
+    productVersion: "{{ test_scenario['values']['druid'].split('-stackable')[0] }}"
+    stackableVersion: "{{ test_scenario['values']['druid'].split('-stackable')[1] }}"
+  clusterConfig:
+    authorization:
+      opa:
+        configMapName: test-opa
+        package: druid
+    deepStorage:
+      hdfs:
+        configMapName: druid-hdfs
+        directory: /druid
+    metadataStorageDatabase:
+      dbType: derby
+      connString: jdbc:derby://localhost:1527/var/druid/metadata.db;create=true
+      host: localhost
+      port: 1527
+{% if lookup('env', 'VECTOR_AGGREGATOR') %}
+    vectorAggregatorConfigMapName: vector-aggregator-discovery
+{% endif %}
+    zookeeperConfigMapName: druid-znode
+  brokers:
+    config:
+      logging:
+        enableVectorAgent: {{ lookup('env', 'VECTOR_AGGREGATOR') | length > 0 }}
+    configOverrides:
+      runtime.properties: &runtime-properties
+        druid.auth.authenticatorChain: "[\"MyBasicMetadataAuthenticator\"]"
+        druid.auth.authenticator.MyBasicMetadataAuthenticator.type: basic
+
+        # Default password for 'admin' user, should be changed for production.
+        druid.auth.authenticator.MyBasicMetadataAuthenticator.initialAdminPassword: password1
+
+        # Default password for internal 'druid_system' user, should be changed for production.
+        druid.auth.authenticator.MyBasicMetadataAuthenticator.initialInternalClientPassword: password2
+
+        # Uses the metadata store for storing users, you can use authentication API to create new users and grant permissions
+        druid.auth.authenticator.MyBasicMetadataAuthenticator.credentialsValidator.type: metadata
+
+        # If true and the request credential doesn't exists in this credentials store, the request will proceed to next Authenticator in the chain.
+        druid.auth.authenticator.MyBasicMetadataAuthenticator.skipOnFailure: "false"
+        druid.auth.authenticator.MyBasicMetadataAuthenticator.authorizerName: OpaAuthorizer
+
+        # Escalator
+        druid.escalator.type: basic
+        druid.escalator.internalClientUsername: druid_system
+        druid.escalator.internalClientPassword: password2
+        druid.escalator.authorizerName: OpaAuthorizer
+    roleGroups:
+      default:
+        replicas: 1
+  coordinators:
+    config:
+      logging:
+        enableVectorAgent: {{ lookup('env', 'VECTOR_AGGREGATOR') | length > 0 }}
+    configOverrides:
+      runtime.properties: *runtime-properties
+    roleGroups:
+      default:
+        replicas: 1
+  historicals:
+    config:
+      logging:
+        enableVectorAgent: {{ lookup('env', 'VECTOR_AGGREGATOR') | length > 0 }}
+    configOverrides:
+      runtime.properties: *runtime-properties
+    roleGroups:
+      default:
+        replicas: 1
+  middleManagers:
+    config:
+      logging:
+        enableVectorAgent: {{ lookup('env', 'VECTOR_AGGREGATOR') | length > 0 }}
+    configOverrides:
+      runtime.properties: *runtime-properties
+    roleGroups:
+      default:
+        replicas: 1
+  routers:
+    config:
+      logging:
+        enableVectorAgent: {{ lookup('env', 'VECTOR_AGGREGATOR') | length > 0 }}
+    configOverrides:
+      runtime.properties: *runtime-properties
+    roleGroups:
+      default:
+        replicas: 1

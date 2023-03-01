@@ -1,6 +1,12 @@
 ---
 apiVersion: kuttl.dev/v1beta1
 kind: TestAssert
-commands:
-  - script: kubectl exec -n $NAMESPACE checks-0 -- python /tmp/authcheck.py derby-druid
-timeout: 600
+timeout: 300
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: checks
+status:
+  readyReplicas: 1
+  replicas: 1
