@@ -4,18 +4,17 @@ kind: TestStep
 metadata:
   name: openldap
 commands:
-  # AuthenticationClass hostname requires an explicit namespace to work (so that tls cert matches)
   - script: |
       kubectl apply -n $NAMESPACE -f - <<EOF
       ---
       apiVersion: authentication.stackable.tech/v1alpha1
       kind: AuthenticationClass
       metadata:
-        name: druid-ldap-auth-class
+        name: druid-ldap-auth-class-$NAMESPACE # As the AuthenticationClass has cluster scope and we have mutiple tests running in parallel we need to name them uniquely
       spec:
         provider:
           ldap:
-            hostname: openldap.$NAMESPACE.svc.cluster.local
+            hostname: openldap.$NAMESPACE.svc.cluster.local # Need to use fqdn so that tls cert matches
             searchBase: ou=users,dc=example,dc=org
             searchFilter: (uid=%s)
 {% if test_scenario['values']['ldap-use-tls'] == 'false' %}
