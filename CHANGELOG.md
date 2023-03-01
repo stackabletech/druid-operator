@@ -8,6 +8,7 @@ All notable changes to this project will be documented in this file.
 
 - Add support for non-TLS LDAP authentication. ([#374])
 - Deploy default and support custom affinities ([#406]).
+- Log aggregation added ([#407]).
 
 ### Changed
 
@@ -24,6 +25,7 @@ All notable changes to this project will be documented in this file.
 [#387]: https://github.com/stackabletech/druid-operator/pull/387
 [#404]: https://github.com/stackabletech/druid-operator/pull/404
 [#406]: https://github.com/stackabletech/druid-operator/pull/406
+[#407]: https://github.com/stackabletech/druid-operator/pull/407
 
 ## [23.1.0] - 2023-01-23
 

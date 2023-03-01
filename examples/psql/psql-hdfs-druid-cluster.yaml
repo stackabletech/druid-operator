@@ -6,7 +6,7 @@ metadata:
 spec:
   image:
     productVersion: 3.8.0
-    stackableVersion: 0.8.0
+    stackableVersion: 23.4.0-rc2
   servers:
     roleGroups:
       default:
@@ -35,7 +35,7 @@ metadata:
 spec:
   image:
     productVersion: 3.3.4
-    stackableVersion: 0.2.0
+    stackableVersion: 23.4.0-rc2
   zookeeperConfigMapName: psql-druid-znode
   dfsReplication: 1
   nameNodes:
@@ -58,7 +58,7 @@ metadata:
 spec:
   image:
     productVersion: 24.0.0
-    stackableVersion: 0.3.0
+    stackableVersion: 23.4.0-rc2
   clusterConfig:
     deepStorage:
       hdfs:

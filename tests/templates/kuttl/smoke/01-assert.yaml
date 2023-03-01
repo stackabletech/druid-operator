@@ -1,17 +1,12 @@
 ---
 apiVersion: kuttl.dev/v1beta1
 kind: TestAssert
-timeout: 300
+timeout: 480
 ---
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: druid-zk-server-default
+  name: druid-postgresql
 status:
   readyReplicas: 1
   replicas: 1
----
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: hdfs-znode

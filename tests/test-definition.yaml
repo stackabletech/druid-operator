@@ -94,3 +94,8 @@ tests:
       - hadoop-latest
       - ldap-use-tls
       - ldap-no-bind-credentials
+  - name: logging
+    dimensions:
+      - druid
+      - hadoop
+      - zookeeper-latest
