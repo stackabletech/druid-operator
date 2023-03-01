@@ -682,15 +682,17 @@ fn build_rolegroup_statefulset(
     })?;
 
     // init container builder
-    let mut cb_prepare = ContainerBuilder::new(&Container::Prepare.to_string()).context(
+    let prepare_container_name = Container::Prepare.to_string();
+    let mut cb_prepare = ContainerBuilder::new(&prepare_container_name).context(
         FailedContainerBuilderCreationSnafu {
-            name: Container::Prepare.to_string(),
+            name: &prepare_container_name,
         },
     )?;
     // druid container builder
-    let mut cb_druid = ContainerBuilder::new(&Container::Druid.to_string()).context(
+    let druid_container_name = Container::Druid.to_string();
+    let mut cb_druid = ContainerBuilder::new(&druid_container_name).context(
         FailedContainerBuilderCreationSnafu {
-            name: Container::Druid.to_string(),
+            name: &druid_container_name,
         },
     )?;
     // init pod builder
@@ -744,7 +746,7 @@ fn build_rolegroup_statefulset(
     {
         prepare_container_command.push(product_logging::framework::capture_shell_output(
             LOG_DIR,
-            &Container::Prepare.to_string(),
+            &prepare_container_name,
             log_config,
         ));
     }
