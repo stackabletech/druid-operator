@@ -2,14 +2,14 @@
 dimensions:
   - name: druid
     values:
-      # - 0.23.0-stackable23.4.0-rc2
+      - 0.23.0-stackable23.4.0-rc2
       - 24.0.0-stackable23.4.0-rc2
   - name: druid-latest
     values:
       - 24.0.0-stackable23.4.0-rc2
   - name: zookeeper
     values:
-      # - 3.7.0-stackable23.4.0-rc2
+      - 3.7.0-stackable23.4.0-rc2
       - 3.8.0-stackable23.4.0-rc2
   - name: zookeeper-latest
     values:
@@ -35,10 +35,10 @@ dimensions:
   - name: ldap-use-tls
     values:
       - "true"
-      # - "false"
+      - "false"
   - name: ldap-no-bind-credentials
     values:
-      # - "true" # disabled, as anonymous ldap usage does not seem to be supported in druid
+      # - "true" # Disabled, as anonymous ldap usage does not seem to be supported in druid. See https://github.com/stackabletech/druid-operator/issues/383
       - "false"
 tests:
   - name: smoke
