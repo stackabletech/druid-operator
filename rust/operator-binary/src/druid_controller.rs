@@ -677,7 +677,7 @@ fn build_rolegroup_statefulset(
         role: rolegroup_ref.role.to_string(),
     })?;
 
-    // init container builder
+    // prepare container builder
     let prepare_container_name = Container::Prepare.to_string();
     let mut cb_prepare = ContainerBuilder::new(&prepare_container_name).context(
         FailedContainerBuilderCreationSnafu {
@@ -710,7 +710,7 @@ fn build_rolegroup_statefulset(
             .ldap
             .add_volumes_and_mounts(&mut pb, vec![&mut cb_druid, &mut cb_prepare]);
 
-        prepare_container_commands.extend(ldap_settings.init_container_commands());
+        prepare_container_commands.extend(ldap_settings.prepare_container_commands());
         main_container_commands.extend(ldap_settings.main_container_commands());
     }
 

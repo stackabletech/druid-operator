@@ -213,7 +213,7 @@ impl DruidLdapSettings {
         commands
     }
 
-    pub fn init_container_commands(&self) -> Vec<String> {
+    pub fn prepare_container_commands(&self) -> Vec<String> {
         let mut commands = vec![];
 
         if let Some(tls_ca_cert_mount_path) = self.ldap.tls_ca_cert_mount_path() {
