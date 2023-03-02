@@ -1307,15 +1307,7 @@ spec:
                             description: |-
                               The AuthenticationClass <https://docs.stackable.tech/home/nightly/concepts/authenticationclass.html> to use.
 
-                              ## TLS provider
-
-                              Only affects client connections. This setting controls: - If clients need to authenticate themselves against Druid via TLS - Which ca.crt to use when validating the provided client certs
-
-                              Please note that the SecretClass used to authenticate users needs to be the same as the SecretClass used for internal communication.
-
-                              ## LDAP provider
-
-                              Only affects client connections. This setting controls: - If clients need to authenticate themselves against Druid via LDAP - Which ca.crt to use when validating the provided client certs (currently not supported)
+                              ## TLS provider Please note that the SecretClass used to authenticate users needs to be the same as the SecretClass used for internal communication.
                             type: string
                         required:
                           - authenticationClass

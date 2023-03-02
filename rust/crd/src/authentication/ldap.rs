@@ -2,12 +2,18 @@ use std::collections::BTreeMap;
 
 use stackable_operator::commons::authentication::AuthenticationClassProvider;
 use stackable_operator::commons::ldap::LdapAuthenticationProvider;
+use stackable_operator::kube::ResourceExt;
 
 use crate::authentication::ResolvedAuthenticationClasses;
+use crate::{
+    security::{add_cert_to_trust_store_cmd, STACKABLE_TLS_DIR, TLS_STORE_PASSWORD},
+    ENV_INTERNAL_SECRET, RUNTIME_PROPS, RW_CONFIG_DIRECTORY,
+};
 
 #[derive(Clone, Debug)]
 pub struct DruidLdapSettings {
     pub ldap: LdapAuthenticationProvider,
+    pub authentication_class_name: String,
 }
 
 pub const PLACEHOLDER_INTERNAL_CLIENT_PASSWORD: &str =
@@ -27,6 +33,7 @@ impl DruidLdapSettings {
             {
                 return Some(DruidLdapSettings {
                     ldap: provider.clone(),
+                    authentication_class_name: authentication_class.name_unchecked(),
                 });
             }
         }
@@ -73,15 +80,14 @@ impl DruidLdapSettings {
             Some(self.credentials_validator_url()),
         );
 
-        // we only add these lines if bind credentials are configured
         if self.ldap.bind_credentials.is_some() {
             config.insert(
                 format!("{PREFIX}.credentialsValidator.bindUser"),
-                Some(PLACEHOLDER_LDAP_BIND_USER.to_string()), // NOTE: this placeholder will be replaced from a mounted secret on container startup
+                Some(PLACEHOLDER_LDAP_BIND_USER.to_string()), // NOTE: this placeholder will be replaced from a mounted secret operator volume on container startup
             );
             config.insert(
                 format!("{PREFIX}.credentialsValidator.bindPassword"),
-                Some(PLACEHOLDER_LDAP_BIND_PASSWORD.to_string()), // NOTE: this placeholder will be replaced from a mounted secret on container startup
+                Some(PLACEHOLDER_LDAP_BIND_PASSWORD.to_string()), // NOTE: this placeholder will be replaced from a mounted secret operator volume on container startup
             );
         }
 
@@ -177,6 +183,50 @@ impl DruidLdapSettings {
         let (protocol, port) = self.get_ldap_protocol_and_port();
         format!("{}://{}:{}", protocol, self.ldap.hostname, port,)
     }
+
+    pub fn main_container_commands(&self) -> Vec<String> {
+        let mut commands = Vec::new();
+
+        let runtime_properties_file: String = format!("{RW_CONFIG_DIRECTORY}/{RUNTIME_PROPS}");
+        let internal_client_password = format!("$(echo ${ENV_INTERNAL_SECRET})");
+
+        commands
+                .push(format!("echo \"Replacing LDAP placeholders with their proper values in {runtime_properties_file}\""));
+        commands.push(format!(
+            r#"sed "s|{PLACEHOLDER_INTERNAL_CLIENT_PASSWORD}|{internal_client_password}|g" -i {runtime_properties_file}"# // using another delimiter (|) here because of base64 string
+        ));
+
+        if let Some((ldap_bind_user_path, ldap_bind_password_path)) =
+            self.ldap.bind_credentials_mount_paths()
+        {
+            let ldap_bind_user = format!("$(cat {ldap_bind_user_path})");
+            let ldap_bind_password = format!("$(cat {ldap_bind_password_path})");
+
+            commands.push(format!(
+                    r#"sed "s/{PLACEHOLDER_LDAP_BIND_USER}/{ldap_bind_user}/g" -i {runtime_properties_file}"#
+                ));
+            commands.push(format!(
+                    r#"sed "s/{PLACEHOLDER_LDAP_BIND_PASSWORD}/{ldap_bind_password}/g" -i {runtime_properties_file}"#
+                ));
+        }
+
+        commands
+    }
+
+    pub fn prepare_container_commands(&self) -> Vec<String> {
+        let mut commands = vec![];
+
+        if let Some(tls_ca_cert_mount_path) = self.ldap.tls_ca_cert_mount_path() {
+            commands.extend(add_cert_to_trust_store_cmd(
+                &tls_ca_cert_mount_path,
+                STACKABLE_TLS_DIR,
+                &format!("ldap-{}", self.authentication_class_name),
+                TLS_STORE_PASSWORD,
+            ));
+        }
+
+        commands
+    }
 }
 
 #[cfg(test)]
@@ -196,6 +246,7 @@ mod test {
                 bind_credentials: None,
                 tls: None,
             },
+            authentication_class_name: "ldap".to_string(),
         };
 
         let got = ldap_settings.generate_runtime_properties_config();
