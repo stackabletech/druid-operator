@@ -13,7 +13,7 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
-- Upgrade to `operator-rs` `0.36.0` ([#374], [#380], [#404], [#406])
+- Upgrade to `operator-rs` `0.36.1` ([#374], [#380], [#404], [#406], [#408])
 - Merging and validation of the configuration refactored ([#404]).
 
 ### Fixed
