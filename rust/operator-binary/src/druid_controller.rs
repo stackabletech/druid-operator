@@ -750,8 +750,6 @@ fn build_rolegroup_statefulset(
         ));
     }
 
-    prepare_container_commands.extend(druid_tls_security.build_tls_key_stores_cmd());
-
     cb_prepare
         .image_from_product_image(resolved_product_image)
         .command(vec!["/bin/bash".to_string(), "-c".to_string()])
