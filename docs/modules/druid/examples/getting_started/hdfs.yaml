@@ -7,8 +7,9 @@ spec:
   image:
     productVersion: 3.3.4
     stackableVersion: 23.4.0-rc2
-  zookeeperConfigMapName: simple-hdfs-znode
-  dfsReplication: 3
+  clusterConfig:
+    dfsReplication: 1
+    zookeeperConfigMapName: simple-hdfs-znode
   nameNodes:
     roleGroups:
       default:
