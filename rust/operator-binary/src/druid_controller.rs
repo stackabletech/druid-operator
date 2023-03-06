@@ -695,8 +695,24 @@ fn build_rolegroup_statefulset(
     let mut pb = PodBuilder::new();
     pb.affinity(&merged_rolegroup_config.affinity);
 
-    let mut prepare_container_commands = druid_tls_security.build_tls_key_stores_cmd();
     let mut main_container_commands = role.main_container_prepare_commands(s3_conn);
+    let mut prepare_container_commands = vec![];
+    if let Some(ContainerLogConfig {
+        choice: Some(ContainerLogConfigChoice::Automatic(log_config)),
+    }) = merged_rolegroup_config
+        .logging
+        .containers
+        .get(&Container::Prepare)
+    {
+        // This command needs to be added at the beginning of the shell commands,
+        // otherwise the output of the following commands will not be captured!
+        prepare_container_commands.push(product_logging::framework::capture_shell_output(
+            LOG_DIR,
+            &prepare_container_name,
+            log_config,
+        ));
+    }
+    prepare_container_commands.extend(druid_tls_security.build_tls_key_stores_cmd());
 
     if let Some(ldap_settings) = ldap_settings {
         // TODO: Connecting to an LDAP server without bind credentials does not seem to be configurable in Druid at the moment
@@ -735,22 +751,6 @@ fn build_rolegroup_statefulset(
     merged_rolegroup_config
         .resources
         .update_volumes_and_volume_mounts(&mut cb_druid, &mut pb);
-
-    if let Some(ContainerLogConfig {
-        choice: Some(ContainerLogConfigChoice::Automatic(log_config)),
-    }) = merged_rolegroup_config
-        .logging
-        .containers
-        .get(&Container::Prepare)
-    {
-        prepare_container_commands.push(product_logging::framework::capture_shell_output(
-            LOG_DIR,
-            &prepare_container_name,
-            log_config,
-        ));
-    }
-
-    prepare_container_commands.extend(druid_tls_security.build_tls_key_stores_cmd());
 
     cb_prepare
         .image_from_product_image(resolved_product_image)
