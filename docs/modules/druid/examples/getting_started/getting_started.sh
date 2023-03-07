@@ -27,22 +27,22 @@ helm repo add stackable-dev https://repo.stackable.tech/repository/helm-dev/
 # end::helm-add-repo[]
 echo "Installing Operators with Helm"
 # tag::helm-install-operators[]
-helm install --wait commons-operator stackable-dev/commons-operator --version 0.5.0-nightly
-helm install --wait secret-operator stackable-dev/secret-operator --version 0.7.0-nightly
-helm install --wait zookeeper-operator stackable-dev/zookeeper-operator --version 0.13.0-nightly
-helm install --wait hdfs-operator stackable-dev/hdfs-operator --version 0.7.0-nightly
-helm install --wait druid-operator stackable-dev/druid-operator --version 0.9.0-nightly
+helm install --wait commons-operator stackable-dev/commons-operator --version 0.0.0-dev
+helm install --wait secret-operator stackable-dev/secret-operator --version 0.0.0-dev
+helm install --wait zookeeper-operator stackable-dev/zookeeper-operator --version 0.0.0-dev
+helm install --wait hdfs-operator stackable-dev/hdfs-operator --version 0.0.0-dev
+helm install --wait druid-operator stackable-dev/druid-operator --version 0.0.0-dev
 # end::helm-install-operators[]
 ;;
 "stackablectl")
 echo "installing Operators with stackablectl"
 # tag::stackablectl-install-operators[]
 stackablectl operator install \
-  commons=0.5.0-nightly \
-  secret=0.7.0-nightly \
-  zookeeper=0.13.0-nightly \
-  hdfs=0.7.0-nightly \
-  druid=0.9.0-nightly
+  commons=0.0.0-dev \
+  secret=0.0.0-dev \
+  zookeeper=0.0.0-dev \
+  hdfs=0.0.0-dev \
+  druid=0.0.0-dev
 # end::stackablectl-install-operators[]
 ;;
 *)
@@ -68,7 +68,7 @@ done
 
 echo "Awaiting ZooKeeper rollout finish"
 # tag::watch-zookeeper-rollout[]
-kubectl rollout status --watch statefulset/simple-zk-server-default
+kubectl rollout status --watch statefulset/simple-zk-server-default --timeout=300s
 # end::watch-zookeeper-rollout[]
 
 echo "Installing HDFS from hdfs.yaml"
@@ -88,9 +88,9 @@ done
 
 echo "Awaiting HDFS rollout finish"
 # tag::watch-hdfs-rollout[]
-kubectl rollout status --watch statefulset/simple-hdfs-datanode-default
-kubectl rollout status --watch statefulset/simple-hdfs-journalnode-default
-kubectl rollout status --watch statefulset/simple-hdfs-namenode-default
+kubectl rollout status --watch statefulset/simple-hdfs-datanode-default --timeout=300s
+kubectl rollout status --watch statefulset/simple-hdfs-journalnode-default --timeout=300s
+kubectl rollout status --watch statefulset/simple-hdfs-namenode-default --timeout=300s
 # end::watch-hdfs-rollout[]
 
 echo "Install DruidCluster from druid.yaml"
@@ -110,11 +110,11 @@ done
 
 echo "Awaiting Druid rollout finish"
 # tag::watch-druid-rollout[]
-kubectl rollout status --watch statefulset/simple-druid-broker-default
-kubectl rollout status --watch statefulset/simple-druid-coordinator-default
-kubectl rollout status --watch statefulset/simple-druid-historical-default
-kubectl rollout status --watch statefulset/simple-druid-middlemanager-default
-kubectl rollout status --watch statefulset/simple-druid-router-default
+kubectl rollout status --watch statefulset/simple-druid-broker-default --timeout=300s
+kubectl rollout status --watch statefulset/simple-druid-coordinator-default --timeout=300s
+kubectl rollout status --watch statefulset/simple-druid-historical-default --timeout=300s
+kubectl rollout status --watch statefulset/simple-druid-middlemanager-default --timeout=300s
+kubectl rollout status --watch statefulset/simple-druid-router-default --timeout=300s
 # end::watch-druid-rollout[]
 
 echo "Starting port-forwarding of port 8888"
