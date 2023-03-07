@@ -28,8 +28,9 @@ spec:
   image:
     productVersion: 3.3.4
     stackableVersion: 23.4.0-rc2
-  zookeeperConfigMapName: druid-hdfs-znode
-  dfsReplication: 1
+  clusterConfig:
+    dfsReplication: 1
+    zookeeperConfigMapName: druid-hdfs-znode
   nameNodes:
     roleGroups:
       default:
