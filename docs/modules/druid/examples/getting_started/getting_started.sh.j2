@@ -25,6 +25,8 @@ echo "Adding '{{ helm.repo_name }}' Helm Chart repository"
 # tag::helm-add-repo[]
 helm repo add {{ helm.repo_name }} {{ helm.repo_url }}
 # end::helm-add-repo[]
+echo "Updating Helm repo"
+helm repo update
 echo "Installing Operators with Helm"
 # tag::helm-install-operators[]
 helm install --wait commons-operator {{ helm.repo_name }}/commons-operator --version {{ versions.commons }}
@@ -68,7 +70,7 @@ done
 
 echo "Awaiting ZooKeeper rollout finish"
 # tag::watch-zookeeper-rollout[]
-kubectl rollout status --watch statefulset/simple-zk-server-default
+kubectl rollout status --watch statefulset/simple-zk-server-default --timeout=300s
 # end::watch-zookeeper-rollout[]
 
 echo "Installing HDFS from hdfs.yaml"
@@ -88,9 +90,9 @@ done
 
 echo "Awaiting HDFS rollout finish"
 # tag::watch-hdfs-rollout[]
-kubectl rollout status --watch statefulset/simple-hdfs-datanode-default
-kubectl rollout status --watch statefulset/simple-hdfs-journalnode-default
-kubectl rollout status --watch statefulset/simple-hdfs-namenode-default
+kubectl rollout status --watch statefulset/simple-hdfs-datanode-default --timeout=300s
+kubectl rollout status --watch statefulset/simple-hdfs-journalnode-default --timeout=300s
+kubectl rollout status --watch statefulset/simple-hdfs-namenode-default --timeout=300s
 # end::watch-hdfs-rollout[]
 
 echo "Install DruidCluster from druid.yaml"
@@ -110,11 +112,11 @@ done
 
 echo "Awaiting Druid rollout finish"
 # tag::watch-druid-rollout[]
-kubectl rollout status --watch statefulset/simple-druid-broker-default
-kubectl rollout status --watch statefulset/simple-druid-coordinator-default
-kubectl rollout status --watch statefulset/simple-druid-historical-default
-kubectl rollout status --watch statefulset/simple-druid-middlemanager-default
-kubectl rollout status --watch statefulset/simple-druid-router-default
+kubectl rollout status --watch statefulset/simple-druid-broker-default --timeout=300s
+kubectl rollout status --watch statefulset/simple-druid-coordinator-default --timeout=300s
+kubectl rollout status --watch statefulset/simple-druid-historical-default --timeout=300s
+kubectl rollout status --watch statefulset/simple-druid-middlemanager-default --timeout=300s
+kubectl rollout status --watch statefulset/simple-druid-router-default --timeout=300s
 # end::watch-druid-rollout[]
 
 echo "Starting port-forwarding of port 8888"
