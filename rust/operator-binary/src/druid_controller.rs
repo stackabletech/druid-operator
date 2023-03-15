@@ -23,6 +23,7 @@ use stackable_druid_crd::{
     S3_PATH_STYLE_ACCESS, S3_SECRET_DIR_NAME, ZOOKEEPER_CONNECTION_STRING,
 };
 use stackable_druid_crd::{build_recommended_labels, Container, ENV_INTERNAL_SECRET};
+use stackable_operator::k8s_openapi::api::core::v1::VolumeMount;
 use stackable_operator::{
     builder::{
         ConfigMapBuilder, ContainerBuilder, ObjectMetaBuilder, PodBuilder,
@@ -66,7 +67,6 @@ use std::{
     sync::Arc,
     time::Duration,
 };
-use stackable_operator::k8s_openapi::api::core::v1::VolumeMount;
 use strum::{EnumDiscriminants, IntoStaticStr};
 
 pub const CONTROLLER_NAME: &str = "druidcluster";

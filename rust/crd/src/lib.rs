@@ -15,6 +15,7 @@ use authorization::DruidAuthorization;
 use resource::RoleResource;
 use serde::{Deserialize, Serialize};
 use snafu::{OptionExt, ResultExt, Snafu};
+use stackable_operator::k8s_openapi::api::core::v1::Volume;
 use stackable_operator::{
     client::Client,
     commons::{
@@ -38,7 +39,6 @@ use stackable_operator::{
     schemars::{self, JsonSchema},
 };
 use std::collections::{BTreeMap, HashMap};
-use stackable_operator::k8s_openapi::api::core::v1::Volume;
 use strum::{Display, EnumDiscriminants, EnumIter, EnumString, IntoStaticStr};
 use tls::default_druid_tls;
 
