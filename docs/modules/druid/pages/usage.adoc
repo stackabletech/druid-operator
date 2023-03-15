@@ -575,3 +575,23 @@ To address this, some affinities will be created to attract these roles:
 *For coordinators:*
 
 - No affinities
+
+
+=== Adding External Files to MiddleManagers for Ingestion
+
+Since Druid actively runs ingestion tasks there may be a need to make extra files available to the processes.
+
+These could for example be client certificates used to connect to a Kafka cluster, a keytab to obtain a Kerberos ticket, or similar things.
+
+In order to make these files available the operator allows specifying extra volumes that will be added to the MiddleManager pods deployed for this cluster.
+
+[source,yaml]
+----
+spec:
+  extraVolumes:
+  - configMap:
+      name: druid-client-certs
+    name: certs
+----
+
+All `Volumes` specified in this section will be made available under `/stackable/userdata/{volumename}`.

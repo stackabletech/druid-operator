@@ -38,6 +38,7 @@ use stackable_operator::{
     schemars::{self, JsonSchema},
 };
 use std::collections::{BTreeMap, HashMap};
+use stackable_operator::k8s_openapi::api::core::v1::Volume;
 use strum::{Display, EnumDiscriminants, EnumIter, EnumString, IntoStaticStr};
 use tls::default_druid_tls;
 
@@ -180,6 +181,12 @@ pub struct DruidClusterSpec {
     pub routers: Role<RouterConfigFragment>,
     /// Common cluster wide configuration that can not differ or be overridden on a role or role group level
     pub cluster_config: DruidClusterConfig,
+    /// Extra volumes to mount into every container, this can be useful to for example make client
+    /// certificates, keytabs or similar things available to processors
+    /// These volumes will be mounted into the MiddleManager pods, as these are the ones actually
+    /// running ingestion tasks, for which this will be needed
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub extra_volumes: Vec<Volume>,
 }
 
 #[derive(

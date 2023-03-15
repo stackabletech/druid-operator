@@ -66,6 +66,7 @@ use std::{
     sync::Arc,
     time::Duration,
 };
+use stackable_operator::k8s_openapi::api::core::v1::VolumeMount;
 use strum::{EnumDiscriminants, IntoStaticStr};
 
 pub const CONTROLLER_NAME: &str = "druidcluster";
@@ -78,6 +79,7 @@ const HDFS_CONFIG_VOLUME_NAME: &str = "hdfs";
 const LOG_CONFIG_VOLUME_NAME: &str = "log-config";
 const LOG_VOLUME_NAME: &str = "log";
 const RW_CONFIG_VOLUME_NAME: &str = "rwconfig";
+const USERDATA_MOUNTPOINT: &str = "/stackable/userdata";
 
 pub struct Ctx {
     pub client: stackable_operator::client::Client,
@@ -788,6 +790,35 @@ fn build_rolegroup_statefulset(
         // 10s * 3 = 30s to be restarted
         .liveness_probe(druid_tls_security.get_tcp_socket_probe(10, 10, 3, 3))
         .resources(merged_rolegroup_config.resources.as_resource_requirements());
+
+    // Add extra mounts if any are specified and the current role is MiddleManager
+    // Extra mounts may be needed for ingestion to add required certificates, truststores or similar
+    // files.
+    // Since ingestion tasks only run on MiddleManagers it is enough to add these in that case
+    // and not needlessly propagate those files to more pods than needed
+    if role == DruidRole::MiddleManager && !druid.spec.extra_volumes.is_empty() {
+        let extra_volumes = &druid.spec.extra_volumes;
+        let volume_names: Vec<String> = extra_volumes
+            .clone()
+            .into_iter()
+            .map(|volume| volume.name)
+            .collect();
+        tracing::info!(
+            ?volume_names,
+            extra_volumes_mount_point = USERDATA_MOUNTPOINT,
+            ?role,
+            "Found user-specified extra volumes",
+        );
+        pb.add_volumes(extra_volumes.clone());
+        cb_druid.add_volume_mounts(extra_volumes.iter().map(|volume| VolumeMount {
+            mount_path: format!("{USERDATA_MOUNTPOINT}/{0}", volume.name),
+            mount_propagation: None,
+            name: volume.name.clone(),
+            read_only: None,
+            sub_path: None,
+            sub_path_expr: None,
+        }));
+    }
 
     pb.image_pull_secrets_from_product_image(resolved_product_image)
         .add_init_container(cb_prepare.build())
