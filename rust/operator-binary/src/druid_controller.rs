@@ -800,27 +800,20 @@ fn build_rolegroup_statefulset(
     // propagating potentially confidential files throughout the cluster
     if !druid.spec.extra_volumes.is_empty() {
         let extra_volumes = &druid.spec.extra_volumes;
-        let volume_names: Vec<String> = extra_volumes
-            .clone()
-            .into_iter()
-            .map(|volume| volume.name)
-            .collect();
+        let volume_names: Vec<_> = extra_volumes.iter().map(|volume| &volume.name).collect();
         tracing::info!(
             ?volume_names,
             extra_volumes_mount_point = USERDATA_MOUNTPOINT,
             ?role,
             "Found user-specified extra volumes",
         );
-        pb.add_volumes(extra_volumes.clone());
-        cb_druid.add_volume_mounts(extra_volumes.iter().map(|volume| VolumeMount {
-            mount_path: format!("{USERDATA_MOUNTPOINT}/{0}", volume.name),
-            mount_propagation: None,
-            name: volume.name.clone(),
-            read_only: None,
-            sub_path: None,
-            sub_path_expr: None,
-        }));
-    }
+        for volume in extra_volumes {
+            pb.add_volume(volume.clone());
+            cb_druid.add_volume_mount(
+                &volume.name,
+                format!("{USERDATA_MOUNTPOINT}/{}", volume.name),
+            );
+        }
 
     pb.image_pull_secrets_from_product_image(resolved_product_image)
         .add_init_container(cb_prepare.build())
