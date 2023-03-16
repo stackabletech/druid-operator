@@ -15,6 +15,7 @@ use authorization::DruidAuthorization;
 use resource::RoleResource;
 use serde::{Deserialize, Serialize};
 use snafu::{OptionExt, ResultExt, Snafu};
+use stackable_operator::k8s_openapi::api::core::v1::Volume;
 use stackable_operator::{
     client::Client,
     commons::{
@@ -230,6 +231,11 @@ pub struct DruidClusterConfig {
     /// It must contain the key `ADDRESS` with the address of the Vector aggregator.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub vector_aggregator_config_map_name: Option<String>,
+    /// Extra volumes to mount into every container, this can be useful to for example make client
+    /// certificates, keytabs or similar things available to processors
+    /// These volumes will be mounted into all pods below `/stackable/userdata/{volumename}`
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub extra_volumes: Vec<Volume>,
 }
 
 /// Common configuration for all role groups

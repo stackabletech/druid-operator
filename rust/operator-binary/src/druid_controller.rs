@@ -78,6 +78,7 @@ const HDFS_CONFIG_VOLUME_NAME: &str = "hdfs";
 const LOG_CONFIG_VOLUME_NAME: &str = "log-config";
 const LOG_VOLUME_NAME: &str = "log";
 const RW_CONFIG_VOLUME_NAME: &str = "rwconfig";
+const USERDATA_MOUNTPOINT: &str = "/stackable/userdata";
 
 pub struct Ctx {
     pub client: stackable_operator::client::Client,
@@ -788,6 +789,29 @@ fn build_rolegroup_statefulset(
         // 10s * 3 = 30s to be restarted
         .liveness_probe(druid_tls_security.get_tcp_socket_probe(10, 10, 3, 3))
         .resources(merged_rolegroup_config.resources.as_resource_requirements());
+
+    // Add extra mounts if any are specified and the current role is MiddleManager
+    // Extra mounts may be needed for ingestion to add required certificates, truststores or similar
+    // files.
+    // Mounts are added to all roles, as we are currently unsure where they may be needed
+    // Known roles are MiddleManagers for ingestion and Historicals for deep storage (GCS plugin)
+    // We may at some time in the future revisit this and limit it again to avoid needlessly
+    // propagating potentially confidential files throughout the cluster
+    for volume in &druid.spec.cluster_config.extra_volumes {
+        // Extract values into vars so we make it impossible to log something other than
+        // what we actually use to create the mounts - maybe paranoid, but hey ..
+        let volume_name = &volume.name;
+        let mount_point = format!("{USERDATA_MOUNTPOINT}/{}", volume.name);
+
+        tracing::info!(
+            ?volume_name,
+            ?mount_point,
+            ?role,
+            "Adding user specified extra volume",
+        );
+        pb.add_volume(volume.clone());
+        cb_druid.add_volume_mount(volume_name, mount_point);
+    }
 
     pb.image_pull_secrets_from_product_image(resolved_product_image)
         .add_init_container(cb_prepare.build())

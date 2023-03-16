@@ -575,3 +575,24 @@ To address this, some affinities will be created to attract these roles:
 *For coordinators:*
 
 - No affinities
+
+
+=== Adding external files, e.g. for ingestion
+
+Since Druid actively runs ingestion tasks there may be a need to make extra files available to the processes.
+
+These could for example be client certificates used to connect to a Kafka cluster, a keytab to obtain a Kerberos ticket, or similar things.
+
+In order to make these files available the operator allows specifying extra volumes that will be added to all pods deployed for this cluster.
+
+[source,yaml]
+----
+spec:
+  clusterConfig:
+    extraVolumes:
+      - name: google-service-account
+        secret:
+          secretName: google-service-account
+----
+
+All `Volumes` specified in this section will be made available under `/stackable/userdata/{volumename}`.
