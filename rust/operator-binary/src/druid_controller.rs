@@ -794,9 +794,11 @@ fn build_rolegroup_statefulset(
     // Add extra mounts if any are specified and the current role is MiddleManager
     // Extra mounts may be needed for ingestion to add required certificates, truststores or similar
     // files.
-    // Since ingestion tasks only run on MiddleManagers it is enough to add these in that case
-    // and not needlessly propagate those files to more pods than needed
-    if role == DruidRole::MiddleManager && !druid.spec.extra_volumes.is_empty() {
+    // Mounts are added to all roles, as we are currently unsure where they may be needed
+    // Known roles are MiddleManagers for ingestion and Historicals for deep storage (GCS plugin)
+    // We may at some time in the future revisit this and limit it again to avoid needlessly
+    // propagating potentially confidential files throughout the cluster
+    if !druid.spec.extra_volumes.is_empty() {
         let extra_volumes = &druid.spec.extra_volumes;
         let volume_names: Vec<String> = extra_volumes
             .clone()

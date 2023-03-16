@@ -183,8 +183,7 @@ pub struct DruidClusterSpec {
     pub cluster_config: DruidClusterConfig,
     /// Extra volumes to mount into every container, this can be useful to for example make client
     /// certificates, keytabs or similar things available to processors
-    /// These volumes will be mounted into the MiddleManager pods, as these are the ones actually
-    /// running ingestion tasks, for which this will be needed
+    /// These volumes will be mounted into all pods
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub extra_volumes: Vec<Volume>,
 }
