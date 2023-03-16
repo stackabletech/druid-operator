@@ -23,7 +23,6 @@ use stackable_druid_crd::{
     S3_PATH_STYLE_ACCESS, S3_SECRET_DIR_NAME, ZOOKEEPER_CONNECTION_STRING,
 };
 use stackable_druid_crd::{build_recommended_labels, Container, ENV_INTERNAL_SECRET};
-use stackable_operator::k8s_openapi::api::core::v1::VolumeMount;
 use stackable_operator::{
     builder::{
         ConfigMapBuilder, ContainerBuilder, ObjectMetaBuilder, PodBuilder,
@@ -799,21 +798,22 @@ fn build_rolegroup_statefulset(
     // We may at some time in the future revisit this and limit it again to avoid needlessly
     // propagating potentially confidential files throughout the cluster
     if !druid.spec.extra_volumes.is_empty() {
-        let extra_volumes = &druid.spec.extra_volumes;
-        let volume_names: Vec<_> = extra_volumes.iter().map(|volume| &volume.name).collect();
-        tracing::info!(
-            ?volume_names,
-            extra_volumes_mount_point = USERDATA_MOUNTPOINT,
-            ?role,
-            "Found user-specified extra volumes",
-        );
-        for volume in extra_volumes {
-            pb.add_volume(volume.clone());
-            cb_druid.add_volume_mount(
-                &volume.name,
-                format!("{USERDATA_MOUNTPOINT}/{}", volume.name),
+        for volume in &druid.spec.extra_volumes {
+            // Extract values into vars so we make it impossible to log something other than
+            // what we actually use to create the mounts - maybe paranoid, but hey ..
+            let volume_name = &volume.name;
+            let mount_point = format!("{USERDATA_MOUNTPOINT}/{}", volume.name);
+
+            tracing::info!(
+                ?volume_name,
+                ?mount_point,
+                ?role,
+                "Adding user specified extra volume",
             );
+            pb.add_volume(volume.clone());
+            cb_druid.add_volume_mount(volume_name, mount_point);
         }
+    }
 
     pb.image_pull_secrets_from_product_image(resolved_product_image)
         .add_init_container(cb_prepare.build())
