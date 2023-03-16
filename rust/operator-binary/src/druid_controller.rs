@@ -797,22 +797,20 @@ fn build_rolegroup_statefulset(
     // Known roles are MiddleManagers for ingestion and Historicals for deep storage (GCS plugin)
     // We may at some time in the future revisit this and limit it again to avoid needlessly
     // propagating potentially confidential files throughout the cluster
-    if !druid.spec.extra_volumes.is_empty() {
-        for volume in &druid.spec.extra_volumes {
-            // Extract values into vars so we make it impossible to log something other than
-            // what we actually use to create the mounts - maybe paranoid, but hey ..
-            let volume_name = &volume.name;
-            let mount_point = format!("{USERDATA_MOUNTPOINT}/{}", volume.name);
+    for volume in &druid.spec.cluster_config.extra_volumes {
+        // Extract values into vars so we make it impossible to log something other than
+        // what we actually use to create the mounts - maybe paranoid, but hey ..
+        let volume_name = &volume.name;
+        let mount_point = format!("{USERDATA_MOUNTPOINT}/{}", volume.name);
 
-            tracing::info!(
-                ?volume_name,
-                ?mount_point,
-                ?role,
-                "Adding user specified extra volume",
-            );
-            pb.add_volume(volume.clone());
-            cb_druid.add_volume_mount(volume_name, mount_point);
-        }
+        tracing::info!(
+            ?volume_name,
+            ?mount_point,
+            ?role,
+            "Adding user specified extra volume",
+        );
+        pb.add_volume(volume.clone());
+        cb_druid.add_volume_mount(volume_name, mount_point);
     }
 
     pb.image_pull_secrets_from_product_image(resolved_product_image)

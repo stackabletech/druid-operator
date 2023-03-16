@@ -181,11 +181,6 @@ pub struct DruidClusterSpec {
     pub routers: Role<RouterConfigFragment>,
     /// Common cluster wide configuration that can not differ or be overridden on a role or role group level
     pub cluster_config: DruidClusterConfig,
-    /// Extra volumes to mount into every container, this can be useful to for example make client
-    /// certificates, keytabs or similar things available to processors
-    /// These volumes will be mounted into all pods
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub extra_volumes: Vec<Volume>,
 }
 
 #[derive(
@@ -236,6 +231,11 @@ pub struct DruidClusterConfig {
     /// It must contain the key `ADDRESS` with the address of the Vector aggregator.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub vector_aggregator_config_map_name: Option<String>,
+    /// Extra volumes to mount into every container, this can be useful to for example make client
+    /// certificates, keytabs or similar things available to processors
+    /// These volumes will be mounted into all pods
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub extra_volumes: Vec<Volume>,
 }
 
 /// Common configuration for all role groups
