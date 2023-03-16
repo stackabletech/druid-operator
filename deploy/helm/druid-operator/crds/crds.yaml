@@ -2903,7 +2903,7 @@ spec:
                     - roleGroups
                   type: object
                 extraVolumes:
-                  description: Extra volumes to mount into every container, this can be useful to for example make client certificates, keytabs or similar things available to processors These volumes will be mounted into the MiddleManager pods, as these are the ones actually running ingestion tasks, for which this will be needed
+                  description: Extra volumes to mount into every container, this can be useful to for example make client certificates, keytabs or similar things available to processors These volumes will be mounted into all pods
                   items:
                     description: Volume represents a named volume in a pod that may be accessed by any container in the pod.
                     properties:
