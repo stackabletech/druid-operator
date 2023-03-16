@@ -38,5 +38,18 @@ pub fn get_extension_list(
         extensions.push(EXT_S3.to_string());
     }
 
+    // Add user specified extensions to the list of loaded extensions if any are present
+    for additional_extension in &druid.spec.cluster_config.additional_extensions {
+        if extensions.contains(additional_extension) {
+            tracing::warn!("Skipping user specified extension [{additional_extension}] as it was already added to the extensions.");
+        } else {
+            tracing::info!(
+                "Adding user specified extension [{additional_extension}] to list of enabled extensions."
+            );
+            extensions.push(additional_extension.to_string());
+        }
+    }
+
+    tracing::debug!(?extensions, "Finished generating extension list",);
     extensions
 }

@@ -11,6 +11,7 @@ All notable changes to this project will be documented in this file.
 - Deploy default and support custom affinities ([#406]).
 - Log aggregation added ([#407]).
 - Added the ability to mount extra volumes for files that may be needed for ingestion tasks to work ([#415])
+- Add support for specifying additional extensions to enable ([#xxx])
 
 ### Changed
 
@@ -30,6 +31,7 @@ All notable changes to this project will be documented in this file.
 [#407]: https://github.com/stackabletech/druid-operator/pull/407
 [#408]: https://github.com/stackabletech/druid-operator/pull/408
 [#415]: https://github.com/stackabletech/druid-operator/pull/415
+[#xxx]: https://github.com/stackabletech/druid-operator/pull/xxx
 
 ## [23.1.0] - 2023-01-23
 
