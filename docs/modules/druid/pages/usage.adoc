@@ -589,10 +589,10 @@ In order to make these files available the operator allows specifying extra volu
 ----
 spec:
   clusterConfig:
-      extraVolumes:
-      - configMap:
-          name: druid-client-certs
-        name: certs
+    extraVolumes:
+      - name: google-service-account
+        secret:
+          secretName: google-service-account
 ----
 
 All `Volumes` specified in this section will be made available under `/stackable/userdata/{volumename}`.
