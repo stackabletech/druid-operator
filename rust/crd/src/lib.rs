@@ -233,7 +233,7 @@ pub struct DruidClusterConfig {
     pub vector_aggregator_config_map_name: Option<String>,
     /// Extra volumes to mount into every container, this can be useful to for example make client
     /// certificates, keytabs or similar things available to processors
-    /// These volumes will be mounted into all pods
+    /// These volumes will be mounted into all pods below `/stackable/userdata/{volumename}`
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub extra_volumes: Vec<Volume>,
 }
