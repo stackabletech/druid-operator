@@ -595,4 +595,4 @@ spec:
           secretName: google-service-account
 ----
 
-All `Volumes` specified in this section will be made available under `/stackable/userdata/{volumename}`.
+All `Volumes` specified in this section will be made available under `/stackable/userdata/\{volumename\}`.
