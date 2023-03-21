@@ -1,17 +1,60 @@
 = Stackable Operator for Apache Druid
 
-This is an operator for Kubernetes that can manage https://druid.apache.org/[Apache Druid] clusters.
+This is an operator for Kubernetes that can manage https://druid.apache.org/[Apache Druid] clusters. Dive right in with the xref:druid:getting_started/index.adoc[Getting Started guide].
 
-== Overview
+Installing the Operator also installs the _DruidCluster_ CustomResourceDefinition. The DruidCluster definition supports 5 xref:home:concepts:roles-and-role-groups.adoc[roles]: **Router**, **Coordinator**, **Broker**, **MiddleManager** and **Historical**.
+The roles correspond to https://druid.apache.org/docs/latest/design/processes.html[Druid processes].
+
+== Resources
+
+Below you can see the resources created by the Operator for a given DruidCluster.
 
 image::druid_overview.drawio.svg[]
 
-An Apache Druid instance is defined by the DruidCluster resource.
+The operator creates:
 
-== Roles
+* A StatefulSet for each RoleGroup
+** Each StatefulSet then spawns one or more Pods
+*** Pods containing ...? (Monitoring? xref:concepts:logging.adoc[]?)
+* A ConfigMap for each RoleGroup
+** containing ...
+* A xref:discovery.adoc[discovery ConfigMap] which contains information on how to connect to the Druid cluster.
+* Services for each Role.
 
-The Stackable Operator for Apache Druid supports 5 xref:home:concepts:roles-and-role-groups.adoc[roles]: **Router**, **Coordinator**, **Broker**, **MiddleManager** and **Historical**.
-The roles correspond to https://druid.apache.org/docs/latest/design/processes.html[Druid processes].
+(Service Accounts?)
+
+
+If a DruidCluster is deleted, the ConfigMaps are retained (?)
+
+
+== Dependencies
+
+The Druid Operator has the following dependencies:
+
+* The xref:commons-operator:index.adoc[] provides common CRDs such as xref:concepts:s3.adoc[] CRDs.
+* The xref:secret-operator:index.adoc[] is required for things like S3 access credentials or LDAP integration.
+* Apache ZooKeeper via the xref:zookeeper:index.adoc[]. Apache ZooKeeper is used by Druid for internal communication between processes.
+
+== Connections to other Stackable Operators
+
+Can use HDFS with the xref:hdfs:index.adoc[] as a storage backend.
+
+Can ingest data from Kafka with the xref:kafka:index.adoc[].
+
+Trino with the xref:trino:index.adoc[] can read from Druid.
+
+== Demos
+
+xref:stackablectl::index.adoc[] supports installing xref:stackablectl::demos/index.adoc[] which showcase multiple components of the Stackable platform working together. These two demos include Druid as part of the data pipeline:
+
+=== Waterlevel Demo
+
+The xref:stackablectl::demos/nifi-kafka-druid-water-level-data.adoc[] demo uses data from https://www.pegelonline.wsv.de/webservice/ueberblick[PEGELONLINE] to visualize water levels in rivers and coastal regions of Germany from historic and real time data.
+
+=== Earthquake Demo
+
+The xref:stackablectl::demos/nifi-kafka-druid-earthquake-data.adoc[] demo ...
+
 
 == Supported Versions
 
