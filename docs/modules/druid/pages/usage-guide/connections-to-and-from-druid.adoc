@@ -1,7 +1,0 @@
-== Connecting to Druid from other Services
-
-The operator creates a `ConfigMap` with the name of the cluster which contains connection information. Following our example above (the name of the cluster is `simple-druid`) a `ConfigMap` with the name `simple-druid` will be created containing 3 keys:
-
-- `DRUID_ROUTER` with the format `<host>:<port>`, which points to the router processes HTTP endpoint. Here you can connect to the web UI, or use REST endpoints such as `/druid/v2/sql/` to query data. https://druid.apache.org/docs/latest/querying/sql.html#http-post[More information in the Druid Docs].
-- `DRUID_AVATICA_JDBC` contains a JDBC connect string which can be used together with the https://calcite.apache.org/avatica/downloads/[Avatica JDBC Driver] to connect to Druid and query data. https://druid.apache.org/docs/latest/querying/sql.html#jdbc[More information in the Druid Docs].
-- `DRUID_SQALCHEMY` contains a connection string used to connect to Druid with SQAlchemy, in - for example - Apache Superset.

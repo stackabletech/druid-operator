@@ -38,7 +38,7 @@ All override property values must be strings.
 
 For a full list of configuration options we refer to the Druid https://druid.apache.org/docs/latest/configuration/index.html[Configuration Reference].
 
-=== Environment Variables
+== Environment Variables
 
 In a similar fashion, environment variables can be (over)written. For example per role group:
 

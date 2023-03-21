@@ -1,4 +1,4 @@
-=== Pod placement
+= Pod placement
 
 You can configure the Pod placement of the Druid pods as described in xref:concepts:pod_placement.adoc[].
 
@@ -25,4 +25,3 @@ To address this, some affinities will be created to attract these roles:
 *For coordinators:*
 
 - No affinities
-

@@ -1,0 +1,7 @@
+= Deep storage configuration
+
+TODO
+
+== HDFS
+
+== S3
