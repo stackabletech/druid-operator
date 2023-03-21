@@ -16,10 +16,12 @@ The operator creates:
 * A StatefulSet for each RoleGroup
 ** Each StatefulSet then spawns one or more Pods
 *** Pods containing ...? (Monitoring? xref:concepts:logging.adoc[]?)
-* A ConfigMap for each RoleGroup
-** containing ...
+* A ConfigMap for each RoleGroup containing
+** a log configuration file
+** JVM configuration file
+** The runtime.properties file
 * A xref:discovery.adoc[discovery ConfigMap] which contains information on how to connect to the Druid cluster.
-* Services for each Role.
+* Services for each Role as well as RoleGroup.
 
 (Service Accounts?)
 
@@ -27,21 +29,20 @@ The operator creates:
 If a DruidCluster is deleted, the ConfigMaps are retained (?)
 
 
-== Dependencies
+== Dependencies and Other Operators to connect to
 
 The Druid Operator has the following dependencies:
 
 * The xref:commons-operator:index.adoc[] provides common CRDs such as xref:concepts:s3.adoc[] CRDs.
 * The xref:secret-operator:index.adoc[] is required for things like S3 access credentials or LDAP integration.
 * Apache ZooKeeper via the xref:zookeeper:index.adoc[]. Apache ZooKeeper is used by Druid for internal communication between processes.
+* A storage backend. Either HDFS with the xref:hdfs:index.adoc[] or S3. (TODO: link to S3 deep storage config usage)
 
-== Connections to other Stackable Operators
-
-Can use HDFS with the xref:hdfs:index.adoc[] as a storage backend.
-
-Can ingest data from Kafka with the xref:kafka:index.adoc[].
+You can ingest data from Kafka with the xref:kafka:index.adoc[].
 
 Trino with the xref:trino:index.adoc[] can read from Druid.
+
+OPA with the xref:opa:index.adoc[] for Authorization.
 
 == Demos
 
