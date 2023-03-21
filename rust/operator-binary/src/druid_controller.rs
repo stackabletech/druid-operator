@@ -1,24 +1,28 @@
 //! Ensures that `Pod`s are configured and running for each [`DruidCluster`]
 use crate::{
-    config::{get_jvm_config, get_log4j_config},
+    config::get_jvm_config,
     discovery::{self, build_discovery_configmaps},
+    extensions::get_extension_list,
+    internal_secret::{
+        build_shared_internal_secret_name, create_shared_internal_secret, env_var_from_secret,
+    },
+    product_logging::{extend_role_group_config_map, resolve_vector_aggregator_address},
+    OPERATOR_NAME,
 };
 
-use crate::OPERATOR_NAME;
 use snafu::{OptionExt, ResultExt, Snafu};
 use stackable_druid_crd::{
-    authentication, authentication::DruidAuthentication, tls, DeepStorageSpec, DruidAuthorization,
-    DruidCluster, DruidRole, APP_NAME, AUTH_AUTHORIZER_OPA_URI, CERTS_DIR,
-    CREDENTIALS_SECRET_PROPERTY, DRUID_CONFIG_DIRECTORY, DS_BUCKET, HDFS_CONFIG_DIRECTORY,
-    JVM_CONFIG, LOG4J2_CONFIG, RUNTIME_PROPS, RW_CONFIG_DIRECTORY, S3_ENDPOINT_URL,
+    authentication::ldap::DruidLdapSettings,
+    authorization::DruidAuthorization,
+    build_string_list,
+    security::{resolve_authentication_classes, DruidTlsSecurity},
+    CommonRoleGroupConfig, DeepStorageSpec, DruidCluster, DruidRole, APP_NAME,
+    AUTH_AUTHORIZER_OPA_URI, CERTS_DIR, CREDENTIALS_SECRET_PROPERTY, DRUID_CONFIG_DIRECTORY,
+    DS_BUCKET, EXTENSIONS_LOADLIST, HDFS_CONFIG_DIRECTORY, JVM_CONFIG, LOG_CONFIG_DIRECTORY,
+    LOG_DIR, LOG_VOLUME_SIZE_IN_MIB, RUNTIME_PROPS, RW_CONFIG_DIRECTORY, S3_ENDPOINT_URL,
     S3_PATH_STYLE_ACCESS, S3_SECRET_DIR_NAME, ZOOKEEPER_CONNECTION_STRING,
 };
-use stackable_druid_crd::{
-    build_recommended_labels,
-    resource::{self, RoleResource},
-    tls::DruidTlsSettings,
-};
-use stackable_operator::commons::product_image_selection::ResolvedProductImage;
+use stackable_druid_crd::{build_recommended_labels, Container, ENV_INTERNAL_SECRET};
 use stackable_operator::{
     builder::{
         ConfigMapBuilder, ContainerBuilder, ObjectMetaBuilder, PodBuilder,
@@ -27,6 +31,7 @@ use stackable_operator::{
     cluster_resources::ClusterResources,
     commons::{
         opa::OpaApiVersion,
+        product_image_selection::ResolvedProductImage,
         s3::{S3AccessStyle, S3ConnectionSpec},
         tls::{CaCert, TlsVerification},
     },
@@ -35,7 +40,7 @@ use stackable_operator::{
             apps::v1::{StatefulSet, StatefulSetSpec},
             core::v1::{ConfigMap, EnvVar, Service, ServiceSpec},
         },
-        apimachinery::pkg::apis::meta::v1::LabelSelector,
+        apimachinery::pkg::{api::resource::Quantity, apis::meta::v1::LabelSelector},
     },
     kube::{
         runtime::{controller::Action, reflector::ObjectRef},
@@ -43,9 +48,15 @@ use stackable_operator::{
     },
     labels::{role_group_selector_labels, role_selector_labels},
     logging::controller::ReconcilerError,
-    memory::{to_java_heap_value, BinaryMultiple},
     product_config::{types::PropertyNameKind, ProductConfigManager},
     product_config_utils::{transform_all_roles_to_config, validate_all_roles_and_groups_config},
+    product_logging::{
+        self,
+        spec::{
+            ConfigMapLogConfig, ContainerLogConfig, ContainerLogConfigChoice,
+            CustomContainerLogConfig,
+        },
+    },
     role_utils::RoleGroupRef,
 };
 use std::{
@@ -59,8 +70,15 @@ use strum::{EnumDiscriminants, IntoStaticStr};
 
 pub const CONTROLLER_NAME: &str = "druidcluster";
 
-const JVM_HEAP_FACTOR: f32 = 0.8;
 const DOCKER_IMAGE_BASE_NAME: &str = "druid";
+
+// volume names
+const DRUID_CONFIG_VOLUME_NAME: &str = "config";
+const HDFS_CONFIG_VOLUME_NAME: &str = "hdfs";
+const LOG_CONFIG_VOLUME_NAME: &str = "log-config";
+const LOG_VOLUME_NAME: &str = "log";
+const RW_CONFIG_VOLUME_NAME: &str = "rwconfig";
+const USERDATA_MOUNTPOINT: &str = "/stackable/userdata";
 
 pub struct Ctx {
     pub client: stackable_operator::client::Client,
@@ -104,7 +122,7 @@ pub enum Error {
         source: stackable_operator::error::Error,
     },
     #[snafu(display(
-        "Failed to get ZooKeeper discovery config map for cluster: {}",
+        "failed to get ZooKeeper discovery config map for cluster: {}",
         cm_name
     ))]
     GetZookeeperConnStringConfigMap {
@@ -112,36 +130,29 @@ pub enum Error {
         cm_name: String,
     },
     #[snafu(display(
-        "Failed to get OPA discovery config map and/or connection string for cluster: {}",
+        "failed to get OPA discovery config map and/or connection string for cluster: {}",
         cm_name
     ))]
     GetOpaConnString {
         source: stackable_operator::error::Error,
         cm_name: String,
     },
-    #[snafu(display("Failed to get valid S3 connection"))]
+    #[snafu(display("failed to get valid S3 connection"))]
     GetS3Connection { source: stackable_druid_crd::Error },
-    #[snafu(display("Failed to get deep storage bucket"))]
+    #[snafu(display("failed to get deep storage bucket"))]
     GetDeepStorageBucket {
         source: stackable_operator::error::Error,
     },
     #[snafu(display(
-        "Failed to get ZooKeeper connection string from config map {}",
+        "failed to get ZooKeeper connection string from config map {}",
         cm_name
     ))]
     MissingZookeeperConnString { cm_name: String },
-    #[snafu(display("Failed to get OPA discovery config map for cluster: {}", cm_name))]
-    GetOpaConnStringConfigMap {
-        source: stackable_operator::error::Error,
-        cm_name: String,
-    },
-    #[snafu(display("Failed to get OPA connection string from config map {}", cm_name))]
-    MissingOpaConnString { cm_name: String },
-    #[snafu(display("Failed to transform configs"))]
+    #[snafu(display("failed to transform configs"))]
     ProductConfigTransform {
         source: stackable_operator::product_config_utils::ConfigError,
     },
-    #[snafu(display("Failed to format runtime properties"))]
+    #[snafu(display("failed to format runtime properties"))]
     PropertiesWriteError {
         source: stackable_operator::product_config::writer::PropertiesWriterError,
     },
@@ -160,17 +171,10 @@ pub enum Error {
         source: strum::ParseError,
         role: String,
     },
-    #[snafu(display("failed to resolve and merge resource config for role and role group"))]
-    FailedToResolveResourceConfig {
-        source: stackable_druid_crd::resource::Error,
-    },
-    #[snafu(display("invalid java heap config - missing default or value in crd?"))]
-    InvalidJavaHeapConfig,
-    #[snafu(display("failed to convert java heap config to unit [{unit}]"))]
-    FailedToConvertJavaHeap {
-        source: stackable_operator::error::Error,
-        unit: String,
-    },
+    #[snafu(display("failed to resolve and merge config for role and role group"))]
+    FailedToResolveConfig { source: stackable_druid_crd::Error },
+    #[snafu(display("invalid configuration"))]
+    InvalidConfiguration { source: stackable_druid_crd::Error },
     #[snafu(display("failed to create cluster resources"))]
     CreateClusterResources {
         source: stackable_operator::error::Error,
@@ -184,20 +188,39 @@ pub enum Error {
         source: stackable_operator::error::Error,
         name: String,
     },
-    #[snafu(display("no quantity unit (k, m, g, etc.) given for [{value}]"))]
-    NoQuantityUnit { value: String },
-    #[snafu(display("invalid quantity value"))]
-    InvalidQuantityValue { source: std::num::ParseIntError },
-    #[snafu(display("segment cache location is required but missing"))]
-    NoSegmentCacheLocation,
-    #[snafu(display("role group and resource type mismatch. this is a programming error."))]
-    RoleResourceMismatch,
-    #[snafu(display("invalid authentication configuration"))]
-    InvalidAuthenticationConfig { source: authentication::Error },
-    #[snafu(display("invalid tls configuration"))]
-    InvalidTlsConfig { source: tls::Error },
     #[snafu(display("object defines no namespace"))]
     ObjectHasNoNamespace,
+    #[snafu(display("failed to initialize security context"))]
+    FailedToInitializeSecurityContext {
+        source: stackable_druid_crd::security::Error,
+    },
+    #[snafu(display("failed to get JVM config"))]
+    GetJvmConfig { source: crate::config::Error },
+    #[snafu(display("failed to derive Druid memory settings from resources"))]
+    DeriveMemorySettings {
+        source: stackable_druid_crd::resource::Error,
+    },
+    #[snafu(display("failed to update Druid config from resources"))]
+    UpdateDruidConfigFromResources {
+        source: stackable_druid_crd::resource::Error,
+    },
+    #[snafu(display("failed to retrieve secret for internal communications"))]
+    FailedInternalSecretCreation {
+        source: crate::internal_secret::Error,
+    },
+    #[snafu(display(
+        "failed to access bind credentials although they are required for LDAP to work"
+    ))]
+    LdapBindCredentialsAreRequired,
+    #[snafu(display("failed to resolve the Vector aggregator address"))]
+    ResolveVectorAggregatorAddress {
+        source: crate::product_logging::Error,
+    },
+    #[snafu(display("failed to add the logging configuration to the ConfigMap [{cm_name}]"))]
+    InvalidLoggingConfig {
+        source: crate::product_logging::Error,
+        cm_name: String,
+    },
 }
 
 type Result<T, E = Error> = std::result::Result<T, E>;
@@ -231,6 +254,10 @@ pub async fn reconcile_druid(druid: Arc<DruidCluster>, ctx: Arc<Ctx>) -> Result<
         .context(MissingZookeeperConnStringSnafu {
             cm_name: zk_confmap.clone(),
         })?;
+
+    let vector_aggregator_address = resolve_vector_aggregator_address(&druid, client)
+        .await
+        .context(ResolveVectorAggregatorAddressSnafu)?;
 
     // Assemble the OPA connection string from the discovery and the given path, if a spec is given.
     let opa_connstr = if let Some(DruidAuthorization { opa: opa_config }) =
@@ -271,34 +298,16 @@ pub async fn reconcile_druid(druid: Arc<DruidCluster>, ctx: Arc<Ctx>) -> Result<
         _ => None,
     };
 
-    // Get possible authentication methods
-    let resolved_authentication_config = DruidAuthentication::resolve(client, &druid)
+    let resolved_authentication_classes = resolve_authentication_classes(client, &druid)
         .await
-        .context(InvalidAuthenticationConfigSnafu)?;
+        .context(FailedToInitializeSecurityContextSnafu)?;
 
-    let mut tls_authentication_config = None;
-    let mut authentication_config = vec![];
-    // Remove a TLS provider if available. The TLS provider must be treated in combination
-    // with TLS encryption. Retain all other authentication providers.
-    for auth_conf in resolved_authentication_config.into_iter() {
-        if auth_conf.is_tls_auth() {
-            tls_authentication_config = Some(auth_conf);
-        } else {
-            authentication_config.push(auth_conf);
-        }
-    }
+    let druid_ldap_settings = DruidLdapSettings::new_from(&resolved_authentication_classes);
 
-    // Extract TLS encryption and TLS auth provider if available
-    let druid_tls_settings = DruidTlsSettings {
-        encryption: druid.spec.cluster_config.tls.clone(),
-        // There can currently only be one TLS authentication config, so if we find it we can just
-        // take ownership.
-        authentication: tls_authentication_config,
-    };
+    let druid_tls_security =
+        DruidTlsSecurity::new_from_druid_cluster(&druid, resolved_authentication_classes);
 
-    // False positive, auto-deref breaks type inference
-    #[allow(clippy::explicit_auto_deref)]
-    let role_config = transform_all_roles_to_config(&*druid, druid.build_role_properties());
+    let role_config = transform_all_roles_to_config(druid.as_ref(), druid.build_role_properties());
     let validated_role_config = validate_all_roles_and_groups_config(
         &resolved_product_image.product_version,
         &role_config.context(ProductConfigTransformSnafu)?,
@@ -316,6 +325,8 @@ pub async fn reconcile_druid(druid: Arc<DruidCluster>, ctx: Arc<Ctx>) -> Result<
     )
     .context(CreateClusterResourcesSnafu)?;
 
+    let merged_config = druid.merged_config().context(FailedToResolveConfigSnafu)?;
+
     for (role_name, role_config) in validated_role_config.iter() {
         let druid_role = DruidRole::from_str(role_name).context(UnidentifiedDruidRoleSnafu {
             role: role_name.to_string(),
@@ -325,12 +336,17 @@ pub async fn reconcile_druid(druid: Arc<DruidCluster>, ctx: Arc<Ctx>) -> Result<
             &druid,
             &resolved_product_image,
             &druid_role,
-            &druid_tls_settings,
+            &druid_tls_security,
         )?;
         cluster_resources
             .add(client, &role_service)
             .await
             .context(ApplyRoleServiceSnafu)?;
+
+        create_shared_internal_secret(&druid, client, CONTROLLER_NAME)
+            .await
+            .context(FailedInternalSecretCreationSnafu)?;
+
         for (rolegroup_name, rolegroup_config) in role_config.iter() {
             let rolegroup = RoleGroupRef {
                 cluster: ObjectRef::from_obj(&*druid),
@@ -338,35 +354,39 @@ pub async fn reconcile_druid(druid: Arc<DruidCluster>, ctx: Arc<Ctx>) -> Result<
                 role_group: rolegroup_name.into(),
             };
 
-            let resources = resource::resources(&druid, &druid_role, &rolegroup)
-                .context(FailedToResolveResourceConfigSnafu)?;
+            let merged_rolegroup_config = merged_config
+                .common_config(druid_role.clone(), rolegroup_name)
+                .context(FailedToResolveConfigSnafu)?;
 
             let rg_service = build_rolegroup_services(
                 &druid,
                 &resolved_product_image,
                 &rolegroup,
-                &druid_tls_settings,
+                &druid_tls_security,
             )?;
             let rg_configmap = build_rolegroup_config_map(
                 &druid,
                 &resolved_product_image,
                 &rolegroup,
                 rolegroup_config,
+                &merged_rolegroup_config,
                 &zk_connstr,
+                vector_aggregator_address.as_deref(),
                 opa_connstr.as_deref(),
                 s3_conn.as_ref(),
                 deep_storage_bucket_name.as_deref(),
-                &resources,
-                &druid_tls_settings,
+                &druid_tls_security,
+                &druid_ldap_settings,
             )?;
             let rg_statefulset = build_rolegroup_statefulset(
                 &druid,
                 &resolved_product_image,
                 &rolegroup,
                 rolegroup_config,
+                &merged_rolegroup_config,
                 s3_conn.as_ref(),
-                &resources,
-                &druid_tls_settings,
+                &druid_tls_security,
+                &druid_ldap_settings,
             )?;
             cluster_resources
                 .add(client, &rg_service)
@@ -390,9 +410,14 @@ pub async fn reconcile_druid(druid: Arc<DruidCluster>, ctx: Arc<Ctx>) -> Result<
     }
 
     // discovery
-    for discovery_cm in build_discovery_configmaps(&druid, &*druid, &resolved_product_image)
-        .await
-        .context(BuildDiscoveryConfigSnafu)?
+    for discovery_cm in build_discovery_configmaps(
+        &druid,
+        &*druid,
+        &resolved_product_image,
+        &druid_tls_security,
+    )
+    .await
+    .context(BuildDiscoveryConfigSnafu)?
     {
         cluster_resources
             .add(client, &discovery_cm)
@@ -414,7 +439,7 @@ pub fn build_role_service(
     druid: &DruidCluster,
     resolved_product_image: &ResolvedProductImage,
     role: &DruidRole,
-    tls_settings: &DruidTlsSettings,
+    druid_tls_security: &DruidTlsSecurity,
 ) -> Result<Service> {
     let role_name = role.to_string();
     let role_svc_name = format!(
@@ -437,7 +462,7 @@ pub fn build_role_service(
             ))
             .build(),
         spec: Some(ServiceSpec {
-            ports: Some(tls_settings.service_ports(role)),
+            ports: Some(druid_tls_security.service_ports(role)),
             selector: Some(role_selector_labels(druid, APP_NAME, &role_name)),
             type_: Some("NodePort".to_string()),
             ..ServiceSpec::default()
@@ -453,21 +478,20 @@ fn build_rolegroup_config_map(
     resolved_product_image: &ResolvedProductImage,
     rolegroup: &RoleGroupRef<DruidCluster>,
     rolegroup_config: &HashMap<PropertyNameKind, BTreeMap<String, String>>,
+    merged_rolegroup_config: &CommonRoleGroupConfig,
     zk_connstr: &str,
+    vector_aggregator_address: Option<&str>,
     opa_connstr: Option<&str>,
     s3_conn: Option<&S3ConnectionSpec>,
     deep_storage_bucket_name: Option<&str>,
-    resources: &RoleResource,
-    tls_settings: &DruidTlsSettings,
+    druid_tls_security: &DruidTlsSecurity,
+    druid_ldap_settings: &Option<DruidLdapSettings>,
 ) -> Result<ConfigMap> {
     let role = DruidRole::from_str(&rolegroup.role).unwrap();
     let mut cm_conf_data = BTreeMap::new(); // filename -> filecontent
 
     for (property_name_kind, config) in rolegroup_config {
-        let mut transformed_config: BTreeMap<String, Option<String>> = config
-            .iter()
-            .map(|(k, v)| (k.clone(), Some(v.clone())))
-            .collect();
+        let mut conf: BTreeMap<String, Option<String>> = Default::default();
 
         match property_name_kind {
             PropertyNameKind::File(file_name) if file_name == RUNTIME_PROPS => {
@@ -475,23 +499,36 @@ fn build_rolegroup_config_map(
                 // This has to be done here since there is no other suitable place for it.
                 // Previously such properties were added in the compute_files() function,
                 // but that code path is now incompatible with the design of fragment merging.
-                resources.update_druid_config_file(file_name.as_str(), &mut transformed_config);
+                merged_rolegroup_config
+                    .resources
+                    .update_druid_config_file(&mut conf)
+                    .context(UpdateDruidConfigFromResourcesSnafu)?;
                 // NOTE: druid.host can be set manually - if it isn't, the canonical host name of
                 // the local host is used.  This should work with the agent and k8s host networking
                 // but might need to be revisited in the future
-                transformed_config.insert(
+                conf.insert(
                     ZOOKEEPER_CONNECTION_STRING.to_string(),
                     Some(zk_connstr.to_string()),
                 );
+
+                conf.insert(
+                    EXTENSIONS_LOADLIST.to_string(),
+                    Some(build_string_list(&get_extension_list(
+                        druid,
+                        druid_tls_security,
+                    ))),
+                );
+
                 if let Some(opa_str) = opa_connstr {
-                    transformed_config.insert(
+                    conf.insert(
                         AUTH_AUTHORIZER_OPA_URI.to_string(),
                         Some(opa_str.to_string()),
                     );
                 };
+
                 if let Some(conn) = s3_conn {
                     if let Some(endpoint) = conn.endpoint() {
-                        transformed_config.insert(S3_ENDPOINT_URL.to_string(), Some(endpoint));
+                        conf.insert(S3_ENDPOINT_URL.to_string(), Some(endpoint));
                     }
 
                     // We did choose a match statement here to detect new access styles in the future
@@ -499,46 +536,46 @@ fn build_rolegroup_config_map(
                         S3AccessStyle::Path => true,
                         S3AccessStyle::VirtualHosted => false,
                     };
-                    transformed_config.insert(
+                    conf.insert(
                         S3_PATH_STYLE_ACCESS.to_string(),
                         Some(path_style_access.to_string()),
                     );
                 }
-                transformed_config.insert(
+                conf.insert(
                     DS_BUCKET.to_string(),
                     deep_storage_bucket_name.map(str::to_string),
                 );
 
                 // add tls encryption / auth properties
-                tls_settings.add_tls_config_properties(&mut transformed_config, &role);
+                druid_tls_security.add_tls_config_properties(&mut conf, &role);
+
+                if let Some(ldap_settings) = druid_ldap_settings {
+                    conf.extend(ldap_settings.generate_runtime_properties_config());
+                };
+
+                let transformed_config: BTreeMap<String, Option<String>> = config
+                    .iter()
+                    .map(|(k, v)| (k.clone(), Some(v.clone())))
+                    .collect();
+                // extend the config to respect overrides
+                conf.extend(transformed_config);
 
                 let runtime_properties =
                     stackable_operator::product_config::writer::to_java_properties_string(
-                        transformed_config.iter(),
+                        conf.iter(),
                     )
                     .context(PropertiesWriteSnafu)?;
                 cm_conf_data.insert(RUNTIME_PROPS.to_string(), runtime_properties);
             }
             PropertyNameKind::File(file_name) if file_name == JVM_CONFIG => {
-                let heap_in_mebi = to_java_heap_value(
-                    resources
-                        .as_memory_limits()
-                        .limit
-                        .as_ref()
-                        .context(InvalidJavaHeapConfigSnafu)?,
-                    JVM_HEAP_FACTOR,
-                    BinaryMultiple::Mebi,
-                )
-                .context(FailedToConvertJavaHeapSnafu {
-                    unit: BinaryMultiple::Mebi.to_java_memory_unit(),
-                })?;
-
-                let jvm_config = get_jvm_config(&role, heap_in_mebi);
+                let (heap, direct) = merged_rolegroup_config
+                    .resources
+                    .get_memory_sizes(&role)
+                    .context(DeriveMemorySettingsSnafu)?;
+                let jvm_config = get_jvm_config(&role, heap, direct).context(GetJvmConfigSnafu)?;
+                // the user can set overrides in the config, but currently they have no effect
+                // if this is changed in the future, make sure to respect overrides!
                 cm_conf_data.insert(JVM_CONFIG.to_string(), jvm_config);
-            }
-            PropertyNameKind::File(file_name) if file_name == LOG4J2_CONFIG => {
-                let log_config = get_log4j_config(&role);
-                cm_conf_data.insert(LOG4J2_CONFIG.to_string(), log_config);
             }
             _ => {}
         }
@@ -563,6 +600,17 @@ fn build_rolegroup_config_map(
     for (filename, file_content) in cm_conf_data.iter() {
         config_map_builder.add_data(filename, file_content);
     }
+
+    extend_role_group_config_map(
+        rolegroup,
+        vector_aggregator_address,
+        &merged_rolegroup_config.logging,
+        &mut config_map_builder,
+    )
+    .context(InvalidLoggingConfigSnafu {
+        cm_name: rolegroup.object_name(),
+    })?;
+
     config_map_builder
         .build()
         .with_context(|_| BuildRoleGroupConfigSnafu {
@@ -577,7 +625,7 @@ fn build_rolegroup_services(
     druid: &DruidCluster,
     resolved_product_image: &ResolvedProductImage,
     rolegroup: &RoleGroupRef<DruidCluster>,
-    tls_settings: &DruidTlsSettings,
+    druid_tls_security: &DruidTlsSecurity,
 ) -> Result<Service> {
     let role = DruidRole::from_str(&rolegroup.role).unwrap();
 
@@ -598,7 +646,7 @@ fn build_rolegroup_services(
             .build(),
         spec: Some(ServiceSpec {
             cluster_ip: Some("None".to_string()),
-            ports: Some(tls_settings.service_ports(&role)),
+            ports: Some(druid_tls_security.service_ports(&role)),
             selector: Some(role_group_selector_labels(
                 druid,
                 APP_NAME,
@@ -612,6 +660,7 @@ fn build_rolegroup_services(
     })
 }
 
+#[allow(clippy::too_many_arguments)]
 /// The rolegroup [`StatefulSet`] runs the rolegroup, as configured by the administrator.
 ///
 /// The [`Pod`](`stackable_operator::k8s_openapi::api::core::v1::Pod`)s are accessible through the corresponding [`Service`] (from [`build_rolegroup_services`]).
@@ -620,47 +669,98 @@ fn build_rolegroup_statefulset(
     resolved_product_image: &ResolvedProductImage,
     rolegroup_ref: &RoleGroupRef<DruidCluster>,
     rolegroup_config: &HashMap<PropertyNameKind, BTreeMap<String, String>>,
+    merged_rolegroup_config: &CommonRoleGroupConfig,
     s3_conn: Option<&S3ConnectionSpec>,
-    resources: &RoleResource,
-    tls_settings: &DruidTlsSettings,
+    druid_tls_security: &DruidTlsSecurity,
+    ldap_settings: &Option<DruidLdapSettings>,
 ) -> Result<StatefulSet> {
     let role = DruidRole::from_str(&rolegroup_ref.role).context(UnidentifiedDruidRoleSnafu {
         role: rolegroup_ref.role.to_string(),
     })?;
 
-    // init container builder
-    let mut cb_prepare = ContainerBuilder::new("prepare")
-        .context(FailedContainerBuilderCreationSnafu { name: "prepare" })?;
+    // prepare container builder
+    let prepare_container_name = Container::Prepare.to_string();
+    let mut cb_prepare = ContainerBuilder::new(&prepare_container_name).context(
+        FailedContainerBuilderCreationSnafu {
+            name: &prepare_container_name,
+        },
+    )?;
     // druid container builder
-    let mut cb_druid = ContainerBuilder::new(APP_NAME)
-        .context(FailedContainerBuilderCreationSnafu { name: APP_NAME })?;
+    let druid_container_name = Container::Druid.to_string();
+    let mut cb_druid = ContainerBuilder::new(&druid_container_name).context(
+        FailedContainerBuilderCreationSnafu {
+            name: &druid_container_name,
+        },
+    )?;
     // init pod builder
     let mut pb = PodBuilder::new();
+    pb.affinity(&merged_rolegroup_config.affinity);
+
+    let mut main_container_commands = role.main_container_prepare_commands(s3_conn);
+    let mut prepare_container_commands = vec![];
+    if let Some(ContainerLogConfig {
+        choice: Some(ContainerLogConfigChoice::Automatic(log_config)),
+    }) = merged_rolegroup_config
+        .logging
+        .containers
+        .get(&Container::Prepare)
+    {
+        // This command needs to be added at the beginning of the shell commands,
+        // otherwise the output of the following commands will not be captured!
+        prepare_container_commands.push(product_logging::framework::capture_shell_output(
+            LOG_DIR,
+            &prepare_container_name,
+            log_config,
+        ));
+    }
+    prepare_container_commands.extend(druid_tls_security.build_tls_key_stores_cmd());
+
+    if let Some(ldap_settings) = ldap_settings {
+        // TODO: Connecting to an LDAP server without bind credentials does not seem to be configurable in Druid at the moment
+        // see https://github.com/stackabletech/druid-operator/issues/383 for future work.
+        // Expect bind credentials to be provided for now, and throw return a useful error if there are none.
+        if ldap_settings.ldap.bind_credentials.is_none() {
+            return LdapBindCredentialsAreRequiredSnafu.fail();
+        }
+
+        ldap_settings
+            .ldap
+            .add_volumes_and_mounts(&mut pb, vec![&mut cb_druid, &mut cb_prepare]);
+
+        prepare_container_commands.extend(ldap_settings.prepare_container_commands());
+        main_container_commands.extend(ldap_settings.main_container_commands());
+    }
 
     // volume and volume mounts
-    tls_settings
+    druid_tls_security
         .add_tls_volume_and_volume_mounts(&mut cb_prepare, &mut cb_druid, &mut pb)
-        .context(InvalidTlsConfigSnafu)?;
+        .context(FailedToInitializeSecurityContextSnafu)?;
     add_s3_volume_and_volume_mounts(s3_conn, &mut cb_druid, &mut pb)?;
     add_config_volume_and_volume_mounts(rolegroup_ref, &mut cb_druid, &mut pb);
+    add_log_config_volume_and_volume_mounts(
+        rolegroup_ref,
+        merged_rolegroup_config,
+        &mut cb_druid,
+        &mut pb,
+    );
+    add_log_volume_and_volume_mounts(&mut cb_druid, &mut cb_prepare, &mut pb);
     add_hdfs_cm_volume_and_volume_mounts(
         &druid.spec.cluster_config.deep_storage,
         &mut cb_druid,
         &mut pb,
     );
-    resources.update_volumes_and_volume_mounts(&mut cb_druid, &mut pb);
-
-    let prepare_container_command = tls_settings.build_tls_key_stores_cmd();
+    merged_rolegroup_config
+        .resources
+        .update_volumes_and_volume_mounts(&mut cb_druid, &mut pb);
 
     cb_prepare
-        .image("docker.stackable.tech/stackable/tools:0.2.0-stackable0")
+        .image_from_product_image(resolved_product_image)
         .command(vec!["/bin/bash".to_string(), "-c".to_string()])
-        .args(vec![prepare_container_command.join(" && ")])
-        .image_pull_policy("IfNotPresent")
+        .args(vec![prepare_container_commands.join(" && ")])
         .build();
 
     // rest of env
-    let rest_env = rolegroup_config
+    let mut rest_env = rolegroup_config
         .get(&PropertyNameKind::Env)
         .iter()
         .flat_map(|env_vars| env_vars.iter())
@@ -672,18 +772,46 @@ fn build_rolegroup_statefulset(
         })
         .collect::<Vec<_>>();
 
+    let secret_name = build_shared_internal_secret_name(druid);
+    rest_env.push(env_var_from_secret(&secret_name, None, ENV_INTERNAL_SECRET));
+
+    main_container_commands.push(role.main_container_start_command());
     cb_druid
         .image_from_product_image(resolved_product_image)
-        .command(role.get_command(s3_conn))
+        .command(vec!["/bin/bash".to_string(), "-c".to_string()])
+        .args(vec![main_container_commands.join(" && ")])
         .add_env_vars(rest_env)
-        .add_container_ports(tls_settings.container_ports(&role))
+        .add_container_ports(druid_tls_security.container_ports(&role))
         // 10s * 30 = 300s to come up
-        .startup_probe(tls_settings.get_tcp_socket_probe(30, 10, 30, 3))
+        .startup_probe(druid_tls_security.get_tcp_socket_probe(30, 10, 30, 3))
         // 10s * 1 = 10s to get removed from service
-        .readiness_probe(tls_settings.get_tcp_socket_probe(10, 10, 1, 3))
+        .readiness_probe(druid_tls_security.get_tcp_socket_probe(10, 10, 1, 3))
         // 10s * 3 = 30s to be restarted
-        .liveness_probe(tls_settings.get_tcp_socket_probe(10, 10, 3, 3))
-        .resources(resources.as_resource_requirements());
+        .liveness_probe(druid_tls_security.get_tcp_socket_probe(10, 10, 3, 3))
+        .resources(merged_rolegroup_config.resources.as_resource_requirements());
+
+    // Add extra mounts if any are specified and the current role is MiddleManager
+    // Extra mounts may be needed for ingestion to add required certificates, truststores or similar
+    // files.
+    // Mounts are added to all roles, as we are currently unsure where they may be needed
+    // Known roles are MiddleManagers for ingestion and Historicals for deep storage (GCS plugin)
+    // We may at some time in the future revisit this and limit it again to avoid needlessly
+    // propagating potentially confidential files throughout the cluster
+    for volume in &druid.spec.cluster_config.extra_volumes {
+        // Extract values into vars so we make it impossible to log something other than
+        // what we actually use to create the mounts - maybe paranoid, but hey ..
+        let volume_name = &volume.name;
+        let mount_point = format!("{USERDATA_MOUNTPOINT}/{}", volume.name);
+
+        tracing::info!(
+            ?volume_name,
+            ?mount_point,
+            ?role,
+            "Adding user specified extra volume",
+        );
+        pb.add_volume(volume.clone());
+        cb_druid.add_volume_mount(volume_name, mount_point);
+    }
 
     pb.image_pull_secrets_from_product_image(resolved_product_image)
         .add_init_container(cb_prepare.build())
@@ -705,6 +833,18 @@ fn build_rolegroup_statefulset(
                 .build(),
         );
 
+    if merged_rolegroup_config.logging.enable_vector_agent {
+        pb.add_container(product_logging::framework::vector_container(
+            resolved_product_image,
+            DRUID_CONFIG_VOLUME_NAME,
+            LOG_VOLUME_NAME,
+            merged_rolegroup_config
+                .logging
+                .containers
+                .get(&Container::Vector),
+        ));
+    }
+
     Ok(StatefulSet {
         metadata: ObjectMetaBuilder::new()
             .name_and_namespace(druid)
@@ -724,7 +864,7 @@ fn build_rolegroup_statefulset(
             replicas: if druid.spec.stopped.unwrap_or(false) {
                 Some(0)
             } else {
-                druid.replicas(rolegroup_ref)
+                merged_rolegroup_config.replicas.map(i32::from)
             },
             selector: LabelSelector {
                 match_labels: Some(role_group_selector_labels(
@@ -750,9 +890,9 @@ fn add_hdfs_cm_volume_and_volume_mounts(
 ) {
     // hdfs deep storage mount
     if let DeepStorageSpec::HDFS(hdfs) = deep_storage_spec {
-        cb_druid.add_volume_mount("hdfs", HDFS_CONFIG_DIRECTORY);
+        cb_druid.add_volume_mount(HDFS_CONFIG_VOLUME_NAME, HDFS_CONFIG_DIRECTORY);
         pb.add_volume(
-            VolumeBuilder::new("hdfs")
+            VolumeBuilder::new(HDFS_CONFIG_VOLUME_NAME)
                 .with_config_map(&hdfs.config_map_name)
                 .build(),
         );
@@ -764,16 +904,63 @@ fn add_config_volume_and_volume_mounts(
     cb_druid: &mut ContainerBuilder,
     pb: &mut PodBuilder,
 ) {
-    cb_druid.add_volume_mount("config", DRUID_CONFIG_DIRECTORY);
+    cb_druid.add_volume_mount(DRUID_CONFIG_VOLUME_NAME, DRUID_CONFIG_DIRECTORY);
     pb.add_volume(
-        VolumeBuilder::new("config")
+        VolumeBuilder::new(DRUID_CONFIG_VOLUME_NAME)
             .with_config_map(rolegroup_ref.object_name())
             .build(),
     );
-    cb_druid.add_volume_mount("rwconfig", RW_CONFIG_DIRECTORY);
+    cb_druid.add_volume_mount(RW_CONFIG_VOLUME_NAME, RW_CONFIG_DIRECTORY);
     pb.add_volume(
-        VolumeBuilder::new("rwconfig")
+        VolumeBuilder::new(RW_CONFIG_VOLUME_NAME)
             .with_empty_dir(Some(""), None)
+            .build(),
+    );
+}
+
+fn add_log_config_volume_and_volume_mounts(
+    rolegroup_ref: &RoleGroupRef<DruidCluster>,
+    merged_rolegroup_config: &CommonRoleGroupConfig,
+    cb_druid: &mut ContainerBuilder,
+    pb: &mut PodBuilder,
+) {
+    cb_druid.add_volume_mount(LOG_CONFIG_VOLUME_NAME, LOG_CONFIG_DIRECTORY);
+
+    let config_map = if let Some(ContainerLogConfig {
+        choice:
+            Some(ContainerLogConfigChoice::Custom(CustomContainerLogConfig {
+                custom: ConfigMapLogConfig { config_map },
+            })),
+    }) = merged_rolegroup_config
+        .logging
+        .containers
+        .get(&Container::Druid)
+    {
+        config_map.into()
+    } else {
+        rolegroup_ref.object_name()
+    };
+
+    pb.add_volume(
+        VolumeBuilder::new(LOG_CONFIG_VOLUME_NAME)
+            .with_config_map(config_map)
+            .build(),
+    );
+}
+
+fn add_log_volume_and_volume_mounts(
+    cb_druid: &mut ContainerBuilder,
+    cb_prepare: &mut ContainerBuilder,
+    pb: &mut PodBuilder,
+) {
+    cb_druid.add_volume_mount(LOG_VOLUME_NAME, LOG_DIR);
+    cb_prepare.add_volume_mount(LOG_VOLUME_NAME, LOG_DIR);
+    pb.add_volume(
+        VolumeBuilder::new(LOG_VOLUME_NAME)
+            .with_empty_dir(
+                Some(""),
+                Some(Quantity(format!("{LOG_VOLUME_SIZE_IN_MIB}Mi"))),
+            )
             .build(),
     );
 }
@@ -826,7 +1013,9 @@ pub fn error_policy(_obj: Arc<DruidCluster>, _error: &Error, _ctx: Arc<Ctx>) -> 
 mod test {
     use super::*;
     use rstest::*;
-    use stackable_druid_crd::PROP_SEGMENT_CACHE_LOCATIONS;
+    use stackable_druid_crd::{
+        authentication::ResolvedAuthenticationClasses, PROP_SEGMENT_CACHE_LOCATIONS,
+    };
     use stackable_operator::product_config::{writer, ProductConfigManager};
 
     #[derive(Snafu, Debug, EnumDiscriminants)]
@@ -847,10 +1036,10 @@ mod test {
         OperatorFramework {
             source: stackable_operator::error::Error,
         },
-        #[snafu(display("resource error"))]
-        Resource {
-            source: stackable_druid_crd::resource::Error,
-        },
+        #[snafu(display("failed to resolve and merge config for role and role group"))]
+        FailedToResolveConfig { source: stackable_druid_crd::Error },
+        #[snafu(display("invalid configuration"))]
+        InvalidConfiguration { source: stackable_druid_crd::Error },
     }
 
     #[rstest]
@@ -893,12 +1082,14 @@ mod test {
         )
         .context(OperatorFrameworkSnafu)?;
 
-        let druid_tls_settings = DruidTlsSettings {
-            encryption: druid.spec.cluster_config.tls.clone(),
-            authentication: None,
-        };
+        let druid_tls_security = DruidTlsSecurity::new(
+            ResolvedAuthenticationClasses::new(vec![]),
+            Some("tls".to_string()),
+        );
 
         let mut druid_segment_cache_property = "invalid".to_string();
+
+        let config = druid.merged_config().context(FailedToResolveConfigSnafu)?;
 
         for (role_name, role_config) in validated_role_config.iter() {
             for (rolegroup_name, rolegroup_config) in role_config.iter() {
@@ -911,21 +1102,25 @@ mod test {
                         role_group: rolegroup_name.clone(),
                     };
 
-                    let resources =
-                        resource::resources(&druid, &DruidRole::Historical, &rolegroup_ref)
-                            .context(ResourceSnafu)?;
+                    let merged_rolegroup_config = config
+                        .common_config(DruidRole::Historical, rolegroup_name)
+                        .context(InvalidConfigurationSnafu)?;
+
+                    let ldap_settings: Option<DruidLdapSettings> = None;
 
                     let rg_configmap = build_rolegroup_config_map(
                         &druid,
                         &resolved_product_image,
                         &rolegroup_ref,
                         rolegroup_config,
+                        &merged_rolegroup_config,
                         "zookeeper-connection-string",
                         None,
                         None,
                         None,
-                        &resources,
-                        &druid_tls_settings,
+                        None,
+                        &druid_tls_security,
+                        &ldap_settings,
                     )
                     .context(ControllerSnafu)?;
 

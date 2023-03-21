@@ -6,7 +6,7 @@ metadata:
 spec:
   image:
     productVersion: 3.8.0
-    stackableVersion: 0.8.0
+    stackableVersion: 23.4.0-rc2
   servers:
     roleGroups:
       default:
@@ -27,9 +27,10 @@ metadata:
 spec:
   image:
     productVersion: 3.3.4
-    stackableVersion: 0.2.0
-  zookeeperConfigMapName: druid-hdfs-znode
-  dfsReplication: 1
+    stackableVersion: 23.4.0-rc2
+  clusterConfig:
+    dfsReplication: 1
+    zookeeperConfigMapName: druid-hdfs-znode
   nameNodes:
     roleGroups:
       default:
@@ -80,11 +81,10 @@ metadata:
 spec:
   image:
     productVersion: 24.0.0
-    stackableVersion: 0.2.0
+    stackableVersion: 23.4.0-rc2
   clusterConfig:
     authentication:
-      tls:
-        authenticationClass: druid-mtls-authentication-class
+      - authenticationClass: druid-mtls-authentication-class
     deepStorage:
       hdfs:
         configMapName: druid-hdfs
@@ -95,7 +95,7 @@ spec:
       host: localhost
       port: 1527
     tls:
-      secretClass: tls
+      serverAndInternalSecretClass: tls
     zookeeperConfigMapName: druid-znode
   brokers:
     roleGroups:

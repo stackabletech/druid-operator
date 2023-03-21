@@ -1,0 +1,60 @@
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: druid-checks
+  labels:
+    app: druid-checks
+spec:
+  replicas: 1
+  serviceName: druid-checks
+  selector:
+    matchLabels:
+      app: druid-checks
+  template:
+    metadata:
+      labels:
+        app: druid-checks
+    spec:
+      securityContext:
+        runAsUser: 0
+      containers:
+        - name: druid-checks
+          image: docker.stackable.tech/stackable/testing-tools:0.1.0-stackable0.1.0
+          command: ["sleep", "infinity"]
+          volumeMounts:
+{% if test_scenario['values']['tls-mode'] == 'internal-and-server-tls' or test_scenario['values']['tls-mode'] == 'internal-and-server-tls-and-tls-client-auth' %}
+            - name: druid-tls
+              mountPath: /tmp/druid-tls
+            - name: tls
+              mountPath: /tmp/tls
+      volumes:
+        - name: druid-tls
+          ephemeral:
+            volumeClaimTemplate:
+              metadata:
+                annotations:
+                  secrets.stackable.tech/class: druid-tls
+                  secrets.stackable.tech/scope: pod,node
+              spec:
+                storageClassName: secrets.stackable.tech
+                accessModes:
+                  - ReadWriteOnce
+                resources:
+                  requests:
+                    storage: "1"
+        - name: tls
+          ephemeral:
+            volumeClaimTemplate:
+              metadata:
+                annotations:
+                  secrets.stackable.tech/class: tls
+                  secrets.stackable.tech/scope: pod,node
+              spec:
+                storageClassName: secrets.stackable.tech
+                accessModes:
+                  - ReadWriteOnce
+                resources:
+                  requests:
+                    storage: "1"
+{% endif %}

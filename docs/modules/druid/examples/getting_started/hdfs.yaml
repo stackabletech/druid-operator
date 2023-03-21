@@ -1,0 +1,24 @@
+---
+apiVersion: hdfs.stackable.tech/v1alpha1
+kind: HdfsCluster
+metadata:
+  name: simple-hdfs
+spec:
+  image:
+    productVersion: 3.3.4
+    stackableVersion: 23.4.0-rc2
+  clusterConfig:
+    dfsReplication: 1
+    zookeeperConfigMapName: simple-hdfs-znode
+  nameNodes:
+    roleGroups:
+      default:
+        replicas: 2
+  dataNodes:
+    roleGroups:
+      default:
+        replicas: 1
+  journalNodes:
+    roleGroups:
+      default:
+        replicas: 1

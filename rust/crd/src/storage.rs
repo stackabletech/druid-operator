@@ -43,9 +43,18 @@ pub struct HistoricalStorage {
     pub segment_cache: FreePercentageEmptyDir,
 }
 
-#[derive(Clone, Debug, Fragment, PartialEq, JsonSchema)]
+#[derive(Clone, Debug, Default, Fragment, PartialEq, JsonSchema)]
 #[fragment_attrs(
-    derive(Merge, Serialize, Deserialize, JsonSchema, Debug, Clone, PartialEq),
+    derive(
+        Clone,
+        Debug,
+        Default,
+        Deserialize,
+        JsonSchema,
+        Merge,
+        PartialEq,
+        Serialize,
+    ),
     serde(rename_all = "camelCase")
 )]
 pub struct FreePercentageEmptyDir {
@@ -55,31 +64,23 @@ pub struct FreePercentageEmptyDir {
     pub empty_dir: CapacityEmptyDir,
 }
 
-/// Default values for the `segmentCache` property of the custom resource.
-/// See also `Default` for `FreePercentageEmptyDirFragment` below.
-impl Default for FreePercentageEmptyDir {
-    fn default() -> Self {
-        FreePercentageEmptyDir {
-            free_percentage: Some(5),
-            empty_dir: CapacityEmptyDir {
-                capacity: Quantity("1G".to_string()),
-                medium: Some("".to_string()),
-            },
-        }
+pub fn default_free_percentage_empty_dir() -> FreePercentageEmptyDir {
+    FreePercentageEmptyDir {
+        free_percentage: Some(5),
+        empty_dir: CapacityEmptyDir {
+            capacity: Quantity("1G".to_string()),
+            medium: Some("".to_string()),
+        },
     }
 }
 
-/// Default values for the `segmentCache` property of the custom resource.
-/// See also `Default` for `FreePercentageEmptyDir` above.
-impl Default for FreePercentageEmptyDirFragment {
-    fn default() -> Self {
-        FreePercentageEmptyDirFragment {
-            free_percentage: Some(5),
-            empty_dir: CapacityEmptyDirFragment {
-                capacity: Some(Quantity("1G".to_string())),
-                medium: Some("".to_string()),
-            },
-        }
+pub fn default_free_percentage_empty_dir_fragment() -> FreePercentageEmptyDirFragment {
+    FreePercentageEmptyDirFragment {
+        free_percentage: Some(5),
+        empty_dir: CapacityEmptyDirFragment {
+            capacity: Some(Quantity("1G".to_string())),
+            medium: Some("".to_string()),
+        },
     }
 }
 

@@ -1,0 +1,93 @@
+---
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+timeout: 600
+---
+apiVersion: druid.stackable.tech/v1alpha1
+kind: DruidCluster
+metadata:
+  name: druid-resources
+spec:
+  image:
+    productVersion: "{{ test_scenario['values']['druid-latest'].split('-stackable')[0] }}"
+    stackableVersion: "{{ test_scenario['values']['druid-latest'].split('-stackable')[1] }}"
+  clusterConfig:
+    deepStorage:
+      s3:
+        bucket:
+          inline:
+            bucketName: druid
+            connection:
+              inline:
+                host: minio-druid
+                port: 9000
+                accessStyle: Path
+    metadataStorageDatabase:
+      dbType: derby
+      connString: jdbc:derby://localhost:1527/var/druid/metadata.db;create=true
+      host: localhost
+      port: 1527
+{% if lookup('env', 'VECTOR_AGGREGATOR') %}
+    vectorAggregatorConfigMapName: vector-aggregator-discovery
+{% endif %}
+    zookeeperConfigMapName: druid-znode
+  brokers:
+    config:
+      logging:
+        enableVectorAgent: {{ lookup('env', 'VECTOR_AGGREGATOR') | length > 0 }}
+    roleGroups:
+      default:
+        replicas: 1
+  coordinators:
+    config:
+      logging:
+        enableVectorAgent: {{ lookup('env', 'VECTOR_AGGREGATOR') | length > 0 }}
+    roleGroups:
+      default:
+        replicas: 1
+  historicals:
+    config:
+      logging:
+        enableVectorAgent: {{ lookup('env', 'VECTOR_AGGREGATOR') | length > 0 }}
+    roleGroups:
+      default:
+        replicas: 1
+        config:
+          resources:
+            memory:
+              limit: 4Gi
+            storage:
+              segmentCache:
+                freePercentage: 3
+                emptyDir:
+                  capacity: 2G
+          
+  middleManagers:
+    config:
+      logging:
+        enableVectorAgent: {{ lookup('env', 'VECTOR_AGGREGATOR') | length > 0 }}
+      resources:
+        cpu:
+          min: 100m
+          max: "1"
+        memory:
+          limit: 1Gi
+    roleGroups:
+      resources-from-role:
+        replicas: 1
+      resources-from-role-group:
+        config:
+          resources:
+            cpu:
+              min: 300m
+              max: "3"
+            memory:
+              limit: 3Gi
+        replicas: 1
+  routers:
+    config:
+      logging:
+        enableVectorAgent: {{ lookup('env', 'VECTOR_AGGREGATOR') | length > 0 }}
+    roleGroups:
+      default:
+        replicas: 1

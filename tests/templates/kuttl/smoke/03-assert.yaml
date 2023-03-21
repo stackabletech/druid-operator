@@ -1,12 +1,20 @@
 ---
 apiVersion: kuttl.dev/v1beta1
 kind: TestAssert
-timeout: 600
+timeout: 300
 ---
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: druid-broker-default
+  name: druid-hdfs-namenode-default
+status:
+  readyReplicas: 2
+  replicas: 2
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: druid-hdfs-journalnode-default
 status:
   readyReplicas: 1
   replicas: 1
@@ -14,46 +22,7 @@ status:
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: druid-coordinator-default
-status:
-  readyReplicas: 1
-  replicas: 1
----
-apiVersion: apps/v1
-kind: StatefulSet
-metadata:
-  name: druid-historical-default
-status:
-  readyReplicas: 1
-  replicas: 1
-spec:
-  template:
-    spec:
-      volumes:
-      - configMap:
-          name: druid-historical-default
-        name: config
-      - emptyDir: {}
-        name: rwconfig
-      - configMap:
-          name: druid-hdfs
-        name: hdfs
-      - emptyDir:
-          sizeLimit: 1G
-        name: segment-cache
----
-apiVersion: apps/v1
-kind: StatefulSet
-metadata:
-  name: druid-middlemanager-default
-status:
-  readyReplicas: 1
-  replicas: 1
----
-apiVersion: apps/v1
-kind: StatefulSet
-metadata:
-  name: druid-router-default
+  name: druid-hdfs-datanode-default
 status:
   readyReplicas: 1
   replicas: 1

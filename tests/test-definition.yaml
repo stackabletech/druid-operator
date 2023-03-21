@@ -2,32 +2,43 @@
 dimensions:
   - name: druid
     values:
-      - 0.23.0-stackable0.2.0
-      - 24.0.0-stackable0.2.0
+      - 0.23.0-stackable23.4.0-rc2
+      - 24.0.0-stackable23.4.0-rc2
+  - name: druid-latest
+    values:
+      - 24.0.0-stackable23.4.0-rc2
   - name: zookeeper
     values:
-      - 3.7.0-stackable0.8.0
-      - 3.8.0-stackable0.8.0
+      - 3.7.0-stackable23.4.0-rc2
+      - 3.8.0-stackable23.4.0-rc2
   - name: zookeeper-latest
     values:
-      - 3.8.0-stackable0.8.0
+      - 3.8.0-stackable23.4.0-rc2
   - name: opa
     values:
-      - 0.45.0-stackable0.2.0
+      - 0.45.0-stackable23.4.0-rc2
   - name: hadoop
     values:
-      - 3.3.4-stackable0.2.0
+      - 3.3.4-stackable23.4.0-rc2
+  - name: hadoop-latest
+    values:
+      - 3.3.4-stackable23.4.0-rc2
   - name: s3-use-tls
     values:
       - "true"
       - "false"
-  - name: use-tls
+  - name: tls-mode
+    values:
+      - "no-tls"
+      - "internal-and-server-tls"
+      - "internal-and-server-tls-and-tls-client-auth"
+  - name: ldap-use-tls
     values:
       - "true"
       - "false"
-  - name: use-tls-auth
+  - name: ldap-no-bind-credentials
     values:
-      - "true"
+      # - "true" # Disabled, as anonymous ldap usage does not seem to be supported in druid. See https://github.com/stackabletech/druid-operator/issues/383
       - "false"
 tests:
   - name: smoke
@@ -43,36 +54,48 @@ tests:
       - hadoop
   - name: ingestion-no-s3-ext
     dimensions:
-      - druid
+      - druid-latest
       - zookeeper-latest
       - hadoop
   - name: ingestion-s3-ext
     dimensions:
-      - druid
+      - druid-latest
       - zookeeper-latest
       - hadoop
   - name: s3-deep-storage
     dimensions:
-      - druid
+      - druid-latest
       - zookeeper-latest
       - s3-use-tls
   - name: hdfs-deep-storage
     dimensions:
-      - druid
+      - druid-latest
       - hadoop
       - zookeeper-latest
   - name: resources
     dimensions:
-      - druid
+      - druid-latest
       - zookeeper-latest
   - name: orphaned-resources
     dimensions:
-      - druid
+      - druid-latest
       - zookeeper-latest
       - hadoop
   - name: tls
     dimensions:
+      - druid-latest
+      - zookeeper-latest
+      - tls-mode
+  - name: ldap-authentication
+    dimensions:
       - druid
       - zookeeper-latest
-      - use-tls
-      - use-tls-auth
+      - opa
+      - hadoop-latest
+      - ldap-use-tls
+      - ldap-no-bind-credentials
+  - name: logging
+    dimensions:
+      - druid
+      - hadoop
+      - zookeeper-latest

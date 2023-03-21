@@ -1,0 +1,68 @@
+---
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+metadata:
+  name: install-druid
+commands:
+  - script: |
+      kubectl apply -n $NAMESPACE -f - <<EOF
+      ---
+      apiVersion: druid.stackable.tech/v1alpha1
+      kind: DruidCluster
+      metadata:
+        name: derby-druid
+      spec:
+        image:
+          productVersion: "{{ test_scenario['values']['druid'].split('-stackable')[0] }}"
+          stackableVersion: "{{ test_scenario['values']['druid'].split('-stackable')[1] }}"
+        clusterConfig:
+          authentication:
+              - authenticationClass: druid-ldap-auth-class-$NAMESPACE
+          deepStorage:
+            hdfs:
+              configMapName: druid-hdfs
+              directory: /druid
+          metadataStorageDatabase:
+            dbType: derby
+            connString: jdbc:derby://localhost:1527/var/druid/metadata.db;create=true
+            host: localhost
+            port: 1527
+          zookeeperConfigMapName: druid-znode
+{% if lookup('env', 'VECTOR_AGGREGATOR') %}
+          vectorAggregatorConfigMapName: vector-aggregator-discovery
+{% endif %}
+        brokers:
+          config:
+            logging:
+              enableVectorAgent: {{ lookup('env', 'VECTOR_AGGREGATOR') | length > 0 }}
+          roleGroups:
+            default:
+              replicas: 1
+        coordinators:
+          config:
+            logging:
+              enableVectorAgent: {{ lookup('env', 'VECTOR_AGGREGATOR') | length > 0 }}
+          roleGroups:
+            default:
+              replicas: 1
+        historicals:
+          config:
+            logging:
+              enableVectorAgent: {{ lookup('env', 'VECTOR_AGGREGATOR') | length > 0 }}
+          roleGroups:
+            default:
+              replicas: 1
+        middleManagers:
+          config:
+            logging:
+              enableVectorAgent: {{ lookup('env', 'VECTOR_AGGREGATOR') | length > 0 }}
+          roleGroups:
+            default:
+              replicas: 1
+        routers:
+          config:
+            logging:
+              enableVectorAgent: {{ lookup('env', 'VECTOR_AGGREGATOR') | length > 0 }}
+          roleGroups:
+            default:
+              replicas: 1

@@ -6,17 +6,48 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+- Add support for non-TLS LDAP authentication. ([#374])
+- Add support for TLS LDAP authentication. ([#408])
+- Deploy default and support custom affinities ([#406]).
+- Log aggregation added ([#407]).
+- Added the ability to mount extra volumes for files that may be needed for ingestion tasks to work ([#415])
+
+### Changed
+
+- Upgrade to `operator-rs` `0.36.1` ([#374], [#380], [#404], [#406], [#408])
+- Merging and validation of the configuration refactored ([#404]).
+
+### Fixed
+
+- Configuration overrides for certain properties did not work and now work again ([#387])
+- Fix OOM error with manual buffer size specification ([#380])
+
+[#374]: https://github.com/stackabletech/druid-operator/pull/374
+[#380]: https://github.com/stackabletech/druid-operator/pull/380
+[#387]: https://github.com/stackabletech/druid-operator/pull/387
+[#404]: https://github.com/stackabletech/druid-operator/pull/404
+[#406]: https://github.com/stackabletech/druid-operator/pull/406
+[#407]: https://github.com/stackabletech/druid-operator/pull/407
+[#408]: https://github.com/stackabletech/druid-operator/pull/408
+[#415]: https://github.com/stackabletech/druid-operator/pull/415
+
+## [23.1.0] - 2023-01-23
+
+### Added
+
 - BREAKING: Support for TLS encryption (activated per default -> port changes) and TLS authentication ([#333])
-- BREAKING: Reworked top level configuration. Deep storage, Ingestion spec, discovery config maps etc. are now subfields of `spec.clusterConfig` instead of being top level under `spec` ([#333])
 - Use emptyDir for segment cache on historicals ([#342])
 
 ### Changed
 
+- BREAKING: Use Product image selection instead of version. `spec.version` has been replaced by `spec.image` ([#356])
+- BREAKING: Reworked top level configuration. Deep storage, Ingestion spec, discovery config maps, authentication etc. are now subfields of `spec.clusterConfig` instead of being top level under `spec` ([#333], [#366])
+- BREAKING: Removed tools image from init container and replaced with Druid product image. This means the latest stackable version has to be used in the product image selection ([#358])
 - Updated stackable image versions ([#339])
-- Upgrade to `operator-rs` `0.26.1` ([#340])
-- Upgrade to `operator-rs` `0.27.1` ([#347])
+- Upgrade to `operator-rs` `0.30.1` ([#340], [#347], [#362])
 - Do not run init container as root anymore and avoid chmod and chown ([#353])
-- [BREAKING] Use Product image selection instead of version. `spec.version` has been replaced by `spec.image` ([#356])
+- Fixed role group node selector ([#362])
+- Bitnami Helm chart 12.1.5 for kuttl tests. ([#363])
 
 ### Removed
 
@@ -29,6 +60,10 @@ All notable changes to this project will be documented in this file.
 [#347]: https://github.com/stackabletech/druid-operator/pull/347
 [#353]: https://github.com/stackabletech/druid-operator/pull/353
 [#356]: https://github.com/stackabletech/druid-operator/pull/356
+[#358]: https://github.com/stackabletech/druid-operator/pull/358
+[#362]: https://github.com/stackabletech/druid-operator/pull/362
+[#363]: https://github.com/stackabletech/druid-operator/pull/363
+[#366]: https://github.com/stackabletech/druid-operator/pull/366
 
 ## [0.8.0] - 2022-11-07
 
@@ -111,7 +146,6 @@ All notable changes to this project will be documented in this file.
 [#124]: https://github.com/stackabletech/druid-operator/pull/124
 [#178]: https://github.com/stackabletech/druid-operator/pull/178
 [#183]: https://github.com/stackabletech/druid-operator/pull/183
-[#186]: https://github.com/stackabletech/druid-operator/pull/186
 [#187]: https://github.com/stackabletech/druid-operator/pull/187
 [#192]: https://github.com/stackabletech/druid-operator/pull/192
 [#195]: https://github.com/stackabletech/druid-operator/pull/195

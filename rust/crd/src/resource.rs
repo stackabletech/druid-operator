@@ -1,20 +1,17 @@
 use std::collections::BTreeMap;
 
-use crate::storage::{self, FreePercentageEmptyDirFragment};
-use crate::{
-    DruidCluster, DruidRole, PATH_SEGMENT_CACHE, PROP_SEGMENT_CACHE_LOCATIONS, RUNTIME_PROPS,
-};
+use crate::memory::{HistoricalDerivedSettings, RESERVED_OS_MEMORY};
+use crate::storage::{self, default_free_percentage_empty_dir_fragment};
+use crate::{DruidRole, PATH_SEGMENT_CACHE, PROP_SEGMENT_CACHE_LOCATIONS};
 use lazy_static::lazy_static;
-use snafu::{ResultExt, Snafu};
-use stackable_operator::config::fragment;
-use stackable_operator::role_utils::RoleGroupRef;
+use snafu::{OptionExt, ResultExt, Snafu};
+use stackable_operator::memory::MemoryQuantity;
 use stackable_operator::{
     builder::{ContainerBuilder, PodBuilder, VolumeBuilder},
     commons::resources::{
         CpuLimitsFragment, MemoryLimits, MemoryLimitsFragment, NoRuntimeLimits,
         NoRuntimeLimitsFragment, Resources, ResourcesFragment,
     },
-    config::merge::Merge,
     k8s_openapi::{
         api::core::v1::{EmptyDirVolumeSource, ResourceRequirements},
         apimachinery::pkg::api::resource::Quantity,
@@ -22,51 +19,30 @@ use stackable_operator::{
 };
 use strum::{EnumDiscriminants, IntoStaticStr};
 
+// volume names
+const SEGMENT_CACHE_VOLUME_NAME: &str = "segment-cache";
+
 /// This Error cannot derive PartialEq because fragment::ValidationError doesn't derive it
 #[derive(Snafu, Debug, EnumDiscriminants)]
 #[strum_discriminants(derive(IntoStaticStr))]
 #[allow(clippy::enum_variant_names)]
 pub enum Error {
-    #[snafu(display("no resources available for merging"))]
-    NoResourcesToMerge,
-    #[snafu(display("cannot merge storage types of different roles"))]
-    IncompatibleStorageMerging,
-    #[snafu(display("failed to validate resources"))]
-    ResourceValidation { source: fragment::ValidationError },
-    #[snafu(display("failed to merge resources for {rolegroup_ref}"))]
-    ResourcesMerge {
-        #[snafu(source(from(Error, Box::new)))]
-        source: Box<Error>,
-        rolegroup_ref: RoleGroupRef<DruidCluster>,
+    #[snafu(display("failed to derive Druid settings from resources"))]
+    DeriveMemorySettings { source: crate::memory::Error },
+    #[snafu(display("failed to get memory limits"))]
+    GetMemoryLimit,
+    #[snafu(display("failed to parse memory quantity"))]
+    ParseMemoryQuantity {
+        source: stackable_operator::error::Error,
     },
-}
-
-/// The sole purpose of this enum is to handle merging. It's needed because currently
-/// the operator-rs 0.26.1 doesn't handle fragment enum merging.
-#[derive(Debug, Clone, PartialEq)]
-enum RoleResourceFragment {
-    DruidFragment(ResourcesFragment<storage::DruidStorage, NoRuntimeLimits>),
-    HistoricalFragment(ResourcesFragment<storage::HistoricalStorage, NoRuntimeLimits>),
+    #[snafu(display("the operator produced an internally inconsistent state"))]
+    InconsistentConfiguration,
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum RoleResource {
     Druid(Resources<storage::DruidStorage, NoRuntimeLimits>),
     Historical(Resources<storage::HistoricalStorage, NoRuntimeLimits>),
-}
-
-impl TryFrom<RoleResourceFragment> for RoleResource {
-    type Error = Error;
-    fn try_from(rrf: RoleResourceFragment) -> Result<Self, Error> {
-        match rrf {
-            RoleResourceFragment::DruidFragment(fragment) => Ok(RoleResource::Druid(
-                fragment::validate(fragment).with_context(|_| ResourceValidationSnafu)?,
-            )),
-            RoleResourceFragment::HistoricalFragment(fragment) => Ok(RoleResource::Historical(
-                fragment::validate(fragment).with_context(|_| ResourceValidationSnafu)?,
-            )),
-        }
-    }
 }
 
 impl RoleResource {
@@ -79,20 +55,19 @@ impl RoleResource {
 
     pub fn as_memory_limits(&self) -> MemoryLimits<NoRuntimeLimits> {
         match self {
-            Self::Druid(r) => r.clone().memory,
-            Self::Historical(r) => r.clone().memory,
+            Self::Druid(r) => r.memory.clone(),
+            Self::Historical(r) => r.memory.clone(),
         }
     }
 
     /// Update the given configuration file with resource properties.
-    /// Currently it only adds the segment cache location property for historicals to runtime.properties.
+    /// Currently it only adds historical-specific configs for direct memory buffers, thread counts and segment cache.
     pub fn update_druid_config_file(
         &self,
-        file: &str,
         config: &mut BTreeMap<String, Option<String>>,
-    ) {
-        if let Self::Historical(r) = self {
-            if RUNTIME_PROPS == file {
+    ) -> Result<(), Error> {
+        match self {
+            Self::Historical(r) => {
                 let free_percentage = r.storage.segment_cache.free_percentage.unwrap_or(5u16);
                 let capacity = &r.storage.segment_cache.empty_dir.capacity;
                 config
@@ -103,21 +78,74 @@ impl RoleResource {
                             PATH_SEGMENT_CACHE, capacity.0, free_percentage
                         ))
                     });
+
+                let settings =
+                    HistoricalDerivedSettings::try_from(r).context(DeriveMemorySettingsSnafu)?;
+                settings.add_settings(config);
             }
+            Self::Druid(_) => (),
         }
+        Ok(())
     }
 
     pub fn update_volumes_and_volume_mounts(&self, cb: &mut ContainerBuilder, pb: &mut PodBuilder) {
         if let Self::Historical(r) = self {
-            cb.add_volume_mount("segment-cache", PATH_SEGMENT_CACHE);
+            cb.add_volume_mount(SEGMENT_CACHE_VOLUME_NAME, PATH_SEGMENT_CACHE);
             pb.add_volume(
-                VolumeBuilder::new("segment-cache")
+                VolumeBuilder::new(SEGMENT_CACHE_VOLUME_NAME)
                     .empty_dir(EmptyDirVolumeSource {
                         medium: r.storage.segment_cache.empty_dir.medium.clone(),
                         size_limit: Some(r.storage.segment_cache.empty_dir.capacity.clone()),
                     })
                     .build(),
             );
+        }
+    }
+
+    /// Computes the heap and direct access memory sizes per role. The settings can be used to configure
+    /// the JVM accordingly. The direct memory size is an [`Option`] because not all roles require
+    /// direct access memory.
+    pub fn get_memory_sizes(
+        &self,
+        role: &DruidRole,
+    ) -> Result<(MemoryQuantity, Option<MemoryQuantity>), Error> {
+        match self {
+            Self::Historical(r) => {
+                let settings =
+                    HistoricalDerivedSettings::try_from(r).context(DeriveMemorySettingsSnafu)?;
+                Ok((
+                    settings.heap_memory(),
+                    Some(settings.direct_access_memory()),
+                ))
+            }
+            Self::Druid(r) => {
+                let total_memory =
+                    MemoryQuantity::try_from(r.memory.limit.as_ref().context(GetMemoryLimitSnafu)?)
+                        .context(ParseMemoryQuantitySnafu)?;
+                match role {
+                    DruidRole::Historical => Err(Error::InconsistentConfiguration),
+                    DruidRole::Coordinator => {
+                        // The coordinator needs no direct memory
+                        let heap_memory = total_memory - *RESERVED_OS_MEMORY;
+                        Ok((heap_memory, None))
+                    }
+                    DruidRole::Broker => {
+                        let direct_memory = MemoryQuantity::from_mebi(400.);
+                        let heap_memory = total_memory - *RESERVED_OS_MEMORY - direct_memory;
+                        Ok((heap_memory, Some(direct_memory)))
+                    }
+                    DruidRole::MiddleManager => {
+                        // The middle manager needs no direct memory
+                        let heap_memory = total_memory - *RESERVED_OS_MEMORY;
+                        Ok((heap_memory, None))
+                    }
+                    DruidRole::Router => {
+                        let direct_memory = MemoryQuantity::from_mebi(128.);
+                        let heap_memory = total_memory - *RESERVED_OS_MEMORY - direct_memory;
+                        Ok((heap_memory, Some(direct_memory)))
+                    }
+                }
+            }
         }
     }
 }
@@ -146,174 +174,19 @@ lazy_static! {
                 runtime_limits: NoRuntimeLimitsFragment {},
             },
             storage: storage::HistoricalStorageFragment {
-                segment_cache: FreePercentageEmptyDirFragment::default(),
+                segment_cache: default_free_percentage_empty_dir_fragment(),
             },
         };
-}
-
-fn default_resources(role: &DruidRole) -> Option<RoleResourceFragment> {
-    match role {
-        DruidRole::Historical => Some(RoleResourceFragment::HistoricalFragment(
-            HISTORICAL_RESOURCES.clone(),
-        )),
-        _ => Some(RoleResourceFragment::DruidFragment(
-            DEFAULT_RESOURCES.clone(),
-        )),
-    }
-}
-
-fn role_resources(druid: &DruidCluster, role: &DruidRole) -> Option<RoleResourceFragment> {
-    match role {
-        DruidRole::Broker => druid
-            .spec
-            .brokers
-            .config
-            .config
-            .resources
-            .clone()
-            .map(RoleResourceFragment::DruidFragment),
-        DruidRole::Coordinator => druid
-            .spec
-            .coordinators
-            .config
-            .config
-            .resources
-            .clone()
-            .map(RoleResourceFragment::DruidFragment),
-        DruidRole::Historical => druid
-            .spec
-            .historicals
-            .config
-            .config
-            .resources
-            .clone()
-            .map(RoleResourceFragment::HistoricalFragment),
-        DruidRole::MiddleManager => druid
-            .spec
-            .middle_managers
-            .config
-            .config
-            .resources
-            .clone()
-            .map(RoleResourceFragment::DruidFragment),
-        DruidRole::Router => druid
-            .spec
-            .routers
-            .config
-            .config
-            .resources
-            .clone()
-            .map(RoleResourceFragment::DruidFragment),
-    }
-}
-
-fn rolegroup_resources(
-    druid: &DruidCluster,
-    role: &DruidRole,
-    rolegroup_ref: &RoleGroupRef<DruidCluster>,
-) -> Option<RoleResourceFragment> {
-    match role {
-        DruidRole::Broker => druid
-            .spec
-            .brokers
-            .role_groups
-            .get(&rolegroup_ref.role_group)
-            .map(|rg| &rg.config.config)
-            .and_then(|rg| rg.resources.clone())
-            .map(RoleResourceFragment::DruidFragment),
-        DruidRole::Coordinator => druid
-            .spec
-            .coordinators
-            .role_groups
-            .get(&rolegroup_ref.role_group)
-            .map(|rg| &rg.config.config)
-            .and_then(|rg| rg.resources.clone())
-            .map(RoleResourceFragment::DruidFragment),
-        DruidRole::MiddleManager => druid
-            .spec
-            .middle_managers
-            .role_groups
-            .get(&rolegroup_ref.role_group)
-            .map(|rg| &rg.config.config)
-            .and_then(|rg| rg.resources.clone())
-            .map(RoleResourceFragment::DruidFragment),
-        DruidRole::Historical => druid
-            .spec
-            .historicals
-            .role_groups
-            .get(&rolegroup_ref.role_group)
-            .map(|rg| &rg.config.config)
-            .and_then(|rg| rg.resources.clone())
-            .map(RoleResourceFragment::HistoricalFragment),
-        DruidRole::Router => druid
-            .spec
-            .routers
-            .role_groups
-            .get(&rolegroup_ref.role_group)
-            .map(|rg| &rg.config.config)
-            .and_then(|rg| rg.resources.clone())
-            .map(RoleResourceFragment::DruidFragment),
-    }
-}
-
-/// Retrieve and merge resource configs for role and role groups
-pub fn resources(
-    druid: &DruidCluster,
-    role: &DruidRole,
-    rolegroup_ref: &RoleGroupRef<DruidCluster>,
-) -> Result<RoleResource, Error> {
-    try_merge(&[
-        rolegroup_resources(druid, role, rolegroup_ref),
-        role_resources(druid, role),
-        default_resources(role),
-    ])
-    .with_context(|_| ResourcesMergeSnafu {
-        rolegroup_ref: rolegroup_ref.clone(),
-    })
-}
-
-/// Merge resources from beginning to end of the array: element 0 > element 1 > element 2.
-/// Return a copy of the merged struct.
-fn try_merge(resources: &[Option<RoleResourceFragment>]) -> Result<RoleResource, Error> {
-    let mut resources = resources.iter().flatten();
-    let mut result = resources.next().ok_or(Error::NoResourcesToMerge)?.clone();
-
-    for resource in resources {
-        try_merge_private(&mut result, resource)?;
-    }
-
-    RoleResource::try_from(result)
-}
-
-/// Merges `rb` into `ra`, i.e. `ra` has precedence over `rb`.
-fn try_merge_private(
-    ra: &mut RoleResourceFragment,
-    rb: &RoleResourceFragment,
-) -> Result<RoleResourceFragment, Error> {
-    match (ra, rb) {
-        (RoleResourceFragment::DruidFragment(a), RoleResourceFragment::DruidFragment(b)) => {
-            a.merge(b);
-            let _: Resources<storage::DruidStorage, NoRuntimeLimits> =
-                fragment::validate(a.clone()).context(ResourceValidationSnafu)?;
-            Ok(RoleResourceFragment::DruidFragment(a.clone()))
-        }
-        (
-            RoleResourceFragment::HistoricalFragment(a),
-            RoleResourceFragment::HistoricalFragment(b),
-        ) => {
-            a.merge(b);
-            let _: Resources<storage::HistoricalStorage, NoRuntimeLimits> =
-                fragment::validate(a.clone()).context(ResourceValidationSnafu)?;
-            Ok(RoleResourceFragment::HistoricalFragment(a.clone()))
-        }
-        _ => Err(Error::IncompatibleStorageMerging),
-    }
 }
 
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::storage::FreePercentageEmptyDir;
+    use crate::{
+        storage::{default_free_percentage_empty_dir, HistoricalStorage},
+        tests::deserialize_yaml_file,
+        DruidCluster, MiddleManagerConfig,
+    };
 
     use rstest::*;
     use stackable_operator::{
@@ -322,12 +195,12 @@ mod test {
             NoRuntimeLimitsFragment,
         },
         k8s_openapi::apimachinery::pkg::api::resource::Quantity,
-        kube::runtime::reflector::ObjectRef,
+        role_utils::{CommonConfiguration, RoleGroup},
     };
 
     #[rstest]
     #[case(
-        Some(RoleResourceFragment::HistoricalFragment(ResourcesFragment{
+        Some(ResourcesFragment{
             cpu: CpuLimitsFragment{
                 min: Some(Quantity("200m".to_owned())),
                 max: Some(Quantity("4".to_owned())),
@@ -337,12 +210,12 @@ mod test {
                 runtime_limits: NoRuntimeLimitsFragment{},
             },
             storage: storage::HistoricalStorageFragment{
-                segment_cache: FreePercentageEmptyDirFragment::default(),
+                segment_cache: default_free_percentage_empty_dir_fragment(),
             },
-        })),
+        }),
         None,
         None,
-        RoleResource::Historical(Resources{
+        Resources{
             cpu: CpuLimits{
                 min: Some(Quantity("200m".to_owned())),
                 max: Some(Quantity("4".to_owned())),
@@ -352,12 +225,12 @@ mod test {
                 runtime_limits: NoRuntimeLimits{},
             },
             storage: storage::HistoricalStorage{
-                segment_cache: FreePercentageEmptyDir::default(),
+                segment_cache: default_free_percentage_empty_dir(),
             },
-        }),
+        },
      )]
     #[case(
-        Some(RoleResourceFragment::HistoricalFragment(ResourcesFragment {
+        Some(ResourcesFragment {
             cpu: CpuLimitsFragment  {
                 min: Some(Quantity("200m".to_owned())),
                 max: Some(Quantity("4".to_owned())),
@@ -367,10 +240,10 @@ mod test {
                 runtime_limits: NoRuntimeLimitsFragment  {},
             },
             storage: storage::HistoricalStorageFragment  {
-                segment_cache: FreePercentageEmptyDirFragment::default(),
+                segment_cache: default_free_percentage_empty_dir_fragment(),
             },
-        })),
-        Some(RoleResourceFragment::HistoricalFragment(ResourcesFragment  {
+        }),
+        Some(ResourcesFragment  {
             cpu: CpuLimitsFragment  {
                 min: Some(Quantity("200m".to_owned())),
                 max: Some(Quantity("4".to_owned())),
@@ -380,11 +253,11 @@ mod test {
                 runtime_limits: NoRuntimeLimitsFragment {},
             },
             storage: storage::HistoricalStorageFragment {
-                segment_cache: FreePercentageEmptyDirFragment::default(),
+                segment_cache: default_free_percentage_empty_dir_fragment(),
             },
-        })),
+        }),
         None,
-        RoleResource::Historical(Resources {
+        Resources {
             cpu: CpuLimits {
                 min: Some(Quantity("200m".to_owned())),
                 max: Some(Quantity("4".to_owned())),
@@ -394,12 +267,12 @@ mod test {
                 runtime_limits: NoRuntimeLimits {},
             },
             storage: storage::HistoricalStorage {
-                segment_cache: FreePercentageEmptyDir::default(),
+                segment_cache: default_free_percentage_empty_dir(),
             },
-        }),
+        },
      )]
     #[case(
-        Some(RoleResourceFragment::HistoricalFragment(ResourcesFragment {
+        Some(ResourcesFragment {
             cpu: CpuLimitsFragment  {
                 min: Some(Quantity("200m".to_owned())),
                 max: Some(Quantity("4".to_owned())),
@@ -409,10 +282,10 @@ mod test {
                 runtime_limits: NoRuntimeLimitsFragment  {},
             },
             storage: storage::HistoricalStorageFragment  {
-                segment_cache: FreePercentageEmptyDirFragment::default(),
+                segment_cache: default_free_percentage_empty_dir_fragment(),
             },
-        })),
-        Some(RoleResourceFragment::HistoricalFragment (ResourcesFragment  {
+        }),
+        Some(ResourcesFragment  {
             cpu: CpuLimitsFragment  {
                 min: Some(Quantity("200m".to_owned())),
                 max: Some(Quantity("4".to_owned())),
@@ -422,10 +295,10 @@ mod test {
                 runtime_limits: NoRuntimeLimitsFragment  {},
             },
             storage: storage::HistoricalStorageFragment  {
-                segment_cache: FreePercentageEmptyDirFragment::default(),
+                segment_cache: default_free_percentage_empty_dir_fragment(),
             },
-        })),
-        Some(RoleResourceFragment::HistoricalFragment (ResourcesFragment  {
+        }),
+        Some(ResourcesFragment  {
             cpu: CpuLimitsFragment {
                 min: Some(Quantity("200m".to_owned())),
                 max: Some(Quantity("4".to_owned())),
@@ -435,10 +308,10 @@ mod test {
                 runtime_limits: NoRuntimeLimitsFragment  {},
             },
             storage: storage::HistoricalStorageFragment  {
-                segment_cache: FreePercentageEmptyDirFragment::default(),
+                segment_cache: default_free_percentage_empty_dir_fragment(),
             },
-        })),
-        RoleResource::Historical(Resources {
+        }),
+        Resources {
             cpu: CpuLimits {
                 min: Some(Quantity("200m".to_owned())),
                 max: Some(Quantity("4".to_owned())),
@@ -448,83 +321,45 @@ mod test {
                 runtime_limits: NoRuntimeLimits {},
             },
             storage: storage::HistoricalStorage {
-                segment_cache: FreePercentageEmptyDir::default(),
+                segment_cache: default_free_percentage_empty_dir(),
             },
-        }),
+        },
      )]
     fn test_try_merge_ok(
-        #[case] first: Option<RoleResourceFragment>,
-        #[case] second: Option<RoleResourceFragment>,
-        #[case] third: Option<RoleResourceFragment>,
-        #[case] expected: RoleResource,
+        #[case] first: Option<ResourcesFragment<HistoricalStorage>>,
+        #[case] second: Option<ResourcesFragment<HistoricalStorage>>,
+        #[case] third: Option<ResourcesFragment<HistoricalStorage>>,
+        #[case] expected: Resources<HistoricalStorage>,
     ) {
-        let got = try_merge(&[first, second, third]);
+        let got = DruidCluster::merged_rolegroup_config(
+            &first.unwrap_or_default(),
+            &second.unwrap_or_default(),
+            &third.unwrap_or_default(),
+        );
 
         assert_eq!(expected, got.unwrap());
     }
 
-    #[rstest]
-    #[case(
-        Some(RoleResourceFragment::HistoricalFragment(ResourcesFragment {
-            cpu: CpuLimitsFragment  {
-                min: Some(Quantity("200m".to_owned())),
-                max: Some(Quantity("4".to_owned())),
-            },
-            memory: MemoryLimitsFragment  {
-                limit: Some(Quantity("2Gi".to_owned())),
-                runtime_limits: NoRuntimeLimitsFragment  {},
-            },
-            storage: storage::HistoricalStorageFragment  {
-                segment_cache: FreePercentageEmptyDirFragment::default(),
-            },
-        })),
-        Some(RoleResourceFragment ::DruidFragment (ResourcesFragment  {
-            cpu: CpuLimitsFragment  {
-                min: Some(Quantity("200m".to_owned())),
-                max: Some(Quantity("4".to_owned())),
-            },
-            memory: MemoryLimitsFragment  {
-                limit: Some(Quantity("2Gi".to_owned())),
-                runtime_limits: NoRuntimeLimitsFragment {},
-            },
-            storage: storage::DruidStorageFragment  { },
-        })),
-        None,
-        Error::IncompatibleStorageMerging,
-     )]
-    #[case(None, None, None, Error::NoResourcesToMerge)]
-    fn test_try_merge_err(
-        #[case] first: Option<RoleResourceFragment>,
-        #[case] second: Option<RoleResourceFragment>,
-        #[case] third: Option<RoleResourceFragment>,
-        #[case] expected: Error,
-    ) {
-        let got = try_merge(&[first, second, third]);
-
-        // Poor man's assert_eq since Error cannot derive PartialEq
-        match (expected, got.err().unwrap()) {
-            (Error::IncompatibleStorageMerging, Error::IncompatibleStorageMerging) => (),
-            (Error::NoResourcesToMerge, Error::NoResourcesToMerge) => (),
-            _ => panic!("something went wrong here"),
-        }
-    }
-
     #[test]
     fn test_resources() -> Result<(), Error> {
-        let cluster_cr =
-            std::fs::File::open("test/resources/resource_merge/druid_cluster.yaml").unwrap();
-        let cluster: DruidCluster = serde_yaml::from_reader(&cluster_cr).unwrap();
+        let cluster = deserialize_yaml_file::<DruidCluster>(
+            "test/resources/resource_merge/druid_cluster.yaml",
+        );
 
-        let resources_from_role_group = RoleGroupRef {
-            cluster: ObjectRef::from_obj(&cluster),
-            role: "middle_managers".into(),
-            role_group: "resources-from-role-group".into(),
-        };
-        if let RoleResource::Druid(middlemanager_resources_from_rg) = resources(
-            &cluster,
-            &DruidRole::MiddleManager,
-            &resources_from_role_group,
-        )? {
+        let config = cluster.merged_config().unwrap();
+        if let Some(RoleGroup {
+            config:
+                CommonConfiguration {
+                    config:
+                        MiddleManagerConfig {
+                            resources: middlemanager_resources_from_rg,
+                            ..
+                        },
+                    ..
+                },
+            ..
+        }) = config.middle_managers.get("resources-from-role-group")
+        {
             let expected = Resources {
                 cpu: CpuLimits {
                     min: Some(Quantity("300m".to_owned())),
@@ -538,20 +373,25 @@ mod test {
             };
 
             assert_eq!(
-                middlemanager_resources_from_rg, expected,
+                middlemanager_resources_from_rg, &expected,
                 "middlemanager resources from role group"
             );
         } else {
             panic!("No role group named [resources-from-role-group] found");
         }
 
-        let resources_from_role = RoleGroupRef {
-            cluster: ObjectRef::from_obj(&cluster),
-            role: "middle_managers".into(),
-            role_group: "resources-from-role".into(),
-        };
-        if let RoleResource::Druid(middlemanager_resources_from_rg) =
-            resources(&cluster, &DruidRole::MiddleManager, &resources_from_role)?
+        if let Some(RoleGroup {
+            config:
+                CommonConfiguration {
+                    config:
+                        MiddleManagerConfig {
+                            resources: middlemanager_resources_from_rg,
+                            ..
+                        },
+                    ..
+                },
+            ..
+        }) = config.middle_managers.get("resources-from-role")
         {
             let expected = Resources {
                 cpu: CpuLimits {
@@ -566,7 +406,7 @@ mod test {
             };
 
             assert_eq!(
-                middlemanager_resources_from_rg, expected,
+                middlemanager_resources_from_rg, &expected,
                 "resources from role"
             );
         } else {
@@ -578,48 +418,38 @@ mod test {
 
     #[test]
     fn test_segment_cache() -> Result<(), Error> {
-        let cluster_cr =
-            std::fs::File::open("test/resources/resource_merge/segment_cache.yaml").unwrap();
-        let cluster: DruidCluster = serde_yaml::from_reader(&cluster_cr).unwrap();
+        let cluster = deserialize_yaml_file::<DruidCluster>(
+            "test/resources/resource_merge/segment_cache.yaml",
+        );
 
         // ---------- default role group
-        let rolegroup_ref = RoleGroupRef {
-            cluster: ObjectRef::from_obj(&cluster),
-            role: DruidRole::Historical.to_string(),
-            role_group: "default".into(),
-        };
-        let res = resources(&cluster, &DruidRole::Historical, &rolegroup_ref)?;
-
+        let config = cluster.merged_config().unwrap();
+        let res = config
+            .common_config(DruidRole::Historical, "default")
+            .unwrap()
+            .resources;
         let mut got = BTreeMap::new();
-        res.update_druid_config_file(RUNTIME_PROPS, &mut got);
-        let expected: BTreeMap<String, Option<String>> = vec![
-            (PROP_SEGMENT_CACHE_LOCATIONS.to_string(),
-             Some(r#"[{"path":"/stackable/var/druid/segment-cache","maxSize":"5g","freeSpacePercent":"3"}]"#.to_string()))
-        ].into_iter().collect();
 
-        assert_eq!(
-            got, expected,
-            "role: historical, group: default, segment cache config"
-        );
+        assert!(res.update_druid_config_file(&mut got).is_ok());
+        assert!(got.contains_key(PROP_SEGMENT_CACHE_LOCATIONS));
+
+        let value = got.get(PROP_SEGMENT_CACHE_LOCATIONS).unwrap();
+        let expected = Some(r#"[{"path":"/stackable/var/druid/segment-cache","maxSize":"5g","freeSpacePercent":"3"}]"#.to_string());
+        assert_eq!(value, &expected, "primary");
 
         // ---------- secondary role group
-        let rolegroup_ref = RoleGroupRef {
-            cluster: ObjectRef::from_obj(&cluster),
-            role: DruidRole::Historical.to_string(),
-            role_group: "secondary".into(),
-        };
-        let res = resources(&cluster, &DruidRole::Historical, &rolegroup_ref)?;
+        let res = config
+            .common_config(DruidRole::Historical, "secondary")
+            .unwrap()
+            .resources;
         let mut got = BTreeMap::new();
-        res.update_druid_config_file(RUNTIME_PROPS, &mut got);
-        let expected = vec![
-            (PROP_SEGMENT_CACHE_LOCATIONS.to_string(),
-             Some(r#"[{"path":"/stackable/var/druid/segment-cache","maxSize":"2g","freeSpacePercent":"7"}]"#.to_string()))
-        ].into_iter().collect();
 
-        assert_eq!(
-            got, expected,
-            "role: historical, group: secondary, segment cache config"
-        );
+        assert!(res.update_druid_config_file(&mut got).is_ok());
+        assert!(got.contains_key(PROP_SEGMENT_CACHE_LOCATIONS));
+
+        let value = got.get(PROP_SEGMENT_CACHE_LOCATIONS).unwrap();
+        let expected = Some(r#"[{"path":"/stackable/var/druid/segment-cache","maxSize":"2g","freeSpacePercent":"7"}]"#.to_string());
+        assert_eq!(value, &expected, "secondary");
 
         Ok(())
     }
