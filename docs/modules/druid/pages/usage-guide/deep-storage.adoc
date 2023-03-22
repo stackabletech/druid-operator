@@ -3,7 +3,7 @@
 TODO
 
 
-== HDFS deep storage
+== [[HDFS]]HDFS
 
 Druid can use HDFS as a backend for deep storage:
 
@@ -20,9 +20,7 @@ spec:
 <1> Name of the HDFS cluster discovery config map. Can be supplied manually for a cluster not provided by Stackable. Needs to contain the `core-site.xml` and `hdfs-site.xml`.
 <2> The directory where to store the druid data.
 
-
-
-== S3
+== [[S3]]S3
 
 Druid can use S3 as a backend for deep storage:
 
