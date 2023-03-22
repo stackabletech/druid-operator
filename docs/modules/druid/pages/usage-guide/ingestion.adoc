@@ -2,7 +2,29 @@
 
 == From S3
 
-TODO
+To ingest data from s3, you need to specify at least a host to connect to, but there are more settings that can be set:
+
+[source,yaml]
+----
+spec:
+  clusterConfig:
+    ingestion:
+      s3connection:
+        host: yourhost.com  # <1>
+        port: 80 # optional <2>
+        credentials: # optional <3>
+        ...
+----
+
+<1> The S3 host, not optional
+<2> Port, optional, defaults to 80
+<3> Credentials to use. Since these might be bucket-dependent, they can instead be given in the ingestion job. Specifying the credentials here is explained <<S3 Credentials, below>>.
+
+include::partial$s3-note.adoc[]
+
+=== S3 credentials
+
+include::partial$s3-credentials.adoc[]
 
 == Adding external files, e.g. for ingestion
 

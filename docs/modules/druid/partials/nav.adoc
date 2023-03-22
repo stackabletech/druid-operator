@@ -5,7 +5,6 @@
 ** xref:druid:usage-guide/pod-placement.adoc[]
 ** xref:druid:usage-guide/ingestion.adoc[]
 ** xref:druid:usage-guide/deep-storage.adoc[]
-** xref:druid:usage-guide/s3.adoc[]
 ** xref:druid:usage-guide/resources-and-storage.adoc[]
 ** xref:druid:usage-guide/security.adoc[]
 ** xref:druid:usage-guide/logging.adoc[]

@@ -36,7 +36,8 @@ The Druid Operator has the following dependencies:
 * The xref:commons-operator:index.adoc[] provides common CRDs such as xref:concepts:s3.adoc[] CRDs.
 * The xref:secret-operator:index.adoc[] is required for things like S3 access credentials or LDAP integration.
 * Apache ZooKeeper via the xref:zookeeper:index.adoc[]. Apache ZooKeeper is used by Druid for internal communication between processes.
-* A storage backend. Either HDFS with the xref:hdfs:index.adoc[] or S3. (TODO: link to S3 deep storage config usage)
+* A storage backend. Either HDFS with the xref:hdfs:index.adoc[] or S3. (TODO: link to S3 deep storage config usage).
+* An SQL database to store metadata.
 
 You can ingest data from Kafka with the xref:kafka:index.adoc[].
 
