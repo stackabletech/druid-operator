@@ -7,27 +7,17 @@ The roles correspond to https://druid.apache.org/docs/latest/design/processes.ht
 
 == Resources
 
-Below you can see the resources created by the Operator for a given DruidCluster.
+The Operator watches DruidCluster objects and creates multiple Kubernetes resources for each DruidCluster based its configuration.
 
-image::druid_overview.drawio.svg[]
+image::druid_overview.drawio.svg[A diagram depicting the Kubernetes resources the operator creates]
 
-The operator creates:
+For every RoleGroup a **StatefulSet** is created. Each StatefulSet can contain multiple replicas (Pods). In each Pod are two containers: the main Druid container and a preparation container (TODO what for exactly?).
 
-* A StatefulSet for each RoleGroup
-** Each StatefulSet then spawns one or more Pods
-*** Pods containing ...? (Monitoring? xref:concepts:logging.adoc[]?)
-* A ConfigMap for each RoleGroup containing
-** a log configuration file
-** JVM configuration file
-** The runtime.properties file
-* A xref:discovery.adoc[discovery ConfigMap] which contains information on how to connect to the Druid cluster.
-* Services for each Role as well as RoleGroup.
+A **ConfigMap** is created for each RoleGroup containing 3 files. A generated `jvm.config` and `runtime.properties` file based on ... (TODO). A `log4j2.properties` file used for xref:usage-guide/logging.adoc[].
 
-(Service Accounts?)
+For every Role and RoleGroup the Operator creates a **Service**.
 
-
-If a DruidCluster is deleted, the ConfigMaps are retained (?)
-
+For the whole DruidCluster a **xref:discovery.adoc[discovery ConfigMap]** is created which contains information on how to connect to the Druid cluster.
 
 == Dependencies and Other Operators to connect to
 
