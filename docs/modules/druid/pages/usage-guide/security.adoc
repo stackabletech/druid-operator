@@ -17,7 +17,7 @@ spec:
 
 IMPORTANT: A Stackable Druid cluster is always encrypted per default. In order to disable this default behavior you can set `spec.clusterConfig.tls.serverAndInternalSecretClass: null`.
 
-== Authentication
+== [[authentication]]Authentication
 
 === TLS
 
@@ -81,7 +81,7 @@ Using an LDAP server **without** bind credentials is not supported. This limitat
 
 Authorization is done using the `allowAll` authorizer. Supporting for `memberOf` and OPA authorization are planned.
 
-== Authorization with Open Policy Agent (OPA)
+== [[authorization]]Authorization with Open Policy Agent (OPA)
 
 Druid can connect to an Open Policy Agent (OPA) instance for authorization policy decisions. You need to run an OPA instance to connect to, for which we refer to the https://docs.stackable.tech/opa/index.html[OPA Operator docs]. How you can write RegoRules for Druid is explained <<_defining_regorules, below>>.
 
@@ -99,7 +99,7 @@ spec:
 <1> The name of your OPA cluster (`simple-opa` in this case)
 <2> The RegoRule package to use for policy decisions. The package should contain an `allow` rule. This is optional and will default to the name of the Druid cluster.
 
-== Defining RegoRules
+=== Defining RegoRules
 
 For a general explanation of how rules are written, we refer to the https://www.openpolicyagent.org/docs/latest/#rego[OPA documentation]. Inside your rule you will have access to input from Druid. Druid provides this data to you to base your policy decisions on:
 

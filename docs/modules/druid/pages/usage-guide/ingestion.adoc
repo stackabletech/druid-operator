@@ -1,6 +1,6 @@
 = Ingestion
 
-== [[S3]]From S3
+== [[s3]]From S3
 
 To ingest data from s3, you need to specify at least a host to connect to, but there are more settings that can be set:
 
