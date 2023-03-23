@@ -1,2 +1,10 @@
 = Usage guide
 :page-aliases: usage.doc
+
+The usage guide covers various aspects of configuring Druid and interconnection with other tools.
+
+xref:usage-guide/deep-storage.adoc[], xref:usage-guide/ingestion.adoc[] and xref:usage-guide/resources-and-storage.adoc[] are the relevant pages to configure how your data is stored and ingested.
+
+The xref:usage-guide/security.adoc[] page explains how to configure TLS, authentication with LDAP and authorization using xref:opa:index.adoc[OPA].
+
+Look into xref:usage-guide/logging.adoc[] and xref:usage-guide/monitoring.adoc[] to learn how to observe your Druid status.

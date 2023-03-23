@@ -1,8 +1,5 @@
 = Deep storage configuration
 
-TODO
-
-
 == [[hdfs]]HDFS
 
 Druid can use HDFS as a backend for deep storage:
