@@ -101,7 +101,7 @@ spec:
 
 === Defining RegoRules
 
-For a general explanation of how rules are written, we refer to the https://www.openpolicyagent.org/docs/latest/#rego[OPA documentation]. Inside your rule you will have access to input from Druid. Druid provides this data to you to base your policy decisions on:
+For a general explanation of how rules are written, please refer to the https://www.openpolicyagent.org/docs/latest/#rego[OPA documentation]. Inside your rule you will have access to input from Druid. Druid provides this data to you to base your policy decisions on:
 
 [source,json]
 ----
