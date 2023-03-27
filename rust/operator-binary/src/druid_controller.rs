@@ -16,7 +16,7 @@ use stackable_druid_crd::{
     authorization::DruidAuthorization,
     build_string_list,
     security::{resolve_authentication_classes, DruidTlsSecurity},
-    CommonRoleGroupConfig, DeepStorageSpec, DruidCluster, DruidRole, APP_NAME,
+    ClusterOperations, CommonRoleGroupConfig, DeepStorageSpec, DruidCluster, DruidRole, APP_NAME,
     AUTH_AUTHORIZER_OPA_URI, CERTS_DIR, CREDENTIALS_SECRET_PROPERTY, DRUID_CONFIG_DIRECTORY,
     DS_BUCKET, EXTENSIONS_LOADLIST, HDFS_CONFIG_DIRECTORY, JVM_CONFIG, LOG_CONFIG_DIRECTORY,
     LOG_DIR, LOG_VOLUME_SIZE_IN_MIB, RUNTIME_PROPS, RW_CONFIG_DIRECTORY, S3_ENDPOINT_URL,
@@ -229,6 +229,20 @@ impl ReconcilerError for Error {
     fn category(&self) -> &'static str {
         ErrorDiscriminants::from(self).into()
     }
+}
+
+// TODO: move this to operator-rs
+fn handle_pause_reconcile_flag(cluster_operations: &Option<ClusterOperations>) -> Option<Action> {
+    if let Some(ops) = &cluster_operations {
+        if ops.reconciliation_paused {
+            tracing::info!(
+                "Reconciliation is paused, due to ops flag. Ending reconcile without changes"
+            );
+            return Some(Action::await_change());
+        }
+    }
+
+    None
 }
 
 pub async fn reconcile_druid(druid: Arc<DruidCluster>, ctx: Arc<Ctx>) -> Result<Action> {

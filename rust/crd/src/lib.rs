@@ -181,6 +181,16 @@ pub struct DruidClusterSpec {
     pub routers: Role<RouterConfigFragment>,
     /// Common cluster wide configuration that can not differ or be overridden on a role or role group level
     pub cluster_config: DruidClusterConfig,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cluster_operations: Option<ClusterOperations>,
+}
+
+// TODO: move this to operator-rs
+#[derive(Clone, Debug, Deserialize, JsonSchema, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ClusterOperations {
+    #[serde(default)]
+    pub reconciliation_paused: bool,
 }
 
 #[derive(
