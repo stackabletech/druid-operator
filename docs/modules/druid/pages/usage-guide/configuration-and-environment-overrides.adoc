@@ -36,7 +36,7 @@ routers:
 
 All override property values must be strings.
 
-For a full list of configuration options we refer to the Druid https://druid.apache.org/docs/latest/configuration/index.html[Configuration Reference].
+For a full list of configuration options please refer to the Druid https://druid.apache.org/docs/latest/configuration/index.html[Configuration Reference].
 
 == Environment Variables
 
