@@ -247,6 +247,11 @@ fn handle_pause_reconcile_flag(cluster_operations: &Option<ClusterOperations>) -
 
 pub async fn reconcile_druid(druid: Arc<DruidCluster>, ctx: Arc<Ctx>) -> Result<Action> {
     tracing::info!("Starting reconcile");
+
+    if let Some(action) = handle_pause_reconcile_flag(&druid.spec.cluster_operations) {
+        return Ok(action);
+    }
+
     let client = &ctx.client;
     let namespace = &druid
         .metadata
