@@ -1,0 +1,7 @@
+---
+apiVersion: kuttl.dev/v1beta1
+kind: TestAssert
+timeout: 15
+# wait repeatedly, to make sure the operator had a chance to react
+commands:
+  - script: sleep 5

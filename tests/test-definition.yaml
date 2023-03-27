@@ -49,6 +49,8 @@ tests:
   - name: pause
     dimensions:
       - druid-latest
+      - zookeeper-latest
+      - hadoop-latest
   - name: authorizer
     dimensions:
       - druid
