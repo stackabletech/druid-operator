@@ -14,15 +14,15 @@ use snafu::{OptionExt, ResultExt, Snafu};
 use stackable_druid_crd::{
     authentication::ldap::DruidLdapSettings,
     authorization::DruidAuthorization,
-    build_string_list,
+    build_recommended_labels, build_string_list,
     security::{resolve_authentication_classes, DruidTlsSecurity},
-    CommonRoleGroupConfig, DeepStorageSpec, DruidCluster, DruidRole, APP_NAME,
-    AUTH_AUTHORIZER_OPA_URI, CERTS_DIR, CREDENTIALS_SECRET_PROPERTY, DRUID_CONFIG_DIRECTORY,
-    DS_BUCKET, EXTENSIONS_LOADLIST, HDFS_CONFIG_DIRECTORY, JVM_CONFIG, LOG_CONFIG_DIRECTORY,
-    LOG_DIR, LOG_VOLUME_SIZE_IN_MIB, RUNTIME_PROPS, RW_CONFIG_DIRECTORY, S3_ENDPOINT_URL,
-    S3_PATH_STYLE_ACCESS, S3_SECRET_DIR_NAME, ZOOKEEPER_CONNECTION_STRING,
+    CommonRoleGroupConfig, Container, DeepStorageSpec, DruidCluster, DruidClusterStatus, DruidRole,
+    APP_NAME, AUTH_AUTHORIZER_OPA_URI, CERTS_DIR, CREDENTIALS_SECRET_PROPERTY,
+    DRUID_CONFIG_DIRECTORY, DS_BUCKET, ENV_INTERNAL_SECRET, EXTENSIONS_LOADLIST,
+    HDFS_CONFIG_DIRECTORY, JVM_CONFIG, LOG_CONFIG_DIRECTORY, LOG_DIR, LOG_VOLUME_SIZE_IN_MIB,
+    RUNTIME_PROPS, RW_CONFIG_DIRECTORY, S3_ENDPOINT_URL, S3_PATH_STYLE_ACCESS, S3_SECRET_DIR_NAME,
+    ZOOKEEPER_CONNECTION_STRING,
 };
-use stackable_druid_crd::{build_recommended_labels, Container, ENV_INTERNAL_SECRET};
 use stackable_operator::{
     builder::{
         ConfigMapBuilder, ContainerBuilder, ObjectMetaBuilder, PodBuilder,
@@ -58,6 +58,7 @@ use stackable_operator::{
         },
     },
     role_utils::RoleGroupRef,
+    status::condition::{compute_conditions, statefulset::StatefulSetConditionBuilder},
 };
 use std::{
     collections::{BTreeMap, HashMap},
@@ -160,6 +161,10 @@ pub enum Error {
     BuildDiscoveryConfig { source: discovery::Error },
     #[snafu(display("failed to apply discovery ConfigMap"))]
     ApplyDiscoveryConfig {
+        source: stackable_operator::error::Error,
+    },
+    #[snafu(display("failed to apply cluster status"))]
+    ApplyStatus {
         source: stackable_operator::error::Error,
     },
     #[snafu(display(
@@ -327,6 +332,8 @@ pub async fn reconcile_druid(druid: Arc<DruidCluster>, ctx: Arc<Ctx>) -> Result<
 
     let merged_config = druid.merged_config().context(FailedToResolveConfigSnafu)?;
 
+    let mut ss_cond_builder = StatefulSetConditionBuilder::default();
+
     for (role_name, role_config) in validated_role_config.iter() {
         let druid_role = DruidRole::from_str(role_name).context(UnidentifiedDruidRoleSnafu {
             role: role_name.to_string(),
@@ -400,12 +407,15 @@ pub async fn reconcile_druid(druid: Arc<DruidCluster>, ctx: Arc<Ctx>) -> Result<
                 .with_context(|_| ApplyRoleGroupConfigSnafu {
                     rolegroup: rolegroup.clone(),
                 })?;
-            cluster_resources
-                .add(client, &rg_statefulset)
-                .await
-                .with_context(|_| ApplyRoleGroupStatefulSetSnafu {
-                    rolegroup: rolegroup.clone(),
-                })?;
+
+            ss_cond_builder.add(
+                cluster_resources
+                    .add(client, &rg_statefulset)
+                    .await
+                    .with_context(|_| ApplyRoleGroupStatefulSetSnafu {
+                        rolegroup: rolegroup.clone(),
+                    })?,
+            );
         }
     }
 
@@ -429,6 +439,17 @@ pub async fn reconcile_druid(druid: Arc<DruidCluster>, ctx: Arc<Ctx>) -> Result<
         .delete_orphaned_resources(client)
         .await
         .context(DeleteOrphanedResourcesSnafu)?;
+
+    let status = DruidClusterStatus {
+        // Serialize as a string to discourage users from trying to parse the value,
+        // and to keep things flexible if we end up changing the hasher at some point.
+        conditions: compute_conditions(druid.as_ref(), &[&ss_cond_builder]),
+    };
+
+    client
+        .apply_patch_status(OPERATOR_NAME, &*druid, &status)
+        .await
+        .context(ApplyStatusSnafu)?;
 
     Ok(Action::await_change())
 }
