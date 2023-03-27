@@ -8,9 +8,10 @@ All notable changes to this project will be documented in this file.
 
 - Add support for non-TLS LDAP authentication. ([#374])
 - Add support for TLS LDAP authentication. ([#408])
-- Deploy default and support custom affinities ([#406]).
-- Log aggregation added ([#407]).
+- Deploy default and support custom affinities ([#406])
+- Log aggregation added ([#407])
 - Added the ability to mount extra volumes for files that may be needed for ingestion tasks to work ([#415])
+- Cluster status conditions ([#421])
 
 ### Changed
 
@@ -30,6 +31,7 @@ All notable changes to this project will be documented in this file.
 [#407]: https://github.com/stackabletech/druid-operator/pull/407
 [#408]: https://github.com/stackabletech/druid-operator/pull/408
 [#415]: https://github.com/stackabletech/druid-operator/pull/415
+[#421]: https://github.com/stackabletech/druid-operator/pull/421
 
 ## [23.1.0] - 2023-01-23
 
