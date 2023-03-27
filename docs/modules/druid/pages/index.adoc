@@ -14,7 +14,7 @@ The Operator watches DruidCluster objects and creates multiple Kubernetes resour
 
 image::druid_overview.drawio.svg[A diagram depicting the Kubernetes resources created by the operator]
 
-For every RoleGroup a **StatefulSet** is created. Each StatefulSet can contain multiple replicas (Pods). each Pod has at least two containers: the main Druid container and a preparation container which just runs once at startup. If xref:usage-guide/logging.adoc[] is enabled, there is a sidecar container for logging too.
+For every RoleGroup a **StatefulSet** is created. Each StatefulSet can contain multiple replicas (Pods). Each Pod has at least two containers: the main Druid container and a preparation container which just runs once at startup. If xref:usage-guide/logging.adoc[] is enabled, there is a sidecar container for logging too.
 For every Role and RoleGroup the Operator creates a **Service**.
 
 A **ConfigMap** is created for each RoleGroup containing 3 files. A generated `jvm.config` and `runtime.properties` file based on the DruidCluster configuration (See xref:usage-guide/index.adoc[] for more information). A `log4j2.properties` file used for xref:usage-guide/logging.adoc[].
