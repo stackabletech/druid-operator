@@ -15,7 +15,6 @@ use authorization::DruidAuthorization;
 use resource::RoleResource;
 use serde::{Deserialize, Serialize};
 use snafu::{OptionExt, ResultExt, Snafu};
-use stackable_operator::k8s_openapi::api::core::v1::Volume;
 use stackable_operator::{
     client::Client,
     commons::{
@@ -29,7 +28,7 @@ use stackable_operator::{
         fragment::{self, Fragment, FromFragment, ValidationError},
         merge::Merge,
     },
-    k8s_openapi::apimachinery::pkg::apis::meta::v1::LabelSelector,
+    k8s_openapi::{api::core::v1::Volume, apimachinery::pkg::apis::meta::v1::LabelSelector},
     kube::{CustomResource, ResourceExt},
     labels::ObjectLabels,
     product_config::types::PropertyNameKind,
@@ -37,6 +36,7 @@ use stackable_operator::{
     product_logging::{self, spec::Logging},
     role_utils::{CommonConfiguration, Role, RoleGroup},
     schemars::{self, JsonSchema},
+    status::condition::{ClusterCondition, HasStatusCondition},
 };
 use std::collections::{BTreeMap, HashMap};
 use strum::{Display, EnumDiscriminants, EnumIter, EnumString, IntoStaticStr};
@@ -457,6 +457,16 @@ impl DruidRole {
             "/stackable/druid/bin/run-druid {} {RW_CONFIG_DIRECTORY}",
             self.get_process_name(),
         )
+    }
+}
+
+// Required to retrieve the conditions from the cluster status
+impl HasStatusCondition for DruidCluster {
+    fn conditions(&self) -> Vec<ClusterCondition> {
+        match &self.status {
+            Some(status) => status.conditions.clone(),
+            None => vec![],
+        }
     }
 }
 
@@ -1189,7 +1199,9 @@ impl Configuration for CoordinatorConfigFragment {
 
 #[derive(Clone, Debug, Default, Deserialize, JsonSchema, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct DruidClusterStatus {}
+pub struct DruidClusterStatus {
+    pub conditions: Vec<ClusterCondition>,
+}
 
 /// Takes a vec of strings and returns them as a formatted json
 /// list.
