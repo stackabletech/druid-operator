@@ -15,7 +15,7 @@ spec:
 ----
 <1> Name of the `SecretClass` that is used to encrypt internal and external communication.
 
-IMPORTANT: A Stackable Druid cluster is always encrypted per default. In order to disable this default behavior you can set `spec.clusterConfig.tls.serverAndInternalSecretClass: null`.
+IMPORTANT: A Stackable Druid cluster is always encrypted per default i.e. `spec.clusterConfig.tls.serverAndInternalSecretClass: tls` in the above example does not need to be specified as it will be applied by default: in order to disable this default behavior you can set `spec.clusterConfig.tls.serverAndInternalSecretClass: null`.
 
 == [[authentication]]Authentication
 
