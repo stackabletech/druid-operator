@@ -1,8 +1,15 @@
 * xref:druid:getting_started/index.adoc[]
 ** xref:druid:getting_started/installation.adoc[]
 ** xref:druid:getting_started/first_steps.adoc[]
+* xref:druid:usage-guide/index.adoc[]
+** xref:druid:usage-guide/pod-placement.adoc[]
+** xref:druid:usage-guide/ingestion.adoc[]
+** xref:druid:usage-guide/deep-storage.adoc[]
+** xref:druid:usage-guide/resources-and-storage.adoc[]
+** xref:druid:usage-guide/security.adoc[]
+** xref:druid:usage-guide/discovery.adoc[]
+** xref:druid:usage-guide/logging.adoc[]
+** xref:druid:usage-guide/monitoring.adoc[]
+** xref:druid:usage-guide/configuration-and-environment-overrides.adoc[]
 * xref:druid:configuration.adoc[]
-* xref:druid:usage.adoc[]
-* Concepts
-** xref:druid:discovery.adoc[]
 

@@ -1,0 +1,7 @@
+[NOTE]
+====
+You can specify just a connection/bucket for either ingestion or deep storage or for both, but Druid only supports a single S3 connection under the hood.
+If two connections are specified, they must be the same. This is easiest if a dedicated S3 Connection Resource is used - not defined inline but as a dedicated object.
+
+TLS for S3 is not yet supported.
+====

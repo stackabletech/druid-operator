@@ -1,0 +1,47 @@
+= Ingestion
+
+== [[s3]]From S3
+
+To ingest data from s3 you need to specify a host to connect to, but there are also other settings that can be used:
+
+[source,yaml]
+----
+spec:
+  clusterConfig:
+    ingestion:
+      s3connection:
+        host: yourhost.com  # <1>
+        port: 80 # optional <2>
+        credentials: # optional <3>
+        ...
+----
+
+<1> The S3 host, not optional
+<2> Port, optional, defaults to 80
+<3> Credentials to use. Since these might be bucket-dependent, they can instead be given in the ingestion job. Specifying the credentials here is explained <<S3 Credentials, below>>.
+
+include::partial$s3-note.adoc[]
+
+=== S3 credentials
+
+include::partial$s3-credentials.adoc[]
+
+== Adding external files, e.g. for ingestion
+
+Since Druid actively runs ingestion tasks there may be a need to make extra files available to the processes.
+
+These could for example be client certificates used to connect to a Kafka cluster or a keytab to obtain a Kerberos ticket.
+
+In order to make these files available the operator allows specifying extra volumes that will be added to all pods deployed for this cluster.
+
+[source,yaml]
+----
+spec:
+  clusterConfig:
+    extraVolumes:
+      - name: google-service-account
+        secret:
+          secretName: google-service-account
+----
+
+All `Volumes` specified in this section will be made available under `/stackable/userdata/\{volumename\}`.
