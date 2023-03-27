@@ -2,7 +2,7 @@
 
 == [[s3]]From S3
 
-To ingest data from s3, you need to specify at least a host to connect to, but there are more settings that can be set:
+To ingest data from s3 you need to specify a host to connect to, but there are also other settings that can be used:
 
 [source,yaml]
 ----
