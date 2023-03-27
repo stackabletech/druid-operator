@@ -2,7 +2,7 @@
 
 == Storage for data volumes
 
-Druid uses S3 or HDFS deep storage, so no extra https://kubernetes.io/docs/concepts/storage/persistent-volumes[PersistentVolumeClaims] have to be specified.
+Druid uses S3 or HDFS for deep storage, so no extra https://kubernetes.io/docs/concepts/storage/persistent-volumes[PersistentVolumeClaims] have to be specified.
 
 == Resource Requests
 
