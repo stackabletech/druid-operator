@@ -42,7 +42,7 @@ spec:
 <3> Optional bucket port.
 <4> Credentials explained <<S3 Credentials, below>>.
 
-It is also possible to configure the bucket connection details as a separate Kubernetes resource and only refer to that object from the `DruidCluster` like this:
+It is also possible to configure the bucket connection details as a separate Kubernetes resource and only refer to that object from the DruidCluster like this:
 
 [source,yaml]
 ----
@@ -74,7 +74,7 @@ spec:
         ... (explained below)
 ----
 
-This has the advantage that bucket configuration can be shared across `DruidClusters`s (and other stackable CRDs) and reduces the cost of updating these details.
+This has the advantage that bucket configuration can be shared across DruidClusters (and other stackable CRDs) and reduces the cost of updating these details.
 
 include::partial$s3-note.adoc[]
 

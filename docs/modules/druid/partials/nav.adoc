@@ -7,6 +7,7 @@
 ** xref:druid:usage-guide/deep-storage.adoc[]
 ** xref:druid:usage-guide/resources-and-storage.adoc[]
 ** xref:druid:usage-guide/security.adoc[]
+** xref:druid:usage-guide/discovery.adoc[]
 ** xref:druid:usage-guide/logging.adoc[]
 ** xref:druid:usage-guide/monitoring.adoc[]
 ** xref:druid:usage-guide/configuration-and-environment-overrides.adoc[]
