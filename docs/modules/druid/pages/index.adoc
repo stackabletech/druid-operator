@@ -34,7 +34,7 @@ Have a look at the xref:getting_started/index.adoc[getting started guide] for an
 
 == [[demos]]Demos
 
-xref:stackablectl::index.adoc[] supports installing xref:stackablectl::demos/index.adoc[] with a single command. The demos are complete data piplines which showcase multiple components of the Stackable platform working together and for you to try out interactively. Both demos below include Druid as part of the data pipeline:
+xref:stackablectl::index.adoc[] supports installing xref:stackablectl::demos/index.adoc[] with a single command. The demos are complete data piplines which showcase multiple components of the Stackable platform working together and which you can try out interactively. Both demos below include Druid as part of the data pipeline:
 
 === Waterlevel Demo
 
