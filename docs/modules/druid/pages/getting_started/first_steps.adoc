@@ -164,4 +164,4 @@ Great! You've set up your first Druid cluster, ingested some data and queried it
 
 == What's next
 
-Have a look at the xref:usage-guide/index.adoc[] page to find out more about the features of the Operator, such as S3 backed deep storage or OPA based authorization.
+Have a look at the xref:usage-guide/index.adoc[] page to find out more about the features of the Operator, such as S3-backed deep storage or OPA-based authorization.
