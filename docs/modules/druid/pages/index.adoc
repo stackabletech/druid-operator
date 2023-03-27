@@ -30,7 +30,7 @@ The Druid Operator has the following dependencies:
 * The xref:commons-operator:index.adoc[] provides common CRDs such as xref:concepts:s3.adoc[] CRDs.
 * The xref:secret-operator:index.adoc[] is required for things like S3 access credentials or LDAP integration.
 
-Have a look at the xref:getting_started/index.adoc[getting started guide] for an example of a minimal working setup. Druid can work well with other Stackable supported products, xref:kafka:index.adoc[Apache Kafka] for data ingestion xref:trino:index.adoc[Trino] for data processing orxref:superset:index.adoc[Superset] for data visualization. xref:opa:index.adoc[OPA] can be connected to create authorization policies. Have a look at the xref:usage-guide/index.adoc[] for more configuration options and have a look at the <<demos, demos>> for complete data pipelines you can install with a single command.
+Have a look at the xref:getting_started/index.adoc[getting started guide] for an example of a minimal working setup. Druid work wells with other Stackable supported products, such as xref:kafka:index.adoc[Apache Kafka] for data ingestion xref:trino:index.adoc[Trino] for data processing or xref:superset:index.adoc[Superset] for data visualization. xref:opa:index.adoc[OPA] can be connected to create authorization policies. Have a look at the xref:usage-guide/index.adoc[] for more configuration options and have a look at the <<demos, demos>> for complete data pipelines you can install with a single command.
 
 == [[demos]]Demos
 
