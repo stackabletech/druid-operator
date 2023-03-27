@@ -10,7 +10,7 @@ To get started with the Stackable Operator for Apache Druid, follow the xref:dru
 
 == Resources
 
-The Operator watches DruidCluster objects and creates multiple Kubernetes resources for each DruidCluster based its configuration.
+The Operator watches DruidCluster objects and creates multiple Kubernetes resources for each DruidCluster based on its configuration.
 
 image::druid_overview.drawio.svg[A diagram depicting the Kubernetes resources the operator creates]
 
