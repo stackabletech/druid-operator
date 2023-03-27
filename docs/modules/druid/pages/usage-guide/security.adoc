@@ -83,7 +83,7 @@ Authorization is done using the `allowAll` authorizer. Supporting for `memberOf`
 
 == [[authorization]]Authorization with Open Policy Agent (OPA)
 
-Druid can connect to an Open Policy Agent (OPA) instance for authorization policy decisions. You need to run an OPA instance to connect to: for this, please refer to the https://docs.stackable.tech/opa/index.html[OPA Operator docs]. An short explanation of how to write RegoRules for Druid is given <<_defining_regorules, below>>.
+Druid can connect to an Open Policy Agent (OPA) instance for authorization policy decisions. You need to run an OPA instance to connect to: for this, please refer to the https://docs.stackable.tech/opa/index.html[OPA Operator docs]. A short explanation of how to write RegoRules for Druid is given <<_defining_regorules, below>>.
 
 Once you have defined your rules, you need to configure the OPA cluster name and endpoint to use for Druid authorization requests. Add a section to the `spec` for OPA:
 
