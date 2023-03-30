@@ -1,0 +1,68 @@
+---
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+metadata:
+  name: install-druid
+timeout: 60
+---
+apiVersion: druid.stackable.tech/v1alpha1
+kind: DruidCluster
+metadata:
+  name: druid
+spec:
+  image:
+    productVersion: "{{ test_scenario['values']['druid-latest'].split('-stackable')[0] }}"
+    stackableVersion: "{{ test_scenario['values']['druid-latest'].split('-stackable')[1] }}"
+  clusterOperations:
+    reconciliationPaused: true
+  clusterConfig:
+    deepStorage:
+      hdfs:
+        configMapName: druid-hdfs
+        directory: /druid
+    metadataStorageDatabase:
+      dbType: postgresql
+      connString: jdbc:postgresql://druid-postgresql/druid
+      host: druid-postgresql
+      port: 5432
+      user: druid
+      password: druid
+{% if lookup('env', 'VECTOR_AGGREGATOR') %}
+    vectorAggregatorConfigMapName: vector-aggregator-discovery
+{% endif %}
+    zookeeperConfigMapName: druid-znode
+  brokers:
+    config:
+      logging:
+        enableVectorAgent: {{ lookup('env', 'VECTOR_AGGREGATOR') | length > 0 }}
+    roleGroups:
+      default:
+        replicas: 1
+  coordinators:
+    config:
+      logging:
+        enableVectorAgent: {{ lookup('env', 'VECTOR_AGGREGATOR') | length > 0 }}
+    roleGroups:
+      default:
+        replicas: 1
+  historicals:
+    config:
+      logging:
+        enableVectorAgent: {{ lookup('env', 'VECTOR_AGGREGATOR') | length > 0 }}
+    roleGroups:
+      default:
+        replicas: 1
+  middleManagers:
+    config:
+      logging:
+        enableVectorAgent: {{ lookup('env', 'VECTOR_AGGREGATOR') | length > 0 }}
+    roleGroups:
+      default:
+        replicas: 1
+  routers:
+    config:
+      logging:
+        enableVectorAgent: {{ lookup('env', 'VECTOR_AGGREGATOR') | length > 0 }}
+    roleGroups:
+      default:
+        replicas: 1

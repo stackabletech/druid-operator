@@ -1,4 +1,4 @@
-//! Ensures that `Pod`s are configured and running for each [`DruidCluster`]
+ //! Ensures that `Pod`s are configured and running for each [`DruidCluster`]
 use crate::{
     config::get_jvm_config,
     discovery::{self, build_discovery_configmaps},
@@ -16,7 +16,7 @@ use stackable_druid_crd::{
     authorization::DruidAuthorization,
     build_string_list,
     security::{resolve_authentication_classes, DruidTlsSecurity},
-    CommonRoleGroupConfig, DeepStorageSpec, DruidCluster, DruidRole, APP_NAME,
+    ClusterOperations, CommonRoleGroupConfig, DeepStorageSpec, DruidCluster, DruidRole, APP_NAME,
     AUTH_AUTHORIZER_OPA_URI, CERTS_DIR, CREDENTIALS_SECRET_PROPERTY, DRUID_CONFIG_DIRECTORY,
     DS_BUCKET, EXTENSIONS_LOADLIST, HDFS_CONFIG_DIRECTORY, JVM_CONFIG, LOG_CONFIG_DIRECTORY,
     LOG_DIR, LOG_VOLUME_SIZE_IN_MIB, RUNTIME_PROPS, RW_CONFIG_DIRECTORY, S3_ENDPOINT_URL,
@@ -231,8 +231,30 @@ impl ReconcilerError for Error {
     }
 }
 
+// TODO: move this to operator-rs
+fn handle_pause_reconcile_flag(cluster_operations: &ClusterOperations) -> Option<Action> {
+    if let Some(recon_paused) = cluster_operations.reconciliation_paused{
+        if recon_paused {
+            tracing::info!(
+                "Reconciliation is paused, due to ops flag. Ending reconcile without changes"
+            );
+            return Some(Action::await_change());
+        }
+    }
+
+    None
+}
+
+// TODO - MW: Have a stop function
+
+
 pub async fn reconcile_druid(druid: Arc<DruidCluster>, ctx: Arc<Ctx>) -> Result<Action> {
     tracing::info!("Starting reconcile");
+
+    if let Some(action) = handle_pause_reconcile_flag(&druid.spec.cluster_operations) {
+        return Ok(action);
+    }
+
     let client = &ctx.client;
     let namespace = &druid
         .metadata
@@ -1153,3 +1175,4 @@ mod test {
         Ok(())
     }
 }
+
