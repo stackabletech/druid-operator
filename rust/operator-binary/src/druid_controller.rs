@@ -1,4 +1,4 @@
-//! Ensures that `Pod`s are configured and running for each [`DruidCluster`]
+ //! Ensures that `Pod`s are configured and running for each [`DruidCluster`]
 use crate::{
     config::get_jvm_config,
     discovery::{self, build_discovery_configmaps},
@@ -232,9 +232,9 @@ impl ReconcilerError for Error {
 }
 
 // TODO: move this to operator-rs
-fn handle_pause_reconcile_flag(cluster_operations: &Option<ClusterOperations>) -> Option<Action> {
-    if let Some(ops) = &cluster_operations {
-        if ops.reconciliation_paused {
+fn handle_pause_reconcile_flag(cluster_operations: &ClusterOperations) -> Option<Action> {
+    if let Some(recon_paused) = cluster_operations.reconciliation_paused{
+        if recon_paused {
             tracing::info!(
                 "Reconciliation is paused, due to ops flag. Ending reconcile without changes"
             );
@@ -244,6 +244,9 @@ fn handle_pause_reconcile_flag(cluster_operations: &Option<ClusterOperations>) -
 
     None
 }
+
+// TODO - MW: Have a stop function
+
 
 pub async fn reconcile_druid(druid: Arc<DruidCluster>, ctx: Arc<Ctx>) -> Result<Action> {
     tracing::info!("Starting reconcile");
@@ -1172,3 +1175,4 @@ mod test {
         Ok(())
     }
 }
+
