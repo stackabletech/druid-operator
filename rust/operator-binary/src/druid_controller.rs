@@ -28,7 +28,7 @@ use stackable_operator::{
         ConfigMapBuilder, ContainerBuilder, ObjectMetaBuilder, PodBuilder,
         PodSecurityContextBuilder, SecretOperatorVolumeSourceBuilder, VolumeBuilder,
     },
-    cluster_resources::ClusterResources,
+    cluster_resources::{ClusterResourceApplyStrategy, ClusterResources}, 
     commons::{
         opa::OpaApiVersion,
         product_image_selection::ResolvedProductImage,
@@ -322,6 +322,7 @@ pub async fn reconcile_druid(druid: Arc<DruidCluster>, ctx: Arc<Ctx>) -> Result<
         OPERATOR_NAME,
         CONTROLLER_NAME,
         &druid.object_ref(&()),
+        ClusterResourceApplyStrategy::from(&druid.spec.cluster_operation),
     )
     .context(CreateClusterResourcesSnafu)?;
 
@@ -339,7 +340,7 @@ pub async fn reconcile_druid(druid: Arc<DruidCluster>, ctx: Arc<Ctx>) -> Result<
             &druid_tls_security,
         )?;
         cluster_resources
-            .add(client, &role_service)
+            .add(client, role_service)
             .await
             .context(ApplyRoleServiceSnafu)?;
 
@@ -389,19 +390,19 @@ pub async fn reconcile_druid(druid: Arc<DruidCluster>, ctx: Arc<Ctx>) -> Result<
                 &druid_ldap_settings,
             )?;
             cluster_resources
-                .add(client, &rg_service)
+                .add(client, rg_service)
                 .await
                 .with_context(|_| ApplyRoleGroupServiceSnafu {
                     rolegroup: rolegroup.clone(),
                 })?;
             cluster_resources
-                .add(client, &rg_configmap)
+                .add(client, rg_configmap)
                 .await
                 .with_context(|_| ApplyRoleGroupConfigSnafu {
                     rolegroup: rolegroup.clone(),
                 })?;
             cluster_resources
-                .add(client, &rg_statefulset)
+                .add(client, rg_statefulset)
                 .await
                 .with_context(|_| ApplyRoleGroupStatefulSetSnafu {
                     rolegroup: rolegroup.clone(),
@@ -420,7 +421,7 @@ pub async fn reconcile_druid(druid: Arc<DruidCluster>, ctx: Arc<Ctx>) -> Result<
     .context(BuildDiscoveryConfigSnafu)?
     {
         cluster_resources
-            .add(client, &discovery_cm)
+            .add(client, discovery_cm)
             .await
             .context(ApplyDiscoveryConfigSnafu)?;
     }
