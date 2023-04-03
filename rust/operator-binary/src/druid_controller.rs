@@ -28,7 +28,7 @@ use stackable_operator::{
         ConfigMapBuilder, ContainerBuilder, ObjectMetaBuilder, PodBuilder,
         PodSecurityContextBuilder, SecretOperatorVolumeSourceBuilder, VolumeBuilder,
     },
-    cluster_resources::{ClusterResourceApplyStrategy, ClusterResources}, 
+    cluster_resources::{ClusterResourceApplyStrategy, ClusterResources},
     commons::{
         opa::OpaApiVersion,
         product_image_selection::ResolvedProductImage,
