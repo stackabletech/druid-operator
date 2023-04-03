@@ -6,39 +6,34 @@ timeout: 180
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: derby-druid-broker-newrg
+  name: derby-druid-broker-default
 status:
-  readyReplicas: 1
   replicas: 1
 ---
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: derby-druid-coordinator-newrg
+  name: derby-druid-coordinator-default
 status:
-  readyReplicas: 1
   replicas: 1
 ---
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: derby-druid-historical-newrg
+  name: derby-druid-historical-default
 status:
-  readyReplicas: 1
   replicas: 1
 ---
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: derby-druid-middlemanager-newrg
+  name: derby-druid-middlemanager-default
 status:
-  readyReplicas: 1
   replicas: 1
 ---
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: derby-druid-router-newrg
+  name: derby-druid-router-default
 status:
-  readyReplicas: 1
   replicas: 1
