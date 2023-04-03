@@ -31,7 +31,7 @@ All notable changes to this project will be documented in this file.
 [#407]: https://github.com/stackabletech/druid-operator/pull/407
 [#408]: https://github.com/stackabletech/druid-operator/pull/408
 [#415]: https://github.com/stackabletech/druid-operator/pull/415
-[#422]: https://github.com/stackabletech/hbase-operator/pull/336
+[#422]: https://github.com/stackabletech/druid-operator/pull/442
 
 ## [23.1.0] - 2023-01-23
 
