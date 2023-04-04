@@ -165,9 +165,6 @@ pub enum Error {
 )]
 #[serde(rename_all = "camelCase")]
 pub struct DruidClusterSpec {
-    /// Emergency stop button, if `true` then all pods are stopped without affecting configuration (as setting `replicas` to `0` would)
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub stopped: Option<bool>,
     /// The Druid image to use
     pub image: ProductImage,
     /// Configuration of the broker role
