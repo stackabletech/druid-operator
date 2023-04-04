@@ -102,5 +102,5 @@ tests:
   - name: cluster-operation
     dimensions:
       - zookeeper-latest
-      - hdfs-latest
+      - hadoop-latest
       - druid-latest

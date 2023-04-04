@@ -8,6 +8,7 @@ kind: StatefulSet
 metadata:
   name: derby-druid-broker-default
 status:
+  availableReplicas: 0
   replicas: 0
 ---
 apiVersion: apps/v1
@@ -15,6 +16,7 @@ kind: StatefulSet
 metadata:
   name: derby-druid-coordinator-default
 status:
+  availableReplicas: 0
   replicas: 0
 ---
 apiVersion: apps/v1
@@ -22,6 +24,7 @@ kind: StatefulSet
 metadata:
   name: derby-druid-historical-default
 status:
+  availableReplicas: 0
   replicas: 0
 ---
 apiVersion: apps/v1
@@ -29,6 +32,7 @@ kind: StatefulSet
 metadata:
   name: derby-druid-middlemanager-default
 status:
+  availableReplicas: 0
   replicas: 0
 ---
 apiVersion: apps/v1
@@ -36,4 +40,5 @@ kind: StatefulSet
 metadata:
   name: derby-druid-router-default
 status:
+  availableReplicas: 0
   replicas: 0
