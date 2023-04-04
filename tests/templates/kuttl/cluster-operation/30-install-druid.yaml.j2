@@ -1,8 +1,6 @@
 ---
 apiVersion: kuttl.dev/v1beta1
 kind: TestStep
-metadata:
-  name: install-druid
 timeout: 600
 ---
 apiVersion: druid.stackable.tech/v1alpha1
@@ -27,9 +25,6 @@ spec:
     vectorAggregatorConfigMapName: vector-aggregator-discovery
 {% endif %}
     zookeeperConfigMapName: druid-znode
-  clusterOperation:
-    stopped: true
-    reconciliationPaused: false
   brokers:
     config:
       logging:

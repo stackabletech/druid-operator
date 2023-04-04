@@ -1,39 +1,39 @@
 ---
 apiVersion: kuttl.dev/v1beta1
 kind: TestAssert
-timeout: 600
+timeout: 180
 ---
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   name: derby-druid-broker-default
 status:
-  replicas: 1
+  replicas: 0
 ---
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   name: derby-druid-coordinator-default
 status:
-  replicas: 1
+  replicas: 0
 ---
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   name: derby-druid-historical-default
 status:
-  replicas: 1
+  replicas: 0
 ---
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   name: derby-druid-middlemanager-default
 status:
-  replicas: 1
+  replicas: 0
 ---
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   name: derby-druid-router-default
 status:
-  replicas: 1
+  replicas: 0
