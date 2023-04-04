@@ -11,5 +11,6 @@
 ** xref:druid:usage-guide/logging.adoc[]
 ** xref:druid:usage-guide/monitoring.adoc[]
 ** xref:druid:usage-guide/configuration-and-environment-overrides.adoc[]
+** xref:druid:usage-guide/cluster_operations.adoc[]
 * xref:druid:configuration.adoc[]
 
