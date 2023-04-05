@@ -20,6 +20,7 @@ use stackable_operator::{
     client::Client,
     commons::{
         affinity::StackableAffinity,
+        cluster_operation::ClusterOperation,
         product_image_selection::ProductImage,
         resources::{NoRuntimeLimits, Resources},
         s3::{InlinedS3BucketSpec, S3BucketDef, S3ConnectionDef, S3ConnectionSpec},
@@ -164,9 +165,6 @@ pub enum Error {
 )]
 #[serde(rename_all = "camelCase")]
 pub struct DruidClusterSpec {
-    /// Emergency stop button, if `true` then all pods are stopped without affecting configuration (as setting `replicas` to `0` would)
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub stopped: Option<bool>,
     /// The Druid image to use
     pub image: ProductImage,
     /// Configuration of the broker role
@@ -181,6 +179,9 @@ pub struct DruidClusterSpec {
     pub routers: Role<RouterConfigFragment>,
     /// Common cluster wide configuration that can not differ or be overridden on a role or role group level
     pub cluster_config: DruidClusterConfig,
+    /// Cluster operations like pause reconciliation or cluster stop.
+    #[serde(default)]
+    pub cluster_operation: ClusterOperation,
 }
 
 #[derive(

@@ -99,3 +99,8 @@ tests:
       - druid
       - hadoop
       - zookeeper-latest
+  - name: cluster-operation
+    dimensions:
+      - zookeeper-latest
+      - hadoop-latest
+      - druid-latest
