@@ -16,6 +16,11 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- [BREAKING] Support specifying Service type.
+  This enables us to later switch non-breaking to using `ListenerClasses` for the exposure of Services.
+  This change is breaking, because - for security reasons - we default to the `cluster-internal` `ListenerClass`.
+  If you need your cluster to be accessible from outside of Kubernetes you need to set `clusterConfig.listenerClass`
+  to `external-unstable` or `external-stable` ([#423]).
 - Upgrade to `operator-rs` `0.39.0` ([#374], [#380], [#404], [#406], [#408], [#422])
 - Merging and validation of the configuration refactored ([#404])
 
@@ -33,7 +38,8 @@ All notable changes to this project will be documented in this file.
 [#408]: https://github.com/stackabletech/druid-operator/pull/408
 [#415]: https://github.com/stackabletech/druid-operator/pull/415
 [#421]: https://github.com/stackabletech/druid-operator/pull/421
-[#422]: https://github.com/stackabletech/druid-operator/pull/442
+[#422]: https://github.com/stackabletech/druid-operator/pull/422
+[#423]: https://github.com/stackabletech/druid-operator/pull/423
 
 ## [23.1.0] - 2023-01-23
 

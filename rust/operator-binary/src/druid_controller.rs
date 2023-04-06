@@ -489,9 +489,9 @@ pub fn build_role_service(
             ))
             .build(),
         spec: Some(ServiceSpec {
+            type_: Some(druid.spec.cluster_config.listener_class.k8s_service_type()),
             ports: Some(druid_tls_security.service_ports(role)),
             selector: Some(role_selector_labels(druid, APP_NAME, &role_name)),
-            type_: Some("NodePort".to_string()),
             ..ServiceSpec::default()
         }),
         status: None,
@@ -672,6 +672,8 @@ fn build_rolegroup_services(
             .with_label("prometheus.io/scrape", "true")
             .build(),
         spec: Some(ServiceSpec {
+            // Internal communication does not need to be exposed
+            type_: Some("ClusterIP".to_string()),
             cluster_ip: Some("None".to_string()),
             ports: Some(druid_tls_security.service_ports(&role)),
             selector: Some(role_group_selector_labels(
