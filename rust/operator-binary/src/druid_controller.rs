@@ -58,7 +58,10 @@ use stackable_operator::{
         },
     },
     role_utils::RoleGroupRef,
-    status::condition::{compute_conditions, statefulset::StatefulSetConditionBuilder},
+    status::condition::{
+        compute_conditions, operations::ClusterOperationsConditionBuilder,
+        statefulset::StatefulSetConditionBuilder,
+    },
 };
 use std::{
     collections::{BTreeMap, HashMap},
@@ -435,17 +438,20 @@ pub async fn reconcile_druid(druid: Arc<DruidCluster>, ctx: Arc<Ctx>) -> Result<
             .context(ApplyDiscoveryConfigSnafu)?;
     }
 
+    let cluster_operation_cond_builder =
+        ClusterOperationsConditionBuilder::new(&druid.spec.cluster_operation);
+
+    let status = DruidClusterStatus {
+        conditions: compute_conditions(
+            druid.as_ref(),
+            &[&ss_cond_builder, &cluster_operation_cond_builder],
+        ),
+    };
+
     cluster_resources
         .delete_orphaned_resources(client)
         .await
         .context(DeleteOrphanedResourcesSnafu)?;
-
-    let status = DruidClusterStatus {
-        // Serialize as a string to discourage users from trying to parse the value,
-        // and to keep things flexible if we end up changing the hasher at some point.
-        conditions: compute_conditions(druid.as_ref(), &[&ss_cond_builder]),
-    };
-
     client
         .apply_patch_status(OPERATOR_NAME, &*druid, &status)
         .await
