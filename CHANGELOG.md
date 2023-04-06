@@ -11,6 +11,7 @@ All notable changes to this project will be documented in this file.
 - Deploy default and support custom affinities ([#406])
 - Log aggregation added ([#407])
 - Added the ability to mount extra volumes for files that may be needed for ingestion tasks to work ([#415])
+- Cluster status conditions ([#421])
 - Extend cluster resources for status and cluster operation (paused, stopped) ([#422])
 
 ### Changed
@@ -36,6 +37,7 @@ All notable changes to this project will be documented in this file.
 [#407]: https://github.com/stackabletech/druid-operator/pull/407
 [#408]: https://github.com/stackabletech/druid-operator/pull/408
 [#415]: https://github.com/stackabletech/druid-operator/pull/415
+[#421]: https://github.com/stackabletech/druid-operator/pull/421
 [#422]: https://github.com/stackabletech/druid-operator/pull/422
 [#423]: https://github.com/stackabletech/druid-operator/pull/423
 
