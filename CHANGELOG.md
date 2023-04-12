@@ -13,6 +13,8 @@ All notable changes to this project will be documented in this file.
 - Added the ability to mount extra volumes for files that may be needed for ingestion tasks to work ([#415])
 - Cluster status conditions ([#421])
 - Extend cluster resources for status and cluster operation (paused, stopped) ([#422])
+- Use operator-rs `build_rbac_resources` method ([#425])
+- Openshift compatibility ([#425])
 
 ### Changed
 
@@ -21,7 +23,7 @@ All notable changes to this project will be documented in this file.
   This change is breaking, because - for security reasons - we default to the `cluster-internal` `ListenerClass`.
   If you need your cluster to be accessible from outside of Kubernetes you need to set `clusterConfig.listenerClass`
   to `external-unstable` or `external-stable` ([#423]).
-- Upgrade to `operator-rs` `0.39.0` ([#374], [#380], [#404], [#406], [#408], [#422])
+- Upgrade to `operator-rs` `0.40.2` ([#374], [#380], [#404], [#406], [#408], [#422], [#425])
 - Merging and validation of the configuration refactored ([#404])
 
 ### Fixed
@@ -40,6 +42,7 @@ All notable changes to this project will be documented in this file.
 [#421]: https://github.com/stackabletech/druid-operator/pull/421
 [#422]: https://github.com/stackabletech/druid-operator/pull/422
 [#423]: https://github.com/stackabletech/druid-operator/pull/423
+[#425]: https://github.com/stackabletech/druid-operator/pull/425
 
 ## [23.1.0] - 2023-01-23
 
