@@ -107,7 +107,7 @@ rules:
       - get
       - list
       - watch
- - apiGroups:
+  - apiGroups:
       - rbac.authorization.k8s.io
     resources:
       - clusterroles
