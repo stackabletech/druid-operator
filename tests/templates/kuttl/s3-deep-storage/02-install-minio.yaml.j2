@@ -25,7 +25,7 @@ apiVersion: kuttl.dev/v1beta1
 kind: TestStep
 commands:
   - script: >-
-      helm install minio
+      helm install minio-druid
       --namespace $NAMESPACE
       --version 11.9.2
       -f helm-bitnami-minio-values.yaml
