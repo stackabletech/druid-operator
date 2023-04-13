@@ -2,7 +2,7 @@
 apiVersion: authentication.stackable.tech/v1alpha1
 kind: AuthenticationClass
 metadata:
-  name: druid-ldap-auth-class-$NAMESPACE
+  name: druid-ldap-auth-class
 spec:
   provider:
     ldap:
@@ -18,7 +18,7 @@ spec:
         verification:
           server:
             caCert:
-              secretClass: openldap-tls-$NAMESPACE
+              secretClass: openldap-tls
 {% endif %}
 {% if test_scenario['values']['ldap-no-bind-credentials'] == 'true' %}
       bindCredentials: null
@@ -41,6 +41,7 @@ apiVersion: v1
 kind: Secret
 metadata:
   name: druid-ldap-secret
+  namespace: $NAMESPACE
   labels:
     secrets.stackable.tech/class: druid-ldap-secret
 stringData:
