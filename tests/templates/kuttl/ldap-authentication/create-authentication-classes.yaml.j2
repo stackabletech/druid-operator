@@ -18,7 +18,7 @@ spec:
         verification:
           server:
             caCert:
-              secretClass: openldap-tls
+              secretClass: openldap-tls-$NAMESPACE
 {% endif %}
 {% if test_scenario['values']['ldap-no-bind-credentials'] == 'true' %}
       bindCredentials: null
