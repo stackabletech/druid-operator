@@ -32,6 +32,7 @@ use stackable_operator::{
     commons::{
         opa::OpaApiVersion,
         product_image_selection::ResolvedProductImage,
+        rbac::{build_rbac_resources, service_account_name},
         s3::{S3AccessStyle, S3ConnectionSpec},
         tls::{CaCert, TlsVerification},
     },
@@ -74,6 +75,7 @@ use strum::{EnumDiscriminants, IntoStaticStr};
 
 pub const CONTROLLER_NAME: &str = "druidcluster";
 
+const DRUID_UID: i64 = 1000;
 const DOCKER_IMAGE_BASE_NAME: &str = "druid";
 
 // volume names
@@ -229,6 +231,18 @@ pub enum Error {
         source: crate::product_logging::Error,
         cm_name: String,
     },
+    #[snafu(display("failed to create RBAC service account"))]
+    ApplyServiceAccount {
+        source: stackable_operator::error::Error,
+    },
+    #[snafu(display("failed to create RBAC role binding"))]
+    ApplyRoleBinding {
+        source: stackable_operator::error::Error,
+    },
+    #[snafu(display("failed to build RBAC resources"))]
+    BuildRbacResources {
+        source: stackable_operator::error::Error,
+    },
 }
 
 type Result<T, E = Error> = std::result::Result<T, E>;
@@ -335,6 +349,21 @@ pub async fn reconcile_druid(druid: Arc<DruidCluster>, ctx: Arc<Ctx>) -> Result<
     .context(CreateClusterResourcesSnafu)?;
 
     let merged_config = druid.merged_config().context(FailedToResolveConfigSnafu)?;
+
+    let (rbac_sa, rbac_rolebinding) = build_rbac_resources(
+        druid.as_ref(),
+        APP_NAME,
+        cluster_resources.get_required_labels(),
+    )
+    .context(BuildRbacResourcesSnafu)?;
+    cluster_resources
+        .add(client, rbac_sa)
+        .await
+        .context(ApplyServiceAccountSnafu)?;
+    cluster_resources
+        .add(client, rbac_rolebinding)
+        .await
+        .context(ApplyRoleBindingSnafu)?;
 
     let mut ss_cond_builder = StatefulSetConditionBuilder::default();
 
@@ -854,10 +883,11 @@ fn build_rolegroup_statefulset(
                 &rolegroup_ref.role_group,
             ))
         })
+        .service_account_name(service_account_name(APP_NAME))
         .security_context(
             PodSecurityContextBuilder::new()
-                .run_as_user(1000)
-                .run_as_group(1000)
+                .run_as_user(DRUID_UID)
+                .run_as_group(0)
                 .fs_group(1000)
                 .build(),
         );

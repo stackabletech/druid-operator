@@ -17,7 +17,7 @@ commands:
           stackableVersion: "{{ test_scenario['values']['druid'].split('-stackable')[1] }}"
         clusterConfig:
           authentication:
-              - authenticationClass: druid-ldap-auth-class-$NAMESPACE
+            - authenticationClass: druid-ldap-auth-class-$NAMESPACE
           deepStorage:
             hdfs:
               configMapName: druid-hdfs

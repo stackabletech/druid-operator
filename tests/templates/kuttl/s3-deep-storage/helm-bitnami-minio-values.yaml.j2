@@ -1,0 +1,28 @@
+---
+volumePermissions:
+  enabled: false
+
+podSecurityContext:
+  enabled: false
+
+containerSecurityContext:
+  enabled: false
+
+mode: standalone
+
+disableWebUI: true
+
+persistence:
+  enabled: false
+
+resources:
+  requests:
+    memory: 1Gi
+
+defaultBuckets: "druid"
+
+auth:
+  existingSecret: minio-credentials
+
+service:
+  type: NodePort
