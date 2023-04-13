@@ -40,7 +40,7 @@ spec:
             - name: LDAP_ADMIN_PASSWORD
               value: admin
             - name: LDAP_ENABLE_TLS
-              value: "yes"
+              value: \"yes\"
             - name: LDAP_TLS_CERT_FILE
               value: /tls/tls.crt
             - name: LDAP_TLS_KEY_FILE
@@ -49,7 +49,7 @@ spec:
               value: /tls/ca.crt
 {% if test_scenario['values']['ldap-no-bind-credentials'] == 'true' %}
             - name: LDAP_ALLOW_ANON_BINDING
-              value: "yes"
+              value: \"yes\"
 {% endif %}
           ports:
             - name: ldap
