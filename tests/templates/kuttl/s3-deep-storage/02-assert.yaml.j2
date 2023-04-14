@@ -1,0 +1,10 @@
+{% if test_scenario['values']['s3-use-tls'] == 'true' %}
+---
+apiVersion: kuttl.dev/v1beta1
+kind: TestAssert
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: minio-druid-tls-certificates
+{% endif %}
