@@ -13,27 +13,27 @@
 dimensions:
   - name: druid
     values:
-      - 0.23.0-stackable23.4.0-rc2
-      - 24.0.0-stackable23.4.0-rc2
+      - 0.23.0-stackable23.4.0
+      - 24.0.0-stackable23.4.0
   - name: druid-latest
     values:
-      - 24.0.0-stackable23.4.0-rc2
+      - 24.0.0-stackable23.4.0
   - name: zookeeper
     values:
-      - 3.7.0-stackable23.4.0-rc2
-      - 3.8.0-stackable23.4.0-rc2
+      - 3.7.0-stackable23.4.0
+      - 3.8.0-stackable23.4.0
   - name: zookeeper-latest
     values:
-      - 3.8.0-stackable23.4.0-rc2
+      - 3.8.0-stackable23.4.0
   - name: opa
     values:
-      - 0.45.0-stackable23.4.0-rc2
+      - 0.45.0-stackable23.4.0
   - name: hadoop
     values:
-      - 3.3.4-stackable23.4.0-rc2
+      - 3.3.4-stackable23.4.0
   - name: hadoop-latest
     values:
-      - 3.3.4-stackable23.4.0-rc2
+      - 3.3.4-stackable23.4.0
   - name: s3-use-tls
     values:
       - "true"
