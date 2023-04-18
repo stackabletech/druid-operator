@@ -78,6 +78,8 @@ echo "Installing HDFS from hdfs.yaml"
 kubectl apply -f hdfs.yaml
 # end::install-hdfs[]
 
+sleep 2
+
 for (( i=1; i<=15; i++ ))
 do
   echo "Waiting for HdfsCluster to appear ..."
