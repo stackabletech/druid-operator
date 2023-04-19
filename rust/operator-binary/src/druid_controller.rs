@@ -1112,7 +1112,7 @@ mod test {
         #[case] druid_manifest: &str,
         #[case] tested_rolegroup_name: &str,
         #[case] expected_druid_segment_cache_property: &str,
-    ) -> Result<(), Error> {
+    ) -> Result<(), Box<Error>> {
         let cluster_cr =
             std::fs::File::open(format!("test/resources/druid_controller/{druid_manifest}"))
                 .unwrap();
