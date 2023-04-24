@@ -7,8 +7,11 @@ All notable changes to this project will be documented in this file.
 ### Changed
 
 - Operator-rs: `0.40.2` -> `0.41.0` ([#434]).
+- Use 0.0.0-dev product images for tests and examples ([#xxx])
+- Use testing-tools 0.2.0 ([#xxx])
 
 [#434]: https://github.com/stackabletech/druid-operator/pull/434
+[#xxx]: https://github.com/stackabletech/druid-operator/pull/xxx
 
 ## [23.4.0] - 2023-04-17
 

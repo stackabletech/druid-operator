@@ -20,7 +20,7 @@ spec:
         runAsUser: 0
       containers:
         - name: druid-checks
-          image: docker.stackable.tech/stackable/testing-tools:0.1.0-stackable0.1.0
+          image: docker.stackable.tech/stackable/testing-tools:0.2.0-stackable0.0.0-dev
           command: ["sleep", "infinity"]
           volumeMounts:
 {% if test_scenario['values']['tls-mode'] == 'internal-and-server-tls' or test_scenario['values']['tls-mode'] == 'internal-and-server-tls-and-tls-client-auth' %}
