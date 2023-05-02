@@ -2,34 +2,34 @@
 apiVersion: operators.coreos.com/v1alpha1
 kind: ClusterServiceVersion
 metadata:
-  name: hive-operator.v23.4.0
+  name: druid-operator.v23.4.0
 spec:
   annotations:
     support: stackable.tech
     olm.properties: '[]'
     categories: Storage
     capabilities: Full Lifecycle
-    description: Stackable Operator for Apache Hive
-    repository: https://github.com/stackabletech/hive-operator
-    containerImage: docker.stackable.tech/stackable/hive-operator:23.4.0
+    description: Stackable Operator for Apache Druid
+    repository: https://github.com/stackabletech/druid-operator
+    containerImage: docker.stackable.tech/stackable/druid-operator:23.4.0
 
-  displayName: Stackable Operator for Apache Hive
+  displayName: Stackable Operator for Apache Druid
   description: |-
-    This is a Kubernetes operator to manage [Apache Hive](https://hive.apache.org/) ensembles. The Stackable Apache Hive Operator
+    This is a Kubernetes operator to manage [Apache Druid](https://druid.apache.org/) ensembles. The Stackable Apache Druid Operator
     is part of the Stackable Data Platform, a curated selection of the best open source data apps like Kafka, Druid, Trino or Spark, all
     working together seamlessly. Based on Kubernetes, it runs everywhere – on prem or in the cloud.
 
-    You can install the operator using [stackablectl or helm](https://docs.stackable.tech/hive/stable/getting_started/installation.html).
+    You can install the operator using [stackablectl or helm](https://docs.stackable.tech/druid/stable/getting_started/installation.html).
     See it in action in one of our [demos](https://stackable.tech/en/demos/) or follow this
-    [tutorial](https://docs.stackable.tech/hive/stable/getting_started/first_steps.html).
+    [tutorial](https://docs.stackable.tech/druid/stable/getting_started/first_steps.html).
 
     N.B. this operator requires the following Stackable internal operators to be installed as well:
 
     - [Commons Operator](https://github.com/stackabletech/commons-operator)
     - [Secret Operator](https://github.com/stackabletech/secret-operator)
-    - [ZooKeeper Operator](https://github.com/stackabletech/zookeeper-operator)
+    - [Opa Operator](https://github.com/stackabletech/opa-operator)
   keywords:
-    - hive
+    - druid
   maintainers:
     - email: info@stackable.tech
       name: Stackable GmbH
@@ -54,26 +54,26 @@ spec:
     owned:
       # a list of CRDs that this operator owns
       # name is the metadata.name of the CRD (which is of the form <plural>.<group>)
-      - name: hiveclusters.hive.stackable.tech
+      - name: druidclusters.druid.stackable.tech
         # version is the spec.versions[].name value defined in the CRD
         version: v1alpha1
         # kind is the CamelCased singular value defined in spec.names.kind of the CRD.
-        kind: HiveCluster
+        kind: DruidCluster
         # human-friendly display name of the CRD for rendering in graphical consoles (optional)
-        displayName: Apache Hive Cluster
+        displayName: Apache Druid Cluster
         # a short description of the CRDs purpose for rendering in graphical consoles (optional)
-        description: Represents an Hive cluster
+        description: Represents an Druid cluster
 
   relatedImages:
-    - name: hive-operator
-      image: docker.stackable.tech/stackable/hive-operator:23.4.0
+    - name: druid-operator
+      image: docker.stackable.tech/stackable/druid-operator:23.4.0
   install:
     # strategy indicates what type of deployment artifacts are used
     strategy: deployment
     # spec for the deployment strategy is a list of deployment specs and required permissions - similar to a pod template used in a deployment
     spec:
       permissions:
-        - serviceAccountName: hive-operator
+        - serviceAccountName: druid-operator
           rules:
             - apiGroups:
                 - ""
@@ -83,7 +83,7 @@ spec:
                 - '*'
       # permissions required at the cluster scope
       clusterPermissions:
-        - serviceAccountName: hive-operator
+        - serviceAccountName: druid-operator
           rules:
             - apiGroups:
                 - ""
@@ -157,32 +157,33 @@ spec:
               verbs:
                 - create
             - apiGroups:
-                - authentication.stackable.tech
+                - druid.stackable.tech
               resources:
-                - authenticationclasses
-              verbs:
-                - get
-                - list
-                - watch
-            - apiGroups:
-                - hive.stackable.tech
-              resources:
-                - hiveclusters
+                - druidclusters
               verbs:
                 - get
                 - list
                 - patch
                 - watch
             - apiGroups:
-                - hive.stackable.tech
+                - druid.stackable.tech
               resources:
-                - hiveclusters/status
+                - druidclusters/status
               verbs:
                 - patch
             - apiGroups:
                 - s3.stackable.tech
               resources:
                 - s3connections
+                - s3buckets
+              verbs:
+                - get
+                - list
+                - watch
+            - apiGroups:
+                - authentication.stackable.tech
+              resources:
+                - authenticationclasses
               verbs:
                 - get
                 - list
@@ -194,7 +195,7 @@ spec:
               verbs:
                 - bind
               resourceNames:
-                - hive-clusterrole
+                - druid-clusterrole
             - apiGroups:
                 - security.openshift.io
               resources:
@@ -205,33 +206,33 @@ spec:
                 - use
 
       deployments:
-        - name: hive-operator
+        - name: druid-operator
           spec:
             replicas: 1
             strategy:
               type: Recreate
             selector:
               matchLabels:
-                app.kubernetes.io/name: hive-operator
-                app.kubernetes.io/instance: hive-operator
+                app.kubernetes.io/name: druid-operator
+                app.kubernetes.io/instance: druid-operator
             template:
               metadata:
                 labels:
-                  app.kubernetes.io/name: hive-operator
-                  app.kubernetes.io/instance: hive-operator
+                  app.kubernetes.io/name: druid-operator
+                  app.kubernetes.io/instance: druid-operator
               spec:
-                serviceAccountName: hive-operator
+                serviceAccountName: druid-operator
                 securityContext: {}
                 containers:
-                  - name: hive-operator
+                  - name: druid-operator
                     securityContext: {}
-                    image: docker.stackable.tech/stackable/hive-operator:23.4.0
+                    image: docker.stackable.tech/stackable/druid-operator:23.4.0
                     imagePullPolicy: IfNotPresent
                     resources: {}
                     volumeMounts:
-                      - mountPath: /etc/stackable/hive-operator/config-spec
+                      - mountPath: /etc/stackable/druid-operator/config-spec
                         name: config-spec
                 volumes:
                   - name: config-spec
                     configMap:
-                      name: hive-operator-configmap
+                      name: druid-operator-configmap
