@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+
+- Generate OLM bundle for Release 23.4.0 ([#436]).
+
 ### Changed
 
 - Operator-rs: `0.40.2` -> `0.41.0` ([#434]).
@@ -12,6 +16,7 @@ All notable changes to this project will be documented in this file.
 
 [#434]: https://github.com/stackabletech/druid-operator/pull/434
 [#435]: https://github.com/stackabletech/druid-operator/pull/435
+[#436]: https://github.com/stackabletech/druid-operator/pull/436
 
 ## [23.4.0] - 2023-04-17
 
