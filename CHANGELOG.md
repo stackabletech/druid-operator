@@ -7,6 +7,7 @@ All notable changes to this project will be documented in this file.
 ### Added
 
 - Generate OLM bundle for Release 23.4.0 ([#436]).
+- Missing CRD defaults for `status.conditions` field ([#439]).
 
 ### Changed
 
@@ -17,6 +18,7 @@ All notable changes to this project will be documented in this file.
 [#434]: https://github.com/stackabletech/druid-operator/pull/434
 [#435]: https://github.com/stackabletech/druid-operator/pull/435
 [#436]: https://github.com/stackabletech/druid-operator/pull/436
+[#439]: https://github.com/stackabletech/druid-operator/pull/439
 
 ## [23.4.0] - 2023-04-17
 
