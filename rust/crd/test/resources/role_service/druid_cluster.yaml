@@ -7,7 +7,7 @@ metadata:
   uid: test-uid
 spec:
   image:
-    productVersion: 24.0.0
+    productVersion: 26.0.0
     stackableVersion: 0.0.0-dev
   clusterConfig:
     deepStorage:

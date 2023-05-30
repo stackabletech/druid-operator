@@ -149,8 +149,8 @@ mod tests {
           name: simple-druid
         spec:
           image:
-            productVersion: 24.0.0
-            stackableVersion: "23.1"
+            productVersion: 26.0.0
+            stackableVersion: "0.0.0-dev"
           clusterConfig:
             deepStorage:
               hdfs:
@@ -343,8 +343,8 @@ mod tests {
           name: simple-druid
         spec:
           image:
-            productVersion: 24.0.0
-            stackableVersion: "23.1"
+            productVersion: 26.0.0
+            stackableVersion: "0.0.0-dev"
           clusterConfig:
             deepStorage:
               hdfs:
