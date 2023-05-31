@@ -15,9 +15,10 @@ dimensions:
     values:
       - 0.23.0-stackable0.0.0-dev
       - 24.0.0-stackable0.0.0-dev
+      - 26.0.0-stackable0.0.0-dev
   - name: druid-latest
     values:
-      - 24.0.0-stackable0.0.0-dev
+      - 26.0.0-stackable0.0.0-dev
   - name: zookeeper
     values:
       - 3.7.0-stackable0.0.0-dev
