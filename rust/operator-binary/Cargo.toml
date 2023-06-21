@@ -16,7 +16,7 @@ clap = "4.1"
 fnv = "1.0"
 futures = { version = "0.3", features = ["compat"] }
 indoc = "2.0.0"
-openssl = "0.10.45"
+openssl = "0.10.55"
 pin-project = "1.0"
 semver = "1.0"
 serde = "1.0"
