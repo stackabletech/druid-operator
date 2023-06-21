@@ -83,7 +83,6 @@ tests:
       - druid-latest
       - zookeeper-latest
       - s3-use-tls
-      - openshift
   - name: hdfs-deep-storage
     dimensions:
       - druid-latest
