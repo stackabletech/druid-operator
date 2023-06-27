@@ -1,6 +1,20 @@
 ---
-apiVersion: kuttl.dev/v1beta1
-kind: TestAssert
+apiVersion: v1
+kind: Secret
+metadata:
+  name: minio-credentials
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: centralized-minio-users
+{% if test_scenario['values']['s3-use-tls'] == 'true' %}
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: minio-tls-certificates
+{% endif %}
 {% if lookup('env', 'VECTOR_AGGREGATOR') %}
 ---
 apiVersion: v1

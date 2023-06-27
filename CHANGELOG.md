@@ -16,6 +16,12 @@ All notable changes to this project will be documented in this file.
 - Operator-rs: `0.40.2` -> `0.41.0` ([#434]).
 - Use 0.0.0-dev product images for tests and examples ([#435])
 - Use testing-tools 0.2.0 ([#435])
+- Tls tests now run on OpenShift ([#445])
+- Added kuttl test suites ([#447])
+
+### Removed
+
+- All usages of the minio/minio chart replace them with the bitnami/minio chart ([#445])
 
 [#434]: https://github.com/stackabletech/druid-operator/pull/434
 [#435]: https://github.com/stackabletech/druid-operator/pull/435
@@ -23,6 +29,8 @@ All notable changes to this project will be documented in this file.
 [#439]: https://github.com/stackabletech/druid-operator/pull/439
 [#442]: https://github.com/stackabletech/druid-operator/pull/442
 [#444]: https://github.com/stackabletech/druid-operator/pull/444
+[#445]: https://github.com/stackabletech/druid-operator/pull/445
+[#447]: https://github.com/stackabletech/druid-operator/pull/447
 
 ## [23.4.0] - 2023-04-17
 

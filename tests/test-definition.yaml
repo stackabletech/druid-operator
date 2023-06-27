@@ -83,7 +83,6 @@ tests:
       - druid-latest
       - zookeeper-latest
       - s3-use-tls
-      - openshift
   - name: hdfs-deep-storage
     dimensions:
       - druid-latest
@@ -103,6 +102,7 @@ tests:
       - druid-latest
       - zookeeper-latest
       - tls-mode
+      - openshift
   - name: ldap-authentication
     dimensions:
       - druid
@@ -122,3 +122,18 @@ tests:
       - zookeeper-latest
       - hadoop-latest
       - druid-latest
+suites:
+  - name: latest
+    patch:
+      - dimensions:
+          - expr: last
+  - name: smoke
+    select:
+      - smoke
+  - name: openshift
+    patch:
+      - dimensions:
+          - expr: last
+      - dimensions:
+          - name: openshift
+            expr: "true"
