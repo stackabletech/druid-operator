@@ -16,6 +16,7 @@ All notable changes to this project will be documented in this file.
 - Use 0.0.0-dev product images for tests and examples ([#435])
 - Use testing-tools 0.2.0 ([#435])
 - Tls tests now run on OpenShift ([#445])
+- Added kuttl test suites ([#447])
 
 ### Removed
 
@@ -27,6 +28,7 @@ All notable changes to this project will be documented in this file.
 [#439]: https://github.com/stackabletech/druid-operator/pull/439
 [#442]: https://github.com/stackabletech/druid-operator/pull/442
 [#445]: https://github.com/stackabletech/druid-operator/pull/445
+[#447]: https://github.com/stackabletech/druid-operator/pull/447
 
 ## [23.4.0] - 2023-04-17
 
