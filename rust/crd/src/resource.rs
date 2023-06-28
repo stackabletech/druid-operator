@@ -151,7 +151,19 @@ impl RoleResource {
 }
 
 lazy_static! {
-    pub static ref DEFAULT_RESOURCES: ResourcesFragment<storage::DruidStorage, NoRuntimeLimits> =
+    pub static ref MIDDLE_MANAGER_RESOURCES: ResourcesFragment<storage::DruidStorage, NoRuntimeLimits> =
+        ResourcesFragment {
+            cpu: CpuLimitsFragment {
+                min: Some(Quantity("300m".to_owned())),
+                max: Some(Quantity("1200m".to_owned())),
+            },
+            memory: MemoryLimitsFragment {
+                limit: Some(Quantity("1Gi".to_owned())),
+                runtime_limits: NoRuntimeLimitsFragment {},
+            },
+            storage: storage::DruidStorageFragment {},
+        };
+    pub static ref BROKER_RESOURCES: ResourcesFragment<storage::DruidStorage, NoRuntimeLimits> =
         ResourcesFragment {
             cpu: CpuLimitsFragment {
                 min: Some(Quantity("300m".to_owned())),
@@ -166,8 +178,8 @@ lazy_static! {
     pub static ref HISTORICAL_RESOURCES: ResourcesFragment<storage::HistoricalStorage, NoRuntimeLimits> =
         ResourcesFragment {
             cpu: CpuLimitsFragment {
-                min: Some(Quantity("300m".to_owned())),
-                max: Some(Quantity("1200m".to_owned())),
+                min: Some(Quantity("500m".to_owned())),
+                max: Some(Quantity("1000m".to_owned())),
             },
             memory: MemoryLimitsFragment {
                 limit: Some(Quantity("1.5Gi".to_owned())),
@@ -176,6 +188,30 @@ lazy_static! {
             storage: storage::HistoricalStorageFragment {
                 segment_cache: default_free_percentage_empty_dir_fragment(),
             },
+        };
+    pub static ref COORDINATOR_RESOURCES: ResourcesFragment<storage::DruidStorage, NoRuntimeLimits> =
+        ResourcesFragment {
+            cpu: CpuLimitsFragment {
+                min: Some(Quantity("100m".to_owned())),
+                max: Some(Quantity("400m".to_owned())),
+            },
+            memory: MemoryLimitsFragment {
+                limit: Some(Quantity("512Mi".to_owned())),
+                runtime_limits: NoRuntimeLimitsFragment {},
+            },
+            storage: storage::DruidStorageFragment {},
+        };
+    pub static ref ROUTER_RESOURCES: ResourcesFragment<storage::DruidStorage, NoRuntimeLimits> =
+        ResourcesFragment {
+            cpu: CpuLimitsFragment {
+                min: Some(Quantity("100m".to_owned())),
+                max: Some(Quantity("400m".to_owned())),
+            },
+            memory: MemoryLimitsFragment {
+                limit: Some(Quantity("256Mi".to_owned())),
+                runtime_limits: NoRuntimeLimitsFragment {},
+            },
+            storage: storage::DruidStorageFragment {},
         };
 }
 

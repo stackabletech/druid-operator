@@ -816,7 +816,14 @@ fn build_rolegroup_statefulset(
         .image_from_product_image(resolved_product_image)
         .command(vec!["/bin/bash".to_string(), "-c".to_string()])
         .args(vec![prepare_container_commands.join(" && ")])
-        .build();
+        .resources(
+            ResourceRequirementsBuilder::new()
+                .with_cpu_request("100m")
+                .with_cpu_limit("400m")
+                .with_memory_request("512Mi")
+                .with_memory_limit("512Mi")
+                .build(),
+        );
 
     // rest of env
     let mut rest_env = rolegroup_config

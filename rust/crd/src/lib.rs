@@ -921,7 +921,7 @@ impl BrokerConfig {
         deep_storage: &DeepStorageSpec,
     ) -> BrokerConfigFragment {
         BrokerConfigFragment {
-            resources: resource::DEFAULT_RESOURCES.to_owned(),
+            resources: resource::BROKER_RESOURCES.to_owned(),
             logging: product_logging::spec::default_logging(),
             affinity: get_affinity(cluster_name, role, deep_storage),
         }
@@ -958,7 +958,7 @@ impl CoordinatorConfig {
         deep_storage: &DeepStorageSpec,
     ) -> CoordinatorConfigFragment {
         CoordinatorConfigFragment {
-            resources: resource::DEFAULT_RESOURCES.to_owned(),
+            resources: resource::COORDINATOR_RESOURCES.to_owned(),
             logging: product_logging::spec::default_logging(),
             affinity: get_affinity(cluster_name, role, deep_storage),
         }
@@ -995,7 +995,7 @@ impl MiddleManagerConfig {
         deep_storage: &DeepStorageSpec,
     ) -> MiddleManagerConfigFragment {
         MiddleManagerConfigFragment {
-            resources: resource::DEFAULT_RESOURCES.to_owned(),
+            resources: resource::MIDDLE_MANAGER_RESOURCES.to_owned(),
             logging: product_logging::spec::default_logging(),
             affinity: get_affinity(cluster_name, role, deep_storage),
         }
@@ -1032,7 +1032,7 @@ impl RouterConfig {
         deep_storage: &DeepStorageSpec,
     ) -> RouterConfigFragment {
         RouterConfigFragment {
-            resources: resource::DEFAULT_RESOURCES.to_owned(),
+            resources: resource::ROUTER_RESOURCES.to_owned(),
             logging: product_logging::spec::default_logging(),
             affinity: get_affinity(cluster_name, role, deep_storage),
         }
