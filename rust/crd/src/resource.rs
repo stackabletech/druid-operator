@@ -178,8 +178,8 @@ lazy_static! {
     pub static ref HISTORICAL_RESOURCES: ResourcesFragment<storage::HistoricalStorage, NoRuntimeLimits> =
         ResourcesFragment {
             cpu: CpuLimitsFragment {
-                min: Some(Quantity("500m".to_owned())),
-                max: Some(Quantity("1000m".to_owned())),
+                min: Some(Quantity("300m".to_owned())),
+                max: Some(Quantity("1200m".to_owned())),
             },
             memory: MemoryLimitsFragment {
                 limit: Some(Quantity("1.5Gi".to_owned())),
@@ -208,7 +208,7 @@ lazy_static! {
                 max: Some(Quantity("400m".to_owned())),
             },
             memory: MemoryLimitsFragment {
-                limit: Some(Quantity("256Mi".to_owned())),
+                limit: Some(Quantity("512Mi".to_owned())),
                 runtime_limits: NoRuntimeLimitsFragment {},
             },
             storage: storage::DruidStorageFragment {},
