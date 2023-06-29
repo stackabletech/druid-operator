@@ -9,7 +9,7 @@ All notable changes to this project will be documented in this file.
 - Generate OLM bundle for Release 23.4.0 ([#436]).
 - Missing CRD defaults for `status.conditions` field ([#439]).
 - Support for Druid `26.0.0` ([#442]).
-- Add support for resource quotas ([#444])
+- Set explicit resources on all containers ([#444]).
 
 ### Changed
 

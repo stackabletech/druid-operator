@@ -8,25 +8,68 @@ Druid uses S3 or HDFS for deep storage, so no extra https://kubernetes.io/docs/c
 
 include::home:concepts:stackable_resource_requests.adoc[]
 
-If no resources are configured explicitly, the Druid operator uses the following defaults:
+=== Resource Requests
+
+include::home:concepts:stackable_resource_requests.adoc[]
+
+A minimal HA setup consisting of 2 Pods of each role has the following https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/[resource requirements]:
+
+* `4700m` CPU request
+* `13800m` CPU limit
+* `11376m` memory request and limit
+
+Of course, additional services, require additional resources. For Stackable components, see the corresponding documentation on further resource requirements.
+
+Corresponding to the values above, the operator uses the following resource defaults:
 
 [source,yaml]
 ----
-brokers:
-  roleGroups:
-    default:
-      config:
-        resources:
-          cpu:
-            min: '200m'
-            max: "4"
-          memory:
-            limit: '2Gi'
+spec:
+  brokers:
+    config:
+      resources:
+        cpu:
+          min: 100m
+          max: 400m
+        memory:
+          limit: 512Mi
+  routers:
+    config:
+      resources:
+        cpu:
+          min: 100m
+          max: 400m
+        memory:
+          limit: 512Mi
+  historical:
+    config:
+      resources:
+        cpu:
+          min: 300m
+          max: 1200m
+        memory:
+          limit: 1.5Gi
+  middleManagers:
+    config:
+      resources:
+        cpu:
+          min: 300m
+          max: 1200m
+        memory:
+          limit: 1Gi
+  coordinators:
+    config:
+      resources:
+        cpu:
+          min: 100m
+          max: 400m
+        memory:
+          limit: 512Mi
 ----
 
-WARNING: The default values are _most likely_ not sufficient to run a proper cluster in production. Please adapt according to your requirements.
+The operator may configure an additional container for log aggregation. This is done when log aggregation is configured as described in xref:concepts:logging.adoc[]. The resources for this container cannot be configured using the mechanism described above. Use xref:nightly@home:concepts:overrides.adoc#_pod_overrides[podOverrides] for this purpose.
 
-For more details regarding Kubernetes CPU limits see: https://kubernetes.io/docs/tasks/configure-pod-container/assign-cpu-resource/[Assign CPU Resources to Containers and Pods].
+You can configure your own resource requests and limits by following the example above.
 
 == Historical Resources
 
