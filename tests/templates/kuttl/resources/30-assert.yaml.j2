@@ -14,11 +14,11 @@ spec:
         - name: druid
           resources:
             requests:
-              cpu: 200m
-              memory: 2Gi
+              cpu: 300m
+              memory: 1536Mi
             limits:
-              cpu: "4"
-              memory: 2Gi
+              cpu: "1200m"
+              memory: 1536Mi
 {% if lookup('env', 'VECTOR_AGGREGATOR') %}
         - name: vector
 {% endif %}
@@ -37,11 +37,11 @@ spec:
         - name: druid
           resources:
             requests:
-              cpu: 200m
-              memory: 2Gi
+              cpu: 100m
+              memory: 512Mi
             limits:
-              cpu: "4"
-              memory: 2Gi
+              cpu: "400m"
+              memory: 512Mi
 {% if lookup('env', 'VECTOR_AGGREGATOR') %}
         - name: vector
 {% endif %}
@@ -60,10 +60,10 @@ spec:
         - name: druid
           resources:
             requests:
-              cpu: 200m
+              cpu: 300m
               memory: 4Gi
             limits:
-              cpu: "4"
+              cpu: 1200m
               memory: 4Gi
 {% if lookup('env', 'VECTOR_AGGREGATOR') %}
         - name: vector
@@ -149,11 +149,11 @@ spec:
         - name: druid
           resources:
             requests:
-              cpu: 200m
-              memory: 2Gi
+              cpu: 100m
+              memory: 512Mi
             limits:
-              cpu: "4"
-              memory: 2Gi
+              cpu: 400m
+              memory: 512Mi
 {% if lookup('env', 'VECTOR_AGGREGATOR') %}
         - name: vector
 {% endif %}

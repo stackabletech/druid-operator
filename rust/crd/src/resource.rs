@@ -170,7 +170,7 @@ lazy_static! {
                 max: Some(Quantity("1200m".to_owned())),
             },
             memory: MemoryLimitsFragment {
-                limit: Some(Quantity("1.5Gi".to_owned())),
+                limit: Some(Quantity("1500Mi".to_owned())),
                 runtime_limits: NoRuntimeLimitsFragment {},
             },
             storage: storage::DruidStorageFragment {},
@@ -182,7 +182,7 @@ lazy_static! {
                 max: Some(Quantity("1200m".to_owned())),
             },
             memory: MemoryLimitsFragment {
-                limit: Some(Quantity("1.5Gi".to_owned())),
+                limit: Some(Quantity("1500Mi".to_owned())),
                 runtime_limits: NoRuntimeLimitsFragment {},
             },
             storage: storage::HistoricalStorageFragment {
