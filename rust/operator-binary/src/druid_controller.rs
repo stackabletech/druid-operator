@@ -23,6 +23,7 @@ use stackable_druid_crd::{
     RUNTIME_PROPS, RW_CONFIG_DIRECTORY, S3_ENDPOINT_URL, S3_PATH_STYLE_ACCESS, S3_SECRET_DIR_NAME,
     ZOOKEEPER_CONNECTION_STRING,
 };
+use stackable_operator::builder::resources::ResourceRequirementsBuilder;
 use stackable_operator::{
     builder::{
         ConfigMapBuilder, ContainerBuilder, ObjectMetaBuilder, PodBuilder,
@@ -30,11 +31,11 @@ use stackable_operator::{
     },
     cluster_resources::{ClusterResourceApplyStrategy, ClusterResources},
     commons::{
+        authentication::tls::{CaCert, TlsVerification},
         opa::OpaApiVersion,
         product_image_selection::ResolvedProductImage,
         rbac::{build_rbac_resources, service_account_name},
         s3::{S3AccessStyle, S3ConnectionSpec},
-        tls::{CaCert, TlsVerification},
     },
     k8s_openapi::{
         api::{
@@ -815,7 +816,14 @@ fn build_rolegroup_statefulset(
         .image_from_product_image(resolved_product_image)
         .command(vec!["/bin/bash".to_string(), "-c".to_string()])
         .args(vec![prepare_container_commands.join(" && ")])
-        .build();
+        .resources(
+            ResourceRequirementsBuilder::new()
+                .with_cpu_request("100m")
+                .with_cpu_limit("400m")
+                .with_memory_request("512Mi")
+                .with_memory_limit("512Mi")
+                .build(),
+        );
 
     // rest of env
     let mut rest_env = rolegroup_config
@@ -901,6 +909,12 @@ fn build_rolegroup_statefulset(
                 .logging
                 .containers
                 .get(&Container::Vector),
+            ResourceRequirementsBuilder::new()
+                .with_cpu_request("250m")
+                .with_cpu_limit("500m")
+                .with_memory_request("128Mi")
+                .with_memory_limit("128Mi")
+                .build(),
         ));
     }
 

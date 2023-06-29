@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 
+use stackable_operator::commons::authentication::ldap::LdapAuthenticationProvider;
 use stackable_operator::commons::authentication::AuthenticationClassProvider;
-use stackable_operator::commons::ldap::LdapAuthenticationProvider;
 use stackable_operator::kube::ResourceExt;
 
 use crate::authentication::ResolvedAuthenticationClasses;
@@ -232,7 +232,7 @@ impl DruidLdapSettings {
 #[cfg(test)]
 mod test {
     use super::*;
-    use stackable_operator::commons::ldap::LdapFieldNames;
+    use stackable_operator::commons::authentication::ldap::LdapFieldNames;
 
     #[test]
     fn test_ldap_settings_are_added() {

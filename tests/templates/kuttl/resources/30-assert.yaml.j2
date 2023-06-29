@@ -14,11 +14,11 @@ spec:
         - name: druid
           resources:
             requests:
-              cpu: 200m
-              memory: 2Gi
+              cpu: 100m
+              memory: 1Gi
             limits:
-              cpu: "4"
-              memory: 2Gi
+              cpu: "1"
+              memory: 1Gi
 {% if lookup('env', 'VECTOR_AGGREGATOR') %}
         - name: vector
 {% endif %}
@@ -37,11 +37,11 @@ spec:
         - name: druid
           resources:
             requests:
-              cpu: 200m
-              memory: 2Gi
+              cpu: 100m
+              memory: 1Gi
             limits:
-              cpu: "4"
-              memory: 2Gi
+              cpu: "1"
+              memory: 1Gi
 {% if lookup('env', 'VECTOR_AGGREGATOR') %}
         - name: vector
 {% endif %}
@@ -60,10 +60,10 @@ spec:
         - name: druid
           resources:
             requests:
-              cpu: 200m
+              cpu: 300m
               memory: 4Gi
             limits:
-              cpu: "4"
+              cpu: 1200m
               memory: 4Gi
 {% if lookup('env', 'VECTOR_AGGREGATOR') %}
         - name: vector
@@ -98,7 +98,7 @@ status:
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: druid-resources-middlemanager-resources-from-role
+  name: druid-resources-middlemanager-default
 spec:
   template:
     spec:
@@ -121,26 +121,6 @@ status:
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: druid-resources-middlemanager-resources-from-role-group
-spec:
-  template:
-    spec:
-      containers:
-        - name: druid
-          resources:
-            requests:
-              cpu: 300m
-              memory: 3Gi
-            limits:
-              cpu: "3"
-              memory: 3Gi
-{% if lookup('env', 'VECTOR_AGGREGATOR') %}
-        - name: vector
-{% endif %}
----
-apiVersion: apps/v1
-kind: StatefulSet
-metadata:
   name: druid-resources-router-default
 spec:
   template:
@@ -149,11 +129,11 @@ spec:
         - name: druid
           resources:
             requests:
-              cpu: 200m
-              memory: 2Gi
+              cpu: 100m
+              memory: 1Gi
             limits:
-              cpu: "4"
-              memory: 2Gi
+              cpu: "1"
+              memory: 1Gi
 {% if lookup('env', 'VECTOR_AGGREGATOR') %}
         - name: vector
 {% endif %}

@@ -19,11 +19,11 @@ use stackable_operator::{
     client::Client,
     commons::{
         affinity::StackableAffinity,
+        authentication::tls::{CaCert, Tls, TlsServerVerification, TlsVerification},
         cluster_operation::ClusterOperation,
         product_image_selection::ProductImage,
         resources::{NoRuntimeLimits, Resources},
         s3::{InlinedS3BucketSpec, S3BucketDef, S3ConnectionDef, S3ConnectionSpec},
-        tls::{CaCert, Tls, TlsServerVerification, TlsVerification},
     },
     config::{
         fragment::{self, Fragment, FromFragment, ValidationError},
@@ -793,6 +793,7 @@ impl DruidCluster {
                 config_overrides: rolegroup.config.config_overrides.to_owned(),
                 env_overrides: rolegroup.config.env_overrides.to_owned(),
                 cli_overrides: rolegroup.config.cli_overrides.to_owned(),
+                pod_overrides: rolegroup.config.pod_overrides.to_owned(),
             },
             replicas: rolegroup.replicas,
             selector: rolegroup.selector.to_owned(),
@@ -920,7 +921,7 @@ impl BrokerConfig {
         deep_storage: &DeepStorageSpec,
     ) -> BrokerConfigFragment {
         BrokerConfigFragment {
-            resources: resource::DEFAULT_RESOURCES.to_owned(),
+            resources: resource::BROKER_RESOURCES.to_owned(),
             logging: product_logging::spec::default_logging(),
             affinity: get_affinity(cluster_name, role, deep_storage),
         }
@@ -957,7 +958,7 @@ impl CoordinatorConfig {
         deep_storage: &DeepStorageSpec,
     ) -> CoordinatorConfigFragment {
         CoordinatorConfigFragment {
-            resources: resource::DEFAULT_RESOURCES.to_owned(),
+            resources: resource::COORDINATOR_RESOURCES.to_owned(),
             logging: product_logging::spec::default_logging(),
             affinity: get_affinity(cluster_name, role, deep_storage),
         }
@@ -994,7 +995,7 @@ impl MiddleManagerConfig {
         deep_storage: &DeepStorageSpec,
     ) -> MiddleManagerConfigFragment {
         MiddleManagerConfigFragment {
-            resources: resource::DEFAULT_RESOURCES.to_owned(),
+            resources: resource::MIDDLE_MANAGER_RESOURCES.to_owned(),
             logging: product_logging::spec::default_logging(),
             affinity: get_affinity(cluster_name, role, deep_storage),
         }
@@ -1031,7 +1032,7 @@ impl RouterConfig {
         deep_storage: &DeepStorageSpec,
     ) -> RouterConfigFragment {
         RouterConfigFragment {
-            resources: resource::DEFAULT_RESOURCES.to_owned(),
+            resources: resource::ROUTER_RESOURCES.to_owned(),
             logging: product_logging::spec::default_logging(),
             affinity: get_affinity(cluster_name, role, deep_storage),
         }

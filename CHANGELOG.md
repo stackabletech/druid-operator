@@ -9,6 +9,7 @@ All notable changes to this project will be documented in this file.
 - Generate OLM bundle for Release 23.4.0 ([#436]).
 - Missing CRD defaults for `status.conditions` field ([#439]).
 - Support for Druid `26.0.0` ([#442]).
+- Set explicit resources on all containers ([#444]).
 
 ### Changed
 
@@ -27,6 +28,7 @@ All notable changes to this project will be documented in this file.
 [#436]: https://github.com/stackabletech/druid-operator/pull/436
 [#439]: https://github.com/stackabletech/druid-operator/pull/439
 [#442]: https://github.com/stackabletech/druid-operator/pull/442
+[#444]: https://github.com/stackabletech/druid-operator/pull/444
 [#445]: https://github.com/stackabletech/druid-operator/pull/445
 [#447]: https://github.com/stackabletech/druid-operator/pull/447
 
