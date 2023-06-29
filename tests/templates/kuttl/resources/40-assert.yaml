@@ -3,12 +3,11 @@ apiVersion: kuttl.dev/v1beta1
 kind: TestAssert
 timeout: 600
 commands:
-  - script: kubectl get cm -n $NAMESPACE druid-resources-broker-default -o yaml | grep -- '-Xmx1348m' | xargs test ! -z
-  - script: kubectl get cm -n $NAMESPACE druid-resources-coordinator-default -o yaml | grep -- '-Xmx1748m' | xargs test ! -z
+  - script: kubectl get cm -n $NAMESPACE druid-resources-broker-default -o yaml | grep -- '-Xmx324m' | xargs test ! -z
+  - script: kubectl get cm -n $NAMESPACE druid-resources-coordinator-default -o yaml | grep -- '-Xmx724m' | xargs test ! -z
   - script: kubectl get cm -n $NAMESPACE druid-resources-historical-default -o yaml | grep -- '-Xmx2847m' | xargs test ! -z
-  - script: kubectl get cm -n $NAMESPACE druid-resources-historical-default -o yaml | grep -- 'druid.processing.numThreads=3' | xargs test ! -z
+  - script: kubectl get cm -n $NAMESPACE druid-resources-historical-default -o yaml | grep -- 'druid.processing.numThreads=1' | xargs test ! -z
   - script: kubectl get cm -n $NAMESPACE druid-resources-historical-default -o yaml | grep -- 'druid.processing.numMergeBuffers=2' | xargs test ! -z
-  - script: kubectl get cm -n $NAMESPACE druid-resources-historical-default -o yaml | grep -- 'druid.processing.buffer.sizeBytes=161962Ki' | xargs test ! -z
-  - script: kubectl get cm -n $NAMESPACE druid-resources-middlemanager-resources-from-role -o yaml | grep -- '-Xmx724m' | xargs test ! -z
-  - script: kubectl get cm -n $NAMESPACE druid-resources-middlemanager-resources-from-role-group -o yaml | grep -- '-Xmx2772m' | xargs test ! -z
-  - script: kubectl get cm -n $NAMESPACE druid-resources-router-default -o yaml | grep -- '-Xmx1620m' | xargs test ! -z
+  - script: kubectl get cm -n $NAMESPACE druid-resources-historical-default -o yaml | grep -- 'druid.processing.buffer.sizeBytes=242944Ki' | xargs test ! -z
+  - script: kubectl get cm -n $NAMESPACE druid-resources-middlemanager-default -o yaml | grep -- '-Xmx724m' | xargs test ! -z
+  - script: kubectl get cm -n $NAMESPACE druid-resources-router-default -o yaml | grep -- '-Xmx596m' | xargs test ! -z

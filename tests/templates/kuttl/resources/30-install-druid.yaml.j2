@@ -35,6 +35,12 @@ spec:
     config:
       logging:
         enableVectorAgent: {{ lookup('env', 'VECTOR_AGGREGATOR') | length > 0 }}
+      resources:
+        cpu:
+          min: 100m
+          max: "1"
+        memory:
+          limit: 1Gi
     roleGroups:
       default:
         replicas: 1
@@ -42,6 +48,12 @@ spec:
     config:
       logging:
         enableVectorAgent: {{ lookup('env', 'VECTOR_AGGREGATOR') | length > 0 }}
+      resources:
+        cpu:
+          min: 100m
+          max: "1"
+        memory:
+          limit: 1Gi
     roleGroups:
       default:
         replicas: 1
@@ -49,19 +61,18 @@ spec:
     config:
       logging:
         enableVectorAgent: {{ lookup('env', 'VECTOR_AGGREGATOR') | length > 0 }}
+      resources:
+        memory:
+          limit: 4Gi
+        storage:
+          segmentCache:
+            freePercentage: 3
+            emptyDir:
+              capacity: 2G
     roleGroups:
       default:
         replicas: 1
-        config:
-          resources:
-            memory:
-              limit: 4Gi
-            storage:
-              segmentCache:
-                freePercentage: 3
-                emptyDir:
-                  capacity: 2G
-          
+
   middleManagers:
     config:
       logging:
@@ -73,21 +84,18 @@ spec:
         memory:
           limit: 1Gi
     roleGroups:
-      resources-from-role:
-        replicas: 1
-      resources-from-role-group:
-        config:
-          resources:
-            cpu:
-              min: 300m
-              max: "3"
-            memory:
-              limit: 3Gi
+      default:
         replicas: 1
   routers:
     config:
       logging:
         enableVectorAgent: {{ lookup('env', 'VECTOR_AGGREGATOR') | length > 0 }}
+      resources:
+        cpu:
+          min: 100m
+          max: "1"
+        memory:
+          limit: 1Gi
     roleGroups:
       default:
         replicas: 1
