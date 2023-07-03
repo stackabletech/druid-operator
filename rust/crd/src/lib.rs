@@ -29,7 +29,10 @@ use stackable_operator::{
         fragment::{self, Fragment, FromFragment, ValidationError},
         merge::Merge,
     },
-    k8s_openapi::{api::core::v1::Volume, apimachinery::pkg::apis::meta::v1::LabelSelector},
+    k8s_openapi::{
+        api::core::v1::{PodTemplateSpec, Volume},
+        apimachinery::pkg::apis::meta::v1::LabelSelector,
+    },
     kube::{CustomResource, ResourceExt},
     labels::ObjectLabels,
     product_config::types::PropertyNameKind,
@@ -817,6 +820,55 @@ impl DruidCluster {
         rolegroup_config.merge(&role_config);
 
         fragment::validate(rolegroup_config).context(FragmentValidationFailureSnafu)
+    }
+
+    pub fn pod_overrides_for_role(&self, role: &DruidRole) -> &PodTemplateSpec {
+        match role {
+            DruidRole::Broker => &self.spec.brokers.config.pod_overrides,
+            DruidRole::Coordinator => &self.spec.coordinators.config.pod_overrides,
+            DruidRole::Historical => &self.spec.historicals.config.pod_overrides,
+            DruidRole::MiddleManager => &self.spec.middle_managers.config.pod_overrides,
+            DruidRole::Router => &self.spec.routers.config.pod_overrides,
+        }
+    }
+
+    pub fn pod_overrides_for_role_group(
+        &self,
+        role: &DruidRole,
+        role_group: &str,
+    ) -> Option<&PodTemplateSpec> {
+        match role {
+            DruidRole::Broker => self
+                .spec
+                .brokers
+                .role_groups
+                .get(role_group)
+                .map(|rg| &rg.config.pod_overrides),
+            DruidRole::Coordinator => self
+                .spec
+                .coordinators
+                .role_groups
+                .get(role_group)
+                .map(|rg| &rg.config.pod_overrides),
+            DruidRole::Historical => self
+                .spec
+                .historicals
+                .role_groups
+                .get(role_group)
+                .map(|rg| &rg.config.pod_overrides),
+            DruidRole::MiddleManager => self
+                .spec
+                .middle_managers
+                .role_groups
+                .get(role_group)
+                .map(|rg| &rg.config.pod_overrides),
+            DruidRole::Router => self
+                .spec
+                .routers
+                .role_groups
+                .get(role_group)
+                .map(|rg| &rg.config.pod_overrides),
+        }
     }
 }
 

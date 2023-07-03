@@ -23,7 +23,7 @@ use stackable_druid_crd::{
     RUNTIME_PROPS, RW_CONFIG_DIRECTORY, S3_ENDPOINT_URL, S3_PATH_STYLE_ACCESS, S3_SECRET_DIR_NAME,
     ZOOKEEPER_CONNECTION_STRING,
 };
-use stackable_operator::builder::resources::ResourceRequirementsBuilder;
+use stackable_operator::{builder::resources::ResourceRequirementsBuilder, k8s_openapi::DeepMerge};
 use stackable_operator::{
     builder::{
         ConfigMapBuilder, ContainerBuilder, ObjectMetaBuilder, PodBuilder,
@@ -422,6 +422,7 @@ pub async fn reconcile_druid(druid: Arc<DruidCluster>, ctx: Arc<Ctx>) -> Result<
             let rg_statefulset = build_rolegroup_statefulset(
                 &druid,
                 &resolved_product_image,
+                &druid_role,
                 &rolegroup,
                 rolegroup_config,
                 &merged_rolegroup_config,
@@ -726,6 +727,7 @@ fn build_rolegroup_services(
 fn build_rolegroup_statefulset(
     druid: &DruidCluster,
     resolved_product_image: &ResolvedProductImage,
+    role: &DruidRole,
     rolegroup_ref: &RoleGroupRef<DruidCluster>,
     rolegroup_config: &HashMap<PropertyNameKind, BTreeMap<String, String>>,
     merged_rolegroup_config: &CommonRoleGroupConfig,
@@ -733,10 +735,6 @@ fn build_rolegroup_statefulset(
     druid_tls_security: &DruidTlsSecurity,
     ldap_settings: &Option<DruidLdapSettings>,
 ) -> Result<StatefulSet> {
-    let role = DruidRole::from_str(&rolegroup_ref.role).context(UnidentifiedDruidRoleSnafu {
-        role: rolegroup_ref.role.to_string(),
-    })?;
-
     // prepare container builder
     let prepare_container_name = Container::Prepare.to_string();
     let mut cb_prepare = ContainerBuilder::new(&prepare_container_name).context(
@@ -847,7 +845,7 @@ fn build_rolegroup_statefulset(
         .command(vec!["/bin/bash".to_string(), "-c".to_string()])
         .args(vec![main_container_commands.join(" && ")])
         .add_env_vars(rest_env)
-        .add_container_ports(druid_tls_security.container_ports(&role))
+        .add_container_ports(druid_tls_security.container_ports(role))
         // 10s * 30 = 300s to come up
         .startup_probe(druid_tls_security.get_tcp_socket_probe(30, 10, 30, 3))
         // 10s * 1 = 10s to get removed from service
@@ -918,6 +916,13 @@ fn build_rolegroup_statefulset(
         ));
     }
 
+    let mut pod_template = pb.build_template();
+    pod_template.merge_from(druid.pod_overrides_for_role(role).clone());
+    if let Some(pod_overrides) = druid.pod_overrides_for_role_group(role, &rolegroup_ref.role_group)
+    {
+        pod_template.merge_from(pod_overrides.clone());
+    }
+
     Ok(StatefulSet {
         metadata: ObjectMetaBuilder::new()
             .name_and_namespace(druid)
@@ -945,7 +950,7 @@ fn build_rolegroup_statefulset(
                 ..LabelSelector::default()
             },
             service_name: rolegroup_ref.object_name(),
-            template: pb.build_template(),
+            template: pod_template,
             ..StatefulSetSpec::default()
         }),
         status: None,
