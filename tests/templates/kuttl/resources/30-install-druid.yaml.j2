@@ -72,7 +72,6 @@ spec:
     roleGroups:
       default:
         replicas: 1
-
   middleManagers:
     config:
       logging:
@@ -90,12 +89,17 @@ spec:
     config:
       logging:
         enableVectorAgent: {{ lookup('env', 'VECTOR_AGGREGATOR') | length > 0 }}
-      resources:
-        cpu:
-          min: 100m
-          max: "1"
-        memory:
-          limit: 1Gi
     roleGroups:
       default:
         replicas: 1
+        podOverrides:
+          spec:
+            containers:
+              - name: zookeeper
+                resources:
+                  requests:
+                    cpu: 100m
+                    memory: 1Gi
+                  limits:
+                    cpu: "1"
+                    memory: 1Gi
