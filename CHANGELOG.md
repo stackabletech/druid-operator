@@ -10,7 +10,7 @@ All notable changes to this project will be documented in this file.
 - Missing CRD defaults for `status.conditions` field ([#439]).
 - Support for Druid `26.0.0` ([#442]).
 - Set explicit resources on all containers ([#444]).
-- Support podOverrides ([#XXX]).
+- Support podOverrides ([#450]).
 
 ### Changed
 
@@ -31,6 +31,7 @@ All notable changes to this project will be documented in this file.
 [#444]: https://github.com/stackabletech/druid-operator/pull/444
 [#445]: https://github.com/stackabletech/druid-operator/pull/445
 [#447]: https://github.com/stackabletech/druid-operator/pull/447
+[#450]: https://github.com/stackabletech/druid-operator/pull/450
 
 ## [23.4.0] - 2023-04-17
 
