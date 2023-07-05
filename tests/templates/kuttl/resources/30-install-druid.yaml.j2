@@ -72,7 +72,6 @@ spec:
     roleGroups:
       default:
         replicas: 1
-
   middleManagers:
     config:
       logging:
@@ -91,11 +90,17 @@ spec:
       logging:
         enableVectorAgent: {{ lookup('env', 'VECTOR_AGGREGATOR') | length > 0 }}
       resources:
-        cpu:
-          min: 100m
-          max: "1"
         memory:
           limit: 1Gi
     roleGroups:
       default:
         replicas: 1
+        podOverrides:
+          spec:
+            containers:
+              - name: druid
+                resources:
+                  requests:
+                    cpu: 100m
+                  limits:
+                    cpu: "1"

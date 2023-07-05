@@ -10,10 +10,10 @@ All notable changes to this project will be documented in this file.
 - Missing CRD defaults for `status.conditions` field ([#439]).
 - Support for Druid `26.0.0` ([#442]).
 - Set explicit resources on all containers ([#444]).
+- Support podOverrides ([#450]).
 
 ### Changed
 
-- Operator-rs: `0.40.2` -> `0.41.0` ([#434]).
 - Use 0.0.0-dev product images for tests and examples ([#435])
 - Use testing-tools 0.2.0 ([#435])
 - Tls tests now run on OpenShift ([#445])
@@ -31,6 +31,7 @@ All notable changes to this project will be documented in this file.
 [#444]: https://github.com/stackabletech/druid-operator/pull/444
 [#445]: https://github.com/stackabletech/druid-operator/pull/445
 [#447]: https://github.com/stackabletech/druid-operator/pull/447
+[#450]: https://github.com/stackabletech/druid-operator/pull/450
 
 ## [23.4.0] - 2023-04-17
 
