@@ -14,10 +14,12 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- Operator-rs: `0.42.2` -> `0.44.0` ([#452]).
 - Use 0.0.0-dev product images for tests and examples ([#435])
 - Use testing-tools 0.2.0 ([#435])
 - Tls tests now run on OpenShift ([#445])
 - Added kuttl test suites ([#447])
+- Increase the size limit of log volumes (#[452])
 
 ### Removed
 
@@ -32,6 +34,7 @@ All notable changes to this project will be documented in this file.
 [#445]: https://github.com/stackabletech/druid-operator/pull/445
 [#447]: https://github.com/stackabletech/druid-operator/pull/447
 [#450]: https://github.com/stackabletech/druid-operator/pull/450
+[#452]: https://github.com/stackabletech/druid-operator/pull/452
 
 ## [23.4.0] - 2023-04-17
 
