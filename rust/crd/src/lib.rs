@@ -35,6 +35,7 @@ use stackable_operator::{
     },
     kube::{CustomResource, ResourceExt},
     labels::ObjectLabels,
+    memory::{BinaryMultiple, MemoryQuantity},
     product_config::types::PropertyNameKind,
     product_config_utils::{ConfigError, Configuration},
     product_logging::{self, spec::Logging},
@@ -109,10 +110,10 @@ pub const PROCESSING_NUM_THREADS: &str = "druid.processing.numThreads";
 // extra
 pub const CREDENTIALS_SECRET_PROPERTY: &str = "credentialsSecret";
 // logs
-pub const MAX_DRUID_LOG_FILES_SIZE_IN_MIB: u32 = 10;
-const MAX_PREPARE_LOG_FILE_SIZE_IN_MIB: u32 = 1;
-pub const LOG_VOLUME_SIZE_IN_MIB: u32 =
-    MAX_DRUID_LOG_FILES_SIZE_IN_MIB + MAX_PREPARE_LOG_FILE_SIZE_IN_MIB;
+pub const MAX_DRUID_LOG_FILES_SIZE: MemoryQuantity = MemoryQuantity {
+    value: 10.0,
+    unit: BinaryMultiple::Mebi,
+};
 // metrics
 pub const PROMETHEUS_PORT: &str = "druid.emitter.prometheus.port";
 pub const METRICS_PORT: u16 = 9090;
