@@ -19,7 +19,7 @@ use stackable_druid_crd::{
     CommonRoleGroupConfig, Container, DeepStorageSpec, DruidCluster, DruidClusterStatus, DruidRole,
     APP_NAME, AUTH_AUTHORIZER_OPA_URI, CERTS_DIR, CREDENTIALS_SECRET_PROPERTY,
     DRUID_CONFIG_DIRECTORY, DS_BUCKET, ENV_INTERNAL_SECRET, EXTENSIONS_LOADLIST,
-    HDFS_CONFIG_DIRECTORY, JVM_CONFIG, LOG_CONFIG_DIRECTORY, LOG_DIR, LOG_VOLUME_SIZE_IN_MIB,
+    HDFS_CONFIG_DIRECTORY, JVM_CONFIG, LOG_CONFIG_DIRECTORY, LOG_DIR, MAX_DRUID_LOG_FILES_SIZE,
     RUNTIME_PROPS, RW_CONFIG_DIRECTORY, S3_ENDPOINT_URL, S3_PATH_STYLE_ACCESS, S3_SECRET_DIR_NAME,
     ZOOKEEPER_CONNECTION_STRING,
 };
@@ -42,7 +42,7 @@ use stackable_operator::{
             apps::v1::{StatefulSet, StatefulSetSpec},
             core::v1::{ConfigMap, EnvVar, Service, ServiceSpec},
         },
-        apimachinery::pkg::{api::resource::Quantity, apis::meta::v1::LabelSelector},
+        apimachinery::pkg::apis::meta::v1::LabelSelector,
     },
     kube::{
         runtime::{controller::Action, reflector::ObjectRef},
@@ -1033,7 +1033,9 @@ fn add_log_volume_and_volume_mounts(
         VolumeBuilder::new(LOG_VOLUME_NAME)
             .with_empty_dir(
                 Some(""),
-                Some(Quantity(format!("{LOG_VOLUME_SIZE_IN_MIB}Mi"))),
+                Some(product_logging::framework::calculate_log_volume_size_limit(
+                    &[MAX_DRUID_LOG_FILES_SIZE],
+                )),
             )
             .build(),
     );

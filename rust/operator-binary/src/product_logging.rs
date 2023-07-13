@@ -1,13 +1,13 @@
 use snafu::{OptionExt, ResultExt, Snafu};
 use stackable_druid_crd::{
-    Container, DruidCluster, DRUID_LOG_FILE, LOG4J2_CONFIG, LOG_DIR,
-    MAX_DRUID_LOG_FILES_SIZE_IN_MIB,
+    Container, DruidCluster, DRUID_LOG_FILE, LOG4J2_CONFIG, LOG_DIR, MAX_DRUID_LOG_FILES_SIZE,
 };
 use stackable_operator::{
     builder::ConfigMapBuilder,
     client::Client,
     k8s_openapi::api::core::v1::ConfigMap,
     kube::ResourceExt,
+    memory::BinaryMultiple,
     product_logging::{
         self,
         spec::{ContainerLogConfig, ContainerLogConfigChoice, Logging},
@@ -92,7 +92,10 @@ pub fn extend_role_group_config_map(
             product_logging::framework::create_log4j2_config(
                 &format!("{LOG_DIR}/{container}", container = Container::Druid),
                 DRUID_LOG_FILE,
-                MAX_DRUID_LOG_FILES_SIZE_IN_MIB,
+                MAX_DRUID_LOG_FILES_SIZE
+                    .scale_to(BinaryMultiple::Mebi)
+                    .floor()
+                    .value as u32,
                 CONSOLE_CONVERSION_PATTERN,
                 log_config,
             ),
