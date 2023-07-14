@@ -1863,7 +1863,7 @@ dependencies = [
 
 [[package]]
 name = "stackable-druid-crd"
-version = "0.0.0-dev"
+version = "23.7.0"
 dependencies = [
  "indoc",
  "lazy_static",
@@ -1880,7 +1880,7 @@ dependencies = [
 
 [[package]]
 name = "stackable-druid-operator"
-version = "0.0.0-dev"
+version = "23.7.0"
 dependencies = [
  "anyhow",
  "built",
