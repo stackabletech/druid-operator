@@ -6,7 +6,7 @@ metadata:
 spec:
   image:
     productVersion: 26.0.0
-    stackableVersion: 0.0.0-dev
+    stackableVersion: 23.7.0
   clusterConfig:
     deepStorage:
       hdfs:
