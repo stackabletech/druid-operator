@@ -9,8 +9,7 @@ metadata:
   name: derby-druid
 spec:
   image:
-    productVersion: "{{ test_scenario['values']['druid-latest'].split('-stackable')[0] }}"
-    stackableVersion: "{{ test_scenario['values']['druid-latest'].split('-stackable')[1] }}"
+    productVersion: "{{ test_scenario['values']['druid-latest'] }}"
   clusterConfig:
     deepStorage:
       hdfs:
@@ -40,7 +39,7 @@ spec:
       logging:
         enableVectorAgent: {{ lookup('env', 'VECTOR_AGGREGATOR') | length > 0 }}
     roleGroups:
-      default: 
+      default:
         replicas: 1
   historicals:
     config:

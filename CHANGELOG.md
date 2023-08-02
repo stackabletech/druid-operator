@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+
+- Default stackableVersion to operator version ([#458]).
+
+[#458]: https://github.com/stackabletech/druid-operator/pull/458
+
 ## [23.7.0] - 2023-07-14
 
 ### Added

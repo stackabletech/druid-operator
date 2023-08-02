@@ -150,7 +150,6 @@ mod tests {
         spec:
           image:
             productVersion: 26.0.0
-            stackableVersion: "0.0.0-dev"
           clusterConfig:
             deepStorage:
               hdfs:
@@ -344,7 +343,6 @@ mod tests {
         spec:
           image:
             productVersion: 26.0.0
-            stackableVersion: "0.0.0-dev"
           clusterConfig:
             deepStorage:
               hdfs:
