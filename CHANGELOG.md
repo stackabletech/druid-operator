@@ -8,7 +8,7 @@ All notable changes to this project will be documented in this file.
 
 - Default stackableVersion to operator version ([#458]).
 
-[#434]: https://github.com/stackabletech/druid-operator/pull/434
+[#458]: https://github.com/stackabletech/druid-operator/pull/458
 
 ## [23.7.0] - 2023-07-14
 
