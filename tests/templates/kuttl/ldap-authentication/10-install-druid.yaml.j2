@@ -13,8 +13,7 @@ commands:
         name: derby-druid
       spec:
         image:
-          productVersion: "{{ test_scenario['values']['druid'].split('-stackable')[0] }}"
-          stackableVersion: "{{ test_scenario['values']['druid'].split('-stackable')[1] }}"
+          productVersion: "{{ test_scenario['values']['druid'] }}"
         clusterConfig:
           authentication:
             - authenticationClass: druid-ldap-auth-class-$NAMESPACE
