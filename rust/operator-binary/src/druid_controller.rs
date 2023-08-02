@@ -262,8 +262,10 @@ pub async fn reconcile_druid(druid: Arc<DruidCluster>, ctx: Arc<Ctx>) -> Result<
         .namespace
         .clone()
         .with_context(|| ObjectHasNoNamespaceSnafu {})?;
-    let resolved_product_image: ResolvedProductImage =
-        druid.spec.image.resolve(DOCKER_IMAGE_BASE_NAME);
+    let resolved_product_image: ResolvedProductImage = druid
+        .spec
+        .image
+        .resolve(DOCKER_IMAGE_BASE_NAME, crate::built_info::CARGO_PKG_VERSION);
 
     let zk_confmap = druid.spec.cluster_config.zookeeper_config_map_name.clone();
     let zk_connstr = client
