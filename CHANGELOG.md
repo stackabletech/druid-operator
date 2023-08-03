@@ -8,7 +8,13 @@ All notable changes to this project will be documented in this file.
 
 - Default stackableVersion to operator version ([#458]).
 
+### Changed
+
+- `vector` `0.26.0` -> `0.31.0` ([#459]).
+- `operator-rs` `0.44.0` -> `0.45.1` ([#458]).
+
 [#458]: https://github.com/stackabletech/druid-operator/pull/458
+[#459]: https://github.com/stackabletech/druid-operator/pull/459
 
 ## [23.7.0] - 2023-07-14
 
