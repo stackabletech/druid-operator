@@ -33,3 +33,4 @@ built.workspace = true
 
 [dev-dependencies]
 rstest.workspace = true
+serde_yaml.workspace = true
