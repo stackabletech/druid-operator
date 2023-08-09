@@ -63,9 +63,7 @@ spec:
                                                   description: The label key that the selector applies to.
                                                   type: string
                                                 operator:
-                                                  description: |+
-                                                    Represents a key's relationship to a set of values. Valid operators are In, NotIn, Exists, DoesNotExist. Gt, and Lt.
-
+                                                  description: Represents a key's relationship to a set of values. Valid operators are In, NotIn, Exists, DoesNotExist. Gt, and Lt.
                                                   type: string
                                                 values:
                                                   description: An array of string values. If the operator is In or NotIn, the values array must be non-empty. If the operator is Exists or DoesNotExist, the values array must be empty. If the operator is Gt or Lt, the values array must have a single element, which will be interpreted as an integer. This array is replaced during a strategic merge patch.
@@ -86,9 +84,7 @@ spec:
                                                   description: The label key that the selector applies to.
                                                   type: string
                                                 operator:
-                                                  description: |+
-                                                    Represents a key's relationship to a set of values. Valid operators are In, NotIn, Exists, DoesNotExist. Gt, and Lt.
-
+                                                  description: Represents a key's relationship to a set of values. Valid operators are In, NotIn, Exists, DoesNotExist. Gt, and Lt.
                                                   type: string
                                                 values:
                                                   description: An array of string values. If the operator is In or NotIn, the values array must be non-empty. If the operator is Exists or DoesNotExist, the values array must be empty. If the operator is Gt or Lt, the values array must have a single element, which will be interpreted as an integer. This array is replaced during a strategic merge patch.
@@ -127,9 +123,7 @@ spec:
                                                   description: The label key that the selector applies to.
                                                   type: string
                                                 operator:
-                                                  description: |+
-                                                    Represents a key's relationship to a set of values. Valid operators are In, NotIn, Exists, DoesNotExist. Gt, and Lt.
-
+                                                  description: Represents a key's relationship to a set of values. Valid operators are In, NotIn, Exists, DoesNotExist. Gt, and Lt.
                                                   type: string
                                                 values:
                                                   description: An array of string values. If the operator is In or NotIn, the values array must be non-empty. If the operator is Exists or DoesNotExist, the values array must be empty. If the operator is Gt or Lt, the values array must have a single element, which will be interpreted as an integer. This array is replaced during a strategic merge patch.
@@ -150,9 +144,7 @@ spec:
                                                   description: The label key that the selector applies to.
                                                   type: string
                                                 operator:
-                                                  description: |+
-                                                    Represents a key's relationship to a set of values. Valid operators are In, NotIn, Exists, DoesNotExist. Gt, and Lt.
-
+                                                  description: Represents a key's relationship to a set of values. Valid operators are In, NotIn, Exists, DoesNotExist. Gt, and Lt.
                                                   type: string
                                                 values:
                                                   description: An array of string values. If the operator is In or NotIn, the values array must be non-empty. If the operator is Exists or DoesNotExist, the values array must be empty. If the operator is Gt or Lt, the values array must have a single element, which will be interpreted as an integer. This array is replaced during a strategic merge patch.
@@ -1337,6 +1329,15 @@ spec:
                                         format: int32
                                         type: integer
                                     type: object
+                                  resizePolicy:
+                                    items:
+                                      properties:
+                                        resourceName:
+                                          type: string
+                                        restartPolicy:
+                                          type: string
+                                      type: object
+                                    type: array
                                   resources:
                                     properties:
                                       claims:
@@ -1855,6 +1856,15 @@ spec:
                                         format: int32
                                         type: integer
                                     type: object
+                                  resizePolicy:
+                                    items:
+                                      properties:
+                                        resourceName:
+                                          type: string
+                                        restartPolicy:
+                                          type: string
+                                      type: object
+                                    type: array
                                   resources:
                                     properties:
                                       claims:
@@ -2379,6 +2389,15 @@ spec:
                                         format: int32
                                         type: integer
                                     type: object
+                                  resizePolicy:
+                                    items:
+                                      properties:
+                                        resourceName:
+                                          type: string
+                                        restartPolicy:
+                                          type: string
+                                      type: object
+                                    type: array
                                   resources:
                                     properties:
                                       claims:
@@ -3443,9 +3462,7 @@ spec:
                                                         description: The label key that the selector applies to.
                                                         type: string
                                                       operator:
-                                                        description: |+
-                                                          Represents a key's relationship to a set of values. Valid operators are In, NotIn, Exists, DoesNotExist. Gt, and Lt.
-
+                                                        description: Represents a key's relationship to a set of values. Valid operators are In, NotIn, Exists, DoesNotExist. Gt, and Lt.
                                                         type: string
                                                       values:
                                                         description: An array of string values. If the operator is In or NotIn, the values array must be non-empty. If the operator is Exists or DoesNotExist, the values array must be empty. If the operator is Gt or Lt, the values array must have a single element, which will be interpreted as an integer. This array is replaced during a strategic merge patch.
@@ -3466,9 +3483,7 @@ spec:
                                                         description: The label key that the selector applies to.
                                                         type: string
                                                       operator:
-                                                        description: |+
-                                                          Represents a key's relationship to a set of values. Valid operators are In, NotIn, Exists, DoesNotExist. Gt, and Lt.
-
+                                                        description: Represents a key's relationship to a set of values. Valid operators are In, NotIn, Exists, DoesNotExist. Gt, and Lt.
                                                         type: string
                                                       values:
                                                         description: An array of string values. If the operator is In or NotIn, the values array must be non-empty. If the operator is Exists or DoesNotExist, the values array must be empty. If the operator is Gt or Lt, the values array must have a single element, which will be interpreted as an integer. This array is replaced during a strategic merge patch.
@@ -3507,9 +3522,7 @@ spec:
                                                         description: The label key that the selector applies to.
                                                         type: string
                                                       operator:
-                                                        description: |+
-                                                          Represents a key's relationship to a set of values. Valid operators are In, NotIn, Exists, DoesNotExist. Gt, and Lt.
-
+                                                        description: Represents a key's relationship to a set of values. Valid operators are In, NotIn, Exists, DoesNotExist. Gt, and Lt.
                                                         type: string
                                                       values:
                                                         description: An array of string values. If the operator is In or NotIn, the values array must be non-empty. If the operator is Exists or DoesNotExist, the values array must be empty. If the operator is Gt or Lt, the values array must have a single element, which will be interpreted as an integer. This array is replaced during a strategic merge patch.
@@ -3530,9 +3543,7 @@ spec:
                                                         description: The label key that the selector applies to.
                                                         type: string
                                                       operator:
-                                                        description: |+
-                                                          Represents a key's relationship to a set of values. Valid operators are In, NotIn, Exists, DoesNotExist. Gt, and Lt.
-
+                                                        description: Represents a key's relationship to a set of values. Valid operators are In, NotIn, Exists, DoesNotExist. Gt, and Lt.
                                                         type: string
                                                       values:
                                                         description: An array of string values. If the operator is In or NotIn, the values array must be non-empty. If the operator is Exists or DoesNotExist, the values array must be empty. If the operator is Gt or Lt, the values array must have a single element, which will be interpreted as an integer. This array is replaced during a strategic merge patch.
@@ -4717,6 +4728,15 @@ spec:
                                               format: int32
                                               type: integer
                                           type: object
+                                        resizePolicy:
+                                          items:
+                                            properties:
+                                              resourceName:
+                                                type: string
+                                              restartPolicy:
+                                                type: string
+                                            type: object
+                                          type: array
                                         resources:
                                           properties:
                                             claims:
@@ -5235,6 +5255,15 @@ spec:
                                               format: int32
                                               type: integer
                                           type: object
+                                        resizePolicy:
+                                          items:
+                                            properties:
+                                              resourceName:
+                                                type: string
+                                              restartPolicy:
+                                                type: string
+                                            type: object
+                                          type: array
                                         resources:
                                           properties:
                                             claims:
@@ -5759,6 +5788,15 @@ spec:
                                               format: int32
                                               type: integer
                                           type: object
+                                        resizePolicy:
+                                          items:
+                                            properties:
+                                              resourceName:
+                                                type: string
+                                              restartPolicy:
+                                                type: string
+                                            type: object
+                                          type: array
                                         resources:
                                           properties:
                                             claims:
@@ -7240,7 +7278,7 @@ spec:
                                 description: 'medium represents what type of storage medium should back this directory. The default is "" which means to use the node''s default medium. Must be an empty string (default) or Memory. More info: https://kubernetes.io/docs/concepts/storage/volumes#emptydir'
                                 type: string
                               sizeLimit:
-                                description: 'sizeLimit is the total amount of local storage required for this EmptyDir volume. The size limit is also applicable for memory medium. The maximum usage on memory medium EmptyDir would be the minimum value between the SizeLimit specified here and the sum of memory limits of all containers in a pod. The default is nil which means that the limit is undefined. More info: http://kubernetes.io/docs/user-guide/volumes#emptydir'
+                                description: 'sizeLimit is the total amount of local storage required for this EmptyDir volume. The size limit is also applicable for memory medium. The maximum usage on memory medium EmptyDir would be the minimum value between the SizeLimit specified here and the sum of memory limits of all containers in a pod. The default is nil which means that the limit is undefined. More info: https://kubernetes.io/docs/concepts/storage/volumes#emptydir'
                                 type: string
                             type: object
                           ephemeral:
@@ -7276,7 +7314,7 @@ spec:
                                       annotations:
                                         additionalProperties:
                                           type: string
-                                        description: 'Annotations is an unstructured key value map stored with a resource that may be set by external tools to store and retrieve arbitrary metadata. They are not queryable and should be preserved when modifying objects. More info: http://kubernetes.io/docs/user-guide/annotations'
+                                        description: 'Annotations is an unstructured key value map stored with a resource that may be set by external tools to store and retrieve arbitrary metadata. They are not queryable and should be preserved when modifying objects. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations'
                                         type: object
                                       creationTimestamp:
                                         description: |-
@@ -7316,7 +7354,7 @@ spec:
                                       labels:
                                         additionalProperties:
                                           type: string
-                                        description: 'Map of string keys and values that can be used to organize and categorize (scope and select) objects. May match selectors of replication controllers and services. More info: http://kubernetes.io/docs/user-guide/labels'
+                                        description: 'Map of string keys and values that can be used to organize and categorize (scope and select) objects. May match selectors of replication controllers and services. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/labels'
                                         type: object
                                       managedFields:
                                         description: ManagedFields maps workflow-id and version to the set of fields that are managed by that workflow. This is mostly for internal housekeeping, and users typically shouldn't need to set or understand this field. A workflow can be the user's name, a controller's name, or the name of a specific apply path like "ci-cd". The set of fields is always in the version that the workflow used when modifying the object.
@@ -7348,13 +7386,13 @@ spec:
                                           type: object
                                         type: array
                                       name:
-                                        description: 'Name must be unique within a namespace. Is required when creating resources, although some resources may allow a client to request the generation of an appropriate name automatically. Name is primarily intended for creation idempotence and configuration definition. Cannot be updated. More info: http://kubernetes.io/docs/user-guide/identifiers#names'
+                                        description: 'Name must be unique within a namespace. Is required when creating resources, although some resources may allow a client to request the generation of an appropriate name automatically. Name is primarily intended for creation idempotence and configuration definition. Cannot be updated. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names#names'
                                         type: string
                                       namespace:
                                         description: |-
                                           Namespace defines the space within which each name must be unique. An empty namespace is equivalent to the "default" namespace, but "default" is the canonical representation. Not all objects are required to be scoped to a namespace - the value of this field for those objects will be empty.
 
-                                          Must be a DNS_LABEL. Cannot be updated. More info: http://kubernetes.io/docs/user-guide/namespaces
+                                          Must be a DNS_LABEL. Cannot be updated. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces
                                         type: string
                                       ownerReferences:
                                         description: List of objects depended by this object. If ALL objects in the list have been deleted, this object will be garbage collected. If this object is managed by a controller, then an entry in this list will point to this controller, with the controller field set to true. There cannot be more than one managing controller.
@@ -7374,10 +7412,10 @@ spec:
                                               description: 'Kind of the referent. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
                                               type: string
                                             name:
-                                              description: 'Name of the referent. More info: http://kubernetes.io/docs/user-guide/identifiers#names'
+                                              description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names#names'
                                               type: string
                                             uid:
-                                              description: 'UID of the referent. More info: http://kubernetes.io/docs/user-guide/identifiers#uids'
+                                              description: 'UID of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names#uids'
                                               type: string
                                           required:
                                             - apiVersion
@@ -7399,7 +7437,7 @@ spec:
                                         description: |-
                                           UID is the unique in time and space value for this object. It is typically generated by the server on successful creation of a resource and is not allowed to change on PUT operations.
 
-                                          Populated by the system. Read-only. More info: http://kubernetes.io/docs/user-guide/identifiers#uids
+                                          Populated by the system. Read-only. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names#uids
                                         type: string
                                     type: object
                                   spec:
@@ -7483,7 +7521,7 @@ spec:
                                             additionalProperties:
                                               description: "Quantity is a fixed-point representation of a number. It provides convenient marshaling/unmarshaling in JSON and YAML, in addition to String() and AsInt64() accessors.\n\nThe serialization format is:\n\n``` <quantity>        ::= <signedNumber><suffix>\n\n\t(Note that <suffix> may be empty, from the \"\" case in <decimalSI>.)\n\n<digit>           ::= 0 | 1 | ... | 9 <digits>          ::= <digit> | <digit><digits> <number>          ::= <digits> | <digits>.<digits> | <digits>. | .<digits> <sign>            ::= \"+\" | \"-\" <signedNumber>    ::= <number> | <sign><number> <suffix>          ::= <binarySI> | <decimalExponent> | <decimalSI> <binarySI>        ::= Ki | Mi | Gi | Ti | Pi | Ei\n\n\t(International System of units; See: http://physics.nist.gov/cuu/Units/binary.html)\n\n<decimalSI>       ::= m | \"\" | k | M | G | T | P | E\n\n\t(Note that 1024 = 1Ki but 1000 = 1k; I didn't choose the capitalization.)\n\n<decimalExponent> ::= \"e\" <signedNumber> | \"E\" <signedNumber> ```\n\nNo matter which of the three exponent forms is used, no quantity may represent a number greater than 2^63-1 in magnitude, nor may it have more than 3 decimal places. Numbers larger or more precise will be capped or rounded up. (E.g.: 0.1m will rounded up to 1m.) This may be extended in the future if we require larger or smaller quantities.\n\nWhen a Quantity is parsed from a string, it will remember the type of suffix it had, and will use the same type again when it is serialized.\n\nBefore serializing, Quantity will be put in \"canonical form\". This means that Exponent/suffix will be adjusted up or down (with a corresponding increase or decrease in Mantissa) such that:\n\n- No precision is lost - No fractional digits will be emitted - The exponent (or suffix) is as large as possible.\n\nThe sign will be omitted unless the number is negative.\n\nExamples:\n\n- 1.5 will be serialized as \"1500m\" - 1.5Gi will be serialized as \"1536Mi\"\n\nNote that the quantity will NEVER be internally represented by a floating point number. That is the whole point of this exercise.\n\nNon-canonical values will still parse as long as they are well formed, but will be re-emitted in their canonical form. (So always use canonical form, or don't diff.)\n\nThis format is intended to make it difficult to use these numbers without writing some sort of special handling code in the hopes that that will cause implementors to also use a fixed point implementation."
                                               type: string
-                                            description: 'Requests describes the minimum amount of compute resources required. If Requests is omitted for a container, it defaults to Limits if that is explicitly specified, otherwise to an implementation-defined value. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
+                                            description: 'Requests describes the minimum amount of compute resources required. If Requests is omitted for a container, it defaults to Limits if that is explicitly specified, otherwise to an implementation-defined value. Requests cannot exceed Limits. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
                                             type: object
                                         type: object
                                       selector:
@@ -8306,9 +8344,7 @@ spec:
                                                   description: The label key that the selector applies to.
                                                   type: string
                                                 operator:
-                                                  description: |+
-                                                    Represents a key's relationship to a set of values. Valid operators are In, NotIn, Exists, DoesNotExist. Gt, and Lt.
-
+                                                  description: Represents a key's relationship to a set of values. Valid operators are In, NotIn, Exists, DoesNotExist. Gt, and Lt.
                                                   type: string
                                                 values:
                                                   description: An array of string values. If the operator is In or NotIn, the values array must be non-empty. If the operator is Exists or DoesNotExist, the values array must be empty. If the operator is Gt or Lt, the values array must have a single element, which will be interpreted as an integer. This array is replaced during a strategic merge patch.
@@ -8329,9 +8365,7 @@ spec:
                                                   description: The label key that the selector applies to.
                                                   type: string
                                                 operator:
-                                                  description: |+
-                                                    Represents a key's relationship to a set of values. Valid operators are In, NotIn, Exists, DoesNotExist. Gt, and Lt.
-
+                                                  description: Represents a key's relationship to a set of values. Valid operators are In, NotIn, Exists, DoesNotExist. Gt, and Lt.
                                                   type: string
                                                 values:
                                                   description: An array of string values. If the operator is In or NotIn, the values array must be non-empty. If the operator is Exists or DoesNotExist, the values array must be empty. If the operator is Gt or Lt, the values array must have a single element, which will be interpreted as an integer. This array is replaced during a strategic merge patch.
@@ -8370,9 +8404,7 @@ spec:
                                                   description: The label key that the selector applies to.
                                                   type: string
                                                 operator:
-                                                  description: |+
-                                                    Represents a key's relationship to a set of values. Valid operators are In, NotIn, Exists, DoesNotExist. Gt, and Lt.
-
+                                                  description: Represents a key's relationship to a set of values. Valid operators are In, NotIn, Exists, DoesNotExist. Gt, and Lt.
                                                   type: string
                                                 values:
                                                   description: An array of string values. If the operator is In or NotIn, the values array must be non-empty. If the operator is Exists or DoesNotExist, the values array must be empty. If the operator is Gt or Lt, the values array must have a single element, which will be interpreted as an integer. This array is replaced during a strategic merge patch.
@@ -8393,9 +8425,7 @@ spec:
                                                   description: The label key that the selector applies to.
                                                   type: string
                                                 operator:
-                                                  description: |+
-                                                    Represents a key's relationship to a set of values. Valid operators are In, NotIn, Exists, DoesNotExist. Gt, and Lt.
-
+                                                  description: Represents a key's relationship to a set of values. Valid operators are In, NotIn, Exists, DoesNotExist. Gt, and Lt.
                                                   type: string
                                                 values:
                                                   description: An array of string values. If the operator is In or NotIn, the values array must be non-empty. If the operator is Exists or DoesNotExist, the values array must be empty. If the operator is Gt or Lt, the values array must have a single element, which will be interpreted as an integer. This array is replaced during a strategic merge patch.
@@ -9580,6 +9610,15 @@ spec:
                                         format: int32
                                         type: integer
                                     type: object
+                                  resizePolicy:
+                                    items:
+                                      properties:
+                                        resourceName:
+                                          type: string
+                                        restartPolicy:
+                                          type: string
+                                      type: object
+                                    type: array
                                   resources:
                                     properties:
                                       claims:
@@ -10098,6 +10137,15 @@ spec:
                                         format: int32
                                         type: integer
                                     type: object
+                                  resizePolicy:
+                                    items:
+                                      properties:
+                                        resourceName:
+                                          type: string
+                                        restartPolicy:
+                                          type: string
+                                      type: object
+                                    type: array
                                   resources:
                                     properties:
                                       claims:
@@ -10622,6 +10670,15 @@ spec:
                                         format: int32
                                         type: integer
                                     type: object
+                                  resizePolicy:
+                                    items:
+                                      properties:
+                                        resourceName:
+                                          type: string
+                                        restartPolicy:
+                                          type: string
+                                      type: object
+                                    type: array
                                   resources:
                                     properties:
                                       claims:
@@ -11686,9 +11743,7 @@ spec:
                                                         description: The label key that the selector applies to.
                                                         type: string
                                                       operator:
-                                                        description: |+
-                                                          Represents a key's relationship to a set of values. Valid operators are In, NotIn, Exists, DoesNotExist. Gt, and Lt.
-
+                                                        description: Represents a key's relationship to a set of values. Valid operators are In, NotIn, Exists, DoesNotExist. Gt, and Lt.
                                                         type: string
                                                       values:
                                                         description: An array of string values. If the operator is In or NotIn, the values array must be non-empty. If the operator is Exists or DoesNotExist, the values array must be empty. If the operator is Gt or Lt, the values array must have a single element, which will be interpreted as an integer. This array is replaced during a strategic merge patch.
@@ -11709,9 +11764,7 @@ spec:
                                                         description: The label key that the selector applies to.
                                                         type: string
                                                       operator:
-                                                        description: |+
-                                                          Represents a key's relationship to a set of values. Valid operators are In, NotIn, Exists, DoesNotExist. Gt, and Lt.
-
+                                                        description: Represents a key's relationship to a set of values. Valid operators are In, NotIn, Exists, DoesNotExist. Gt, and Lt.
                                                         type: string
                                                       values:
                                                         description: An array of string values. If the operator is In or NotIn, the values array must be non-empty. If the operator is Exists or DoesNotExist, the values array must be empty. If the operator is Gt or Lt, the values array must have a single element, which will be interpreted as an integer. This array is replaced during a strategic merge patch.
@@ -11750,9 +11803,7 @@ spec:
                                                         description: The label key that the selector applies to.
                                                         type: string
                                                       operator:
-                                                        description: |+
-                                                          Represents a key's relationship to a set of values. Valid operators are In, NotIn, Exists, DoesNotExist. Gt, and Lt.
-
+                                                        description: Represents a key's relationship to a set of values. Valid operators are In, NotIn, Exists, DoesNotExist. Gt, and Lt.
                                                         type: string
                                                       values:
                                                         description: An array of string values. If the operator is In or NotIn, the values array must be non-empty. If the operator is Exists or DoesNotExist, the values array must be empty. If the operator is Gt or Lt, the values array must have a single element, which will be interpreted as an integer. This array is replaced during a strategic merge patch.
@@ -11773,9 +11824,7 @@ spec:
                                                         description: The label key that the selector applies to.
                                                         type: string
                                                       operator:
-                                                        description: |+
-                                                          Represents a key's relationship to a set of values. Valid operators are In, NotIn, Exists, DoesNotExist. Gt, and Lt.
-
+                                                        description: Represents a key's relationship to a set of values. Valid operators are In, NotIn, Exists, DoesNotExist. Gt, and Lt.
                                                         type: string
                                                       values:
                                                         description: An array of string values. If the operator is In or NotIn, the values array must be non-empty. If the operator is Exists or DoesNotExist, the values array must be empty. If the operator is Gt or Lt, the values array must have a single element, which will be interpreted as an integer. This array is replaced during a strategic merge patch.
@@ -12960,6 +13009,15 @@ spec:
                                               format: int32
                                               type: integer
                                           type: object
+                                        resizePolicy:
+                                          items:
+                                            properties:
+                                              resourceName:
+                                                type: string
+                                              restartPolicy:
+                                                type: string
+                                            type: object
+                                          type: array
                                         resources:
                                           properties:
                                             claims:
@@ -13478,6 +13536,15 @@ spec:
                                               format: int32
                                               type: integer
                                           type: object
+                                        resizePolicy:
+                                          items:
+                                            properties:
+                                              resourceName:
+                                                type: string
+                                              restartPolicy:
+                                                type: string
+                                            type: object
+                                          type: array
                                         resources:
                                           properties:
                                             claims:
@@ -14002,6 +14069,15 @@ spec:
                                               format: int32
                                               type: integer
                                           type: object
+                                        resizePolicy:
+                                          items:
+                                            properties:
+                                              resourceName:
+                                                type: string
+                                              restartPolicy:
+                                                type: string
+                                            type: object
+                                          type: array
                                         resources:
                                           properties:
                                             claims:
@@ -15107,9 +15183,7 @@ spec:
                                                   description: The label key that the selector applies to.
                                                   type: string
                                                 operator:
-                                                  description: |+
-                                                    Represents a key's relationship to a set of values. Valid operators are In, NotIn, Exists, DoesNotExist. Gt, and Lt.
-
+                                                  description: Represents a key's relationship to a set of values. Valid operators are In, NotIn, Exists, DoesNotExist. Gt, and Lt.
                                                   type: string
                                                 values:
                                                   description: An array of string values. If the operator is In or NotIn, the values array must be non-empty. If the operator is Exists or DoesNotExist, the values array must be empty. If the operator is Gt or Lt, the values array must have a single element, which will be interpreted as an integer. This array is replaced during a strategic merge patch.
@@ -15130,9 +15204,7 @@ spec:
                                                   description: The label key that the selector applies to.
                                                   type: string
                                                 operator:
-                                                  description: |+
-                                                    Represents a key's relationship to a set of values. Valid operators are In, NotIn, Exists, DoesNotExist. Gt, and Lt.
-
+                                                  description: Represents a key's relationship to a set of values. Valid operators are In, NotIn, Exists, DoesNotExist. Gt, and Lt.
                                                   type: string
                                                 values:
                                                   description: An array of string values. If the operator is In or NotIn, the values array must be non-empty. If the operator is Exists or DoesNotExist, the values array must be empty. If the operator is Gt or Lt, the values array must have a single element, which will be interpreted as an integer. This array is replaced during a strategic merge patch.
@@ -15171,9 +15243,7 @@ spec:
                                                   description: The label key that the selector applies to.
                                                   type: string
                                                 operator:
-                                                  description: |+
-                                                    Represents a key's relationship to a set of values. Valid operators are In, NotIn, Exists, DoesNotExist. Gt, and Lt.
-
+                                                  description: Represents a key's relationship to a set of values. Valid operators are In, NotIn, Exists, DoesNotExist. Gt, and Lt.
                                                   type: string
                                                 values:
                                                   description: An array of string values. If the operator is In or NotIn, the values array must be non-empty. If the operator is Exists or DoesNotExist, the values array must be empty. If the operator is Gt or Lt, the values array must have a single element, which will be interpreted as an integer. This array is replaced during a strategic merge patch.
@@ -15194,9 +15264,7 @@ spec:
                                                   description: The label key that the selector applies to.
                                                   type: string
                                                 operator:
-                                                  description: |+
-                                                    Represents a key's relationship to a set of values. Valid operators are In, NotIn, Exists, DoesNotExist. Gt, and Lt.
-
+                                                  description: Represents a key's relationship to a set of values. Valid operators are In, NotIn, Exists, DoesNotExist. Gt, and Lt.
                                                   type: string
                                                 values:
                                                   description: An array of string values. If the operator is In or NotIn, the values array must be non-empty. If the operator is Exists or DoesNotExist, the values array must be empty. If the operator is Gt or Lt, the values array must have a single element, which will be interpreted as an integer. This array is replaced during a strategic merge patch.
@@ -16408,6 +16476,15 @@ spec:
                                         format: int32
                                         type: integer
                                     type: object
+                                  resizePolicy:
+                                    items:
+                                      properties:
+                                        resourceName:
+                                          type: string
+                                        restartPolicy:
+                                          type: string
+                                      type: object
+                                    type: array
                                   resources:
                                     properties:
                                       claims:
@@ -16926,6 +17003,15 @@ spec:
                                         format: int32
                                         type: integer
                                     type: object
+                                  resizePolicy:
+                                    items:
+                                      properties:
+                                        resourceName:
+                                          type: string
+                                        restartPolicy:
+                                          type: string
+                                      type: object
+                                    type: array
                                   resources:
                                     properties:
                                       claims:
@@ -17450,6 +17536,15 @@ spec:
                                         format: int32
                                         type: integer
                                     type: object
+                                  resizePolicy:
+                                    items:
+                                      properties:
+                                        resourceName:
+                                          type: string
+                                        restartPolicy:
+                                          type: string
+                                      type: object
+                                    type: array
                                   resources:
                                     properties:
                                       claims:
@@ -18514,9 +18609,7 @@ spec:
                                                         description: The label key that the selector applies to.
                                                         type: string
                                                       operator:
-                                                        description: |+
-                                                          Represents a key's relationship to a set of values. Valid operators are In, NotIn, Exists, DoesNotExist. Gt, and Lt.
-
+                                                        description: Represents a key's relationship to a set of values. Valid operators are In, NotIn, Exists, DoesNotExist. Gt, and Lt.
                                                         type: string
                                                       values:
                                                         description: An array of string values. If the operator is In or NotIn, the values array must be non-empty. If the operator is Exists or DoesNotExist, the values array must be empty. If the operator is Gt or Lt, the values array must have a single element, which will be interpreted as an integer. This array is replaced during a strategic merge patch.
@@ -18537,9 +18630,7 @@ spec:
                                                         description: The label key that the selector applies to.
                                                         type: string
                                                       operator:
-                                                        description: |+
-                                                          Represents a key's relationship to a set of values. Valid operators are In, NotIn, Exists, DoesNotExist. Gt, and Lt.
-
+                                                        description: Represents a key's relationship to a set of values. Valid operators are In, NotIn, Exists, DoesNotExist. Gt, and Lt.
                                                         type: string
                                                       values:
                                                         description: An array of string values. If the operator is In or NotIn, the values array must be non-empty. If the operator is Exists or DoesNotExist, the values array must be empty. If the operator is Gt or Lt, the values array must have a single element, which will be interpreted as an integer. This array is replaced during a strategic merge patch.
@@ -18578,9 +18669,7 @@ spec:
                                                         description: The label key that the selector applies to.
                                                         type: string
                                                       operator:
-                                                        description: |+
-                                                          Represents a key's relationship to a set of values. Valid operators are In, NotIn, Exists, DoesNotExist. Gt, and Lt.
-
+                                                        description: Represents a key's relationship to a set of values. Valid operators are In, NotIn, Exists, DoesNotExist. Gt, and Lt.
                                                         type: string
                                                       values:
                                                         description: An array of string values. If the operator is In or NotIn, the values array must be non-empty. If the operator is Exists or DoesNotExist, the values array must be empty. If the operator is Gt or Lt, the values array must have a single element, which will be interpreted as an integer. This array is replaced during a strategic merge patch.
@@ -18601,9 +18690,7 @@ spec:
                                                         description: The label key that the selector applies to.
                                                         type: string
                                                       operator:
-                                                        description: |+
-                                                          Represents a key's relationship to a set of values. Valid operators are In, NotIn, Exists, DoesNotExist. Gt, and Lt.
-
+                                                        description: Represents a key's relationship to a set of values. Valid operators are In, NotIn, Exists, DoesNotExist. Gt, and Lt.
                                                         type: string
                                                       values:
                                                         description: An array of string values. If the operator is In or NotIn, the values array must be non-empty. If the operator is Exists or DoesNotExist, the values array must be empty. If the operator is Gt or Lt, the values array must have a single element, which will be interpreted as an integer. This array is replaced during a strategic merge patch.
@@ -19815,6 +19902,15 @@ spec:
                                               format: int32
                                               type: integer
                                           type: object
+                                        resizePolicy:
+                                          items:
+                                            properties:
+                                              resourceName:
+                                                type: string
+                                              restartPolicy:
+                                                type: string
+                                            type: object
+                                          type: array
                                         resources:
                                           properties:
                                             claims:
@@ -20333,6 +20429,15 @@ spec:
                                               format: int32
                                               type: integer
                                           type: object
+                                        resizePolicy:
+                                          items:
+                                            properties:
+                                              resourceName:
+                                                type: string
+                                              restartPolicy:
+                                                type: string
+                                            type: object
+                                          type: array
                                         resources:
                                           properties:
                                             claims:
@@ -20857,6 +20962,15 @@ spec:
                                               format: int32
                                               type: integer
                                           type: object
+                                        resizePolicy:
+                                          items:
+                                            properties:
+                                              resourceName:
+                                                type: string
+                                              restartPolicy:
+                                                type: string
+                                            type: object
+                                          type: array
                                         resources:
                                           properties:
                                             claims:
@@ -22005,9 +22119,7 @@ spec:
                                                   description: The label key that the selector applies to.
                                                   type: string
                                                 operator:
-                                                  description: |+
-                                                    Represents a key's relationship to a set of values. Valid operators are In, NotIn, Exists, DoesNotExist. Gt, and Lt.
-
+                                                  description: Represents a key's relationship to a set of values. Valid operators are In, NotIn, Exists, DoesNotExist. Gt, and Lt.
                                                   type: string
                                                 values:
                                                   description: An array of string values. If the operator is In or NotIn, the values array must be non-empty. If the operator is Exists or DoesNotExist, the values array must be empty. If the operator is Gt or Lt, the values array must have a single element, which will be interpreted as an integer. This array is replaced during a strategic merge patch.
@@ -22028,9 +22140,7 @@ spec:
                                                   description: The label key that the selector applies to.
                                                   type: string
                                                 operator:
-                                                  description: |+
-                                                    Represents a key's relationship to a set of values. Valid operators are In, NotIn, Exists, DoesNotExist. Gt, and Lt.
-
+                                                  description: Represents a key's relationship to a set of values. Valid operators are In, NotIn, Exists, DoesNotExist. Gt, and Lt.
                                                   type: string
                                                 values:
                                                   description: An array of string values. If the operator is In or NotIn, the values array must be non-empty. If the operator is Exists or DoesNotExist, the values array must be empty. If the operator is Gt or Lt, the values array must have a single element, which will be interpreted as an integer. This array is replaced during a strategic merge patch.
@@ -22069,9 +22179,7 @@ spec:
                                                   description: The label key that the selector applies to.
                                                   type: string
                                                 operator:
-                                                  description: |+
-                                                    Represents a key's relationship to a set of values. Valid operators are In, NotIn, Exists, DoesNotExist. Gt, and Lt.
-
+                                                  description: Represents a key's relationship to a set of values. Valid operators are In, NotIn, Exists, DoesNotExist. Gt, and Lt.
                                                   type: string
                                                 values:
                                                   description: An array of string values. If the operator is In or NotIn, the values array must be non-empty. If the operator is Exists or DoesNotExist, the values array must be empty. If the operator is Gt or Lt, the values array must have a single element, which will be interpreted as an integer. This array is replaced during a strategic merge patch.
@@ -22092,9 +22200,7 @@ spec:
                                                   description: The label key that the selector applies to.
                                                   type: string
                                                 operator:
-                                                  description: |+
-                                                    Represents a key's relationship to a set of values. Valid operators are In, NotIn, Exists, DoesNotExist. Gt, and Lt.
-
+                                                  description: Represents a key's relationship to a set of values. Valid operators are In, NotIn, Exists, DoesNotExist. Gt, and Lt.
                                                   type: string
                                                 values:
                                                   description: An array of string values. If the operator is In or NotIn, the values array must be non-empty. If the operator is Exists or DoesNotExist, the values array must be empty. If the operator is Gt or Lt, the values array must have a single element, which will be interpreted as an integer. This array is replaced during a strategic merge patch.
@@ -23279,6 +23385,15 @@ spec:
                                         format: int32
                                         type: integer
                                     type: object
+                                  resizePolicy:
+                                    items:
+                                      properties:
+                                        resourceName:
+                                          type: string
+                                        restartPolicy:
+                                          type: string
+                                      type: object
+                                    type: array
                                   resources:
                                     properties:
                                       claims:
@@ -23797,6 +23912,15 @@ spec:
                                         format: int32
                                         type: integer
                                     type: object
+                                  resizePolicy:
+                                    items:
+                                      properties:
+                                        resourceName:
+                                          type: string
+                                        restartPolicy:
+                                          type: string
+                                      type: object
+                                    type: array
                                   resources:
                                     properties:
                                       claims:
@@ -24321,6 +24445,15 @@ spec:
                                         format: int32
                                         type: integer
                                     type: object
+                                  resizePolicy:
+                                    items:
+                                      properties:
+                                        resourceName:
+                                          type: string
+                                        restartPolicy:
+                                          type: string
+                                      type: object
+                                    type: array
                                   resources:
                                     properties:
                                       claims:
@@ -25385,9 +25518,7 @@ spec:
                                                         description: The label key that the selector applies to.
                                                         type: string
                                                       operator:
-                                                        description: |+
-                                                          Represents a key's relationship to a set of values. Valid operators are In, NotIn, Exists, DoesNotExist. Gt, and Lt.
-
+                                                        description: Represents a key's relationship to a set of values. Valid operators are In, NotIn, Exists, DoesNotExist. Gt, and Lt.
                                                         type: string
                                                       values:
                                                         description: An array of string values. If the operator is In or NotIn, the values array must be non-empty. If the operator is Exists or DoesNotExist, the values array must be empty. If the operator is Gt or Lt, the values array must have a single element, which will be interpreted as an integer. This array is replaced during a strategic merge patch.
@@ -25408,9 +25539,7 @@ spec:
                                                         description: The label key that the selector applies to.
                                                         type: string
                                                       operator:
-                                                        description: |+
-                                                          Represents a key's relationship to a set of values. Valid operators are In, NotIn, Exists, DoesNotExist. Gt, and Lt.
-
+                                                        description: Represents a key's relationship to a set of values. Valid operators are In, NotIn, Exists, DoesNotExist. Gt, and Lt.
                                                         type: string
                                                       values:
                                                         description: An array of string values. If the operator is In or NotIn, the values array must be non-empty. If the operator is Exists or DoesNotExist, the values array must be empty. If the operator is Gt or Lt, the values array must have a single element, which will be interpreted as an integer. This array is replaced during a strategic merge patch.
@@ -25449,9 +25578,7 @@ spec:
                                                         description: The label key that the selector applies to.
                                                         type: string
                                                       operator:
-                                                        description: |+
-                                                          Represents a key's relationship to a set of values. Valid operators are In, NotIn, Exists, DoesNotExist. Gt, and Lt.
-
+                                                        description: Represents a key's relationship to a set of values. Valid operators are In, NotIn, Exists, DoesNotExist. Gt, and Lt.
                                                         type: string
                                                       values:
                                                         description: An array of string values. If the operator is In or NotIn, the values array must be non-empty. If the operator is Exists or DoesNotExist, the values array must be empty. If the operator is Gt or Lt, the values array must have a single element, which will be interpreted as an integer. This array is replaced during a strategic merge patch.
@@ -25472,9 +25599,7 @@ spec:
                                                         description: The label key that the selector applies to.
                                                         type: string
                                                       operator:
-                                                        description: |+
-                                                          Represents a key's relationship to a set of values. Valid operators are In, NotIn, Exists, DoesNotExist. Gt, and Lt.
-
+                                                        description: Represents a key's relationship to a set of values. Valid operators are In, NotIn, Exists, DoesNotExist. Gt, and Lt.
                                                         type: string
                                                       values:
                                                         description: An array of string values. If the operator is In or NotIn, the values array must be non-empty. If the operator is Exists or DoesNotExist, the values array must be empty. If the operator is Gt or Lt, the values array must have a single element, which will be interpreted as an integer. This array is replaced during a strategic merge patch.
@@ -26659,6 +26784,15 @@ spec:
                                               format: int32
                                               type: integer
                                           type: object
+                                        resizePolicy:
+                                          items:
+                                            properties:
+                                              resourceName:
+                                                type: string
+                                              restartPolicy:
+                                                type: string
+                                            type: object
+                                          type: array
                                         resources:
                                           properties:
                                             claims:
@@ -27177,6 +27311,15 @@ spec:
                                               format: int32
                                               type: integer
                                           type: object
+                                        resizePolicy:
+                                          items:
+                                            properties:
+                                              resourceName:
+                                                type: string
+                                              restartPolicy:
+                                                type: string
+                                            type: object
+                                          type: array
                                         resources:
                                           properties:
                                             claims:
@@ -27701,6 +27844,15 @@ spec:
                                               format: int32
                                               type: integer
                                           type: object
+                                        resizePolicy:
+                                          items:
+                                            properties:
+                                              resourceName:
+                                                type: string
+                                              restartPolicy:
+                                                type: string
+                                            type: object
+                                          type: array
                                         resources:
                                           properties:
                                             claims:
@@ -28806,9 +28958,7 @@ spec:
                                                   description: The label key that the selector applies to.
                                                   type: string
                                                 operator:
-                                                  description: |+
-                                                    Represents a key's relationship to a set of values. Valid operators are In, NotIn, Exists, DoesNotExist. Gt, and Lt.
-
+                                                  description: Represents a key's relationship to a set of values. Valid operators are In, NotIn, Exists, DoesNotExist. Gt, and Lt.
                                                   type: string
                                                 values:
                                                   description: An array of string values. If the operator is In or NotIn, the values array must be non-empty. If the operator is Exists or DoesNotExist, the values array must be empty. If the operator is Gt or Lt, the values array must have a single element, which will be interpreted as an integer. This array is replaced during a strategic merge patch.
@@ -28829,9 +28979,7 @@ spec:
                                                   description: The label key that the selector applies to.
                                                   type: string
                                                 operator:
-                                                  description: |+
-                                                    Represents a key's relationship to a set of values. Valid operators are In, NotIn, Exists, DoesNotExist. Gt, and Lt.
-
+                                                  description: Represents a key's relationship to a set of values. Valid operators are In, NotIn, Exists, DoesNotExist. Gt, and Lt.
                                                   type: string
                                                 values:
                                                   description: An array of string values. If the operator is In or NotIn, the values array must be non-empty. If the operator is Exists or DoesNotExist, the values array must be empty. If the operator is Gt or Lt, the values array must have a single element, which will be interpreted as an integer. This array is replaced during a strategic merge patch.
@@ -28870,9 +29018,7 @@ spec:
                                                   description: The label key that the selector applies to.
                                                   type: string
                                                 operator:
-                                                  description: |+
-                                                    Represents a key's relationship to a set of values. Valid operators are In, NotIn, Exists, DoesNotExist. Gt, and Lt.
-
+                                                  description: Represents a key's relationship to a set of values. Valid operators are In, NotIn, Exists, DoesNotExist. Gt, and Lt.
                                                   type: string
                                                 values:
                                                   description: An array of string values. If the operator is In or NotIn, the values array must be non-empty. If the operator is Exists or DoesNotExist, the values array must be empty. If the operator is Gt or Lt, the values array must have a single element, which will be interpreted as an integer. This array is replaced during a strategic merge patch.
@@ -28893,9 +29039,7 @@ spec:
                                                   description: The label key that the selector applies to.
                                                   type: string
                                                 operator:
-                                                  description: |+
-                                                    Represents a key's relationship to a set of values. Valid operators are In, NotIn, Exists, DoesNotExist. Gt, and Lt.
-
+                                                  description: Represents a key's relationship to a set of values. Valid operators are In, NotIn, Exists, DoesNotExist. Gt, and Lt.
                                                   type: string
                                                 values:
                                                   description: An array of string values. If the operator is In or NotIn, the values array must be non-empty. If the operator is Exists or DoesNotExist, the values array must be empty. If the operator is Gt or Lt, the values array must have a single element, which will be interpreted as an integer. This array is replaced during a strategic merge patch.
@@ -30080,6 +30224,15 @@ spec:
                                         format: int32
                                         type: integer
                                     type: object
+                                  resizePolicy:
+                                    items:
+                                      properties:
+                                        resourceName:
+                                          type: string
+                                        restartPolicy:
+                                          type: string
+                                      type: object
+                                    type: array
                                   resources:
                                     properties:
                                       claims:
@@ -30598,6 +30751,15 @@ spec:
                                         format: int32
                                         type: integer
                                     type: object
+                                  resizePolicy:
+                                    items:
+                                      properties:
+                                        resourceName:
+                                          type: string
+                                        restartPolicy:
+                                          type: string
+                                      type: object
+                                    type: array
                                   resources:
                                     properties:
                                       claims:
@@ -31122,6 +31284,15 @@ spec:
                                         format: int32
                                         type: integer
                                     type: object
+                                  resizePolicy:
+                                    items:
+                                      properties:
+                                        resourceName:
+                                          type: string
+                                        restartPolicy:
+                                          type: string
+                                      type: object
+                                    type: array
                                   resources:
                                     properties:
                                       claims:
@@ -32186,9 +32357,7 @@ spec:
                                                         description: The label key that the selector applies to.
                                                         type: string
                                                       operator:
-                                                        description: |+
-                                                          Represents a key's relationship to a set of values. Valid operators are In, NotIn, Exists, DoesNotExist. Gt, and Lt.
-
+                                                        description: Represents a key's relationship to a set of values. Valid operators are In, NotIn, Exists, DoesNotExist. Gt, and Lt.
                                                         type: string
                                                       values:
                                                         description: An array of string values. If the operator is In or NotIn, the values array must be non-empty. If the operator is Exists or DoesNotExist, the values array must be empty. If the operator is Gt or Lt, the values array must have a single element, which will be interpreted as an integer. This array is replaced during a strategic merge patch.
@@ -32209,9 +32378,7 @@ spec:
                                                         description: The label key that the selector applies to.
                                                         type: string
                                                       operator:
-                                                        description: |+
-                                                          Represents a key's relationship to a set of values. Valid operators are In, NotIn, Exists, DoesNotExist. Gt, and Lt.
-
+                                                        description: Represents a key's relationship to a set of values. Valid operators are In, NotIn, Exists, DoesNotExist. Gt, and Lt.
                                                         type: string
                                                       values:
                                                         description: An array of string values. If the operator is In or NotIn, the values array must be non-empty. If the operator is Exists or DoesNotExist, the values array must be empty. If the operator is Gt or Lt, the values array must have a single element, which will be interpreted as an integer. This array is replaced during a strategic merge patch.
@@ -32250,9 +32417,7 @@ spec:
                                                         description: The label key that the selector applies to.
                                                         type: string
                                                       operator:
-                                                        description: |+
-                                                          Represents a key's relationship to a set of values. Valid operators are In, NotIn, Exists, DoesNotExist. Gt, and Lt.
-
+                                                        description: Represents a key's relationship to a set of values. Valid operators are In, NotIn, Exists, DoesNotExist. Gt, and Lt.
                                                         type: string
                                                       values:
                                                         description: An array of string values. If the operator is In or NotIn, the values array must be non-empty. If the operator is Exists or DoesNotExist, the values array must be empty. If the operator is Gt or Lt, the values array must have a single element, which will be interpreted as an integer. This array is replaced during a strategic merge patch.
@@ -32273,9 +32438,7 @@ spec:
                                                         description: The label key that the selector applies to.
                                                         type: string
                                                       operator:
-                                                        description: |+
-                                                          Represents a key's relationship to a set of values. Valid operators are In, NotIn, Exists, DoesNotExist. Gt, and Lt.
-
+                                                        description: Represents a key's relationship to a set of values. Valid operators are In, NotIn, Exists, DoesNotExist. Gt, and Lt.
                                                         type: string
                                                       values:
                                                         description: An array of string values. If the operator is In or NotIn, the values array must be non-empty. If the operator is Exists or DoesNotExist, the values array must be empty. If the operator is Gt or Lt, the values array must have a single element, which will be interpreted as an integer. This array is replaced during a strategic merge patch.
@@ -33460,6 +33623,15 @@ spec:
                                               format: int32
                                               type: integer
                                           type: object
+                                        resizePolicy:
+                                          items:
+                                            properties:
+                                              resourceName:
+                                                type: string
+                                              restartPolicy:
+                                                type: string
+                                            type: object
+                                          type: array
                                         resources:
                                           properties:
                                             claims:
@@ -33978,6 +34150,15 @@ spec:
                                               format: int32
                                               type: integer
                                           type: object
+                                        resizePolicy:
+                                          items:
+                                            properties:
+                                              resourceName:
+                                                type: string
+                                              restartPolicy:
+                                                type: string
+                                            type: object
+                                          type: array
                                         resources:
                                           properties:
                                             claims:
@@ -34502,6 +34683,15 @@ spec:
                                               format: int32
                                               type: integer
                                           type: object
+                                        resizePolicy:
+                                          items:
+                                            properties:
+                                              resourceName:
+                                                type: string
+                                              restartPolicy:
+                                                type: string
+                                            type: object
+                                          type: array
                                         resources:
                                           properties:
                                             claims:
