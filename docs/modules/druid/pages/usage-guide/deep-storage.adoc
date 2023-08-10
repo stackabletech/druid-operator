@@ -1,8 +1,10 @@
 = Deep storage configuration
 
+https://druid.apache.org/docs/latest/dependencies/deep-storage.html[Deep Storage] is where Druid stores data segments. For a Kubernetes environment, either the HDFS or S3 backend is recommended.
+
 == [[hdfs]]HDFS
 
-Druid can use HDFS as a backend for deep storage:
+Druid can use HDFS as a backend for deep storage, which requires having an HDFS instance running. You can use the xref:hdfs:index.adoc[Stackable Operator for Apache HDFS] to run HDFS. Configure the HDFS deep storage backend in your Druid cluster this way:
 
 [source,yaml]
 ----
