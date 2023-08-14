@@ -7,6 +7,7 @@ All notable changes to this project will be documented in this file.
 ### Added
 
 - Default stackableVersion to operator version ([#458]).
+- Configuration overrides for the JVM security properties, such as DNS caching ([#464]).
 
 ### Changed
 
@@ -15,6 +16,7 @@ All notable changes to this project will be documented in this file.
 
 [#458]: https://github.com/stackabletech/druid-operator/pull/458
 [#459]: https://github.com/stackabletech/druid-operator/pull/459
+[#464]: https://github.com/stackabletech/druid-operator/pull/464
 
 ## [23.7.0] - 2023-07-14
 

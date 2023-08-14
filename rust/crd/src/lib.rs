@@ -60,6 +60,7 @@ pub const RW_CONFIG_DIRECTORY: &str = "/stackable/rwconfig";
 pub const JVM_CONFIG: &str = "jvm.config";
 pub const RUNTIME_PROPS: &str = "runtime.properties";
 pub const LOG4J2_CONFIG: &str = "log4j2.properties";
+pub const JVM_SECURITY_PROPERTIES_FILE: &str = "security.properties";
 
 // store directories
 pub const STACKABLE_TRUST_STORE: &str = "/stackable/truststore.p12";
@@ -588,6 +589,7 @@ impl DruidCluster {
             PropertyNameKind::Env,
             PropertyNameKind::File(JVM_CONFIG.to_string()),
             PropertyNameKind::File(RUNTIME_PROPS.to_string()),
+            PropertyNameKind::File(JVM_SECURITY_PROPERTIES_FILE.to_string()),
         ];
 
         vec![
