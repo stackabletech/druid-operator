@@ -10,7 +10,6 @@ For a role or role group, at the same level of `config`, you can specify: `confi
 
 - `runtime.properties`
 - `jvm.config`
-- `log4j2.properties`
 - `security.properties`
 
 For example, if you want to set the `druid.server.http.numThreads` for the router to 100 adapt the `routers` section of the cluster resource like so:
