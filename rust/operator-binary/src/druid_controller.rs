@@ -19,11 +19,14 @@ use stackable_druid_crd::{
     CommonRoleGroupConfig, Container, DeepStorageSpec, DruidCluster, DruidClusterStatus, DruidRole,
     APP_NAME, AUTH_AUTHORIZER_OPA_URI, CERTS_DIR, CREDENTIALS_SECRET_PROPERTY,
     DRUID_CONFIG_DIRECTORY, DS_BUCKET, ENV_INTERNAL_SECRET, EXTENSIONS_LOADLIST,
-    HDFS_CONFIG_DIRECTORY, JVM_CONFIG, LOG_CONFIG_DIRECTORY, LOG_DIR, MAX_DRUID_LOG_FILES_SIZE,
-    RUNTIME_PROPS, RW_CONFIG_DIRECTORY, S3_ENDPOINT_URL, S3_PATH_STYLE_ACCESS, S3_SECRET_DIR_NAME,
-    ZOOKEEPER_CONNECTION_STRING,
+    HDFS_CONFIG_DIRECTORY, JVM_CONFIG, JVM_SECURITY_PROPERTIES_FILE, LOG_CONFIG_DIRECTORY, LOG_DIR,
+    MAX_DRUID_LOG_FILES_SIZE, RUNTIME_PROPS, RW_CONFIG_DIRECTORY, S3_ENDPOINT_URL,
+    S3_PATH_STYLE_ACCESS, S3_SECRET_DIR_NAME, ZOOKEEPER_CONNECTION_STRING,
 };
-use stackable_operator::{builder::resources::ResourceRequirementsBuilder, k8s_openapi::DeepMerge};
+use stackable_operator::{
+    builder::resources::ResourceRequirementsBuilder, k8s_openapi::DeepMerge,
+    product_config::writer::to_java_properties_string,
+};
 use stackable_operator::{
     builder::{
         ConfigMapBuilder, ContainerBuilder, ObjectMetaBuilder, PodBuilder,
@@ -243,6 +246,14 @@ pub enum Error {
     #[snafu(display("failed to build RBAC resources"))]
     BuildRbacResources {
         source: stackable_operator::error::Error,
+    },
+    #[snafu(display(
+        "failed to serialize [{JVM_SECURITY_PROPERTIES_FILE}] for {}",
+        rolegroup
+    ))]
+    JvmSecurityProperties {
+        source: stackable_operator::product_config::writer::PropertiesWriterError,
+        rolegroup: String,
     },
 }
 
@@ -657,9 +668,28 @@ fn build_rolegroup_config_map(
             ))
             .build(),
     );
+
     for (filename, file_content) in cm_conf_data.iter() {
         config_map_builder.add_data(filename, file_content);
     }
+
+    let jvm_sec_props: BTreeMap<String, Option<String>> = rolegroup_config
+        .get(&PropertyNameKind::File(
+            JVM_SECURITY_PROPERTIES_FILE.to_string(),
+        ))
+        .cloned()
+        .unwrap_or_default()
+        .into_iter()
+        .map(|(k, v)| (k, Some(v)))
+        .collect();
+    config_map_builder.add_data(
+        JVM_SECURITY_PROPERTIES_FILE,
+        to_java_properties_string(jvm_sec_props.iter()).with_context(|_| {
+            JvmSecurityPropertiesSnafu {
+                rolegroup: rolegroup.role_group.clone(),
+            }
+        })?,
+    );
 
     extend_role_group_config_map(
         rolegroup,

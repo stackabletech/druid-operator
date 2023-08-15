@@ -1,8 +1,8 @@
 use indoc::formatdoc;
 use snafu::{ResultExt, Snafu};
 use stackable_druid_crd::{
-    DruidRole, LOG4J2_CONFIG, RW_CONFIG_DIRECTORY, STACKABLE_TRUST_STORE,
-    STACKABLE_TRUST_STORE_PASSWORD,
+    DruidRole, JVM_SECURITY_PROPERTIES_FILE, LOG4J2_CONFIG, RW_CONFIG_DIRECTORY,
+    STACKABLE_TRUST_STORE, STACKABLE_TRUST_STORE_PASSWORD,
 };
 use stackable_operator::memory::MemoryQuantity;
 
@@ -46,7 +46,8 @@ pub fn get_jvm_config(
         -Djavax.net.ssl.trustStorePassword={STACKABLE_TRUST_STORE_PASSWORD}
         -Djavax.net.ssl.trustStoreType=pkcs12
         -Xms{heap_str}
-        -Xmx{heap_str}"};
+        -Xmx{heap_str}
+        -Djava.security.properties={RW_CONFIG_DIRECTORY}/{JVM_SECURITY_PROPERTIES_FILE}"};
 
     if let Some(direct_memory) = direct_memory_str {
         config += &format!("\n-XX:MaxDirectMemorySize={direct_memory}");
