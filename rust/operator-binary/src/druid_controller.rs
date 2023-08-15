@@ -669,6 +669,10 @@ fn build_rolegroup_config_map(
             .build(),
     );
 
+    for (filename, file_content) in cm_conf_data.iter() {
+        config_map_builder.add_data(filename, file_content);
+    }
+
     let jvm_sec_props: BTreeMap<String, Option<String>> = rolegroup_config
         .get(&PropertyNameKind::File(
             JVM_SECURITY_PROPERTIES_FILE.to_string(),
