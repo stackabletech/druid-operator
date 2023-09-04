@@ -3,6 +3,7 @@
 ** xref:druid:getting_started/first_steps.adoc[]
 * xref:druid:usage-guide/index.adoc[]
 ** xref:druid:usage-guide/pod-placement.adoc[]
+** xref:druid:usage-guide/listenerclass.adoc[]
 ** xref:druid:usage-guide/ingestion.adoc[]
 ** xref:druid:usage-guide/deep-storage.adoc[]
 ** xref:druid:usage-guide/resources-and-storage.adoc[]
