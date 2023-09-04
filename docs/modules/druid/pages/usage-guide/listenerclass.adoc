@@ -14,4 +14,4 @@ spec:
 ----
 <1> The default `cluster-internal` setting. 
 
-This setting affects all role services at once.
+This setting affects all role Services at once.
