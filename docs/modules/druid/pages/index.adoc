@@ -61,19 +61,19 @@ pipelines you can install with a single command.
 
 == [[demos]]Demos
 
-xref:management:stackablectl:index.adoc[] supports installing xref:management:stackablectl:demos/index.adoc[] with a
-single command. The demos are complete data piplines which showcase multiple components of the Stackable platform
-working together and which you can try out interactively. Both demos below include Druid as part of the data pipeline:
+xref:management:stackablectl:index.adoc[] supports installing xref:demos:index.adoc[] with a single command. The demos
+are complete data piplines which showcase multiple components of the Stackable platform working together and which you
+can try out interactively. Both demos below include Druid as part of the data pipeline:
 
 === Waterlevel Demo
 
-The xref:home:demos:nifi-kafka-druid-water-level-data.adoc[] demo uses data from
+The xref:demos:nifi-kafka-druid-water-level-data.adoc[] demo uses data from
 https://www.pegelonline.wsv.de/webservice/ueberblick[PEGELONLINE] to visualize water levels in rivers and coastal
 regions of Germany from historic and real time data.
 
 === Earthquake Demo
 
-The xref:home:demos:nifi-kafka-druid-earthquake-data.adoc[] demo ingests https://earthquake.usgs.gov/[earthquake data]
+The xref:demos:nifi-kafka-druid-earthquake-data.adoc[] demo ingests https://earthquake.usgs.gov/[earthquake data]
 into a similar pipeline as is used in the waterlevel demo.
 
 
