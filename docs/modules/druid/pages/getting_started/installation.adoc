@@ -1,19 +1,20 @@
 = Installation
 
-On this page you will install the Stackable Druid Operator and Operators for its dependencies - ZooKeeper and HDFS - as well as the commons and secret operator which are required by all Stackable Operators.
+On this page you will install the Stackable Druid Operator and Operators for its dependencies - ZooKeeper and HDFS - as
+well as the commons and secret operator which are required by all Stackable Operators.
 
 == Stackable Operators
 
 There are 2 ways to run Stackable Operators
 
-1. Using xref:stackablectl::index.adoc[]
+1. Using xref:management:stackablectl:index.adoc[]
 
 2. Using Helm
 
 === stackablectl
 
 stackablectl is the command line tool to interact with Stackable operators and our recommended way to install Operators.
-Follow the xref:stackablectl::installation.adoc[installation steps] for your platform.
+Follow the xref:management:stackablectl:installation.adoc[installation steps] for your platform.
 
 After you have installed stackablectl run the following command to install all Operators necessary for Druid:
 
@@ -32,7 +33,7 @@ The tool will show
 [INFO ] Installing druid operator
 ----
 
-TIP: Consult the xref:stackablectl::quickstart.adoc[] to learn more about how to use stackablectl.
+TIP: Consult the xref:management:stackablectl:quickstart.adoc[] to learn more about how to use `stackablectl`.
 
 === Helm
 
@@ -48,8 +49,11 @@ Then install the Stackable Operators:
 include::example$getting_started/getting_started.sh[tag=helm-install-operators]
 ----
 
-Helm will deploy the Operators in a Kubernetes Deployment and apply the CRDs for the Apache Druid service (as well as the CRDs for the required operators). You are now ready to deploy Apache Druid in Kubernetes.
+Helm will deploy the Operators in a Kubernetes Deployment and apply the CRDs for the Apache Druid service (as well as
+the CRDs for the required operators). You are now ready to deploy Apache Druid in Kubernetes.
 
 == What's next
 
-xref:getting_started/first_steps.adoc[Set up a Druid cluster] and its dependencies and xref:getting_started/first_steps.adoc#_ingest_example_data[ingest example data] and xref:getting_started/first_steps.adoc#_query_the_data[query the data].
+xref:getting_started/first_steps.adoc[Set up a Druid cluster] and its dependencies and
+xref:getting_started/first_steps.adoc#_ingest_example_data[ingest example data] and
+xref:getting_started/first_steps.adoc#_query_the_data[query the data].
