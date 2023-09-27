@@ -12,11 +12,13 @@ All notable changes to this project will be documented in this file.
 ### Changed
 
 - `vector` `0.26.0` -> `0.31.0` ([#459]).
-- `operator-rs` `0.44.0` -> `0.45.1` ([#458]).
+- `operator-rs` `0.44.0` -> `0.51.1` ([#458], [#474]).
+- Let secret-operator handle certificate conversion ([#474]).
 
 [#458]: https://github.com/stackabletech/druid-operator/pull/458
 [#459]: https://github.com/stackabletech/druid-operator/pull/459
 [#464]: https://github.com/stackabletech/druid-operator/pull/464
+[#474]: https://github.com/stackabletech/druid-operator/pull/474
 
 ## [23.7.0] - 2023-07-14
 
