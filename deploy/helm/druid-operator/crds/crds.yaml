@@ -1356,6 +1356,8 @@ spec:
                                           type: string
                                         type: object
                                     type: object
+                                  restartPolicy:
+                                    type: string
                                   securityContext:
                                     properties:
                                       allowPrivilegeEscalation:
@@ -1883,6 +1885,8 @@ spec:
                                           type: string
                                         type: object
                                     type: object
+                                  restartPolicy:
+                                    type: string
                                   securityContext:
                                     properties:
                                       allowPrivilegeEscalation:
@@ -2416,6 +2420,8 @@ spec:
                                           type: string
                                         type: object
                                     type: object
+                                  restartPolicy:
+                                    type: string
                                   securityContext:
                                     properties:
                                       allowPrivilegeEscalation:
@@ -3421,6 +3427,29 @@ spec:
                                     type: object
                                 type: object
                               type: array
+                          type: object
+                      type: object
+                    roleConfig:
+                      default:
+                        podDisruptionBudget:
+                          enabled: true
+                          maxUnavailable: null
+                      properties:
+                        podDisruptionBudget:
+                          default:
+                            enabled: true
+                            maxUnavailable: null
+                          properties:
+                            enabled:
+                              default: true
+                              description: Whether a PodDisruptionBudget should be written out for this role. Disabling this enables you to specify your own - custom - one. Defaults to true.
+                              type: boolean
+                            maxUnavailable:
+                              description: The number of Pods that are allowed to be down because of voluntary disruptions. If you don't explicitly set this, the operator will use a sane default based upon knowledge about the individual product.
+                              format: uint16
+                              minimum: 0.0
+                              nullable: true
+                              type: integer
                           type: object
                       type: object
                     roleGroups:
@@ -4755,6 +4784,8 @@ spec:
                                                 type: string
                                               type: object
                                           type: object
+                                        restartPolicy:
+                                          type: string
                                         securityContext:
                                           properties:
                                             allowPrivilegeEscalation:
@@ -5282,6 +5313,8 @@ spec:
                                                 type: string
                                               type: object
                                           type: object
+                                        restartPolicy:
+                                          type: string
                                         securityContext:
                                           properties:
                                             allowPrivilegeEscalation:
@@ -5815,6 +5848,8 @@ spec:
                                                 type: string
                                               type: object
                                           type: object
+                                        restartPolicy:
+                                          type: string
                                         securityContext:
                                           properties:
                                             allowPrivilegeEscalation:
@@ -9639,6 +9674,8 @@ spec:
                                           type: string
                                         type: object
                                     type: object
+                                  restartPolicy:
+                                    type: string
                                   securityContext:
                                     properties:
                                       allowPrivilegeEscalation:
@@ -10166,6 +10203,8 @@ spec:
                                           type: string
                                         type: object
                                     type: object
+                                  restartPolicy:
+                                    type: string
                                   securityContext:
                                     properties:
                                       allowPrivilegeEscalation:
@@ -10699,6 +10738,8 @@ spec:
                                           type: string
                                         type: object
                                     type: object
+                                  restartPolicy:
+                                    type: string
                                   securityContext:
                                     properties:
                                       allowPrivilegeEscalation:
@@ -11704,6 +11745,29 @@ spec:
                                     type: object
                                 type: object
                               type: array
+                          type: object
+                      type: object
+                    roleConfig:
+                      default:
+                        podDisruptionBudget:
+                          enabled: true
+                          maxUnavailable: null
+                      properties:
+                        podDisruptionBudget:
+                          default:
+                            enabled: true
+                            maxUnavailable: null
+                          properties:
+                            enabled:
+                              default: true
+                              description: Whether a PodDisruptionBudget should be written out for this role. Disabling this enables you to specify your own - custom - one. Defaults to true.
+                              type: boolean
+                            maxUnavailable:
+                              description: The number of Pods that are allowed to be down because of voluntary disruptions. If you don't explicitly set this, the operator will use a sane default based upon knowledge about the individual product.
+                              format: uint16
+                              minimum: 0.0
+                              nullable: true
+                              type: integer
                           type: object
                       type: object
                     roleGroups:
@@ -13038,6 +13102,8 @@ spec:
                                                 type: string
                                               type: object
                                           type: object
+                                        restartPolicy:
+                                          type: string
                                         securityContext:
                                           properties:
                                             allowPrivilegeEscalation:
@@ -13565,6 +13631,8 @@ spec:
                                                 type: string
                                               type: object
                                           type: object
+                                        restartPolicy:
+                                          type: string
                                         securityContext:
                                           properties:
                                             allowPrivilegeEscalation:
@@ -14098,6 +14166,8 @@ spec:
                                                 type: string
                                               type: object
                                           type: object
+                                        restartPolicy:
+                                          type: string
                                         securityContext:
                                           properties:
                                             allowPrivilegeEscalation:
@@ -16505,6 +16575,8 @@ spec:
                                           type: string
                                         type: object
                                     type: object
+                                  restartPolicy:
+                                    type: string
                                   securityContext:
                                     properties:
                                       allowPrivilegeEscalation:
@@ -17032,6 +17104,8 @@ spec:
                                           type: string
                                         type: object
                                     type: object
+                                  restartPolicy:
+                                    type: string
                                   securityContext:
                                     properties:
                                       allowPrivilegeEscalation:
@@ -17565,6 +17639,8 @@ spec:
                                           type: string
                                         type: object
                                     type: object
+                                  restartPolicy:
+                                    type: string
                                   securityContext:
                                     properties:
                                       allowPrivilegeEscalation:
@@ -18570,6 +18646,29 @@ spec:
                                     type: object
                                 type: object
                               type: array
+                          type: object
+                      type: object
+                    roleConfig:
+                      default:
+                        podDisruptionBudget:
+                          enabled: true
+                          maxUnavailable: null
+                      properties:
+                        podDisruptionBudget:
+                          default:
+                            enabled: true
+                            maxUnavailable: null
+                          properties:
+                            enabled:
+                              default: true
+                              description: Whether a PodDisruptionBudget should be written out for this role. Disabling this enables you to specify your own - custom - one. Defaults to true.
+                              type: boolean
+                            maxUnavailable:
+                              description: The number of Pods that are allowed to be down because of voluntary disruptions. If you don't explicitly set this, the operator will use a sane default based upon knowledge about the individual product.
+                              format: uint16
+                              minimum: 0.0
+                              nullable: true
+                              type: integer
                           type: object
                       type: object
                     roleGroups:
@@ -19931,6 +20030,8 @@ spec:
                                                 type: string
                                               type: object
                                           type: object
+                                        restartPolicy:
+                                          type: string
                                         securityContext:
                                           properties:
                                             allowPrivilegeEscalation:
@@ -20458,6 +20559,8 @@ spec:
                                                 type: string
                                               type: object
                                           type: object
+                                        restartPolicy:
+                                          type: string
                                         securityContext:
                                           properties:
                                             allowPrivilegeEscalation:
@@ -20991,6 +21094,8 @@ spec:
                                                 type: string
                                               type: object
                                           type: object
+                                        restartPolicy:
+                                          type: string
                                         securityContext:
                                           properties:
                                             allowPrivilegeEscalation:
@@ -23414,6 +23519,8 @@ spec:
                                           type: string
                                         type: object
                                     type: object
+                                  restartPolicy:
+                                    type: string
                                   securityContext:
                                     properties:
                                       allowPrivilegeEscalation:
@@ -23941,6 +24048,8 @@ spec:
                                           type: string
                                         type: object
                                     type: object
+                                  restartPolicy:
+                                    type: string
                                   securityContext:
                                     properties:
                                       allowPrivilegeEscalation:
@@ -24474,6 +24583,8 @@ spec:
                                           type: string
                                         type: object
                                     type: object
+                                  restartPolicy:
+                                    type: string
                                   securityContext:
                                     properties:
                                       allowPrivilegeEscalation:
@@ -25479,6 +25590,29 @@ spec:
                                     type: object
                                 type: object
                               type: array
+                          type: object
+                      type: object
+                    roleConfig:
+                      default:
+                        podDisruptionBudget:
+                          enabled: true
+                          maxUnavailable: null
+                      properties:
+                        podDisruptionBudget:
+                          default:
+                            enabled: true
+                            maxUnavailable: null
+                          properties:
+                            enabled:
+                              default: true
+                              description: Whether a PodDisruptionBudget should be written out for this role. Disabling this enables you to specify your own - custom - one. Defaults to true.
+                              type: boolean
+                            maxUnavailable:
+                              description: The number of Pods that are allowed to be down because of voluntary disruptions. If you don't explicitly set this, the operator will use a sane default based upon knowledge about the individual product.
+                              format: uint16
+                              minimum: 0.0
+                              nullable: true
+                              type: integer
                           type: object
                       type: object
                     roleGroups:
@@ -26813,6 +26947,8 @@ spec:
                                                 type: string
                                               type: object
                                           type: object
+                                        restartPolicy:
+                                          type: string
                                         securityContext:
                                           properties:
                                             allowPrivilegeEscalation:
@@ -27340,6 +27476,8 @@ spec:
                                                 type: string
                                               type: object
                                           type: object
+                                        restartPolicy:
+                                          type: string
                                         securityContext:
                                           properties:
                                             allowPrivilegeEscalation:
@@ -27873,6 +28011,8 @@ spec:
                                                 type: string
                                               type: object
                                           type: object
+                                        restartPolicy:
+                                          type: string
                                         securityContext:
                                           properties:
                                             allowPrivilegeEscalation:
@@ -30253,6 +30393,8 @@ spec:
                                           type: string
                                         type: object
                                     type: object
+                                  restartPolicy:
+                                    type: string
                                   securityContext:
                                     properties:
                                       allowPrivilegeEscalation:
@@ -30780,6 +30922,8 @@ spec:
                                           type: string
                                         type: object
                                     type: object
+                                  restartPolicy:
+                                    type: string
                                   securityContext:
                                     properties:
                                       allowPrivilegeEscalation:
@@ -31313,6 +31457,8 @@ spec:
                                           type: string
                                         type: object
                                     type: object
+                                  restartPolicy:
+                                    type: string
                                   securityContext:
                                     properties:
                                       allowPrivilegeEscalation:
@@ -32318,6 +32464,29 @@ spec:
                                     type: object
                                 type: object
                               type: array
+                          type: object
+                      type: object
+                    roleConfig:
+                      default:
+                        podDisruptionBudget:
+                          enabled: true
+                          maxUnavailable: null
+                      properties:
+                        podDisruptionBudget:
+                          default:
+                            enabled: true
+                            maxUnavailable: null
+                          properties:
+                            enabled:
+                              default: true
+                              description: Whether a PodDisruptionBudget should be written out for this role. Disabling this enables you to specify your own - custom - one. Defaults to true.
+                              type: boolean
+                            maxUnavailable:
+                              description: The number of Pods that are allowed to be down because of voluntary disruptions. If you don't explicitly set this, the operator will use a sane default based upon knowledge about the individual product.
+                              format: uint16
+                              minimum: 0.0
+                              nullable: true
+                              type: integer
                           type: object
                       type: object
                     roleGroups:
@@ -33652,6 +33821,8 @@ spec:
                                                 type: string
                                               type: object
                                           type: object
+                                        restartPolicy:
+                                          type: string
                                         securityContext:
                                           properties:
                                             allowPrivilegeEscalation:
@@ -34179,6 +34350,8 @@ spec:
                                                 type: string
                                               type: object
                                           type: object
+                                        restartPolicy:
+                                          type: string
                                         securityContext:
                                           properties:
                                             allowPrivilegeEscalation:
@@ -34712,6 +34885,8 @@ spec:
                                                 type: string
                                               type: object
                                           type: object
+                                        restartPolicy:
+                                          type: string
                                         securityContext:
                                           properties:
                                             allowPrivilegeEscalation:
