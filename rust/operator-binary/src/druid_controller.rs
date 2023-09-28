@@ -844,8 +844,14 @@ fn build_rolegroup_statefulset(
 
     cb_prepare
         .image_from_product_image(resolved_product_image)
-        .command(vec!["/bin/bash".to_string(), "-c".to_string()])
-        .args(vec![prepare_container_commands.join(" && ")])
+        .command(vec![
+            "/bin/bash".to_string(),
+            "-x".to_string(),
+            "-euo".to_string(),
+            "pipefail".to_string(),
+            "-c".to_string(),
+        ])
+        .args(vec![prepare_container_commands.join("\n")])
         .resources(
             ResourceRequirementsBuilder::new()
                 .with_cpu_request("100m")
@@ -874,8 +880,14 @@ fn build_rolegroup_statefulset(
     main_container_commands.push(role.main_container_start_command());
     cb_druid
         .image_from_product_image(resolved_product_image)
-        .command(vec!["/bin/bash".to_string(), "-c".to_string()])
-        .args(vec![main_container_commands.join(" && ")])
+        .command(vec![
+            "/bin/bash".to_string(),
+            "-x".to_string(),
+            "-euo".to_string(),
+            "pipefail".to_string(),
+            "-c".to_string(),
+        ])
+        .args(vec![main_container_commands.join("\n")])
         .add_env_vars(rest_env)
         .add_container_ports(druid_tls_security.container_ports(role))
         // 10s * 30 = 300s to come up

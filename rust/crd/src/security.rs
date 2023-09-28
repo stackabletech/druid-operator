@@ -13,6 +13,7 @@ use stackable_operator::{
     },
 };
 
+use stackable_operator::builder::SecretFormat;
 use std::collections::BTreeMap;
 
 #[derive(Snafu, Debug)]
@@ -191,6 +192,8 @@ impl DruidTlsSecurity {
                         SecretOperatorVolumeSourceBuilder::new(secret_class)
                             .with_pod_scope()
                             .with_node_scope()
+                            .with_format(SecretFormat::TlsPkcs12)
+                            .with_tls_pkcs12_password(TLS_STORE_PASSWORD)
                             .build(),
                     )
                     .build(),
@@ -386,26 +389,14 @@ impl DruidTlsSecurity {
             return vec![];
         }
 
-        let mut commands = vec![
-                format!(
-                    "echo Cleaning up truststore [{STACKABLE_TLS_DIR}/truststore.p12] - just in case"
-                ),
-                format!("rm -f {STACKABLE_TLS_DIR}/truststore.p12"),
-                format!("keytool -importkeystore -srckeystore {SYSTEM_TRUST_STORE} -srcstoretype jks -srcstorepass {SYSTEM_TRUST_STORE_PASSWORD} -destkeystore {STACKABLE_TLS_DIR}/truststore.p12 -deststoretype pkcs12 -deststorepass {TLS_STORE_PASSWORD} -noprompt"),
-            ];
-        commands.extend(add_cert_to_trust_store_cmd(
-            &format!("{}/ca.crt", STACKABLE_MOUNT_TLS_DIR),
-            STACKABLE_TLS_DIR,
-            TLS_ALIAS_NAME,
-            TLS_STORE_PASSWORD,
-        ));
-        commands.extend(add_key_pair_to_key_store_cmd(
-            STACKABLE_MOUNT_TLS_DIR,
-            STACKABLE_TLS_DIR,
-            TLS_ALIAS_NAME,
-            TLS_STORE_PASSWORD,
-        ));
-        commands
+        vec![
+            // Copy system truststore to empty dir and convert to PKCS12
+            import_system_truststore(STACKABLE_TLS_DIR),
+            // Import secret-op truststore to copied system trust store
+            import_truststore(STACKABLE_MOUNT_TLS_DIR, STACKABLE_TLS_DIR),
+            // Import / Copy secret-op keystore to empty dir and set required alias
+            import_keystore(STACKABLE_MOUNT_TLS_DIR, STACKABLE_TLS_DIR),
+        ]
     }
 
     pub fn get_tcp_socket_probe(
@@ -441,26 +432,46 @@ pub fn add_cert_to_trust_store_cmd(
     trust_store_directory: &str,
     alias_name: &str,
     store_password: &str,
-) -> Vec<String> {
-    vec![
-        format!(
-            "echo Adding certificate [{cert}] to truststore [{trust_store_directory}/truststore.p12]"
-        ),
-        format!("keytool -importcert -file {cert} -keystore {trust_store_directory}/truststore.p12 -storetype pkcs12 -alias {alias_name} -storepass {store_password} -noprompt")
-    ]
+) -> String {
+    format!("keytool -importcert -file {cert} -keystore {trust_store_directory}/truststore.p12 -storetype pkcs12 -alias {alias_name} -storepass {store_password} -noprompt")
 }
 
-/// Generate a script to create a certificate chain and add a key-cert pair to the keystore
-pub fn add_key_pair_to_key_store_cmd(
-    cert_directory: &str,
-    key_store_directory: &str,
-    alias_name: &str,
-    store_password: &str,
-) -> Vec<String> {
-    vec![
-        format!("echo Creating certificate chain [{key_store_directory}/chain.crt]"),
-        format!("cat {cert_directory}/ca.crt {cert_directory}/tls.crt > {key_store_directory}/chain.crt"),
-        format!("echo Creating keystore [{key_store_directory}/keystore.p12]"),
-        format!("openssl pkcs12 -export -in {key_store_directory}/chain.crt -inkey {cert_directory}/tls.key -out {key_store_directory}/keystore.p12 --passout pass:{store_password} -name {alias_name}"),
-    ]
+/// Import the system truststore to a truststore named `truststore.p12` in `destination_directory`.
+fn import_system_truststore(destination_directory: &str) -> String {
+    let dest_truststore_path = format!("{destination_directory}/truststore.p12");
+    format!("keytool -importkeystore -srckeystore {SYSTEM_TRUST_STORE} -srcstoretype jks -srcstorepass {SYSTEM_TRUST_STORE_PASSWORD} -destkeystore {dest_truststore_path} -deststoretype pkcs12 -deststorepass {TLS_STORE_PASSWORD} -noprompt")
+}
+
+/// Generates the shell script to import a secret operator provided truststore without password
+/// into a new truststore with password in a writeable empty dir
+///
+/// # Arguments
+/// - `source_directory`      - The directory of the source truststore.
+///                             Should usually be a secret operator volume mount.
+/// - `destination_directory` - The directory of the destination truststore.
+///                             Should usually be an empty dir.
+fn import_truststore(source_directory: &str, destination_directory: &str) -> String {
+    let source_truststore_path = format!("{source_directory}/truststore.p12");
+    let dest_truststore_path = format!("{destination_directory}/truststore.p12");
+    // The source directory is a secret-op mount and we do not want to write / add anything in there
+    // Therefore we import all the contents to a truststore in "writeable" empty dirs.
+    // Keytool is only barking if a password is not set for the destination truststore (which we set)
+    // and do provide an empty password for the source truststore coming from the secret-operator.
+    // Using no password will result in a warning.
+    // All secret-op generated truststores have one entry with alias "1". We generate a UUID for
+    // the destination truststore to avoid conflicts when importing multiple secret-op generated
+    // truststores. We do not use the UUID rust crate since this will continuously change the STS... and
+    // leads to never-ending reconciles.
+    format!("keytool -importkeystore -srckeystore {source_truststore_path} -srcstoretype PKCS12 -srcstorepass {TLS_STORE_PASSWORD} -srcalias 1 -destkeystore {dest_truststore_path} -deststoretype PKCS12 -deststorepass {TLS_STORE_PASSWORD} -destalias $(cat /proc/sys/kernel/random/uuid) -noprompt")
+}
+
+/// Generate a script to import a mounted keystore to an empty dir and set an alias
+fn import_keystore(source_directory: &str, destination_directory: &str) -> String {
+    let source_keystore_path = format!("{source_directory}/keystore.p12");
+    let dest_keystore_path = format!("{destination_directory}/keystore.p12");
+    // The source directory is a secret-op mount and we do not want to write / add anything in there
+    // Therefore we import all the contents to a keystore in "writeable" empty dirs.
+    // Using no password will result in a warning.
+    // All secret-op generated keystores have one entry with alias "1".
+    format!("keytool -importkeystore -srckeystore {source_keystore_path} -srcstoretype PKCS12 -srcstorepass {TLS_STORE_PASSWORD} -srcalias 1 -destkeystore {dest_keystore_path} -deststoretype PKCS12 -deststorepass {TLS_STORE_PASSWORD} -destalias {TLS_ALIAS_NAME} -noprompt")
 }

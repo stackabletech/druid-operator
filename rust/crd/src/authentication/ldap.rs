@@ -214,18 +214,16 @@ impl DruidLdapSettings {
     }
 
     pub fn prepare_container_commands(&self) -> Vec<String> {
-        let mut commands = vec![];
-
+        let mut command = vec![];
         if let Some(tls_ca_cert_mount_path) = self.ldap.tls_ca_cert_mount_path() {
-            commands.extend(add_cert_to_trust_store_cmd(
+            command.push(add_cert_to_trust_store_cmd(
                 &tls_ca_cert_mount_path,
                 STACKABLE_TLS_DIR,
                 &format!("ldap-{}", self.authentication_class_name),
                 TLS_STORE_PASSWORD,
-            ));
+            ))
         }
-
-        commands
+        command
     }
 }
 
