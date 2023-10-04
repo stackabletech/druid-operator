@@ -39,7 +39,7 @@ use stackable_operator::{
     product_config::types::PropertyNameKind,
     product_config_utils::{ConfigError, Configuration},
     product_logging::{self, spec::Logging},
-    role_utils::{CommonConfiguration, Role, RoleGroup},
+    role_utils::{CommonConfiguration, Role, RoleConfig, RoleGroup},
     schemars::{self, JsonSchema},
     status::condition::{ClusterCondition, HasStatusCondition},
 };
@@ -804,6 +804,16 @@ impl DruidCluster {
             replicas: rolegroup.replicas,
             selector: rolegroup.selector.to_owned(),
         })
+    }
+
+    pub fn role_config(&self, role: &DruidRole) -> &RoleConfig {
+        match role {
+            DruidRole::Broker => &self.spec.brokers.role_config,
+            DruidRole::Coordinator => &self.spec.coordinators.role_config,
+            DruidRole::Historical => &self.spec.historicals.role_config,
+            DruidRole::MiddleManager => &self.spec.middle_managers.role_config,
+            DruidRole::Router => &self.spec.routers.role_config,
+        }
     }
 
     /// Merges and validates the given role group, role, and default configurations

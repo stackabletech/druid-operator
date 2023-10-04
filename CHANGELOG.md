@@ -8,6 +8,7 @@ All notable changes to this project will be documented in this file.
 
 - Default stackableVersion to operator version ([#458]).
 - Configuration overrides for the JVM security properties, such as DNS caching ([#464]).
+- Support PodDisruptionBudgets ([#XXX]).
 
 ### Changed
 

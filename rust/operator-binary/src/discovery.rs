@@ -1,7 +1,7 @@
 //! Discovery for Druid.  We make Druid discoverable by putting a connection string to the router service
 //! inside a config map.  We only provide a connection string to the router service, since it serves as
 //! a gateway to the cluster for client queries.
-use crate::CONTROLLER_NAME;
+use crate::DRUID_CONTROLLER_NAME;
 
 use snafu::{OptionExt, ResultExt, Snafu};
 use stackable_druid_crd::{
@@ -82,7 +82,7 @@ fn build_discovery_configmap(
                 })?
                 .with_recommended_labels(build_recommended_labels(
                     druid,
-                    CONTROLLER_NAME,
+                    DRUID_CONTROLLER_NAME,
                     &resolved_product_image.app_version_label,
                     &DruidRole::Router.to_string(),
                     "discovery",
