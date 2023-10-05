@@ -6,6 +6,7 @@ use crate::{
     internal_secret::{
         build_shared_internal_secret_name, create_shared_internal_secret, env_var_from_secret,
     },
+    operations::pdb::add_pdbs,
     product_logging::{extend_role_group_config_map, resolve_vector_aggregator_address},
     OPERATOR_NAME,
 };
@@ -77,7 +78,7 @@ use std::{
 };
 use strum::{EnumDiscriminants, IntoStaticStr};
 
-pub const CONTROLLER_NAME: &str = "druidcluster";
+pub const DRUID_CONTROLLER_NAME: &str = "druidcluster";
 
 const DRUID_UID: i64 = 1000;
 const DOCKER_IMAGE_BASE_NAME: &str = "druid";
@@ -255,6 +256,10 @@ pub enum Error {
         source: stackable_operator::product_config::writer::PropertiesWriterError,
         rolegroup: String,
     },
+    #[snafu(display("failed to create PodDisruptionBudget"))]
+    FailedToCreatePdb {
+        source: crate::operations::pdb::Error,
+    },
 }
 
 type Result<T, E = Error> = std::result::Result<T, E>;
@@ -356,7 +361,7 @@ pub async fn reconcile_druid(druid: Arc<DruidCluster>, ctx: Arc<Ctx>) -> Result<
     let mut cluster_resources = ClusterResources::new(
         APP_NAME,
         OPERATOR_NAME,
-        CONTROLLER_NAME,
+        DRUID_CONTROLLER_NAME,
         &druid.object_ref(&()),
         ClusterResourceApplyStrategy::from(&druid.spec.cluster_operation),
     )
@@ -397,7 +402,7 @@ pub async fn reconcile_druid(druid: Arc<DruidCluster>, ctx: Arc<Ctx>) -> Result<
             .await
             .context(ApplyRoleServiceSnafu)?;
 
-        create_shared_internal_secret(&druid, client, CONTROLLER_NAME)
+        create_shared_internal_secret(&druid, client, DRUID_CONTROLLER_NAME)
             .await
             .context(FailedInternalSecretCreationSnafu)?;
 
@@ -464,6 +469,18 @@ pub async fn reconcile_druid(druid: Arc<DruidCluster>, ctx: Arc<Ctx>) -> Result<
                     })?,
             );
         }
+
+        let role_config = druid.role_config(&druid_role);
+
+        add_pdbs(
+            &role_config.pod_disruption_budget,
+            &druid,
+            &druid_role,
+            client,
+            &mut cluster_resources,
+        )
+        .await
+        .context(FailedToCreatePdbSnafu)?;
     }
 
     // discovery
@@ -526,7 +543,7 @@ pub fn build_role_service(
             .context(ObjectMissingMetadataForOwnerRefSnafu)?
             .with_recommended_labels(build_recommended_labels(
                 druid,
-                CONTROLLER_NAME,
+                DRUID_CONTROLLER_NAME,
                 &resolved_product_image.app_version_label,
                 &role_name,
                 "global",
@@ -661,7 +678,7 @@ fn build_rolegroup_config_map(
             .context(ObjectMissingMetadataForOwnerRefSnafu)?
             .with_recommended_labels(build_recommended_labels(
                 druid,
-                CONTROLLER_NAME,
+                DRUID_CONTROLLER_NAME,
                 &resolved_product_image.app_version_label,
                 &rolegroup.role,
                 &rolegroup.role_group,
@@ -727,7 +744,7 @@ fn build_rolegroup_services(
             .context(ObjectMissingMetadataForOwnerRefSnafu)?
             .with_recommended_labels(build_recommended_labels(
                 druid,
-                CONTROLLER_NAME,
+                DRUID_CONTROLLER_NAME,
                 &resolved_product_image.app_version_label,
                 &rolegroup.role,
                 &rolegroup.role_group,
@@ -927,7 +944,7 @@ fn build_rolegroup_statefulset(
         .metadata_builder(|m| {
             m.with_recommended_labels(build_recommended_labels(
                 druid,
-                CONTROLLER_NAME,
+                DRUID_CONTROLLER_NAME,
                 &resolved_product_image.app_version_label,
                 &rolegroup_ref.role,
                 &rolegroup_ref.role_group,
@@ -975,7 +992,7 @@ fn build_rolegroup_statefulset(
             .context(ObjectMissingMetadataForOwnerRefSnafu)?
             .with_recommended_labels(build_recommended_labels(
                 druid,
-                CONTROLLER_NAME,
+                DRUID_CONTROLLER_NAME,
                 &resolved_product_image.app_version_label,
                 &rolegroup_ref.role,
                 &rolegroup_ref.role_group,

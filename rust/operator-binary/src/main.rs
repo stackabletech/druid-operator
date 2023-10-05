@@ -3,11 +3,12 @@ mod discovery;
 mod druid_controller;
 mod extensions;
 mod internal_secret;
+mod operations;
 mod product_logging;
 
 use std::sync::Arc;
 
-use crate::druid_controller::CONTROLLER_NAME;
+use crate::druid_controller::DRUID_CONTROLLER_NAME;
 use clap::{crate_description, crate_version, Parser};
 use futures::StreamExt;
 use stackable_druid_crd::{DruidCluster, APP_NAME, OPERATOR_NAME};
@@ -94,7 +95,7 @@ async fn main() -> anyhow::Result<()> {
             .map(|res| {
                 report_controller_reconciled(
                     &client,
-                    &format!("{CONTROLLER_NAME}.{OPERATOR_NAME}"),
+                    &format!("{DRUID_CONTROLLER_NAME}.{OPERATOR_NAME}"),
                     &res,
                 )
             })
