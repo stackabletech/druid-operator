@@ -39,7 +39,7 @@ use stackable_operator::{
     product_config::types::PropertyNameKind,
     product_config_utils::{ConfigError, Configuration},
     product_logging::{self, spec::Logging},
-    role_utils::{CommonConfiguration, Role, RoleConfig, RoleGroup},
+    role_utils::{CommonConfiguration, GenericRoleConfig, Role, RoleGroup},
     schemars::{self, JsonSchema},
     status::condition::{ClusterCondition, HasStatusCondition},
 };
@@ -806,7 +806,7 @@ impl DruidCluster {
         })
     }
 
-    pub fn role_config(&self, role: &DruidRole) -> &RoleConfig {
+    pub fn role_config(&self, role: &DruidRole) -> &GenericRoleConfig {
         match role {
             DruidRole::Broker => &self.spec.brokers.role_config,
             DruidRole::Coordinator => &self.spec.coordinators.role_config,
