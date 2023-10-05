@@ -56,72 +56,72 @@ dimensions:
     values:
       - "false"
 tests:
-  #- name: smoke
-  #  dimensions:
-  #    - druid
-  #    - zookeeper
-  #    - hadoop
-  #    - openshift
-  #- name: authorizer
-  #  dimensions:
-  #    - druid
-  #    - zookeeper-latest
-  #    - opa
-  #    - hadoop
-  #- name: ingestion-no-s3-ext
-  #  dimensions:
-  #    - druid-latest
-  #    - zookeeper-latest
-  #    - hadoop
-  #- name: ingestion-s3-ext
-  #  dimensions:
-  #    - druid-latest
-  #    - zookeeper-latest
-  #    - hadoop
-  #- name: s3-deep-storage
-  #  dimensions:
-  #    - druid-latest
-  #    - zookeeper-latest
-  #    - s3-use-tls
-  #- name: hdfs-deep-storage
-  #  dimensions:
-  #    - druid-latest
-  #    - hadoop
-  #    - zookeeper-latest
-  #- name: resources
-  #  dimensions:
-  #    - druid-latest
-  #    - zookeeper-latest
-  #- name: orphaned-resources
-  #  dimensions:
-  #    - druid-latest
-  #    - zookeeper-latest
-  #    - hadoop
-  #- name: tls
-  #  dimensions:
-  #    - druid-latest
-  #    - zookeeper-latest
-  #    - tls-mode
-  #    - openshift
-  #- name: ldap-authentication
-  #  dimensions:
-  #    - druid
-  #    - zookeeper-latest
-  #    - opa
-  #    - hadoop-latest
-  #    - ldap-use-tls
-  #    - ldap-no-bind-credentials
-  #    - openshift
+  - name: smoke
+    dimensions:
+      - druid
+      - zookeeper
+      - hadoop
+      - openshift
+  - name: authorizer
+    dimensions:
+      - druid
+      - zookeeper-latest
+      - opa
+      - hadoop
+  - name: ingestion-no-s3-ext
+    dimensions:
+      - druid-latest
+      - zookeeper-latest
+      - hadoop
+  - name: ingestion-s3-ext
+    dimensions:
+      - druid-latest
+      - zookeeper-latest
+      - hadoop
+  - name: s3-deep-storage
+    dimensions:
+      - druid-latest
+      - zookeeper-latest
+      - s3-use-tls
+  - name: hdfs-deep-storage
+    dimensions:
+      - druid-latest
+      - hadoop
+      - zookeeper-latest
+  - name: resources
+    dimensions:
+      - druid-latest
+      - zookeeper-latest
+  - name: orphaned-resources
+    dimensions:
+      - druid-latest
+      - zookeeper-latest
+      - hadoop
+  - name: tls
+    dimensions:
+      - druid-latest
+      - zookeeper-latest
+      - tls-mode
+      - openshift
+  - name: ldap-authentication
+    dimensions:
+      - druid
+      - zookeeper-latest
+      - opa
+      - hadoop-latest
+      - ldap-use-tls
+      - ldap-no-bind-credentials
+      - openshift
   - name: logging
     dimensions:
       - druid
       - hadoop
       - zookeeper-latest
-  #- name: cluster-operation
-  #  dimensions:
-  #    - zookeeper-latest
-  #    - hadoop-latest
-  #    - druid-latest
+  - name: cluster-operation
+    dimensions:
+      - zookeeper-latest
+      - hadoop-latest
+      - druid-latest
 suites:
   - name: nightly
     patch:
