@@ -3434,6 +3434,10 @@ spec:
                         podDisruptionBudget:
                           enabled: true
                           maxUnavailable: null
+                      description: |-
+                        This is a product-agnostic RoleConfig, which fulfills the needs for most of the product. Currently it contains:
+
+                        1. `podDisruptionBudget` to configure the created PDBs.
                       properties:
                         podDisruptionBudget:
                           default:
@@ -11752,6 +11756,10 @@ spec:
                         podDisruptionBudget:
                           enabled: true
                           maxUnavailable: null
+                      description: |-
+                        This is a product-agnostic RoleConfig, which fulfills the needs for most of the product. Currently it contains:
+
+                        1. `podDisruptionBudget` to configure the created PDBs.
                       properties:
                         podDisruptionBudget:
                           default:
@@ -18653,6 +18661,10 @@ spec:
                         podDisruptionBudget:
                           enabled: true
                           maxUnavailable: null
+                      description: |-
+                        This is a product-agnostic RoleConfig, which fulfills the needs for most of the product. Currently it contains:
+
+                        1. `podDisruptionBudget` to configure the created PDBs.
                       properties:
                         podDisruptionBudget:
                           default:
@@ -25597,6 +25609,10 @@ spec:
                         podDisruptionBudget:
                           enabled: true
                           maxUnavailable: null
+                      description: |-
+                        This is a product-agnostic RoleConfig, which fulfills the needs for most of the product. Currently it contains:
+
+                        1. `podDisruptionBudget` to configure the created PDBs.
                       properties:
                         podDisruptionBudget:
                           default:
@@ -32471,6 +32487,10 @@ spec:
                         podDisruptionBudget:
                           enabled: true
                           maxUnavailable: null
+                      description: |-
+                        This is a product-agnostic RoleConfig, which fulfills the needs for most of the product. Currently it contains:
+
+                        1. `podDisruptionBudget` to configure the created PDBs.
                       properties:
                         podDisruptionBudget:
                           default:
