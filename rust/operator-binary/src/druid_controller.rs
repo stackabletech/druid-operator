@@ -41,6 +41,7 @@ use stackable_operator::{
         rbac::{build_rbac_resources, service_account_name},
         s3::{S3AccessStyle, S3ConnectionSpec},
     },
+    duration::Duration,
     k8s_openapi::{
         api::{
             apps::v1::{StatefulSet, StatefulSetSpec},
@@ -74,7 +75,6 @@ use std::{
     ops::Deref,
     str::FromStr,
     sync::Arc,
-    time::Duration,
 };
 use strum::{EnumDiscriminants, IntoStaticStr};
 
@@ -1143,7 +1143,7 @@ fn add_s3_volume_and_volume_mounts(
 }
 
 pub fn error_policy(_obj: Arc<DruidCluster>, _error: &Error, _ctx: Arc<Ctx>) -> Action {
-    Action::requeue(Duration::from_secs(5))
+    Action::requeue(*Duration::from_secs(5))
 }
 
 #[cfg(test)]
