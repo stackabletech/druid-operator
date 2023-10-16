@@ -5,7 +5,7 @@ metadata:
   name: simple-zk
 spec:
   image:
-    productVersion: 3.8.0
+    productVersion: 3.8.3
   servers:
     roleGroups:
       default:
@@ -33,7 +33,7 @@ metadata:
   name: simple-hdfs
 spec:
   image:
-    productVersion: 3.3.4
+    productVersion: 3.3.6
   clusterConfig:
     dfsReplication: 1
     zookeeperConfigMapName: psql-druid-znode
