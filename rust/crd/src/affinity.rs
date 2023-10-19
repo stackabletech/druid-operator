@@ -149,7 +149,7 @@ mod tests {
           name: simple-druid
         spec:
           image:
-            productVersion: 26.0.0
+            productVersion: 27.0.0
           clusterConfig:
             deepStorage:
               hdfs:
@@ -342,7 +342,7 @@ mod tests {
           name: simple-druid
         spec:
           image:
-            productVersion: 26.0.0
+            productVersion: 27.0.0
           clusterConfig:
             deepStorage:
               hdfs:

@@ -2,6 +2,5 @@
 // This is a separate file, since it is used by both the direct Druid documentation, and the overarching
 // Stackable Platform documentation.
 
-- 0.23.0
-- 24.0.0
+- 27.0.0
 - 26.0.0

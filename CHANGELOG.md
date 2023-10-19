@@ -9,18 +9,24 @@ All notable changes to this project will be documented in this file.
 - Default stackableVersion to operator version ([#458]).
 - Configuration overrides for the JVM security properties, such as DNS caching ([#464]).
 - Support PodDisruptionBudgets ([#477]).
+- Add support for version 27.0.0 ([#480]).
 
 ### Changed
 
-- `vector` `0.26.0` -> `0.31.0` ([#459]).
-- `operator-rs` `0.44.0` -> `0.52.1` ([#458], [#474], [#477]).
+- `vector` `0.26.0` -> `0.33.0` ([#459], [#480]).
+- `operator-rs` `0.44.0` -> `0.55.0` ([#458], [#474], [#477], [#480]).
 - Let secret-operator handle certificate conversion ([#474]).
+
+### Removed
+
+- Remove support for version 0.23.0, 24.0.0 ([#480]).
 
 [#458]: https://github.com/stackabletech/druid-operator/pull/458
 [#459]: https://github.com/stackabletech/druid-operator/pull/459
 [#464]: https://github.com/stackabletech/druid-operator/pull/464
 [#474]: https://github.com/stackabletech/druid-operator/pull/474
 [#477]: https://github.com/stackabletech/druid-operator/pull/477
+[#480]: https://github.com/stackabletech/druid-operator/pull/480
 
 ## [23.7.0] - 2023-07-14
 

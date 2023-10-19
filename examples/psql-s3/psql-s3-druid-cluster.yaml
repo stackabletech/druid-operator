@@ -5,7 +5,7 @@ metadata:
   name: simple-zk
 spec:
   image:
-    productVersion: 3.8.0
+    productVersion: 3.8.3
   servers:
     roleGroups:
       default:
@@ -45,7 +45,7 @@ metadata:
   name: psql-s3-druid
 spec:
   image:
-    productVersion: 26.0.0
+    productVersion: 27.0.0
   clusterConfig:
     deepStorage:
       s3:

@@ -41,7 +41,6 @@ use stackable_operator::{
         rbac::{build_rbac_resources, service_account_name},
         s3::{S3AccessStyle, S3ConnectionSpec},
     },
-    duration::Duration,
     k8s_openapi::{
         api::{
             apps::v1::{StatefulSet, StatefulSetSpec},
@@ -69,6 +68,7 @@ use stackable_operator::{
         compute_conditions, operations::ClusterOperationsConditionBuilder,
         statefulset::StatefulSetConditionBuilder,
     },
+    time::Duration,
 };
 use std::{
     collections::{BTreeMap, HashMap},
