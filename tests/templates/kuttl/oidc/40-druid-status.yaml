@@ -59,7 +59,7 @@ spec:
       volumes:
       - name: druid-status
         configMap:
-          name: keycloak-realm
+          name: druid-status
       containers:
       - name: test
         image: docker.stackable.tech/stackable/testing-tools:0.2.0-stackable0.0
