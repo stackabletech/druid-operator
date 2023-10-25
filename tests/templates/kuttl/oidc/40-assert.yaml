@@ -3,9 +3,9 @@ apiVersion: kuttl.dev/v1beta1
 kind: TestAssert
 timeout: 300
 ---
-apiVersion: apps/v1
+apiVersion: batch/v1
 kind: Job
 metadata:
-  name: druid-stat
+  name: druid-status
 status:
-  phase: Succeeded
+  succeeded: 1

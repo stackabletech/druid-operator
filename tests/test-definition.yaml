@@ -125,6 +125,7 @@ tests:
       - druid-latest
       - zookeeper-latest
       - s3-use-tls
+      - openshift
 suites:
   - name: nightly
     patch:
