@@ -83,14 +83,11 @@ spec:
         # pac4j common config
         druid.auth.pac4j.cookiePassphrase: 'ziemlichirrelevant'
         # OIDC common config
-        druid.auth.pac4j.oidc.clientID: keycloak-client-druid
-        druid.auth.pac4j.oidc.clientSecret: 'keycloak-client-druid-secret'
+        druid.auth.pac4j.oidc.clientID: stackable
+        druid.auth.pac4j.oidc.clientSecret: STACKABLE_CLIENT_SECRET
         druid.auth.pac4j.oidc.discoveryURI: 'http://keycloak:8080/realms/stackable/.well-known/openid-configuration'
-        druid.auth.pac4j.oidc.oidcClaim: preferred_username  # setting doesn't work, but should?
+        druid.auth.pac4j.oidc.oidcClaim: preferred_username
 
-        #druid.auth.authenticator.jwt.type: jwt
-
-        #druid.auth.authenticatorChain: '["MyBasicMetadataAuthenticator","jwt","pac4j"]'
         druid.auth.authenticatorChain: '["MyBasicMetadataAuthenticator","pac4j"]'
 
         druid.escalator.type: basic

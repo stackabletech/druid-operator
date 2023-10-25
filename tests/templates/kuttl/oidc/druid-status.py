@@ -23,10 +23,10 @@ def test_page_with_token(kc_token_url, product_page):
     result = requests.post(
         kc_token_url,
         data={
-            "client_id": "keycloak-client-druid",
-            "client_secret": "keycloak-client-druid-secret",
-            "username": "stackable",
-            "password": "stackable",
+            "client_id": "stackable",
+            "client_secret": "STACKABLE_CLIENT_SECRET",
+            "username": "test",
+            "password": "test",
             "grant_type": "password",
             "scope": "openid",
         },
