@@ -1,64 +1,70 @@
 import logging
 import requests
-import json
 import urllib3
+from html.parser import HTMLParser
+from dataclasses import dataclass, field
 
 
-def test_redirect_to_keycloak(login_url):
-    result = requests.get(
+@dataclass
+class KCLoginParser(HTMLParser):
+    """ Extract the Keycloak url to perform the user login
+        and be redirected to Druid.
+    """
+
+    kc_action: str = field(default="")
+
+    def __init__(self):
+        HTMLParser.__init__(self)
+
+    def handle_starttag(self, tag, attrs):
+        if "form" == tag:
+            for name, value in attrs:
+                if "action" == name:
+                    logging.debug(f"found redirect action {value}")
+                    self.kc_action = value
+
+
+def test_login_flow(login_url):
+    session = requests.Session()
+
+    result = session.get(
         login_url,
         verify=False,
-        allow_redirects=False,
+        allow_redirects=True,
     )
 
     result.raise_for_status()
 
+    kcLoginParser = KCLoginParser()
+    kcLoginParser.feed(result.text)
+
+    if not kcLoginParser.kc_action:
+        raise ValueError("Failed to extract Keycloak action URL")
+
+    result = session.post(kcLoginParser.kc_action,
+                          data={
+                              "username": "test",
+                              "password": "test",
+                          },
+                          verify=False,
+                          allow_redirects=True,
+                          )
+
+    result.raise_for_status()
+
+    location = result.url
     code = result.status_code
-    location = result.headers.get('Location', default="")
-    if not (code == 302 and location.startswith("http://keycloak:8080/realms/stackable/protocol/openid-connect/auth")):
-        raise ValueError(f"Expected redirect to Keycloak but got code [{code}] and location [{location}]")
-
-
-def test_page_with_token(kc_token_url, product_page):
-    result = requests.post(
-        kc_token_url,
-        data={
-            "client_id": "stackable",
-            "client_secret": "STACKABLE_CLIENT_SECRET",
-            "username": "test",
-            "password": "test",
-            "grant_type": "password",
-            "scope": "openid",
-        },
-    )
-
-    result.raise_for_status()
-
-    id_token = json.loads(result.text)["id_token"]
-
-    result = requests.get(
-        product_page,
-        headers={"Authorization": f"Bearer {id_token}"},
-        verify=False,
-    )
-
-    result.raise_for_status()
-
-    if "true" != result.text:
-        raise ValueError(result.text)
+    if not (code == 200 and location == login_url):
+        raise ValueError(
+            f"Expected to land on the Druid console but ended at [{location}]")
 
 
 def main():
-    logging.basicConfig(level=logging.INFO)
+    logging.basicConfig(level=logging.DEBUG)
     # disable a warning (InsecureRequestWarning) because it's just noise here
     urllib3.disable_warnings()
 
-    test_redirect_to_keycloak("https://druid-router:9088/unified-console.html")
-
-    test_page_with_token(
-        "http://keycloak:8080/realms/stackable/protocol/openid-connect/token",
-        "https://druid-router:9088/status/health",
-    )
+    test_login_flow("https://druid-router:9088/unified-console.html")
 
     logging.info("Success!")
 
