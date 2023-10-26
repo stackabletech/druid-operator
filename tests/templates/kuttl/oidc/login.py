@@ -1,17 +1,23 @@
+"""Perform the OpenID Connect authentication flow to access a given page.
+
+This script opens a given URL and expects to be redirected to a
+Keycloak login page. It extracts the login action from the HTML content
+of the Keycloak page and posts the credentials of a test user to it.
+Finally it tests that Keycloak redirects back to the original page.
+"""
 import logging
 import requests
 import urllib3
 from html.parser import HTMLParser
-from dataclasses import dataclass, field
+import sys
 
 
-@dataclass
 class KCLoginParser(HTMLParser):
     """ Extract the Keycloak url to perform the user login
         and be redirected to Druid.
     """
 
-    kc_action: str = field(default="")
+    kc_action: str = ""
 
     def __init__(self):
         HTMLParser.__init__(self)
@@ -64,7 +70,11 @@ def main():
     # disable a warning (InsecureRequestWarning) because it's just noise here
     urllib3.disable_warnings()
 
-    test_login_flow("https://druid-router:9088/unified-console.html")
+    login_url = sys.argv[0]
+
+    assert len(login_url) > 0
+
+    test_login_flow(login_url)
 
     logging.info("Success!")
 

@@ -1,0 +1,27 @@
+---
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+timeout: 600
+commands:
+- script: kubectl create configmap login --namespace $NAMESPACE --from-file=login.py
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: login
+spec:
+  template:
+    spec:
+      volumes:
+      - name: login
+        configMap:
+          name: login
+      containers:
+      - name: test
+        image: docker.stackable.tech/stackable/testing-tools:0.2.0-stackable0.0
+        command: ["python", "/test/login.py", "https://druid-router:9088/unified-console.html"]
+        volumeMounts:
+        - name: login
+          mountPath: /test
+      restartPolicy: Never
+  backoffLimit: 4
