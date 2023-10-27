@@ -120,6 +120,12 @@ tests:
       - zookeeper-latest
       - hadoop-latest
       - druid-latest
+  - name: oidc
+    dimensions:
+      - druid-latest
+      - zookeeper-latest
+      - s3-use-tls
+      - openshift
 suites:
   - name: nightly
     patch:

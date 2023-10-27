@@ -1,0 +1,21 @@
+---
+apiVersion: zookeeper.stackable.tech/v1alpha1
+kind: ZookeeperCluster
+metadata:
+  name: zk
+spec:
+  image:
+    productVersion: 3.8.1
+    stackableVersion: 23.7.0
+  servers:
+    roleGroups:
+      default:
+        replicas: 1
+---
+apiVersion: zookeeper.stackable.tech/v1alpha1
+kind: ZookeeperZnode
+metadata:
+  name: druid-znode
+spec:
+  clusterRef:
+    name: zk
