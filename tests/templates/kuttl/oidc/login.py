@@ -70,7 +70,7 @@ def main():
     # disable a warning (InsecureRequestWarning) because it's just noise here
     urllib3.disable_warnings()
 
-    login_url = sys.argv[0]
+    login_url = sys.argv[1]
 
     assert len(login_url) > 0
 
