@@ -10,6 +10,7 @@ All notable changes to this project will be documented in this file.
 - Configuration overrides for the JVM security properties, such as DNS caching ([#464]).
 - Support PodDisruptionBudgets ([#477]).
 - Add support for version 27.0.0 ([#480]).
+- Add integration test for OpenID Connect with Keycloak ([#481]).
 
 ### Changed
 
@@ -27,6 +28,7 @@ All notable changes to this project will be documented in this file.
 [#474]: https://github.com/stackabletech/druid-operator/pull/474
 [#477]: https://github.com/stackabletech/druid-operator/pull/477
 [#480]: https://github.com/stackabletech/druid-operator/pull/480
+[#481]: https://github.com/stackabletech/druid-operator/pull/481
 
 ## [23.7.0] - 2023-07-14
 
