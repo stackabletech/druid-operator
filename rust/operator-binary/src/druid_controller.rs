@@ -1,16 +1,16 @@
 //! Ensures that `Pod`s are configured and running for each [`DruidCluster`]
-use crate::{
-    config::get_jvm_config,
-    discovery::{self, build_discovery_configmaps},
-    extensions::get_extension_list,
-    internal_secret::{
-        build_shared_internal_secret_name, create_shared_internal_secret, env_var_from_secret,
-    },
-    operations::pdb::add_pdbs,
-    product_logging::{extend_role_group_config_map, resolve_vector_aggregator_address},
-    OPERATOR_NAME,
+use std::{
+    collections::{BTreeMap, HashMap},
+    ops::Deref,
+    str::FromStr,
+    sync::Arc,
 };
 
+use product_config::{
+    types::PropertyNameKind,
+    writer::{to_java_properties_string, PropertiesWriterError},
+    ProductConfigManager,
+};
 use snafu::{OptionExt, ResultExt, Snafu};
 use stackable_druid_crd::{
     authentication::ldap::DruidLdapSettings,
@@ -25,13 +25,10 @@ use stackable_druid_crd::{
     S3_PATH_STYLE_ACCESS, S3_SECRET_DIR_NAME, ZOOKEEPER_CONNECTION_STRING,
 };
 use stackable_operator::{
-    builder::resources::ResourceRequirementsBuilder, k8s_openapi::DeepMerge,
-    product_config::writer::to_java_properties_string,
-};
-use stackable_operator::{
     builder::{
-        ConfigMapBuilder, ContainerBuilder, ObjectMetaBuilder, PodBuilder,
-        PodSecurityContextBuilder, SecretOperatorVolumeSourceBuilder, VolumeBuilder,
+        resources::ResourceRequirementsBuilder, ConfigMapBuilder, ContainerBuilder,
+        ObjectMetaBuilder, PodBuilder, PodSecurityContextBuilder,
+        SecretOperatorVolumeSourceBuilder, VolumeBuilder,
     },
     cluster_resources::{ClusterResourceApplyStrategy, ClusterResources},
     commons::{
@@ -47,6 +44,7 @@ use stackable_operator::{
             core::v1::{ConfigMap, EnvVar, Service, ServiceSpec},
         },
         apimachinery::pkg::apis::meta::v1::LabelSelector,
+        DeepMerge,
     },
     kube::{
         runtime::{controller::Action, reflector::ObjectRef},
@@ -54,7 +52,6 @@ use stackable_operator::{
     },
     labels::{role_group_selector_labels, role_selector_labels},
     logging::controller::ReconcilerError,
-    product_config::{types::PropertyNameKind, ProductConfigManager},
     product_config_utils::{transform_all_roles_to_config, validate_all_roles_and_groups_config},
     product_logging::{
         self,
@@ -70,13 +67,19 @@ use stackable_operator::{
     },
     time::Duration,
 };
-use std::{
-    collections::{BTreeMap, HashMap},
-    ops::Deref,
-    str::FromStr,
-    sync::Arc,
-};
 use strum::{EnumDiscriminants, IntoStaticStr};
+
+use crate::{
+    config::get_jvm_config,
+    discovery::{self, build_discovery_configmaps},
+    extensions::get_extension_list,
+    internal_secret::{
+        build_shared_internal_secret_name, create_shared_internal_secret, env_var_from_secret,
+    },
+    operations::pdb::add_pdbs,
+    product_logging::{extend_role_group_config_map, resolve_vector_aggregator_address},
+    OPERATOR_NAME,
+};
 
 pub const DRUID_CONTROLLER_NAME: &str = "druidcluster";
 
@@ -104,34 +107,41 @@ pub enum Error {
     ApplyRoleService {
         source: stackable_operator::error::Error,
     },
+
     #[snafu(display("failed to apply Service for {}", rolegroup))]
     ApplyRoleGroupService {
         source: stackable_operator::error::Error,
         rolegroup: RoleGroupRef<DruidCluster>,
     },
+
     #[snafu(display("failed to build ConfigMap for {}", rolegroup))]
     BuildRoleGroupConfig {
         source: stackable_operator::error::Error,
         rolegroup: RoleGroupRef<DruidCluster>,
     },
+
     #[snafu(display("failed to apply ConfigMap for {}", rolegroup))]
     ApplyRoleGroupConfig {
         source: stackable_operator::error::Error,
         rolegroup: RoleGroupRef<DruidCluster>,
     },
+
     #[snafu(display("failed to apply StatefulSet for {}", rolegroup))]
     ApplyRoleGroupStatefulSet {
         source: stackable_operator::error::Error,
         rolegroup: RoleGroupRef<DruidCluster>,
     },
+
     #[snafu(display("invalid product config"))]
     InvalidProductConfig {
         source: stackable_operator::error::Error,
     },
+
     #[snafu(display("object is missing metadata to build owner reference"))]
     ObjectMissingMetadataForOwnerRef {
         source: stackable_operator::error::Error,
     },
+
     #[snafu(display(
         "failed to get ZooKeeper discovery config map for cluster: {}",
         cm_name
@@ -140,6 +150,7 @@ pub enum Error {
         source: stackable_operator::error::Error,
         cm_name: String,
     },
+
     #[snafu(display(
         "failed to get OPA discovery config map and/or connection string for cluster: {}",
         cm_name
@@ -148,114 +159,141 @@ pub enum Error {
         source: stackable_operator::error::Error,
         cm_name: String,
     },
+
     #[snafu(display("failed to get valid S3 connection"))]
     GetS3Connection { source: stackable_druid_crd::Error },
+
     #[snafu(display("failed to get deep storage bucket"))]
     GetDeepStorageBucket {
         source: stackable_operator::error::Error,
     },
+
     #[snafu(display(
         "failed to get ZooKeeper connection string from config map {}",
         cm_name
     ))]
     MissingZookeeperConnString { cm_name: String },
+
     #[snafu(display("failed to transform configs"))]
     ProductConfigTransform {
         source: stackable_operator::product_config_utils::ConfigError,
     },
+
     #[snafu(display("failed to format runtime properties"))]
-    PropertiesWriteError {
-        source: stackable_operator::product_config::writer::PropertiesWriterError,
-    },
+    PropertiesWriteError { source: PropertiesWriterError },
+
     #[snafu(display("failed to build discovery ConfigMap"))]
     BuildDiscoveryConfig { source: discovery::Error },
+
     #[snafu(display("failed to apply discovery ConfigMap"))]
     ApplyDiscoveryConfig {
         source: stackable_operator::error::Error,
     },
+
     #[snafu(display("failed to apply cluster status"))]
     ApplyStatus {
         source: stackable_operator::error::Error,
     },
+
     #[snafu(display(
         "Druid does not support skipping the verification of the tls enabled S3 server"
     ))]
     S3TlsNoVerificationNotSupported,
+
     #[snafu(display("could not parse Druid role [{role}]"))]
     UnidentifiedDruidRole {
         source: strum::ParseError,
         role: String,
     },
+
     #[snafu(display("failed to resolve and merge config for role and role group"))]
     FailedToResolveConfig { source: stackable_druid_crd::Error },
+
     #[snafu(display("invalid configuration"))]
     InvalidConfiguration { source: stackable_druid_crd::Error },
+
     #[snafu(display("failed to create cluster resources"))]
     CreateClusterResources {
         source: stackable_operator::error::Error,
     },
+
     #[snafu(display("failed to delete orphaned resources"))]
     DeleteOrphanedResources {
         source: stackable_operator::error::Error,
     },
+
     #[snafu(display("failed to create container builder with name [{name}]"))]
     FailedContainerBuilderCreation {
         source: stackable_operator::error::Error,
         name: String,
     },
+
     #[snafu(display("object defines no namespace"))]
     ObjectHasNoNamespace,
+
     #[snafu(display("failed to initialize security context"))]
     FailedToInitializeSecurityContext {
         source: stackable_druid_crd::security::Error,
     },
+
     #[snafu(display("failed to get JVM config"))]
     GetJvmConfig { source: crate::config::Error },
+
     #[snafu(display("failed to derive Druid memory settings from resources"))]
     DeriveMemorySettings {
         source: stackable_druid_crd::resource::Error,
     },
+
     #[snafu(display("failed to update Druid config from resources"))]
     UpdateDruidConfigFromResources {
         source: stackable_druid_crd::resource::Error,
     },
+
     #[snafu(display("failed to retrieve secret for internal communications"))]
     FailedInternalSecretCreation {
         source: crate::internal_secret::Error,
     },
+
     #[snafu(display(
         "failed to access bind credentials although they are required for LDAP to work"
     ))]
     LdapBindCredentialsAreRequired,
+
     #[snafu(display("failed to resolve the Vector aggregator address"))]
     ResolveVectorAggregatorAddress {
         source: crate::product_logging::Error,
     },
+
     #[snafu(display("failed to add the logging configuration to the ConfigMap [{cm_name}]"))]
     InvalidLoggingConfig {
         source: crate::product_logging::Error,
         cm_name: String,
     },
+
     #[snafu(display("failed to create RBAC service account"))]
     ApplyServiceAccount {
         source: stackable_operator::error::Error,
     },
+
     #[snafu(display("failed to create RBAC role binding"))]
     ApplyRoleBinding {
         source: stackable_operator::error::Error,
     },
+
     #[snafu(display("failed to build RBAC resources"))]
     BuildRbacResources {
         source: stackable_operator::error::Error,
     },
+
     #[snafu(display(
         "failed to serialize [{JVM_SECURITY_PROPERTIES_FILE}] for {}",
         rolegroup
     ))]
     JvmSecurityProperties {
-        source: stackable_operator::product_config::writer::PropertiesWriterError,
+        source: PropertiesWriterError,
         rolegroup: String,
     },
+
     #[snafu(display("failed to create PodDisruptionBudget"))]
     FailedToCreatePdb {
         source: crate::operations::pdb::Error,
@@ -649,10 +687,7 @@ fn build_rolegroup_config_map(
                 conf.extend(transformed_config);
 
                 let runtime_properties =
-                    stackable_operator::product_config::writer::to_java_properties_string(
-                        conf.iter(),
-                    )
-                    .context(PropertiesWriteSnafu)?;
+                    to_java_properties_string(conf.iter()).context(PropertiesWriteSnafu)?;
                 cm_conf_data.insert(RUNTIME_PROPS.to_string(), runtime_properties);
             }
             PropertyNameKind::File(file_name) if file_name == JVM_CONFIG => {
@@ -1149,11 +1184,12 @@ pub fn error_policy(_obj: Arc<DruidCluster>, _error: &Error, _ctx: Arc<Ctx>) -> 
 #[cfg(test)]
 mod test {
     use super::*;
+
+    use product_config::{writer, ProductConfigManager};
     use rstest::*;
     use stackable_druid_crd::{
         authentication::ResolvedAuthenticationClasses, PROP_SEGMENT_CACHE_LOCATIONS,
     };
-    use stackable_operator::product_config::{writer, ProductConfigManager};
 
     #[derive(Snafu, Debug, EnumDiscriminants)]
     #[strum_discriminants(derive(IntoStaticStr))]
@@ -1163,7 +1199,7 @@ mod test {
         Controller { source: super::Error },
         #[snafu(display("product config error"))]
         ProductConfig {
-            source: stackable_operator::product_config::error::Error,
+            source: product_config::error::Error,
         },
         #[snafu(display("product config utils error"))]
         ProductConfigUtils {
