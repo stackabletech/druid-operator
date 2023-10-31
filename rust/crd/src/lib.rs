@@ -1,18 +1,6 @@
-pub mod affinity;
-pub mod authentication;
-pub mod authorization;
-pub mod memory;
-pub mod resource;
-pub mod security;
-pub mod storage;
-pub mod tls;
+use std::collections::{BTreeMap, HashMap};
 
-use crate::authentication::DruidAuthentication;
-use crate::tls::DruidTls;
-
-use affinity::{get_affinity, migrate_legacy_selector};
-use authorization::DruidAuthorization;
-use resource::RoleResource;
+use product_config::types::PropertyNameKind;
 use serde::{Deserialize, Serialize};
 use snafu::{OptionExt, ResultExt, Snafu};
 use stackable_operator::{
@@ -36,16 +24,30 @@ use stackable_operator::{
     kube::{CustomResource, ResourceExt},
     labels::ObjectLabels,
     memory::{BinaryMultiple, MemoryQuantity},
-    product_config::types::PropertyNameKind,
     product_config_utils::{ConfigError, Configuration},
     product_logging::{self, spec::Logging},
     role_utils::{CommonConfiguration, GenericRoleConfig, Role, RoleGroup},
     schemars::{self, JsonSchema},
     status::condition::{ClusterCondition, HasStatusCondition},
 };
-use std::collections::{BTreeMap, HashMap};
 use strum::{Display, EnumDiscriminants, EnumIter, EnumString, IntoStaticStr};
-use tls::default_druid_tls;
+
+use crate::{
+    affinity::{get_affinity, migrate_legacy_selector},
+    authentication::DruidAuthentication,
+    authorization::DruidAuthorization,
+    resource::RoleResource,
+    tls::{default_druid_tls, DruidTls},
+};
+
+pub mod affinity;
+pub mod authentication;
+pub mod authorization;
+pub mod memory;
+pub mod resource;
+pub mod security;
+pub mod storage;
+pub mod tls;
 
 pub const APP_NAME: &str = "druid";
 pub const OPERATOR_NAME: &str = "druid.stackable.tech";
