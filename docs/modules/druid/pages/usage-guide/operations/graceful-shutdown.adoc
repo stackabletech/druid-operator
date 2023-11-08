@@ -1,7 +1,62 @@
 = Graceful shutdown
 
-Graceful shutdown of Druid nodes is either not supported by the product itself
-or we have not implemented it yet.
+You can configure the graceful shutdown as described in xref:concepts:operations/graceful_shutdown.adoc[].
 
-Outstanding implementation work for the graceful shutdowns of all products where this functionality is relevant is tracked in
-https://github.com/stackabletech/issues/issues/357
+The Druid processes will receive a `SIGTERM` signal when Kubernetes wants to terminate the Pod.
+It will log the received signal as shown in the log below and initiate a graceful shutdown.
+After the graceful shutdown timeout runs out, and the process still didn't exit, Kubernetes will issue a `SIGKILL` signal.
+
+== Broker
+
+As a default, Druid brokers have `5 minutes` to shut down gracefully.
+
+They use the same mechanism described above.
+
+[source,text]
+----
+aa
+----
+
+== Coordinator
+
+As a default, Druid coordinators have `5 minutes` to shut down gracefully.
+
+They use the same mechanism described above.
+
+[source,text]
+----
+aa
+----
+
+== MiddleManager
+
+As a default, Druid middle managers have `5 minutes` to shut down gracefully.
+
+They use the same mechanism described above.
+
+[source,text]
+----
+aa
+----
+
+== Router
+
+As a default, Druid routers have `5 minutes` to shut down gracefully.
+
+They use the same mechanism described above.
+
+[source,text]
+----
+aa
+----
+
+== Historical
+
+As a default, Druid historicals have `5 minutes` to shut down gracefully.
+
+They use the same mechanism described above.
+
+[source,text]
+----
+aa
+----
