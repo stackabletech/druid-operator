@@ -1,5 +1,21 @@
-use std::collections::{BTreeMap, HashMap};
+pub mod affinity;
+pub mod authentication;
+pub mod authorization;
+pub mod memory;
+pub mod resource;
+pub mod security;
+pub mod storage;
+pub mod tls;
 
+use crate::{
+    affinity::{get_affinity, migrate_legacy_selector},
+    authentication::DruidAuthentication,
+    authorization::DruidAuthorization,
+    resource::RoleResource,
+    tls::{default_druid_tls, DruidTls},
+};
+
+use indoc::formatdoc;
 use product_config::types::PropertyNameKind;
 use serde::{Deserialize, Serialize};
 use snafu::{OptionExt, ResultExt, Snafu};
@@ -25,29 +41,19 @@ use stackable_operator::{
     labels::ObjectLabels,
     memory::{BinaryMultiple, MemoryQuantity},
     product_config_utils::{ConfigError, Configuration},
-    product_logging::{self, spec::Logging},
+    product_logging::{
+        self,
+        framework::{create_vector_shutdown_file_command, remove_vector_shutdown_file_command},
+        spec::Logging,
+    },
     role_utils::{CommonConfiguration, GenericRoleConfig, Role, RoleGroup},
     schemars::{self, JsonSchema},
     status::condition::{ClusterCondition, HasStatusCondition},
+    time::Duration,
+    utils::COMMON_BASH_TRAP_FUNCTIONS,
 };
+use std::collections::{BTreeMap, HashMap};
 use strum::{Display, EnumDiscriminants, EnumIter, EnumString, IntoStaticStr};
-
-use crate::{
-    affinity::{get_affinity, migrate_legacy_selector},
-    authentication::DruidAuthentication,
-    authorization::DruidAuthorization,
-    resource::RoleResource,
-    tls::{default_druid_tls, DruidTls},
-};
-
-pub mod affinity;
-pub mod authentication;
-pub mod authorization;
-pub mod memory;
-pub mod resource;
-pub mod security;
-pub mod storage;
-pub mod tls;
 
 pub const APP_NAME: &str = "druid";
 pub const OPERATOR_NAME: &str = "druid.stackable.tech";
@@ -132,6 +138,14 @@ pub const SC_DIRECTORY: &str = "/stackable/var/druid/segment-cache";
 pub const SC_VOLUME_NAME: &str = "segment-cache";
 
 pub const ENV_INTERNAL_SECRET: &str = "INTERNAL_SECRET";
+
+// Graceful shutdown timeouts
+const DEFAULT_BROKER_GRACEFUL_SHUTDOWN_TIMEOUT: Duration = Duration::from_minutes_unchecked(5);
+const DEFAULT_COORDINATOR_GRACEFUL_SHUTDOWN_TIMEOUT: Duration = Duration::from_minutes_unchecked(5);
+const DEFAULT_MIDDLEMANAGER_GRACEFUL_SHUTDOWN_TIMEOUT: Duration =
+    Duration::from_minutes_unchecked(5);
+const DEFAULT_ROUTER_GRACEFUL_SHUTDOWN_TIMEOUT: Duration = Duration::from_minutes_unchecked(5);
+const DEFAULT_HISTORICAL_GRACEFUL_SHUTDOWN_TIMEOUT: Duration = Duration::from_minutes_unchecked(5);
 
 #[derive(Snafu, Debug, EnumDiscriminants)]
 #[strum_discriminants(derive(IntoStaticStr))]
@@ -289,6 +303,7 @@ pub struct CommonRoleGroupConfig {
     pub replicas: Option<u16>,
     pub selector: Option<LabelSelector>,
     pub affinity: StackableAffinity,
+    pub graceful_shutdown_timeout: Option<Duration>,
 }
 
 /// Container for the merged and validated role group configurations
@@ -328,6 +343,11 @@ impl MergedConfig {
                     replicas: rolegroup.replicas,
                     selector: rolegroup.selector.to_owned(),
                     affinity: rolegroup.config.config.affinity.clone(),
+                    graceful_shutdown_timeout: rolegroup
+                        .config
+                        .config
+                        .graceful_shutdown_timeout
+                        .clone(),
                 })
             }
             DruidRole::Coordinator => {
@@ -341,6 +361,11 @@ impl MergedConfig {
                     replicas: rolegroup.replicas,
                     selector: rolegroup.selector.to_owned(),
                     affinity: rolegroup.config.config.affinity.clone(),
+                    graceful_shutdown_timeout: rolegroup
+                        .config
+                        .config
+                        .graceful_shutdown_timeout
+                        .clone(),
                 })
             }
             DruidRole::Historical => {
@@ -356,6 +381,11 @@ impl MergedConfig {
                     replicas: rolegroup.replicas,
                     selector: rolegroup.selector.to_owned(),
                     affinity: rolegroup.config.config.affinity.clone(),
+                    graceful_shutdown_timeout: rolegroup
+                        .config
+                        .config
+                        .graceful_shutdown_timeout
+                        .clone(),
                 })
             }
             DruidRole::MiddleManager => {
@@ -369,6 +399,11 @@ impl MergedConfig {
                     replicas: rolegroup.replicas,
                     selector: rolegroup.selector.to_owned(),
                     affinity: rolegroup.config.config.affinity.clone(),
+                    graceful_shutdown_timeout: rolegroup
+                        .config
+                        .config
+                        .graceful_shutdown_timeout
+                        .clone(),
                 })
             }
             DruidRole::Router => {
@@ -382,6 +417,11 @@ impl MergedConfig {
                     replicas: rolegroup.replicas,
                     selector: rolegroup.selector.to_owned(),
                     affinity: rolegroup.config.config.affinity.clone(),
+                    graceful_shutdown_timeout: rolegroup
+                        .config
+                        .config
+                        .graceful_shutdown_timeout
+                        .clone(),
                 })
             }
         }
@@ -449,6 +489,17 @@ impl DruidRole {
         }
     }
 
+    /// Return the default graceful shutdown timeout
+    pub fn default_graceful_shutdown_timeout(&self) -> Duration {
+        match &self {
+            DruidRole::Coordinator => DEFAULT_COORDINATOR_GRACEFUL_SHUTDOWN_TIMEOUT,
+            DruidRole::Broker => DEFAULT_BROKER_GRACEFUL_SHUTDOWN_TIMEOUT,
+            DruidRole::Historical => DEFAULT_HISTORICAL_GRACEFUL_SHUTDOWN_TIMEOUT,
+            DruidRole::MiddleManager => DEFAULT_MIDDLEMANAGER_GRACEFUL_SHUTDOWN_TIMEOUT,
+            DruidRole::Router => DEFAULT_ROUTER_GRACEFUL_SHUTDOWN_TIMEOUT,
+        }
+    }
+
     pub fn main_container_prepare_commands(
         &self,
         s3_connection: Option<&S3ConnectionSpec>,
@@ -497,10 +548,20 @@ impl DruidRole {
     }
 
     pub fn main_container_start_command(&self) -> String {
-        format!(
-            "/stackable/druid/bin/run-druid {} {RW_CONFIG_DIRECTORY}",
-            self.get_process_name(),
-        )
+        formatdoc! {"
+            {COMMON_BASH_TRAP_FUNCTIONS}
+            {remove_vector_shutdown_file_command}
+            prepare_signal_handlers
+            /stackable/druid/bin/run-druid {process_name} {RW_CONFIG_DIRECTORY} &
+            wait_for_termination $!
+            {create_vector_shutdown_file_command}
+            ",
+                process_name = self.get_process_name(),
+        remove_vector_shutdown_file_command =
+            remove_vector_shutdown_file_command(LOG_DIR),
+        create_vector_shutdown_file_command =
+            create_vector_shutdown_file_command(LOG_DIR),
+        }
     }
 }
 
@@ -979,6 +1040,9 @@ pub struct BrokerConfig {
     pub logging: Logging<Container>,
     #[fragment_attrs(serde(default))]
     pub affinity: StackableAffinity,
+    /// Time period Pods have to gracefully shut down, e.g. `30m`, `1h` or `2d`. Consult the operator documentation for details.
+    #[fragment_attrs(serde(default))]
+    pub graceful_shutdown_timeout: Option<Duration>,
 }
 
 impl BrokerConfig {
@@ -991,6 +1055,7 @@ impl BrokerConfig {
             resources: resource::BROKER_RESOURCES.to_owned(),
             logging: product_logging::spec::default_logging(),
             affinity: get_affinity(cluster_name, role, deep_storage),
+            graceful_shutdown_timeout: Some(role.default_graceful_shutdown_timeout()),
         }
     }
 }
@@ -1016,6 +1081,9 @@ pub struct CoordinatorConfig {
     pub logging: Logging<Container>,
     #[fragment_attrs(serde(default))]
     pub affinity: StackableAffinity,
+    /// Time period Pods have to gracefully shut down, e.g. `30m`, `1h` or `2d`. Consult the operator documentation for details.
+    #[fragment_attrs(serde(default))]
+    pub graceful_shutdown_timeout: Option<Duration>,
 }
 
 impl CoordinatorConfig {
@@ -1028,6 +1096,7 @@ impl CoordinatorConfig {
             resources: resource::COORDINATOR_RESOURCES.to_owned(),
             logging: product_logging::spec::default_logging(),
             affinity: get_affinity(cluster_name, role, deep_storage),
+            graceful_shutdown_timeout: Some(role.default_graceful_shutdown_timeout()),
         }
     }
 }
@@ -1053,6 +1122,9 @@ pub struct MiddleManagerConfig {
     pub logging: Logging<Container>,
     #[fragment_attrs(serde(default))]
     pub affinity: StackableAffinity,
+    /// Time period Pods have to gracefully shut down, e.g. `30m`, `1h` or `2d`. Consult the operator documentation for details.
+    #[fragment_attrs(serde(default))]
+    pub graceful_shutdown_timeout: Option<Duration>,
 }
 
 impl MiddleManagerConfig {
@@ -1065,6 +1137,7 @@ impl MiddleManagerConfig {
             resources: resource::MIDDLE_MANAGER_RESOURCES.to_owned(),
             logging: product_logging::spec::default_logging(),
             affinity: get_affinity(cluster_name, role, deep_storage),
+            graceful_shutdown_timeout: Some(role.default_graceful_shutdown_timeout()),
         }
     }
 }
@@ -1090,6 +1163,9 @@ pub struct RouterConfig {
     pub logging: Logging<Container>,
     #[fragment_attrs(serde(default))]
     pub affinity: StackableAffinity,
+    /// Time period Pods have to gracefully shut down, e.g. `30m`, `1h` or `2d`. Consult the operator documentation for details.
+    #[fragment_attrs(serde(default))]
+    pub graceful_shutdown_timeout: Option<Duration>,
 }
 
 impl RouterConfig {
@@ -1102,6 +1178,7 @@ impl RouterConfig {
             resources: resource::ROUTER_RESOURCES.to_owned(),
             logging: product_logging::spec::default_logging(),
             affinity: get_affinity(cluster_name, role, deep_storage),
+            graceful_shutdown_timeout: Some(role.default_graceful_shutdown_timeout()),
         }
     }
 }
@@ -1127,6 +1204,9 @@ pub struct HistoricalConfig {
     pub logging: Logging<Container>,
     #[fragment_attrs(serde(default))]
     pub affinity: StackableAffinity,
+    /// Time period Pods have to gracefully shut down, e.g. `30m`, `1h` or `2d`. Consult the operator documentation for details.
+    #[fragment_attrs(serde(default))]
+    pub graceful_shutdown_timeout: Option<Duration>,
 }
 
 impl HistoricalConfig {
@@ -1139,6 +1219,7 @@ impl HistoricalConfig {
             resources: resource::HISTORICAL_RESOURCES.to_owned(),
             logging: product_logging::spec::default_logging(),
             affinity: get_affinity(cluster_name, role, deep_storage),
+            graceful_shutdown_timeout: Some(role.default_graceful_shutdown_timeout()),
         }
     }
 }

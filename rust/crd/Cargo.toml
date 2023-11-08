@@ -9,17 +9,17 @@ repository.workspace = true
 publish = false
 
 [dependencies]
+indoc.workspace = true
+product-config.workspace = true
 semver.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 stackable-operator.workspace = true
-product-config.workspace = true
 strum.workspace = true
 tracing.workspace = true
 snafu.workspace = true
 lazy_static.workspace = true
 
 [dev-dependencies]
-indoc.workspace = true
 rstest.workspace = true
 serde_yaml.workspace = true

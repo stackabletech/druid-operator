@@ -69,6 +69,7 @@ use stackable_operator::{
 };
 use strum::{EnumDiscriminants, IntoStaticStr};
 
+use crate::operations::graceful_shutdown::add_graceful_shutdown_config;
 use crate::{
     config::get_jvm_config,
     discovery::{self, build_discovery_configmaps},
@@ -297,6 +298,11 @@ pub enum Error {
     #[snafu(display("failed to create PodDisruptionBudget"))]
     FailedToCreatePdb {
         source: crate::operations::pdb::Error,
+    },
+
+    #[snafu(display("failed to configure graceful shutdown"))]
+    GracefulShutdown {
+        source: crate::operations::graceful_shutdown::Error,
     },
 }
 
@@ -836,6 +842,8 @@ fn build_rolegroup_statefulset(
     // init pod builder
     let mut pb = PodBuilder::new();
     pb.affinity(&merged_rolegroup_config.affinity);
+    add_graceful_shutdown_config(merged_rolegroup_config.graceful_shutdown_timeout, &mut pb)
+        .context(GracefulShutdownSnafu)?;
 
     let mut main_container_commands = role.main_container_prepare_commands(s3_conn);
     let mut prepare_container_commands = vec![];
