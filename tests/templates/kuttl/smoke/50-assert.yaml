@@ -9,6 +9,10 @@ apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   name: druid-broker-default
+spec:
+  template:
+    spec:
+      terminationGracePeriodSeconds: 300
 status:
   readyReplicas: 1
   replicas: 1
@@ -17,6 +21,10 @@ apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   name: druid-coordinator-default
+spec:
+  template:
+    spec:
+      terminationGracePeriodSeconds: 300
 status:
   readyReplicas: 1
   replicas: 1
@@ -25,12 +33,10 @@ apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   name: druid-historical-default
-status:
-  readyReplicas: 1
-  replicas: 1
 spec:
   template:
     spec:
+      terminationGracePeriodSeconds: 300
       volumes:
         - name: tls-mount
           ephemeral:
@@ -57,11 +63,18 @@ spec:
         - name: segment-cache
           emptyDir:
             sizeLimit: 1G
+status:
+  readyReplicas: 1
+  replicas: 1
 ---
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   name: druid-middlemanager-default
+spec:
+  template:
+    spec:
+      terminationGracePeriodSeconds: 300
 status:
   readyReplicas: 1
   replicas: 1
@@ -70,6 +83,10 @@ apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   name: druid-router-default
+spec:
+  template:
+    spec:
+      terminationGracePeriodSeconds: 300
 status:
   readyReplicas: 1
   replicas: 1
