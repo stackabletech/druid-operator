@@ -842,8 +842,15 @@ fn build_rolegroup_statefulset(
     // init pod builder
     let mut pb = PodBuilder::new();
     pb.affinity(&merged_rolegroup_config.affinity);
-    add_graceful_shutdown_config(merged_rolegroup_config.graceful_shutdown_timeout, &mut pb)
-        .context(GracefulShutdownSnafu)?;
+    // TODO: where to put this? data is added all over the place :(
+    add_graceful_shutdown_config(
+        role,
+        druid_tls_security,
+        merged_rolegroup_config.graceful_shutdown_timeout,
+        &mut pb,
+        &mut cb_druid,
+    )
+    .context(GracefulShutdownSnafu)?;
 
     let mut main_container_commands = role.main_container_prepare_commands(s3_conn);
     let mut prepare_container_commands = vec![];

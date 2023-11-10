@@ -343,11 +343,7 @@ impl MergedConfig {
                     replicas: rolegroup.replicas,
                     selector: rolegroup.selector.to_owned(),
                     affinity: rolegroup.config.config.affinity.clone(),
-                    graceful_shutdown_timeout: rolegroup
-                        .config
-                        .config
-                        .graceful_shutdown_timeout
-                        .clone(),
+                    graceful_shutdown_timeout: rolegroup.config.config.graceful_shutdown_timeout,
                 })
             }
             DruidRole::Coordinator => {
@@ -361,11 +357,7 @@ impl MergedConfig {
                     replicas: rolegroup.replicas,
                     selector: rolegroup.selector.to_owned(),
                     affinity: rolegroup.config.config.affinity.clone(),
-                    graceful_shutdown_timeout: rolegroup
-                        .config
-                        .config
-                        .graceful_shutdown_timeout
-                        .clone(),
+                    graceful_shutdown_timeout: rolegroup.config.config.graceful_shutdown_timeout,
                 })
             }
             DruidRole::Historical => {
@@ -381,11 +373,7 @@ impl MergedConfig {
                     replicas: rolegroup.replicas,
                     selector: rolegroup.selector.to_owned(),
                     affinity: rolegroup.config.config.affinity.clone(),
-                    graceful_shutdown_timeout: rolegroup
-                        .config
-                        .config
-                        .graceful_shutdown_timeout
-                        .clone(),
+                    graceful_shutdown_timeout: rolegroup.config.config.graceful_shutdown_timeout,
                 })
             }
             DruidRole::MiddleManager => {
@@ -399,11 +387,7 @@ impl MergedConfig {
                     replicas: rolegroup.replicas,
                     selector: rolegroup.selector.to_owned(),
                     affinity: rolegroup.config.config.affinity.clone(),
-                    graceful_shutdown_timeout: rolegroup
-                        .config
-                        .config
-                        .graceful_shutdown_timeout
-                        .clone(),
+                    graceful_shutdown_timeout: rolegroup.config.config.graceful_shutdown_timeout,
                 })
             }
             DruidRole::Router => {
@@ -417,11 +401,7 @@ impl MergedConfig {
                     replicas: rolegroup.replicas,
                     selector: rolegroup.selector.to_owned(),
                     affinity: rolegroup.config.config.affinity.clone(),
-                    graceful_shutdown_timeout: rolegroup
-                        .config
-                        .config
-                        .graceful_shutdown_timeout
-                        .clone(),
+                    graceful_shutdown_timeout: rolegroup.config.config.graceful_shutdown_timeout,
                 })
             }
         }
