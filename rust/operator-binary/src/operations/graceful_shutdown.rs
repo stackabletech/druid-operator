@@ -47,6 +47,8 @@ pub fn add_graceful_shutdown_config(
                 };
 
                 let middle_manager_host = format!("{protocol}://127.0.0.1:{port}");
+                let debug_timestamp = "$(date --utc +%FT%T,%3N) INFO";
+                let sleep_interval = 2;
 
                 druid_builder.lifecycle_pre_stop(LifecycleHandler {
                     exec: Some(ExecAction {
@@ -58,27 +60,34 @@ pub fn add_graceful_shutdown_config(
                             "-c".to_string(),
                             // See: https://druid.apache.org/docs/latest/operations/rolling-updates/#rolling-restart-graceful-termination-based
                             formatdoc!(r#"
-                                echo 'Disable middle manager to stop overlord from sending tasks' >> /proc/1/fd/1 2>&1
-                                curl -v --fail --insecure -X POST {middle_manager_host}/druid/worker/v1/disable
+                                response=$(curl -v --fail --insecure -X POST {middle_manager_host}/druid/worker/v1/disable)
+                                echo "{debug_timestamp} Disable middle manager to stop overlord from sending tasks: $response" >> /proc/1/fd/1 2>&1
                                 
                                 end_time_seconds=$(date --date="+{termination_grace_period_seconds} seconds" '+%s')
                                 while :
                                 do
                                   current_time_seconds=$(date '+%s')
-                                  echo "Check if termination grace period is reached..." >> /proc/1/fd/1 2>&1
+                                  echo "{debug_timestamp} Check if termination grace period ({termination_grace_period_seconds} seconds) is reached..." >> /proc/1/fd/1 2>&1
                                   if [ $current_time_seconds -gt $end_time_seconds ]
                                   then
-                                    echo "The termination grace period is reached!" >> /proc/1/fd/1 2>&1
+                                    echo "{debug_timestamp} The termination grace period is reached!" >> /proc/1/fd/1 2>&1
                                     break
                                   fi
-                                  echo "Check if all tasks are finished..." >> /proc/1/fd/1 2>&1
-                                  if [ $(curl -v --fail --insecure -X GET {middle_manager_host}/druid/worker/v1/tasks) = "[]" ]
+                                  
+                                  tasks=$(curl -v --fail --insecure -X GET {middle_manager_host}/druid/worker/v1/tasks)
+                                  echo "{debug_timestamp} Check if all tasks are finished... $tasks" >> /proc/1/fd/1 2>&1
+                                  if [ $tasks = "[]" ]
                                   then
-                                    echo "All tasks finished!" >> /proc/1/fd/1 2>&1
+                                    echo "{debug_timestamp} All tasks finished!" >> /proc/1/fd/1 2>&1
                                      break
                                   fi
-                                  sleep 2
-                                done"#,
+                                  
+                                  echo "{debug_timestamp} Sleeping {sleep_interval} seconds..."
+                                  echo ""
+                                  sleep {sleep_interval}
+                                done
+                                echo "{debug_timestamp} All done!"
+                                "#,
                                 termination_grace_period_seconds = termination_grace_period.as_secs()
                             ),
                         ]),
