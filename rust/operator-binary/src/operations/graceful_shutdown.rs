@@ -47,9 +47,14 @@ pub fn add_graceful_shutdown_config(
                 };
 
                 let middle_manager_host = format!("{protocol}://127.0.0.1:{port}");
-                let debug_timestamp = "$(date --utc +%FT%T,%3N) INFO";
+                let debug_message =
+                    "$(date --utc +%FT%T,%3N) INFO [stackable_lifecycle_pre_stop] -";
                 let sleep_interval = 2;
 
+                // The middle manager can be terminated gracefully by disabling it, meaning
+                // the overlord will not send any new tasks and it will terminate after
+                // all tasks are finished or the termination grace period is exceeded.
+                // See: https://druid.apache.org/docs/latest/operations/rolling-updates/#rolling-restart-graceful-termination-based
                 druid_builder.lifecycle_pre_stop(LifecycleHandler {
                     exec: Some(ExecAction {
                         command: Some(vec![
@@ -58,35 +63,36 @@ pub fn add_graceful_shutdown_config(
                             "-euo".to_string(),
                             "pipefail".to_string(),
                             "-c".to_string(),
-                            // See: https://druid.apache.org/docs/latest/operations/rolling-updates/#rolling-restart-graceful-termination-based
                             formatdoc!(r#"
+                                log() {{ echo "{debug_message} $1" >> /proc/1/fd/1 2>&1 }}
+                                
                                 response=$(curl -v --fail --insecure -X POST {middle_manager_host}/druid/worker/v1/disable)
-                                echo "{debug_timestamp} Disable middle manager to stop overlord from sending tasks: $response" >> /proc/1/fd/1 2>&1
+                                log "Disable middle manager to stop overlord from sending tasks: $response"
                                 
                                 end_time_seconds=$(date --date="+{termination_grace_period_seconds} seconds" '+%s')
                                 while :
                                 do
                                   current_time_seconds=$(date '+%s')
-                                  echo "{debug_timestamp} Check if termination grace period ({termination_grace_period_seconds} seconds) is reached..." >> /proc/1/fd/1 2>&1
+                                  log "Check if termination grace period ({termination_grace_period_seconds} seconds) is reached..."
                                   if [ $current_time_seconds -gt $end_time_seconds ]
                                   then
-                                    echo "{debug_timestamp} The termination grace period is reached!" >> /proc/1/fd/1 2>&1
+                                    log "The termination grace period is reached!"
                                     break
                                   fi
                                   
                                   tasks=$(curl -v --fail --insecure -X GET {middle_manager_host}/druid/worker/v1/tasks)
-                                  echo "{debug_timestamp} Check if all tasks are finished... $tasks" >> /proc/1/fd/1 2>&1
+                                  log "Check if all tasks are finished... Running: $tasks"
                                   if [ $tasks = "[]" ]
                                   then
-                                    echo "{debug_timestamp} All tasks finished!" >> /proc/1/fd/1 2>&1
+                                    log "All tasks finished!"
                                      break
                                   fi
                                   
-                                  echo "{debug_timestamp} Sleeping {sleep_interval} seconds..."
-                                  echo ""
+                                  log "Sleeping {sleep_interval} seconds..."
+                                  log ""
                                   sleep {sleep_interval}
                                 done
-                                echo "{debug_timestamp} All done!"
+                                log "All done!"
                                 "#,
                                 termination_grace_period_seconds = termination_grace_period.as_secs()
                             ),
