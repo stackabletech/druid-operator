@@ -528,12 +528,14 @@ impl DruidRole {
     }
 
     pub fn main_container_start_command(&self) -> String {
+        // We need to store the druid process PID for the graceful shutdown lifecycle pre stop hook.
         formatdoc! {"
             {COMMON_BASH_TRAP_FUNCTIONS}
             {remove_vector_shutdown_file_command}
             prepare_signal_handlers
             /stackable/druid/bin/run-druid {process_name} {RW_CONFIG_DIRECTORY} &
-            wait_for_termination $!
+            echo \"$!\" >> /tmp/DRUID_PID
+            wait_for_termination $(cat /tmp/DRUID_PID)
             {create_vector_shutdown_file_command}
             ",
                 process_name = self.get_process_name(),

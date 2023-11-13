@@ -64,7 +64,9 @@ pub fn add_graceful_shutdown_config(
                             "pipefail".to_string(),
                             "-c".to_string(),
                             formatdoc!(r#"
-                                log() {{ echo "{debug_message} $1" >> /proc/1/fd/1 2>&1 }}
+                                log() {{ 
+                                  echo "{debug_message} $1" >> /proc/$(cat /tmp/DRUID_PID)/fd/1 2>&1 
+                                }}
                                 
                                 response=$(curl -v --fail --insecure -X POST {middle_manager_host}/druid/worker/v1/disable)
                                 log "Disable middle manager to stop overlord from sending tasks: $response"
