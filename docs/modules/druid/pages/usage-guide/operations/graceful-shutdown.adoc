@@ -121,7 +121,7 @@ druid 2023-11-13T10:56:54,212 INFO [Thread-55] org.apache.druid.java.util.common
 
 As a default, Druid middle managers have `5 minutes` to shut down gracefully.
 
-They use the same mechanism described above.
+The middle manager can be terminated gracefully by disabling it. Meaning the overlord will not send any new tasks and the middle manager will terminate after all tasks are finished or the termination grace period is exceeded.
 
 [source,text]
 ----
