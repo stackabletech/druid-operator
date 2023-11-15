@@ -55,6 +55,7 @@ pub fn add_graceful_shutdown_config(
                 // the overlord will not send any new tasks and it will terminate after
                 // all tasks are finished or the termination grace period is exceeded.
                 // See: https://druid.apache.org/docs/latest/operations/rolling-updates/#rolling-restart-graceful-termination-based
+                // The DRUID_PID is set in the crd/src/lib.rs `main_container_start_command` method.
                 druid_builder.lifecycle_pre_stop(LifecycleHandler {
                     exec: Some(ExecAction {
                         command: Some(vec![

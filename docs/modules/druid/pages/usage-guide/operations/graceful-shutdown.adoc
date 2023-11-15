@@ -125,6 +125,16 @@ The middle manager can be terminated gracefully by disabling it. Meaning the ove
 
 [source,text]
 ----
+druid 2023-11-13T10:42:50,569 INFO [stackable_lifecycle_pre_stop] - Disable middle manager to stop overlord from sending tasks: {"test-druid-middlemanager-automatic-log-config-0.test-druid-middlemanager-automatic-log-config.kuttl-test-on-ghost.svc.cluster.local:8291":"disabled"}
+druid 2023-11-13T10:42:50,578 INFO [stackable_lifecycle_pre_stop] - Check if termination grace period (300 seconds) is reached...
+druid 2023-11-13T10:42:50,586 INFO [stackable_lifecycle_pre_stop] - Check if all tasks are finished... Running: []
+druid 2023-11-13T10:42:50,591 INFO [stackable_lifecycle_pre_stop] - All tasks finished!
+druid 2023-11-13T10:42:50,605 INFO [stackable_lifecycle_pre_stop] - All done!
+druid ++ handle_term_signal
+druid ++ '[' 11 ']'
+druid ++ kill -TERM 11
+druid + trap - TERM
+druid + wait 11
 druid 2023-11-13T10:42:50,652 INFO [Thread-52] org.apache.druid.java.util.common.lifecycle.Lifecycle - Lifecycle [module] running shutdown hook
 druid 2023-11-13T10:42:50,654 INFO [Thread-52] org.apache.druid.java.util.common.lifecycle.Lifecycle - Stopping lifecycle [module] stage [ANNOUNCEMENTS]
 druid 2023-11-13T10:42:50,656 INFO [Thread-52] org.apache.druid.curator.announcement.Announcer - Unannouncing [/druid/internal-discovery/MIDDLE_MANAGER/druid-middlemanager-default-0.druid-middlemanager-default.kuttl-test-striking-polliwog.svc.cluster.local:8291]
