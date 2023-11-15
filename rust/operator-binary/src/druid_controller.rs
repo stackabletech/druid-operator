@@ -842,7 +842,6 @@ fn build_rolegroup_statefulset(
     // init pod builder
     let mut pb = PodBuilder::new();
     pb.affinity(&merged_rolegroup_config.affinity);
-    // TODO: where to put this? data is added all over the place :(
     add_graceful_shutdown_config(
         role,
         druid_tls_security,
