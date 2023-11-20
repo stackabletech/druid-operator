@@ -11,6 +11,7 @@ All notable changes to this project will be documented in this file.
 - Support PodDisruptionBudgets ([#477]).
 - Add support for version 27.0.0 ([#480]).
 - Add integration test for OpenID Connect with Keycloak ([#481]).
+- Support graceful shutdown ([#486]).
 
 ### Changed
 
@@ -29,6 +30,7 @@ All notable changes to this project will be documented in this file.
 [#477]: https://github.com/stackabletech/druid-operator/pull/477
 [#480]: https://github.com/stackabletech/druid-operator/pull/480
 [#481]: https://github.com/stackabletech/druid-operator/pull/481
+[#486]: https://github.com/stackabletech/druid-operator/pull/486
 
 ## [23.7.0] - 2023-07-14
 
