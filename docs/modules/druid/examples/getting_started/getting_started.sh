@@ -31,6 +31,7 @@ echo "Installing Operators with Helm"
 # tag::helm-install-operators[]
 helm install --wait commons-operator stackable-dev/commons-operator --version 0.0.0-dev
 helm install --wait secret-operator stackable-dev/secret-operator --version 0.0.0-dev
+helm install --wait listener-operator stackable-dev/listener-operator --version 0.0.0-dev
 helm install --wait zookeeper-operator stackable-dev/zookeeper-operator --version 0.0.0-dev
 helm install --wait hdfs-operator stackable-dev/hdfs-operator --version 0.0.0-dev
 helm install --wait druid-operator stackable-dev/druid-operator --version 0.0.0-dev
@@ -42,6 +43,7 @@ echo "installing Operators with stackablectl"
 stackablectl operator install \
   commons=0.0.0-dev \
   secret=0.0.0-dev \
+  listener=0.0.0-dev \
   zookeeper=0.0.0-dev \
   hdfs=0.0.0-dev \
   druid=0.0.0-dev
