@@ -46,6 +46,7 @@ The Druid Operator has the following dependencies:
   between processes.
 * The xref:commons-operator:index.adoc[] provides common CRDs such as xref:concepts:s3.adoc[] CRDs.
 * The xref:secret-operator:index.adoc[] is required for things like S3 access credentials or LDAP integration.
+* The xref:listener-operator:index.adoc[] exposes the pods to the outside network.
 
 Have a look at the xref:getting_started/index.adoc[getting started guide] for an example of a minimal working setup.
 
