@@ -247,7 +247,7 @@ pub struct DruidClusterConfig {
     /// [Druid deep storage configuration](https://docs.stackable.tech/home/nightly/druid/usage-guide/deep-storage).
     /// Only one backend can be used at a time. Either HDFS or S3 are supported.
     pub deep_storage: DeepStorageSpec,
-    /// Ingestion settings for Druid like S3
+    /// Configuration properties for data ingestion tasks.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub ingestion: Option<IngestionSpec>,
     /// Meta storage database like Derby or PostgreSQL
@@ -1020,6 +1020,10 @@ pub struct S3DeepStorageSpec {
 #[derive(Clone, Debug, Default, Deserialize, JsonSchema, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct IngestionSpec {
+    /// Druid supports ingesting data from S3 buckets where the bucket name is specified in the ingestion task.
+    /// However, the S3 connection has to be specified in advance and only a single S3 connection is supported.
+    /// S3 connections can either be specified `inline` or as a `reference`.
+    /// Read the [S3 resource concept docs](https://docs.stackable.tech/home/nightly/concepts/s3) to learn more.
     pub s3connection: Option<S3ConnectionDef>,
 }
 
