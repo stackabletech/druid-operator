@@ -244,7 +244,8 @@ pub struct DruidClusterConfig {
     /// Authorization settings for Druid like OPA
     #[serde(skip_serializing_if = "Option::is_none")]
     pub authorization: Option<DruidAuthorization>,
-    /// Deep storage settings for Druid like S3 or HDFS
+    /// [Druid deep storage configuration](https://docs.stackable.tech/home/nightly/druid/usage-guide/deep-storage).
+    /// Only one backend can be used at a time. Either HDFS or S3 are supported.
     pub deep_storage: DeepStorageSpec,
     /// Ingestion settings for Druid like S3
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -974,9 +975,12 @@ impl Default for DbType {
 #[derive(Clone, Debug, Deserialize, JsonSchema, PartialEq, Eq, Serialize, Display)]
 #[serde(rename_all = "camelCase")]
 pub enum DeepStorageSpec {
+    /// [The HDFS deep storage configuration](https://docs.stackable.tech/home/nightly/druid/usage-guide/deep-storage#_hdfs).
+    /// You can run an HDFS cluster with the [Stackable operator for Apache HDFS](https://docs.stackable.tech/home/nightly/hdfs/).
     #[serde(rename = "hdfs")]
     #[strum(serialize = "hdfs")]
     HDFS(HdfsDeepStorageSpec),
+    /// [The S3 deep storage configuration](https://docs.stackable.tech/home/nightly/druid/usage-guide/deep-storage#_s3).
     #[strum(serialize = "s3")]
     S3(S3DeepStorageSpec),
 }
@@ -993,14 +997,23 @@ impl DeepStorageSpec {
 #[derive(Clone, Debug, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct HdfsDeepStorageSpec {
+    /// The [discovery ConfigMap](https://docs.stackable.tech/home/nightly/concepts/service_discovery)
+    /// for the HDFS instance. When running an HDFS cluster with the Stackable operator, the operator
+    /// will create this ConfigMap for you. It has the same name as your HDFSCluster resource.
     pub config_map_name: String,
+    /// The directory inside of HDFS where Druid should store its data.
     pub directory: String,
 }
 
 #[derive(Clone, Debug, Deserialize, JsonSchema, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct S3DeepStorageSpec {
+    /// The S3 bucket to use for deep storage. Can either be defined inline or as a reference,
+    /// read the [S3 bucket docs](https://docs.stackable.tech/home/nightly/concepts/s3) to learn more.
     pub bucket: S3BucketDef,
+    /// The `baseKey` is similar to the `directory` in HDFS; it is the root key at which
+    /// Druid will create its deep storage. If no `baseKey` is given, the bucket root
+    /// will be used.
     pub base_key: Option<String>,
 }
 
