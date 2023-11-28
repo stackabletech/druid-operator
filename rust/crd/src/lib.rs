@@ -169,6 +169,9 @@ pub enum Error {
     FragmentValidationFailure { source: ValidationError },
 }
 
+/// A Druid cluster stacklet. This resource is managed by the Stackable operator for Apache Druid.
+/// Find more information on how to use it and the resources that the operator generates in the 
+/// [operator documentation](https://docs.stackable.tech/home/nightly/druid/).
 #[derive(Clone, CustomResource, Debug, Deserialize, JsonSchema, Serialize)]
 #[kube(
     group = "druid.stackable.tech",
@@ -186,19 +189,20 @@ pub enum Error {
 )]
 #[serde(rename_all = "camelCase")]
 pub struct DruidClusterSpec {
-    /// The Druid image to use
+    /// The Druid image to use. More information in the 
+    /// [product image selection documentation](https://docs.stackable.tech/home/nightly/concepts/product_image_selection).
     pub image: ProductImage,
-    /// Configuration of the broker role
+    /// Configuration of the broker role.
     pub brokers: Role<BrokerConfigFragment>,
-    /// Configuration of the coordinator role
+    /// Configuration of the coordinator role.
     pub coordinators: Role<CoordinatorConfigFragment>,
-    /// Configuration of the historical role
+    /// Configuration of the historical role.
     pub historicals: Role<HistoricalConfigFragment>,
-    /// Configuration of the middle managed role
+    /// Configuration of the middle managed role.
     pub middle_managers: Role<MiddleManagerConfigFragment>,
-    /// Configuration of the router role
+    /// Configuration of the router role.
     pub routers: Role<RouterConfigFragment>,
-    /// Common cluster wide configuration that can not differ or be overridden on a role or role group level
+    /// Common cluster wide configuration that can not differ or be overridden on a role or role group level.
     pub cluster_config: DruidClusterConfig,
     /// Cluster operations like pause reconciliation or cluster stop.
     #[serde(default)]
@@ -229,7 +233,12 @@ pub enum Container {
 #[derive(Clone, Debug, Deserialize, JsonSchema, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DruidClusterConfig {
-    /// List of Authentication classes using like TLS or LDAP to authenticate users
+    /// List of [AuthenticationClasses](https://docs.stackable.tech/home/stable/concepts/authentication)
+    /// to use for authenticating users. TLS and LDAP authentication are supported. More information in 
+    /// the [Druid operator security documentation](https://docs.stackable.tech/home/stable/druid/usage-guide/security#_authentication).
+    /// 
+    /// For TLS: Please note that the SecretClass used to authenticate users needs to be the same
+    /// as the SecretClass used for internal communication.
     #[serde(default)]
     pub authentication: Vec<DruidAuthentication>,
     /// Authorization settings for Druid like OPA

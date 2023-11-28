@@ -52,11 +52,7 @@ pub enum Error {
 #[derive(Clone, Deserialize, Debug, Eq, JsonSchema, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DruidAuthentication {
-    /// The AuthenticationClass <https://docs.stackable.tech/home/nightly/concepts/authenticationclass.html> to use.
-    ///
-    /// ## TLS provider
-    /// Please note that the SecretClass used to authenticate users needs to be the same
-    /// as the SecretClass used for internal communication.
+    /// The name of an [AuthenticationClass](https://docs.stackable.tech/home/stable/concepts/authentication) object.
     pub authentication_class: String,
 }
 
