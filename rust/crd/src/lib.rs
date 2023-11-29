@@ -170,7 +170,7 @@ pub enum Error {
 }
 
 /// A Druid cluster stacklet. This resource is managed by the Stackable operator for Apache Druid.
-/// Find more information on how to use it and the resources that the operator generates in the 
+/// Find more information on how to use it and the resources that the operator generates in the
 /// [operator documentation](https://docs.stackable.tech/home/nightly/druid/).
 #[derive(Clone, CustomResource, Debug, Deserialize, JsonSchema, Serialize)]
 #[kube(
@@ -189,8 +189,12 @@ pub enum Error {
 )]
 #[serde(rename_all = "camelCase")]
 pub struct DruidClusterSpec {
-    /// The Druid image to use. More information in the 
-    /// [product image selection documentation](https://docs.stackable.tech/home/nightly/concepts/product_image_selection).
+    /// Specify which image to use, the easiest way is to only configure the `productVersion`,
+    /// it needs to be one of the [supported versions](https://docs.stackable.tech/home/nightly/druid/#_supported_versions).
+    /// You can also configure a custom image registry to pull from, as well as completely custom
+    /// images consult the
+    /// [Product image selection documentation](https://docs.stackable.tech/home/nightly/concepts/product_image_selection)
+    /// for details.
     pub image: ProductImage,
     /// Configuration of the broker role.
     pub brokers: Role<BrokerConfigFragment>,
@@ -234,9 +238,9 @@ pub enum Container {
 #[serde(rename_all = "camelCase")]
 pub struct DruidClusterConfig {
     /// List of [AuthenticationClasses](https://docs.stackable.tech/home/stable/concepts/authentication)
-    /// to use for authenticating users. TLS and LDAP authentication are supported. More information in 
+    /// to use for authenticating users. TLS and LDAP authentication are supported. More information in
     /// the [Druid operator security documentation](https://docs.stackable.tech/home/stable/druid/usage-guide/security#_authentication).
-    /// 
+    ///
     /// For TLS: Please note that the SecretClass used to authenticate users needs to be the same
     /// as the SecretClass used for internal communication.
     #[serde(default)]
@@ -250,17 +254,23 @@ pub struct DruidClusterConfig {
     /// Configuration properties for data ingestion tasks.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub ingestion: Option<IngestionSpec>,
-    /// Meta storage database like Derby or PostgreSQL
+    /// Druid requires an SQL database to store metadata into. Specify connection information here.
     pub metadata_storage_database: DatabaseConnectionSpec,
-    /// TLS encryption settings for Druid.
+    /// TLS encryption settings for Druid, more information in the
+    /// [security documentation](https://docs.stackable.tech/home/nightly/druid/usage-guide/security).
     /// This setting only affects server and internal communication.
     /// It does not affect client tls authentication, use `clusterConfig.authentication` instead.
     #[serde(default = "default_druid_tls", skip_serializing_if = "Option::is_none")]
     pub tls: Option<DruidTls>,
-    /// ZooKeeper discovery ConfigMap
+    /// Druid requires a ZooKeeper cluster connection to run.
+    /// Provide the name of the ZooKeeper [discovery ConfigMap](https://docs.stackable.tech/home/nightly/concepts/service_discovery)
+    /// here. When using the [Stackable operator for Apache ZooKeeper](https://docs.stackable.tech/home/nightly/zookeeper/)
+    /// to deploy a ZooKeeper cluster, this will simply be the name of your ZookeeperCluster resource.
     pub zookeeper_config_map_name: String,
-    /// Name of the Vector aggregator discovery ConfigMap.
+    /// Name of the Vector aggregator [discovery ConfigMap](https://docs.stackable.tech/home/nightly/concepts/service_discovery).
     /// It must contain the key `ADDRESS` with the address of the Vector aggregator.
+    /// Follow the [logging tutorial](https://docs.stackable.tech/home/nightly/tutorials/logging-vector-aggregator)
+    /// to learn how to configure log aggregation with Vector.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub vector_aggregator_config_map_name: Option<String>,
     /// Extra volumes to mount into every container, this can be useful to for example make client
@@ -270,14 +280,13 @@ pub struct DruidClusterConfig {
     pub extra_volumes: Vec<Volume>,
     /// This field controls which type of Service the Operator creates for this DruidCluster:
     ///
-    /// * cluster-internal: Use a ClusterIP service
-    ///
-    /// * external-unstable: Use a NodePort service
-    ///
-    /// * external-stable: Use a LoadBalancer service
+    /// * `cluster-internal`: Use a ClusterIP service
+    /// * `external-unstable`: Use a NodePort service
+    /// * `external-stable`: Use a LoadBalancer service
     ///
     /// This is a temporary solution with the goal to keep yaml manifests forward compatible.
-    /// In the future, this setting will control which ListenerClass <https://docs.stackable.tech/home/stable/listener-operator/listenerclass.html>
+    /// In the future, this setting will control which
+    /// [ListenerClass](https://docs.stackable.tech/home/nightly/listener-operator/listenerclass.html)
     /// will be used to expose the service, and ListenerClass names will stay the same, allowing for a non-breaking change.
     #[serde(default)]
     pub listener_class: CurrentlySupportedListenerClasses,
@@ -943,6 +952,9 @@ impl DruidCluster {
 #[derive(Clone, Debug, Default, Deserialize, JsonSchema, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DatabaseConnectionSpec {
+    /// The database type. Supported values are: `derby`, `mysql` and `postgres`.
+    /// Note that a Derby database created locally in the container is not persisted!
+    /// Derby is not suitable for production use.
     pub db_type: DbType,
     pub conn_string: String,
     pub host: String,
@@ -1042,13 +1054,16 @@ pub struct IngestionSpec {
     serde(rename_all = "camelCase")
 )]
 pub struct BrokerConfig {
+    ///
     #[fragment_attrs(serde(default))]
     resources: Resources<storage::DruidStorage, NoRuntimeLimits>,
+    ///
     #[fragment_attrs(serde(default))]
     pub logging: Logging<Container>,
+    ///
     #[fragment_attrs(serde(default))]
     pub affinity: StackableAffinity,
-    /// Time period Pods have to gracefully shut down, e.g. `30m`, `1h` or `2d`. Consult the operator documentation for details.
+    /// TODO Time period Pods have to gracefully shut down, e.g. `30m`, `1h` or `2d`. Consult the operator documentation for details.
     #[fragment_attrs(serde(default))]
     pub graceful_shutdown_timeout: Option<Duration>,
 }

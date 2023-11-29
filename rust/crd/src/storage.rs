@@ -5,7 +5,7 @@ use stackable_operator::{
     schemars::{self, JsonSchema},
 };
 
-/// Storage configuration used by all roles except historical
+/// TODO Storage configuration used by all roles except historical
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, Debug, Default, PartialEq, Fragment, JsonSchema)]
 #[fragment_attrs(
@@ -39,6 +39,7 @@ pub struct DruidStorage {}
     serde(rename_all = "camelCase")
 )]
 pub struct HistoricalStorage {
+    // TODO
     #[fragment_attrs(serde(default))]
     pub segment_cache: FreePercentageEmptyDir,
 }
