@@ -192,7 +192,7 @@ pub struct DruidClusterSpec {
     /// Specify which image to use, the easiest way is to only configure the `productVersion`,
     /// it needs to be one of the [supported versions](https://docs.stackable.tech/home/nightly/druid/#_supported_versions).
     /// You can also configure a custom image registry to pull from, as well as completely custom
-    /// images consult the
+    /// images. Consult the
     /// [Product image selection documentation](https://docs.stackable.tech/home/nightly/concepts/product_image_selection)
     /// for details.
     pub image: ProductImage,
