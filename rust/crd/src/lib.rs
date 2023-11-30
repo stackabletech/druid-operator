@@ -171,7 +171,7 @@ pub enum Error {
 
 /// A Druid cluster stacklet. This resource is managed by the Stackable operator for Apache Druid.
 /// Find more information on how to use it and the resources that the operator generates in the
-/// [operator documentation](https://docs.stackable.tech/home/nightly/druid/).
+/// [operator documentation](DOCS_BASE_URL_PLACEHOLDER/druid/).
 #[derive(Clone, CustomResource, Debug, Deserialize, JsonSchema, Serialize)]
 #[kube(
     group = "druid.stackable.tech",
@@ -190,10 +190,10 @@ pub enum Error {
 #[serde(rename_all = "camelCase")]
 pub struct DruidClusterSpec {
     /// Specify which image to use, the easiest way is to only configure the `productVersion`,
-    /// it needs to be one of the [supported versions](https://docs.stackable.tech/home/nightly/druid/#_supported_versions).
+    /// it needs to be one of the [supported versions](DOCS_BASE_URL_PLACEHOLDER/druid/#_supported_versions).
     /// You can also configure a custom image registry to pull from, as well as completely custom
     /// images. Consult the
-    /// [Product image selection documentation](https://docs.stackable.tech/home/nightly/concepts/product_image_selection)
+    /// [Product image selection documentation](DOCS_BASE_URL_PLACEHOLDER/concepts/product_image_selection)
     /// for details.
     pub image: ProductImage,
     /// Configuration of the broker role.
@@ -237,9 +237,9 @@ pub enum Container {
 #[derive(Clone, Debug, Deserialize, JsonSchema, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DruidClusterConfig {
-    /// List of [AuthenticationClasses](https://docs.stackable.tech/home/stable/concepts/authentication)
+    /// List of [AuthenticationClasses](DOCS_BASE_URL_PLACEHOLDER/concepts/authentication)
     /// to use for authenticating users. TLS and LDAP authentication are supported. More information in
-    /// the [Druid operator security documentation](https://docs.stackable.tech/home/stable/druid/usage-guide/security#_authentication).
+    /// the [Druid operator security documentation](DOCS_BASE_URL_PLACEHOLDER/druid/usage-guide/security#_authentication).
     ///
     /// For TLS: Please note that the SecretClass used to authenticate users needs to be the same
     /// as the SecretClass used for internal communication.
@@ -248,7 +248,7 @@ pub struct DruidClusterConfig {
     /// Authorization settings for Druid like OPA
     #[serde(skip_serializing_if = "Option::is_none")]
     pub authorization: Option<DruidAuthorization>,
-    /// [Druid deep storage configuration](https://docs.stackable.tech/home/nightly/druid/usage-guide/deep-storage).
+    /// [Druid deep storage configuration](DOCS_BASE_URL_PLACEHOLDER/druid/usage-guide/deep-storage).
     /// Only one backend can be used at a time. Either HDFS or S3 are supported.
     pub deep_storage: DeepStorageSpec,
     /// Configuration properties for data ingestion tasks.
@@ -257,19 +257,19 @@ pub struct DruidClusterConfig {
     /// Druid requires an SQL database to store metadata into. Specify connection information here.
     pub metadata_storage_database: DatabaseConnectionSpec,
     /// TLS encryption settings for Druid, more information in the
-    /// [security documentation](https://docs.stackable.tech/home/nightly/druid/usage-guide/security).
+    /// [security documentation](DOCS_BASE_URL_PLACEHOLDER/druid/usage-guide/security).
     /// This setting only affects server and internal communication.
     /// It does not affect client tls authentication, use `clusterConfig.authentication` instead.
     #[serde(default = "default_druid_tls", skip_serializing_if = "Option::is_none")]
     pub tls: Option<DruidTls>,
     /// Druid requires a ZooKeeper cluster connection to run.
-    /// Provide the name of the ZooKeeper [discovery ConfigMap](https://docs.stackable.tech/home/nightly/concepts/service_discovery)
-    /// here. When using the [Stackable operator for Apache ZooKeeper](https://docs.stackable.tech/home/nightly/zookeeper/)
+    /// Provide the name of the ZooKeeper [discovery ConfigMap](DOCS_BASE_URL_PLACEHOLDER/concepts/service_discovery)
+    /// here. When using the [Stackable operator for Apache ZooKeeper](DOCS_BASE_URL_PLACEHOLDER/zookeeper/)
     /// to deploy a ZooKeeper cluster, this will simply be the name of your ZookeeperCluster resource.
     pub zookeeper_config_map_name: String,
-    /// Name of the Vector aggregator [discovery ConfigMap](https://docs.stackable.tech/home/nightly/concepts/service_discovery).
+    /// Name of the Vector aggregator [discovery ConfigMap](DOCS_BASE_URL_PLACEHOLDER/concepts/service_discovery).
     /// It must contain the key `ADDRESS` with the address of the Vector aggregator.
-    /// Follow the [logging tutorial](https://docs.stackable.tech/home/nightly/tutorials/logging-vector-aggregator)
+    /// Follow the [logging tutorial](DOCS_BASE_URL_PLACEHOLDER/tutorials/logging-vector-aggregator)
     /// to learn how to configure log aggregation with Vector.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub vector_aggregator_config_map_name: Option<String>,
@@ -286,7 +286,7 @@ pub struct DruidClusterConfig {
     ///
     /// This is a temporary solution with the goal to keep yaml manifests forward compatible.
     /// In the future, this setting will control which
-    /// [ListenerClass](https://docs.stackable.tech/home/nightly/listener-operator/listenerclass.html)
+    /// [ListenerClass](DOCS_BASE_URL_PLACEHOLDER/listener-operator/listenerclass.html)
     /// will be used to expose the service, and ListenerClass names will stay the same, allowing for a non-breaking change.
     #[serde(default)]
     pub listener_class: CurrentlySupportedListenerClasses,
@@ -987,12 +987,12 @@ impl Default for DbType {
 #[derive(Clone, Debug, Deserialize, JsonSchema, PartialEq, Eq, Serialize, Display)]
 #[serde(rename_all = "camelCase")]
 pub enum DeepStorageSpec {
-    /// [The HDFS deep storage configuration](https://docs.stackable.tech/home/nightly/druid/usage-guide/deep-storage#_hdfs).
-    /// You can run an HDFS cluster with the [Stackable operator for Apache HDFS](https://docs.stackable.tech/home/nightly/hdfs/).
+    /// [The HDFS deep storage configuration](DOCS_BASE_URL_PLACEHOLDER/druid/usage-guide/deep-storage#_hdfs).
+    /// You can run an HDFS cluster with the [Stackable operator for Apache HDFS](DOCS_BASE_URL_PLACEHOLDER/hdfs/).
     #[serde(rename = "hdfs")]
     #[strum(serialize = "hdfs")]
     HDFS(HdfsDeepStorageSpec),
-    /// [The S3 deep storage configuration](https://docs.stackable.tech/home/nightly/druid/usage-guide/deep-storage#_s3).
+    /// [The S3 deep storage configuration](DOCS_BASE_URL_PLACEHOLDER/druid/usage-guide/deep-storage#_s3).
     #[strum(serialize = "s3")]
     S3(S3DeepStorageSpec),
 }
@@ -1009,7 +1009,7 @@ impl DeepStorageSpec {
 #[derive(Clone, Debug, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct HdfsDeepStorageSpec {
-    /// The [discovery ConfigMap](https://docs.stackable.tech/home/nightly/concepts/service_discovery)
+    /// The [discovery ConfigMap](DOCS_BASE_URL_PLACEHOLDER/concepts/service_discovery)
     /// for the HDFS instance. When running an HDFS cluster with the Stackable operator, the operator
     /// will create this ConfigMap for you. It has the same name as your HDFSCluster resource.
     pub config_map_name: String,
@@ -1021,7 +1021,7 @@ pub struct HdfsDeepStorageSpec {
 #[serde(rename_all = "camelCase")]
 pub struct S3DeepStorageSpec {
     /// The S3 bucket to use for deep storage. Can either be defined inline or as a reference,
-    /// read the [S3 bucket docs](https://docs.stackable.tech/home/nightly/concepts/s3) to learn more.
+    /// read the [S3 bucket docs](DOCS_BASE_URL_PLACEHOLDER/concepts/s3) to learn more.
     pub bucket: S3BucketDef,
     /// The `baseKey` is similar to the `directory` in HDFS; it is the root key at which
     /// Druid will create its deep storage. If no `baseKey` is given, the bucket root
@@ -1035,7 +1035,7 @@ pub struct IngestionSpec {
     /// Druid supports ingesting data from S3 buckets where the bucket name is specified in the ingestion task.
     /// However, the S3 connection has to be specified in advance and only a single S3 connection is supported.
     /// S3 connections can either be specified `inline` or as a `reference`.
-    /// Read the [S3 resource concept docs](https://docs.stackable.tech/home/nightly/concepts/s3) to learn more.
+    /// Read the [S3 resource concept docs](DOCS_BASE_URL_PLACEHOLDER/concepts/s3) to learn more.
     pub s3connection: Option<S3ConnectionDef>,
 }
 

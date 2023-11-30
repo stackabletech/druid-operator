@@ -52,7 +52,7 @@ pub enum Error {
 #[derive(Clone, Deserialize, Debug, Eq, JsonSchema, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DruidAuthentication {
-    /// The name of an [AuthenticationClass](https://docs.stackable.tech/home/stable/concepts/authentication) object.
+    /// The name of an [AuthenticationClass](DOCS_BASE_URL_PLACEHOLDER/concepts/authentication) object.
     pub authentication_class: String,
 }
 

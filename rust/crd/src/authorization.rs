@@ -7,11 +7,11 @@ use stackable_operator::{
 #[derive(Clone, Deserialize, Debug, Default, Eq, JsonSchema, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DruidAuthorization {
-    /// Configure the OPA stacklet [discovery ConfigMap](https://docs.stackable.tech/home/nightly/concepts/service_discovery)
+    /// Configure the OPA stacklet [discovery ConfigMap](DOCS_BASE_URL_PLACEHOLDER/concepts/service_discovery)
     /// and the name of the Rego package containing your Druid authorization rules.
-    /// Consult the [OPA authorization documentation](https://docs.stackable.tech/home/nightly/concepts/opa)
+    /// Consult the [OPA authorization documentation](DOCS_BASE_URL_PLACEHOLDER/concepts/opa)
     /// to learn how to deploy Rego authorization rules with OPA.
-    /// Read the [Druid operator security documentation](https://docs.stackable.tech/home/nightly/druid/usage-guide/security)
+    /// Read the [Druid operator security documentation](DOCS_BASE_URL_PLACEHOLDER/druid/usage-guide/security)
     /// for more information on how to write rules specifically for Druid.
     pub opa: OpaConfig,
 }
