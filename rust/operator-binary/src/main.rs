@@ -41,7 +41,7 @@ struct Opts {
 async fn main() -> anyhow::Result<()> {
     let opts = Opts::parse();
     match opts.cmd {
-        Command::Crd => DruidCluster::print_yaml_schema(built_info::CARGO_PKG_VERSION)?,
+        Command::Crd => DruidCluster::print_yaml_schema()?,
         Command::Run(ProductOperatorRun {
             product_config,
             watch_namespace,
