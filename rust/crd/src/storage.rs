@@ -106,9 +106,13 @@ pub fn default_free_percentage_empty_dir_fragment() -> FreePercentageEmptyDirFra
     serde(rename_all = "camelCase")
 )]
 pub struct CapacityEmptyDir {
-    /// The size of the empty dir volume. 
+    /// The size of the empty dir volume.
     /// This size is also configured as the segment cache size in Druid
     /// (minus the freePercentage).
+    /// Specified as a [Quantity](https://kubernetes.io/docs/reference/kubernetes-api/common-definitions/quantity/),
+    /// which means these suffixes are supported: E, P, T, G, M, k.
+    /// You can also use the power-of-two equivalents: Ei, Pi, Ti, Gi, Mi, Ki.
+    /// For example, the following represent roughly the same value: 128974848, 129e6, 129M, 128974848000m, 123Mi
     #[fragment_attrs(serde(default))]
     pub capacity: Quantity,
     /// The `medium` field controls where the `emptyDir` is stored.
