@@ -956,10 +956,16 @@ pub struct DatabaseConnectionSpec {
     /// Note that a Derby database created locally in the container is not persisted!
     /// Derby is not suitable for production use.
     pub db_type: DbType,
+    /// The connect string for the database, for Postgres this could look like:
+    /// `jdbc:postgresql://postgresql-druid/druid`
     pub conn_string: String,
+    /// The host, i.e. `postgresql-druid`.
     pub host: String,
+    /// The port, i.e. 5432
     pub port: u16,
+    /// The username that should be used to access the database.
     pub user: Option<String>,
+    /// The password for the database user.
     pub password: Option<String>,
 }
 
