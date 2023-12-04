@@ -23,7 +23,7 @@ spec:
           description: Auto-generated derived type for DruidClusterSpec via `CustomResource`
           properties:
             spec:
-              description: A Druid cluster stacklet. This resource is managed by the Stackable operator for Apache Druid. Find more information on how to use it and the resources that the operator generates in the [operator documentation](DOCS_BASE_URL_PLACEHOLDER/druid/).
+              description: A Druid cluster stacklet. This resource is managed by the Stackable operator for Apache Druid. Find more information on how to use it and the resources that the operator generates in the [operator documentation](https://docs.stackable.tech/home/nightly/druid/).
               properties:
                 brokers:
                   description: Configuration of the broker role.
@@ -642,12 +642,7 @@ spec:
                           type: string
                         type: object
                       default: {}
-                      description: |-
-                        The `configOverrides` can be used to configure properties in product config files that are not exposed in the CRD. For example, for a HdfsCluster:
-
-                        ```yaml configOverrides: # on role level core-site.xml: # the name of the configuration file fs.trash.interval: "5"  # the name of the property and the value to set ```
-
-                        Read the [config overrides documentation](https://docs.stackable.tech/home/nightly/concepts/overrides#config-overrides) and consult the operator specific usage guide documentation for details on the available config files and settings for the specific product.
+                      description: The `configOverrides` can be used to configure properties in product config files that are not exposed in the CRD. Read the [config overrides documentation](https://docs.stackable.tech/home/nightly/concepts/overrides#config-overrides) and consult the operator specific usage guide documentation for details on the available config files and settings for the specific product.
                       type: object
                     envOverrides:
                       additionalProperties:
@@ -4100,12 +4095,7 @@ spec:
                                 type: string
                               type: object
                             default: {}
-                            description: |-
-                              The `configOverrides` can be used to configure properties in product config files that are not exposed in the CRD. For example, for a HdfsCluster:
-
-                              ```yaml configOverrides: # on role level core-site.xml: # the name of the configuration file fs.trash.interval: "5"  # the name of the property and the value to set ```
-
-                              Read the [config overrides documentation](https://docs.stackable.tech/home/nightly/concepts/overrides#config-overrides) and consult the operator specific usage guide documentation for details on the available config files and settings for the specific product.
+                            description: The `configOverrides` can be used to configure properties in product config files that are not exposed in the CRD. Read the [config overrides documentation](https://docs.stackable.tech/home/nightly/concepts/overrides#config-overrides) and consult the operator specific usage guide documentation for details on the available config files and settings for the specific product.
                             type: object
                           envOverrides:
                             additionalProperties:
@@ -6958,13 +6948,13 @@ spec:
                     authentication:
                       default: []
                       description: |-
-                        List of [AuthenticationClasses](DOCS_BASE_URL_PLACEHOLDER/concepts/authentication) to use for authenticating users. TLS and LDAP authentication are supported. More information in the [Druid operator security documentation](DOCS_BASE_URL_PLACEHOLDER/druid/usage-guide/security#_authentication).
+                        List of [AuthenticationClasses](https://docs.stackable.tech/home/nightly/concepts/authentication) to use for authenticating users. TLS and LDAP authentication are supported. More information in the [Druid operator security documentation](https://docs.stackable.tech/home/nightly/druid/usage-guide/security#_authentication).
 
                         For TLS: Please note that the SecretClass used to authenticate users needs to be the same as the SecretClass used for internal communication.
                       items:
                         properties:
                           authenticationClass:
-                            description: The name of an [AuthenticationClass](DOCS_BASE_URL_PLACEHOLDER/concepts/authentication) object.
+                            description: The name of an [AuthenticationClass](https://docs.stackable.tech/home/nightly/concepts/authentication) object.
                             type: string
                         required:
                           - authenticationClass
@@ -6975,7 +6965,7 @@ spec:
                       nullable: true
                       properties:
                         opa:
-                          description: Configure the OPA stacklet [discovery ConfigMap](DOCS_BASE_URL_PLACEHOLDER/concepts/service_discovery) and the name of the Rego package containing your Druid authorization rules. Consult the [OPA authorization documentation](DOCS_BASE_URL_PLACEHOLDER/concepts/opa) to learn how to deploy Rego authorization rules with OPA. Read the [Druid operator security documentation](DOCS_BASE_URL_PLACEHOLDER/druid/usage-guide/security) for more information on how to write rules specifically for Druid.
+                          description: Configure the OPA stacklet [discovery ConfigMap](https://docs.stackable.tech/home/nightly/concepts/service_discovery) and the name of the Rego package containing your Druid authorization rules. Consult the [OPA authorization documentation](https://docs.stackable.tech/home/nightly/concepts/opa) to learn how to deploy Rego authorization rules with OPA. Read the [Druid operator security documentation](https://docs.stackable.tech/home/nightly/druid/usage-guide/security) for more information on how to write rules specifically for Druid.
                           properties:
                             configMapName:
                               description: The [discovery ConfigMap](https://docs.stackable.tech/home/nightly/concepts/service_discovery) for the OPA stacklet that should be used for authorization requests.
@@ -6991,7 +6981,7 @@ spec:
                         - opa
                       type: object
                     deepStorage:
-                      description: '[Druid deep storage configuration](DOCS_BASE_URL_PLACEHOLDER/druid/usage-guide/deep-storage). Only one backend can be used at a time. Either HDFS or S3 are supported.'
+                      description: '[Druid deep storage configuration](https://docs.stackable.tech/home/nightly/druid/usage-guide/deep-storage). Only one backend can be used at a time. Either HDFS or S3 are supported.'
                       oneOf:
                         - required:
                             - hdfs
@@ -6999,10 +6989,10 @@ spec:
                             - s3
                       properties:
                         hdfs:
-                          description: '[The HDFS deep storage configuration](DOCS_BASE_URL_PLACEHOLDER/druid/usage-guide/deep-storage#_hdfs). You can run an HDFS cluster with the [Stackable operator for Apache HDFS](DOCS_BASE_URL_PLACEHOLDER/hdfs/).'
+                          description: '[The HDFS deep storage configuration](https://docs.stackable.tech/home/nightly/druid/usage-guide/deep-storage#_hdfs). You can run an HDFS cluster with the [Stackable operator for Apache HDFS](https://docs.stackable.tech/home/nightly/hdfs/).'
                           properties:
                             configMapName:
-                              description: The [discovery ConfigMap](DOCS_BASE_URL_PLACEHOLDER/concepts/service_discovery) for the HDFS instance. When running an HDFS cluster with the Stackable operator, the operator will create this ConfigMap for you. It has the same name as your HDFSCluster resource.
+                              description: The [discovery ConfigMap](https://docs.stackable.tech/home/nightly/concepts/service_discovery) for the HDFS instance. When running an HDFS cluster with the Stackable operator, the operator will create this ConfigMap for you. It has the same name as your HDFSCluster resource.
                               type: string
                             directory:
                               description: The directory inside of HDFS where Druid should store its data.
@@ -7012,14 +7002,14 @@ spec:
                             - directory
                           type: object
                         s3:
-                          description: '[The S3 deep storage configuration](DOCS_BASE_URL_PLACEHOLDER/druid/usage-guide/deep-storage#_s3).'
+                          description: '[The S3 deep storage configuration](https://docs.stackable.tech/home/nightly/druid/usage-guide/deep-storage#_s3).'
                           properties:
                             baseKey:
                               description: The `baseKey` is similar to the `directory` in HDFS; it is the root key at which Druid will create its deep storage. If no `baseKey` is given, the bucket root will be used.
                               nullable: true
                               type: string
                             bucket:
-                              description: The S3 bucket to use for deep storage. Can either be defined inline or as a reference, read the [S3 bucket docs](DOCS_BASE_URL_PLACEHOLDER/concepts/s3) to learn more.
+                              description: The S3 bucket to use for deep storage. Can either be defined inline or as a reference, read the [S3 bucket docs](https://docs.stackable.tech/home/nightly/concepts/s3) to learn more.
                               oneOf:
                                 - required:
                                     - inline
@@ -8223,7 +8213,7 @@ spec:
                       nullable: true
                       properties:
                         s3connection:
-                          description: Druid supports ingesting data from S3 buckets where the bucket name is specified in the ingestion task. However, the S3 connection has to be specified in advance and only a single S3 connection is supported. S3 connections can either be specified `inline` or as a `reference`. Read the [S3 resource concept docs](DOCS_BASE_URL_PLACEHOLDER/concepts/s3) to learn more.
+                          description: Druid supports ingesting data from S3 buckets where the bucket name is specified in the ingestion task. However, the S3 connection has to be specified in advance and only a single S3 connection is supported. S3 connections can either be specified `inline` or as a `reference`. Read the [S3 resource concept docs](https://docs.stackable.tech/home/nightly/concepts/s3) to learn more.
                           nullable: true
                           oneOf:
                             - required:
@@ -8330,7 +8320,7 @@ spec:
 
                         * `cluster-internal`: Use a ClusterIP service * `external-unstable`: Use a NodePort service * `external-stable`: Use a LoadBalancer service
 
-                        This is a temporary solution with the goal to keep yaml manifests forward compatible. In the future, this setting will control which [ListenerClass](DOCS_BASE_URL_PLACEHOLDER/listener-operator/listenerclass.html) will be used to expose the service, and ListenerClass names will stay the same, allowing for a non-breaking change.
+                        This is a temporary solution with the goal to keep yaml manifests forward compatible. In the future, this setting will control which [ListenerClass](https://docs.stackable.tech/home/nightly/listener-operator/listenerclass.html) will be used to expose the service, and ListenerClass names will stay the same, allowing for a non-breaking change.
                       enum:
                         - cluster-internal
                         - external-unstable
@@ -8369,7 +8359,7 @@ spec:
                     tls:
                       default:
                         serverAndInternalSecretClass: tls
-                      description: TLS encryption settings for Druid, more information in the [security documentation](DOCS_BASE_URL_PLACEHOLDER/druid/usage-guide/security). This setting only affects server and internal communication. It does not affect client tls authentication, use `clusterConfig.authentication` instead.
+                      description: TLS encryption settings for Druid, more information in the [security documentation](https://docs.stackable.tech/home/nightly/druid/usage-guide/security). This setting only affects server and internal communication. It does not affect client tls authentication, use `clusterConfig.authentication` instead.
                       nullable: true
                       properties:
                         serverAndInternalSecretClass:
@@ -8379,11 +8369,11 @@ spec:
                           type: string
                       type: object
                     vectorAggregatorConfigMapName:
-                      description: Name of the Vector aggregator [discovery ConfigMap](DOCS_BASE_URL_PLACEHOLDER/concepts/service_discovery). It must contain the key `ADDRESS` with the address of the Vector aggregator. Follow the [logging tutorial](DOCS_BASE_URL_PLACEHOLDER/tutorials/logging-vector-aggregator) to learn how to configure log aggregation with Vector.
+                      description: Name of the Vector aggregator [discovery ConfigMap](https://docs.stackable.tech/home/nightly/concepts/service_discovery). It must contain the key `ADDRESS` with the address of the Vector aggregator. Follow the [logging tutorial](https://docs.stackable.tech/home/nightly/tutorials/logging-vector-aggregator) to learn how to configure log aggregation with Vector.
                       nullable: true
                       type: string
                     zookeeperConfigMapName:
-                      description: Druid requires a ZooKeeper cluster connection to run. Provide the name of the ZooKeeper [discovery ConfigMap](DOCS_BASE_URL_PLACEHOLDER/concepts/service_discovery) here. When using the [Stackable operator for Apache ZooKeeper](DOCS_BASE_URL_PLACEHOLDER/zookeeper/) to deploy a ZooKeeper cluster, this will simply be the name of your ZookeeperCluster resource.
+                      description: Druid requires a ZooKeeper cluster connection to run. Provide the name of the ZooKeeper [discovery ConfigMap](https://docs.stackable.tech/home/nightly/concepts/service_discovery) here. When using the [Stackable operator for Apache ZooKeeper](https://docs.stackable.tech/home/nightly/zookeeper/) to deploy a ZooKeeper cluster, this will simply be the name of your ZookeeperCluster resource.
                       type: string
                   required:
                     - deepStorage
@@ -9022,12 +9012,7 @@ spec:
                           type: string
                         type: object
                       default: {}
-                      description: |-
-                        The `configOverrides` can be used to configure properties in product config files that are not exposed in the CRD. For example, for a HdfsCluster:
-
-                        ```yaml configOverrides: # on role level core-site.xml: # the name of the configuration file fs.trash.interval: "5"  # the name of the property and the value to set ```
-
-                        Read the [config overrides documentation](https://docs.stackable.tech/home/nightly/concepts/overrides#config-overrides) and consult the operator specific usage guide documentation for details on the available config files and settings for the specific product.
+                      description: The `configOverrides` can be used to configure properties in product config files that are not exposed in the CRD. Read the [config overrides documentation](https://docs.stackable.tech/home/nightly/concepts/overrides#config-overrides) and consult the operator specific usage guide documentation for details on the available config files and settings for the specific product.
                       type: object
                     envOverrides:
                       additionalProperties:
@@ -12480,12 +12465,7 @@ spec:
                                 type: string
                               type: object
                             default: {}
-                            description: |-
-                              The `configOverrides` can be used to configure properties in product config files that are not exposed in the CRD. For example, for a HdfsCluster:
-
-                              ```yaml configOverrides: # on role level core-site.xml: # the name of the configuration file fs.trash.interval: "5"  # the name of the property and the value to set ```
-
-                              Read the [config overrides documentation](https://docs.stackable.tech/home/nightly/concepts/overrides#config-overrides) and consult the operator specific usage guide documentation for details on the available config files and settings for the specific product.
+                            description: The `configOverrides` can be used to configure properties in product config files that are not exposed in the CRD. Read the [config overrides documentation](https://docs.stackable.tech/home/nightly/concepts/overrides#config-overrides) and consult the operator specific usage guide documentation for details on the available config files and settings for the specific product.
                             type: object
                           envOverrides:
                             additionalProperties:
@@ -15942,7 +15922,7 @@ spec:
                                   type: object
                               type: object
                             storage:
-                              description: The storage settings for the Historical process. Read more in the [storage and resource documentation](DOCS_BASE_URL_PLACEHOLDER/druid/usage-guide/resources-and-storage#_historical_resources).
+                              description: The storage settings for the Historical process. Read more in the [storage and resource documentation](https://docs.stackable.tech/home/nightly/druid/usage-guide/resources-and-storage#_historical_resources).
                               properties:
                                 segmentCache:
                                   default:
@@ -15956,7 +15936,7 @@ spec:
                                       description: Configuration settings for the empty dir volume where the cache is located.
                                       properties:
                                         capacity:
-                                          description: The size of the empty dir volume. This size is also configured as the segment cache size in Druid (minus the freePercentage).
+                                          description: 'The size of the empty dir volume. This size is also configured as the segment cache size in Druid (minus the freePercentage). Specified as a [Quantity](https://kubernetes.io/docs/reference/kubernetes-api/common-definitions/quantity/), which means these suffixes are supported: E, P, T, G, M, k. You can also use the power-of-two equivalents: Ei, Pi, Ti, Gi, Mi, Ki. For example, the following represent roughly the same value: 128974848, 129e6, 129M, 128974848000m, 123Mi'
                                           nullable: true
                                           type: string
                                         medium:
@@ -15980,12 +15960,7 @@ spec:
                           type: string
                         type: object
                       default: {}
-                      description: |-
-                        The `configOverrides` can be used to configure properties in product config files that are not exposed in the CRD. For example, for a HdfsCluster:
-
-                        ```yaml configOverrides: # on role level core-site.xml: # the name of the configuration file fs.trash.interval: "5"  # the name of the property and the value to set ```
-
-                        Read the [config overrides documentation](https://docs.stackable.tech/home/nightly/concepts/overrides#config-overrides) and consult the operator specific usage guide documentation for details on the available config files and settings for the specific product.
+                      description: The `configOverrides` can be used to configure properties in product config files that are not exposed in the CRD. Read the [config overrides documentation](https://docs.stackable.tech/home/nightly/concepts/overrides#config-overrides) and consult the operator specific usage guide documentation for details on the available config files and settings for the specific product.
                       type: object
                     envOverrides:
                       additionalProperties:
@@ -19431,7 +19406,7 @@ spec:
                                         type: object
                                     type: object
                                   storage:
-                                    description: The storage settings for the Historical process. Read more in the [storage and resource documentation](DOCS_BASE_URL_PLACEHOLDER/druid/usage-guide/resources-and-storage#_historical_resources).
+                                    description: The storage settings for the Historical process. Read more in the [storage and resource documentation](https://docs.stackable.tech/home/nightly/druid/usage-guide/resources-and-storage#_historical_resources).
                                     properties:
                                       segmentCache:
                                         default:
@@ -19445,7 +19420,7 @@ spec:
                                             description: Configuration settings for the empty dir volume where the cache is located.
                                             properties:
                                               capacity:
-                                                description: The size of the empty dir volume. This size is also configured as the segment cache size in Druid (minus the freePercentage).
+                                                description: 'The size of the empty dir volume. This size is also configured as the segment cache size in Druid (minus the freePercentage). Specified as a [Quantity](https://kubernetes.io/docs/reference/kubernetes-api/common-definitions/quantity/), which means these suffixes are supported: E, P, T, G, M, k. You can also use the power-of-two equivalents: Ei, Pi, Ti, Gi, Mi, Ki. For example, the following represent roughly the same value: 128974848, 129e6, 129M, 128974848000m, 123Mi'
                                                 nullable: true
                                                 type: string
                                               medium:
@@ -19469,12 +19444,7 @@ spec:
                                 type: string
                               type: object
                             default: {}
-                            description: |-
-                              The `configOverrides` can be used to configure properties in product config files that are not exposed in the CRD. For example, for a HdfsCluster:
-
-                              ```yaml configOverrides: # on role level core-site.xml: # the name of the configuration file fs.trash.interval: "5"  # the name of the property and the value to set ```
-
-                              Read the [config overrides documentation](https://docs.stackable.tech/home/nightly/concepts/overrides#config-overrides) and consult the operator specific usage guide documentation for details on the available config files and settings for the specific product.
+                            description: The `configOverrides` can be used to configure properties in product config files that are not exposed in the CRD. Read the [config overrides documentation](https://docs.stackable.tech/home/nightly/concepts/overrides#config-overrides) and consult the operator specific usage guide documentation for details on the available config files and settings for the specific product.
                             type: object
                           envOverrides:
                             additionalProperties:
@@ -22328,7 +22298,7 @@ spec:
                         - productVersion
                     - required:
                         - productVersion
-                  description: Specify which image to use, the easiest way is to only configure the `productVersion`, it needs to be one of the [supported versions](DOCS_BASE_URL_PLACEHOLDER/druid/#_supported_versions). You can also configure a custom image registry to pull from, as well as completely custom images. Consult the [Product image selection documentation](DOCS_BASE_URL_PLACEHOLDER/concepts/product_image_selection) for details.
+                  description: Specify which image to use, the easiest way is to only configure the `productVersion`, it needs to be one of the [supported versions](https://docs.stackable.tech/home/nightly/druid/#_supported_versions). You can also configure a custom image registry to pull from, as well as completely custom images. Consult the [Product image selection documentation](https://docs.stackable.tech/home/nightly/concepts/product_image_selection) for details.
                   properties:
                     custom:
                       description: Overwrite the docker image. Specify the full docker image name, e.g. `docker.stackable.tech/stackable/superset:1.4.1-stackable2.1.0`
@@ -22981,12 +22951,7 @@ spec:
                           type: string
                         type: object
                       default: {}
-                      description: |-
-                        The `configOverrides` can be used to configure properties in product config files that are not exposed in the CRD. For example, for a HdfsCluster:
-
-                        ```yaml configOverrides: # on role level core-site.xml: # the name of the configuration file fs.trash.interval: "5"  # the name of the property and the value to set ```
-
-                        Read the [config overrides documentation](https://docs.stackable.tech/home/nightly/concepts/overrides#config-overrides) and consult the operator specific usage guide documentation for details on the available config files and settings for the specific product.
+                      description: The `configOverrides` can be used to configure properties in product config files that are not exposed in the CRD. Read the [config overrides documentation](https://docs.stackable.tech/home/nightly/concepts/overrides#config-overrides) and consult the operator specific usage guide documentation for details on the available config files and settings for the specific product.
                       type: object
                     envOverrides:
                       additionalProperties:
@@ -26439,12 +26404,7 @@ spec:
                                 type: string
                               type: object
                             default: {}
-                            description: |-
-                              The `configOverrides` can be used to configure properties in product config files that are not exposed in the CRD. For example, for a HdfsCluster:
-
-                              ```yaml configOverrides: # on role level core-site.xml: # the name of the configuration file fs.trash.interval: "5"  # the name of the property and the value to set ```
-
-                              Read the [config overrides documentation](https://docs.stackable.tech/home/nightly/concepts/overrides#config-overrides) and consult the operator specific usage guide documentation for details on the available config files and settings for the specific product.
+                            description: The `configOverrides` can be used to configure properties in product config files that are not exposed in the CRD. Read the [config overrides documentation](https://docs.stackable.tech/home/nightly/concepts/overrides#config-overrides) and consult the operator specific usage guide documentation for details on the available config files and settings for the specific product.
                             type: object
                           envOverrides:
                             additionalProperties:
@@ -29908,12 +29868,7 @@ spec:
                           type: string
                         type: object
                       default: {}
-                      description: |-
-                        The `configOverrides` can be used to configure properties in product config files that are not exposed in the CRD. For example, for a HdfsCluster:
-
-                        ```yaml configOverrides: # on role level core-site.xml: # the name of the configuration file fs.trash.interval: "5"  # the name of the property and the value to set ```
-
-                        Read the [config overrides documentation](https://docs.stackable.tech/home/nightly/concepts/overrides#config-overrides) and consult the operator specific usage guide documentation for details on the available config files and settings for the specific product.
+                      description: The `configOverrides` can be used to configure properties in product config files that are not exposed in the CRD. Read the [config overrides documentation](https://docs.stackable.tech/home/nightly/concepts/overrides#config-overrides) and consult the operator specific usage guide documentation for details on the available config files and settings for the specific product.
                       type: object
                     envOverrides:
                       additionalProperties:
@@ -33366,12 +33321,7 @@ spec:
                                 type: string
                               type: object
                             default: {}
-                            description: |-
-                              The `configOverrides` can be used to configure properties in product config files that are not exposed in the CRD. For example, for a HdfsCluster:
-
-                              ```yaml configOverrides: # on role level core-site.xml: # the name of the configuration file fs.trash.interval: "5"  # the name of the property and the value to set ```
-
-                              Read the [config overrides documentation](https://docs.stackable.tech/home/nightly/concepts/overrides#config-overrides) and consult the operator specific usage guide documentation for details on the available config files and settings for the specific product.
+                            description: The `configOverrides` can be used to configure properties in product config files that are not exposed in the CRD. Read the [config overrides documentation](https://docs.stackable.tech/home/nightly/concepts/overrides#config-overrides) and consult the operator specific usage guide documentation for details on the available config files and settings for the specific product.
                             type: object
                           envOverrides:
                             additionalProperties:
