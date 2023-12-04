@@ -8330,6 +8330,7 @@ spec:
                       description: Druid requires an SQL database to store metadata into. Specify connection information here.
                       properties:
                         connString:
+                          description: 'The connect string for the database, for Postgres this could look like: `jdbc:postgresql://postgresql-druid/druid`'
                           type: string
                         dbType:
                           description: 'The database type. Supported values are: `derby`, `mysql` and `postgres`. Note that a Derby database created locally in the container is not persisted! Derby is not suitable for production use.'
@@ -8339,15 +8340,19 @@ spec:
                             - postgresql
                           type: string
                         host:
+                          description: The host, i.e. `postgresql-druid`.
                           type: string
                         password:
+                          description: The password for the database user.
                           nullable: true
                           type: string
                         port:
+                          description: The port, i.e. 5432
                           format: uint16
                           minimum: 0.0
                           type: integer
                         user:
+                          description: The username that should be used to access the database.
                           nullable: true
                           type: string
                       required:
