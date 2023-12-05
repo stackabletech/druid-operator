@@ -509,7 +509,7 @@ spec:
                               type: object
                           type: object
                         gracefulShutdownTimeout:
-                          description: TODO Time period Pods have to gracefully shut down, e.g. `30m`, `1h` or `2d`. Consult the operator documentation for details.
+                          description: The time period Pods have to gracefully shut down, e.g. `30m`, `1h` or `2d`. Read more about graceful shutdown in the [graceful shutdown documentation](https://docs.stackable.tech/home/nightly/druid/usage-guide/operations/graceful-shutdown).
                           nullable: true
                           type: string
                         logging:
@@ -3962,7 +3962,7 @@ spec:
                                     type: object
                                 type: object
                               gracefulShutdownTimeout:
-                                description: TODO Time period Pods have to gracefully shut down, e.g. `30m`, `1h` or `2d`. Consult the operator documentation for details.
+                                description: The time period Pods have to gracefully shut down, e.g. `30m`, `1h` or `2d`. Read more about graceful shutdown in the [graceful shutdown documentation](https://docs.stackable.tech/home/nightly/druid/usage-guide/operations/graceful-shutdown).
                                 nullable: true
                                 type: string
                               logging:
@@ -8884,7 +8884,7 @@ spec:
                               type: object
                           type: object
                         gracefulShutdownTimeout:
-                          description: Time period Pods have to gracefully shut down, e.g. `30m`, `1h` or `2d`. Consult the operator documentation for details.
+                          description: The time period Pods have to gracefully shut down, e.g. `30m`, `1h` or `2d`. Read more about graceful shutdown in the [graceful shutdown documentation](https://docs.stackable.tech/home/nightly/druid/usage-guide/operations/graceful-shutdown).
                           nullable: true
                           type: string
                         logging:
@@ -12337,7 +12337,7 @@ spec:
                                     type: object
                                 type: object
                               gracefulShutdownTimeout:
-                                description: Time period Pods have to gracefully shut down, e.g. `30m`, `1h` or `2d`. Consult the operator documentation for details.
+                                description: The time period Pods have to gracefully shut down, e.g. `30m`, `1h` or `2d`. Read more about graceful shutdown in the [graceful shutdown documentation](https://docs.stackable.tech/home/nightly/druid/usage-guide/operations/graceful-shutdown).
                                 nullable: true
                                 type: string
                               logging:
@@ -15801,7 +15801,7 @@ spec:
                               type: object
                           type: object
                         gracefulShutdownTimeout:
-                          description: Time period Pods have to gracefully shut down, e.g. `30m`, `1h` or `2d`. Consult the operator documentation for details.
+                          description: The time period Pods have to gracefully shut down, e.g. `30m`, `1h` or `2d`. Read more about graceful shutdown in the [graceful shutdown documentation](https://docs.stackable.tech/home/nightly/druid/usage-guide/operations/graceful-shutdown).
                           nullable: true
                           type: string
                         logging:
@@ -19285,7 +19285,7 @@ spec:
                                     type: object
                                 type: object
                               gracefulShutdownTimeout:
-                                description: Time period Pods have to gracefully shut down, e.g. `30m`, `1h` or `2d`. Consult the operator documentation for details.
+                                description: The time period Pods have to gracefully shut down, e.g. `30m`, `1h` or `2d`. Read more about graceful shutdown in the [graceful shutdown documentation](https://docs.stackable.tech/home/nightly/druid/usage-guide/operations/graceful-shutdown).
                                 nullable: true
                                 type: string
                               logging:
@@ -22823,7 +22823,7 @@ spec:
                               type: object
                           type: object
                         gracefulShutdownTimeout:
-                          description: Time period Pods have to gracefully shut down, e.g. `30m`, `1h` or `2d`. Consult the operator documentation for details.
+                          description: The time period Pods have to gracefully shut down, e.g. `30m`, `1h` or `2d`. Read more about graceful shutdown in the [graceful shutdown documentation](https://docs.stackable.tech/home/nightly/druid/usage-guide/operations/graceful-shutdown).
                           nullable: true
                           type: string
                         logging:
@@ -26276,7 +26276,7 @@ spec:
                                     type: object
                                 type: object
                               gracefulShutdownTimeout:
-                                description: Time period Pods have to gracefully shut down, e.g. `30m`, `1h` or `2d`. Consult the operator documentation for details.
+                                description: The time period Pods have to gracefully shut down, e.g. `30m`, `1h` or `2d`. Read more about graceful shutdown in the [graceful shutdown documentation](https://docs.stackable.tech/home/nightly/druid/usage-guide/operations/graceful-shutdown).
                                 nullable: true
                                 type: string
                               logging:
@@ -29740,7 +29740,7 @@ spec:
                               type: object
                           type: object
                         gracefulShutdownTimeout:
-                          description: Time period Pods have to gracefully shut down, e.g. `30m`, `1h` or `2d`. Consult the operator documentation for details.
+                          description: The time period Pods have to gracefully shut down, e.g. `30m`, `1h` or `2d`. Read more about graceful shutdown in the [graceful shutdown documentation](https://docs.stackable.tech/home/nightly/druid/usage-guide/operations/graceful-shutdown).
                           nullable: true
                           type: string
                         logging:
@@ -33193,7 +33193,7 @@ spec:
                                     type: object
                                 type: object
                               gracefulShutdownTimeout:
-                                description: Time period Pods have to gracefully shut down, e.g. `30m`, `1h` or `2d`. Consult the operator documentation for details.
+                                description: The time period Pods have to gracefully shut down, e.g. `30m`, `1h` or `2d`. Read more about graceful shutdown in the [graceful shutdown documentation](https://docs.stackable.tech/home/nightly/druid/usage-guide/operations/graceful-shutdown).
                                 nullable: true
                                 type: string
                               logging:
