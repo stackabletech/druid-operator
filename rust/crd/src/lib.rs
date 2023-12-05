@@ -1060,16 +1060,15 @@ pub struct IngestionSpec {
     serde(rename_all = "camelCase")
 )]
 pub struct BrokerConfig {
-    ///
     #[fragment_attrs(serde(default))]
     resources: Resources<storage::DruidStorage, NoRuntimeLimits>,
-    ///
     #[fragment_attrs(serde(default))]
     pub logging: Logging<Container>,
-    ///
     #[fragment_attrs(serde(default))]
     pub affinity: StackableAffinity,
-    /// TODO Time period Pods have to gracefully shut down, e.g. `30m`, `1h` or `2d`. Consult the operator documentation for details.
+    /// The time period Pods have to gracefully shut down, e.g. `30m`, `1h` or `2d`.
+    /// Read more about graceful shutdown in the
+    /// [graceful shutdown documentation](DOCS_BASE_URL_PLACEHOLDER/druid/usage-guide/operations/graceful-shutdown).
     #[fragment_attrs(serde(default))]
     pub graceful_shutdown_timeout: Option<Duration>,
 }
@@ -1110,7 +1109,9 @@ pub struct CoordinatorConfig {
     pub logging: Logging<Container>,
     #[fragment_attrs(serde(default))]
     pub affinity: StackableAffinity,
-    /// Time period Pods have to gracefully shut down, e.g. `30m`, `1h` or `2d`. Consult the operator documentation for details.
+    /// The time period Pods have to gracefully shut down, e.g. `30m`, `1h` or `2d`.
+    /// Read more about graceful shutdown in the
+    /// [graceful shutdown documentation](DOCS_BASE_URL_PLACEHOLDER/druid/usage-guide/operations/graceful-shutdown).
     #[fragment_attrs(serde(default))]
     pub graceful_shutdown_timeout: Option<Duration>,
 }
@@ -1151,7 +1152,9 @@ pub struct MiddleManagerConfig {
     pub logging: Logging<Container>,
     #[fragment_attrs(serde(default))]
     pub affinity: StackableAffinity,
-    /// Time period Pods have to gracefully shut down, e.g. `30m`, `1h` or `2d`. Consult the operator documentation for details.
+    /// The time period Pods have to gracefully shut down, e.g. `30m`, `1h` or `2d`.
+    /// Read more about graceful shutdown in the
+    /// [graceful shutdown documentation](DOCS_BASE_URL_PLACEHOLDER/druid/usage-guide/operations/graceful-shutdown).
     #[fragment_attrs(serde(default))]
     pub graceful_shutdown_timeout: Option<Duration>,
 }
@@ -1192,7 +1195,9 @@ pub struct RouterConfig {
     pub logging: Logging<Container>,
     #[fragment_attrs(serde(default))]
     pub affinity: StackableAffinity,
-    /// Time period Pods have to gracefully shut down, e.g. `30m`, `1h` or `2d`. Consult the operator documentation for details.
+    /// The time period Pods have to gracefully shut down, e.g. `30m`, `1h` or `2d`.
+    /// Read more about graceful shutdown in the
+    /// [graceful shutdown documentation](DOCS_BASE_URL_PLACEHOLDER/druid/usage-guide/operations/graceful-shutdown).
     #[fragment_attrs(serde(default))]
     pub graceful_shutdown_timeout: Option<Duration>,
 }
@@ -1233,7 +1238,9 @@ pub struct HistoricalConfig {
     pub logging: Logging<Container>,
     #[fragment_attrs(serde(default))]
     pub affinity: StackableAffinity,
-    /// Time period Pods have to gracefully shut down, e.g. `30m`, `1h` or `2d`. Consult the operator documentation for details.
+    /// The time period Pods have to gracefully shut down, e.g. `30m`, `1h` or `2d`.
+    /// Read more about graceful shutdown in the
+    /// [graceful shutdown documentation](DOCS_BASE_URL_PLACEHOLDER/druid/usage-guide/operations/graceful-shutdown).
     #[fragment_attrs(serde(default))]
     pub graceful_shutdown_timeout: Option<Duration>,
 }
