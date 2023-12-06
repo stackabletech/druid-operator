@@ -6954,7 +6954,7 @@ spec:
                       items:
                         properties:
                           authenticationClass:
-                            description: The name of an [AuthenticationClass](https://docs.stackable.tech/home/nightly/concepts/authentication) object.
+                            description: 'The name of an [AuthenticationClass](https://docs.stackable.tech/home/nightly/concepts/authentication) object. When using TLS authentication, the `clientCertSecretClass` must be identical to the `serverAndInternalSecretClass` in the `clusterConfig.tls` settings of Druid. This is a limitation of Druid: Only one CA certificate can be used for both internal authentication between processes as well as authentication of users.'
                             type: string
                         required:
                           - authenticationClass
