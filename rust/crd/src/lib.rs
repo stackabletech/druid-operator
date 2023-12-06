@@ -169,6 +169,9 @@ pub enum Error {
     FragmentValidationFailure { source: ValidationError },
 }
 
+/// A Druid cluster stacklet. This resource is managed by the Stackable operator for Apache Druid.
+/// Find more information on how to use it and the resources that the operator generates in the
+/// [operator documentation](DOCS_BASE_URL_PLACEHOLDER/druid/).
 #[derive(Clone, CustomResource, Debug, Deserialize, JsonSchema, Serialize)]
 #[kube(
     group = "druid.stackable.tech",
@@ -186,19 +189,24 @@ pub enum Error {
 )]
 #[serde(rename_all = "camelCase")]
 pub struct DruidClusterSpec {
-    /// The Druid image to use
+    /// Specify which image to use, the easiest way is to only configure the `productVersion`,
+    /// it needs to be one of the [supported versions](DOCS_BASE_URL_PLACEHOLDER/druid/#_supported_versions).
+    /// You can also configure a custom image registry to pull from, as well as completely custom
+    /// images. Consult the
+    /// [Product image selection documentation](DOCS_BASE_URL_PLACEHOLDER/concepts/product_image_selection)
+    /// for details.
     pub image: ProductImage,
-    /// Configuration of the broker role
+    /// Configuration of the broker role.
     pub brokers: Role<BrokerConfigFragment>,
-    /// Configuration of the coordinator role
+    /// Configuration of the coordinator role.
     pub coordinators: Role<CoordinatorConfigFragment>,
-    /// Configuration of the historical role
+    /// Configuration of the historical role.
     pub historicals: Role<HistoricalConfigFragment>,
-    /// Configuration of the middle managed role
+    /// Configuration of the middle managed role.
     pub middle_managers: Role<MiddleManagerConfigFragment>,
-    /// Configuration of the router role
+    /// Configuration of the router role.
     pub routers: Role<RouterConfigFragment>,
-    /// Common cluster wide configuration that can not differ or be overridden on a role or role group level
+    /// Common cluster wide configuration that can not differ or be overridden on a role or role group level.
     pub cluster_config: DruidClusterConfig,
     /// Cluster operations like pause reconciliation or cluster stop.
     #[serde(default)]
@@ -229,28 +237,40 @@ pub enum Container {
 #[derive(Clone, Debug, Deserialize, JsonSchema, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DruidClusterConfig {
-    /// List of Authentication classes using like TLS or LDAP to authenticate users
+    /// List of [AuthenticationClasses](DOCS_BASE_URL_PLACEHOLDER/concepts/authentication)
+    /// to use for authenticating users. TLS and LDAP authentication are supported. More information in
+    /// the [Druid operator security documentation](DOCS_BASE_URL_PLACEHOLDER/druid/usage-guide/security#_authentication).
+    ///
+    /// For TLS: Please note that the SecretClass used to authenticate users needs to be the same
+    /// as the SecretClass used for internal communication.
     #[serde(default)]
     pub authentication: Vec<DruidAuthentication>,
     /// Authorization settings for Druid like OPA
     #[serde(skip_serializing_if = "Option::is_none")]
     pub authorization: Option<DruidAuthorization>,
-    /// Deep storage settings for Druid like S3 or HDFS
+    /// [Druid deep storage configuration](DOCS_BASE_URL_PLACEHOLDER/druid/usage-guide/deep-storage).
+    /// Only one backend can be used at a time. Either HDFS or S3 are supported.
     pub deep_storage: DeepStorageSpec,
-    /// Ingestion settings for Druid like S3
+    /// Configuration properties for data ingestion tasks.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub ingestion: Option<IngestionSpec>,
-    /// Meta storage database like Derby or PostgreSQL
+    /// Druid requires an SQL database to store metadata into. Specify connection information here.
     pub metadata_storage_database: DatabaseConnectionSpec,
-    /// TLS encryption settings for Druid.
+    /// TLS encryption settings for Druid, more information in the
+    /// [security documentation](DOCS_BASE_URL_PLACEHOLDER/druid/usage-guide/security).
     /// This setting only affects server and internal communication.
     /// It does not affect client tls authentication, use `clusterConfig.authentication` instead.
     #[serde(default = "default_druid_tls", skip_serializing_if = "Option::is_none")]
     pub tls: Option<DruidTls>,
-    /// ZooKeeper discovery ConfigMap
+    /// Druid requires a ZooKeeper cluster connection to run.
+    /// Provide the name of the ZooKeeper [discovery ConfigMap](DOCS_BASE_URL_PLACEHOLDER/concepts/service_discovery)
+    /// here. When using the [Stackable operator for Apache ZooKeeper](DOCS_BASE_URL_PLACEHOLDER/zookeeper/)
+    /// to deploy a ZooKeeper cluster, this will simply be the name of your ZookeeperCluster resource.
     pub zookeeper_config_map_name: String,
-    /// Name of the Vector aggregator discovery ConfigMap.
+    /// Name of the Vector aggregator [discovery ConfigMap](DOCS_BASE_URL_PLACEHOLDER/concepts/service_discovery).
     /// It must contain the key `ADDRESS` with the address of the Vector aggregator.
+    /// Follow the [logging tutorial](DOCS_BASE_URL_PLACEHOLDER/tutorials/logging-vector-aggregator)
+    /// to learn how to configure log aggregation with Vector.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub vector_aggregator_config_map_name: Option<String>,
     /// Extra volumes to mount into every container, this can be useful to for example make client
@@ -260,14 +280,13 @@ pub struct DruidClusterConfig {
     pub extra_volumes: Vec<Volume>,
     /// This field controls which type of Service the Operator creates for this DruidCluster:
     ///
-    /// * cluster-internal: Use a ClusterIP service
-    ///
-    /// * external-unstable: Use a NodePort service
-    ///
-    /// * external-stable: Use a LoadBalancer service
+    /// * `cluster-internal`: Use a ClusterIP service
+    /// * `external-unstable`: Use a NodePort service
+    /// * `external-stable`: Use a LoadBalancer service
     ///
     /// This is a temporary solution with the goal to keep yaml manifests forward compatible.
-    /// In the future, this setting will control which ListenerClass <https://docs.stackable.tech/home/stable/listener-operator/listenerclass.html>
+    /// In the future, this setting will control which
+    /// [ListenerClass](DOCS_BASE_URL_PLACEHOLDER/listener-operator/listenerclass.html)
     /// will be used to expose the service, and ListenerClass names will stay the same, allowing for a non-breaking change.
     #[serde(default)]
     pub listener_class: CurrentlySupportedListenerClasses,
@@ -933,11 +952,20 @@ impl DruidCluster {
 #[derive(Clone, Debug, Default, Deserialize, JsonSchema, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DatabaseConnectionSpec {
+    /// The database type. Supported values are: `derby`, `mysql` and `postgres`.
+    /// Note that a Derby database created locally in the container is not persisted!
+    /// Derby is not suitable for production use.
     pub db_type: DbType,
+    /// The connect string for the database, for Postgres this could look like:
+    /// `jdbc:postgresql://postgresql-druid/druid`
     pub conn_string: String,
+    /// The host, i.e. `postgresql-druid`.
     pub host: String,
+    /// The port, i.e. 5432
     pub port: u16,
+    /// The username that should be used to access the database.
     pub user: Option<String>,
+    /// The password for the database user.
     pub password: Option<String>,
 }
 
@@ -965,9 +993,12 @@ impl Default for DbType {
 #[derive(Clone, Debug, Deserialize, JsonSchema, PartialEq, Eq, Serialize, Display)]
 #[serde(rename_all = "camelCase")]
 pub enum DeepStorageSpec {
+    /// [The HDFS deep storage configuration](DOCS_BASE_URL_PLACEHOLDER/druid/usage-guide/deep-storage#_hdfs).
+    /// You can run an HDFS cluster with the [Stackable operator for Apache HDFS](DOCS_BASE_URL_PLACEHOLDER/hdfs/).
     #[serde(rename = "hdfs")]
     #[strum(serialize = "hdfs")]
     HDFS(HdfsDeepStorageSpec),
+    /// [The S3 deep storage configuration](DOCS_BASE_URL_PLACEHOLDER/druid/usage-guide/deep-storage#_s3).
     #[strum(serialize = "s3")]
     S3(S3DeepStorageSpec),
 }
@@ -984,20 +1015,33 @@ impl DeepStorageSpec {
 #[derive(Clone, Debug, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct HdfsDeepStorageSpec {
+    /// The [discovery ConfigMap](DOCS_BASE_URL_PLACEHOLDER/concepts/service_discovery)
+    /// for the HDFS instance. When running an HDFS cluster with the Stackable operator, the operator
+    /// will create this ConfigMap for you. It has the same name as your HDFSCluster resource.
     pub config_map_name: String,
+    /// The directory inside of HDFS where Druid should store its data.
     pub directory: String,
 }
 
 #[derive(Clone, Debug, Deserialize, JsonSchema, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct S3DeepStorageSpec {
+    /// The S3 bucket to use for deep storage. Can either be defined inline or as a reference,
+    /// read the [S3 bucket docs](DOCS_BASE_URL_PLACEHOLDER/concepts/s3) to learn more.
     pub bucket: S3BucketDef,
+    /// The `baseKey` is similar to the `directory` in HDFS; it is the root key at which
+    /// Druid will create its deep storage. If no `baseKey` is given, the bucket root
+    /// will be used.
     pub base_key: Option<String>,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, JsonSchema, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct IngestionSpec {
+    /// Druid supports ingesting data from S3 buckets where the bucket name is specified in the ingestion task.
+    /// However, the S3 connection has to be specified in advance and only a single S3 connection is supported.
+    /// S3 connections can either be specified `inline` or as a `reference`.
+    /// Read the [S3 resource concept docs](DOCS_BASE_URL_PLACEHOLDER/concepts/s3) to learn more.
     pub s3connection: Option<S3ConnectionDef>,
 }
 
@@ -1022,7 +1066,9 @@ pub struct BrokerConfig {
     pub logging: Logging<Container>,
     #[fragment_attrs(serde(default))]
     pub affinity: StackableAffinity,
-    /// Time period Pods have to gracefully shut down, e.g. `30m`, `1h` or `2d`. Consult the operator documentation for details.
+    /// The time period Pods have to gracefully shut down, e.g. `30m`, `1h` or `2d`.
+    /// Read more about graceful shutdown in the
+    /// [graceful shutdown documentation](DOCS_BASE_URL_PLACEHOLDER/druid/usage-guide/operations/graceful-shutdown).
     #[fragment_attrs(serde(default))]
     pub graceful_shutdown_timeout: Option<Duration>,
 }
@@ -1063,7 +1109,9 @@ pub struct CoordinatorConfig {
     pub logging: Logging<Container>,
     #[fragment_attrs(serde(default))]
     pub affinity: StackableAffinity,
-    /// Time period Pods have to gracefully shut down, e.g. `30m`, `1h` or `2d`. Consult the operator documentation for details.
+    /// The time period Pods have to gracefully shut down, e.g. `30m`, `1h` or `2d`.
+    /// Read more about graceful shutdown in the
+    /// [graceful shutdown documentation](DOCS_BASE_URL_PLACEHOLDER/druid/usage-guide/operations/graceful-shutdown).
     #[fragment_attrs(serde(default))]
     pub graceful_shutdown_timeout: Option<Duration>,
 }
@@ -1104,7 +1152,9 @@ pub struct MiddleManagerConfig {
     pub logging: Logging<Container>,
     #[fragment_attrs(serde(default))]
     pub affinity: StackableAffinity,
-    /// Time period Pods have to gracefully shut down, e.g. `30m`, `1h` or `2d`. Consult the operator documentation for details.
+    /// The time period Pods have to gracefully shut down, e.g. `30m`, `1h` or `2d`.
+    /// Read more about graceful shutdown in the
+    /// [graceful shutdown documentation](DOCS_BASE_URL_PLACEHOLDER/druid/usage-guide/operations/graceful-shutdown).
     #[fragment_attrs(serde(default))]
     pub graceful_shutdown_timeout: Option<Duration>,
 }
@@ -1145,7 +1195,9 @@ pub struct RouterConfig {
     pub logging: Logging<Container>,
     #[fragment_attrs(serde(default))]
     pub affinity: StackableAffinity,
-    /// Time period Pods have to gracefully shut down, e.g. `30m`, `1h` or `2d`. Consult the operator documentation for details.
+    /// The time period Pods have to gracefully shut down, e.g. `30m`, `1h` or `2d`.
+    /// Read more about graceful shutdown in the
+    /// [graceful shutdown documentation](DOCS_BASE_URL_PLACEHOLDER/druid/usage-guide/operations/graceful-shutdown).
     #[fragment_attrs(serde(default))]
     pub graceful_shutdown_timeout: Option<Duration>,
 }
@@ -1186,7 +1238,9 @@ pub struct HistoricalConfig {
     pub logging: Logging<Container>,
     #[fragment_attrs(serde(default))]
     pub affinity: StackableAffinity,
-    /// Time period Pods have to gracefully shut down, e.g. `30m`, `1h` or `2d`. Consult the operator documentation for details.
+    /// The time period Pods have to gracefully shut down, e.g. `30m`, `1h` or `2d`.
+    /// Read more about graceful shutdown in the
+    /// [graceful shutdown documentation](DOCS_BASE_URL_PLACEHOLDER/druid/usage-guide/operations/graceful-shutdown).
     #[fragment_attrs(serde(default))]
     pub graceful_shutdown_timeout: Option<Duration>,
 }

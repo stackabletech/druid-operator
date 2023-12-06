@@ -52,11 +52,10 @@ pub enum Error {
 #[derive(Clone, Deserialize, Debug, Eq, JsonSchema, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DruidAuthentication {
-    /// The AuthenticationClass <https://docs.stackable.tech/home/nightly/concepts/authenticationclass.html> to use.
-    ///
-    /// ## TLS provider
-    /// Please note that the SecretClass used to authenticate users needs to be the same
-    /// as the SecretClass used for internal communication.
+    /// The name of an [AuthenticationClass](DOCS_BASE_URL_PLACEHOLDER/concepts/authentication) object.
+    /// When using TLS authentication, the `clientCertSecretClass` must be identical to the `serverAndInternalSecretClass`
+    /// in the `clusterConfig.tls` settings of Druid. This is a limitation of Druid: Only one CA certificate can be
+    /// used for both internal authentication between processes as well as authentication of users.
     pub authentication_class: String,
 }
 

@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+
+- Various documentation of the CRD ([#494]).
+
+### Updated
+
+- `operator-rs` `0.56.1` -> `0.57.0` ([#494]).
+
+[#494]: https://github.com/stackabletech/druid-operator/pull/494
+
 ## [23.11.0] - 2023-11-24
 
 ### Added
