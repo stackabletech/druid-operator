@@ -53,6 +53,9 @@ pub enum Error {
 #[serde(rename_all = "camelCase")]
 pub struct DruidAuthentication {
     /// The name of an [AuthenticationClass](DOCS_BASE_URL_PLACEHOLDER/concepts/authentication) object.
+    /// When using TLS authentication, the `clientCertSecretClass` must be identical to the `serverAndInternalSecretClass`
+    /// in the `clusterConfig.tls` settings of Druid. This is a limitation of Druid: Only one CA certificate can be
+    /// used for both internal authentication between processes as well as authentication of users.
     pub authentication_class: String,
 }
 
