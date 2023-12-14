@@ -12,6 +12,7 @@ metadata:
 spec:
   image:
     productVersion: "{{ test_scenario['values']['druid-latest'] }}"
+    pullPolicy: IfNotPresent
   clusterConfig:
     deepStorage:
       hdfs:

@@ -14,6 +14,7 @@ commands:
       spec:
         image:
           productVersion: "{{ test_scenario['values']['druid'] }}"
+          pullPolicy: IfNotPresent
         clusterConfig:
           authentication:
             - authenticationClass: druid-ldap-auth-class-$NAMESPACE
