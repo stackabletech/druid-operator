@@ -1,5 +1,7 @@
 = Reference
 
-This section contains exhaustive information on various technical aspects of the operator.
-Most importantly for you probably is the xref:reference/crds.adoc[], containing a complete list and description of all properties in the CRDs used by this operator.
-This section also contains information on the structure of the xref:reference/discovery.adoc[] and the xref:reference/commandline-parameters.adoc[] and xref:reference/environment-variables.adoc[].
+Consult the reference documentation section to find exhaustive information on:
+
+* Descriptions and default values of all properties in the CRDs used by this operator in the xref:reference/crds.adoc[].
+* The properties in the xref:reference/discovery.adoc[].
+* The xref:reference/commandline-parameters.adoc[] and xref:reference/environment-variables.adoc[] accepted by the operator.
