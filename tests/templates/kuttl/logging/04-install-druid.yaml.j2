@@ -29,6 +29,7 @@ metadata:
 spec:
   image:
     productVersion: "{{ test_scenario['values']['druid'] }}"
+    pullPolicy: IfNotPresent
   clusterConfig:
     deepStorage:
       hdfs:
