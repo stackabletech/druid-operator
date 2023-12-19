@@ -26,7 +26,7 @@ spec:
               description: A Druid cluster stacklet. This resource is managed by the Stackable operator for Apache Druid. Find more information on how to use it and the resources that the operator generates in the [operator documentation](https://docs.stackable.tech/home/nightly/druid/).
               properties:
                 brokers:
-                  description: Configuration of the broker role.
+                  description: This struct represents a role - e.g. HDFS datanodes or Trino workers. It has a [`HashMap`] containing all the roleGroups that are part of this role. Additionally, there is a `config`, which is configurable at the role *and* roleGroup level. Everything at roleGroup level is merged on top of what is configured on role level using the [`Merge`] trait. There is also a second form of config, which can only be configured at role level, the `roleConfig`.
                   properties:
                     cliOverrides:
                       additionalProperties:
@@ -8389,7 +8389,7 @@ spec:
                   default:
                     stopped: false
                     reconciliationPaused: false
-                  description: Cluster operations like pause reconciliation or cluster stop.
+                  description: '[Cluster operations](https://docs.stackable.tech/home/nightly/concepts/operations/cluster_operations) properties, allow stopping the product instance as well as pausing reconciliation.'
                   properties:
                     reconciliationPaused:
                       default: false
@@ -8401,7 +8401,7 @@ spec:
                       type: boolean
                   type: object
                 coordinators:
-                  description: Configuration of the coordinator role.
+                  description: This struct represents a role - e.g. HDFS datanodes or Trino workers. It has a [`HashMap`] containing all the roleGroups that are part of this role. Additionally, there is a `config`, which is configurable at the role *and* roleGroup level. Everything at roleGroup level is merged on top of what is configured on role level using the [`Merge`] trait. There is also a second form of config, which can only be configured at role level, the `roleConfig`.
                   properties:
                     cliOverrides:
                       additionalProperties:
@@ -15318,7 +15318,7 @@ spec:
                     - roleGroups
                   type: object
                 historicals:
-                  description: Configuration of the historical role.
+                  description: This struct represents a role - e.g. HDFS datanodes or Trino workers. It has a [`HashMap`] containing all the roleGroups that are part of this role. Additionally, there is a `config`, which is configurable at the role *and* roleGroup level. Everything at roleGroup level is merged on top of what is configured on role level using the [`Merge`] trait. There is also a second form of config, which can only be configured at role level, the `roleConfig`.
                   properties:
                     cliOverrides:
                       additionalProperties:
@@ -22303,7 +22303,10 @@ spec:
                         - productVersion
                     - required:
                         - productVersion
-                  description: Specify which image to use, the easiest way is to only configure the `productVersion`, it needs to be one of the [supported versions](https://docs.stackable.tech/home/nightly/druid/#_supported_versions). You can also configure a custom image registry to pull from, as well as completely custom images. Consult the [Product image selection documentation](https://docs.stackable.tech/home/nightly/concepts/product_image_selection) for details.
+                  description: |-
+                    Specify which image to use, the easiest way is to only configure the `productVersion`. You can also configure a custom image registry to pull from, as well as completely custom images.
+
+                    Consult the [Product image selection documentation](https://docs.stackable.tech/home/nightly/concepts/product_image_selection) for details.
                   properties:
                     custom:
                       description: Overwrite the docker image. Specify the full docker image name, e.g. `docker.stackable.tech/stackable/superset:1.4.1-stackable2.1.0`
@@ -22340,7 +22343,7 @@ spec:
                       type: string
                   type: object
                 middleManagers:
-                  description: Configuration of the middle managed role.
+                  description: This struct represents a role - e.g. HDFS datanodes or Trino workers. It has a [`HashMap`] containing all the roleGroups that are part of this role. Additionally, there is a `config`, which is configurable at the role *and* roleGroup level. Everything at roleGroup level is merged on top of what is configured on role level using the [`Merge`] trait. There is also a second form of config, which can only be configured at role level, the `roleConfig`.
                   properties:
                     cliOverrides:
                       additionalProperties:
@@ -29257,7 +29260,7 @@ spec:
                     - roleGroups
                   type: object
                 routers:
-                  description: Configuration of the router role.
+                  description: This struct represents a role - e.g. HDFS datanodes or Trino workers. It has a [`HashMap`] containing all the roleGroups that are part of this role. Additionally, there is a `config`, which is configurable at the role *and* roleGroup level. Everything at roleGroup level is merged on top of what is configured on role level using the [`Merge`] trait. There is also a second form of config, which can only be configured at role level, the `roleConfig`.
                   properties:
                     cliOverrides:
                       additionalProperties:

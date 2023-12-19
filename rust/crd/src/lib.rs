@@ -189,26 +189,28 @@ pub enum Error {
 )]
 #[serde(rename_all = "camelCase")]
 pub struct DruidClusterSpec {
-    /// Specify which image to use, the easiest way is to only configure the `productVersion`,
-    /// it needs to be one of the [supported versions](DOCS_BASE_URL_PLACEHOLDER/druid/#_supported_versions).
-    /// You can also configure a custom image registry to pull from, as well as completely custom
-    /// images. Consult the
-    /// [Product image selection documentation](DOCS_BASE_URL_PLACEHOLDER/concepts/product_image_selection)
-    /// for details.
-    pub image: ProductImage,
-    /// Configuration of the broker role.
-    pub brokers: Role<BrokerConfigFragment>,
-    /// Configuration of the coordinator role.
-    pub coordinators: Role<CoordinatorConfigFragment>,
-    /// Configuration of the historical role.
-    pub historicals: Role<HistoricalConfigFragment>,
-    /// Configuration of the middle managed role.
-    pub middle_managers: Role<MiddleManagerConfigFragment>,
-    /// Configuration of the router role.
-    pub routers: Role<RouterConfigFragment>,
     /// Common cluster wide configuration that can not differ or be overridden on a role or role group level.
     pub cluster_config: DruidClusterConfig,
-    /// Cluster operations like pause reconciliation or cluster stop.
+
+    // no doc - docs provided by the struct.
+    pub image: ProductImage,
+
+    // no doc - docs provided by the struct.
+    pub brokers: Role<BrokerConfigFragment>,
+
+    // no doc - docs provided by the struct.
+    pub coordinators: Role<CoordinatorConfigFragment>,
+
+    // no doc - docs provided by the struct.
+    pub historicals: Role<HistoricalConfigFragment>,
+
+    // no doc - docs provided by the struct.
+    pub middle_managers: Role<MiddleManagerConfigFragment>,
+
+    // no doc - docs provided by the struct.
+    pub routers: Role<RouterConfigFragment>,
+
+    // no doc - docs provided by the struct.
     #[serde(default)]
     pub cluster_operation: ClusterOperation,
 }
@@ -245,39 +247,48 @@ pub struct DruidClusterConfig {
     /// as the SecretClass used for internal communication.
     #[serde(default)]
     pub authentication: Vec<DruidAuthentication>,
+
     /// Authorization settings for Druid like OPA
     #[serde(skip_serializing_if = "Option::is_none")]
     pub authorization: Option<DruidAuthorization>,
+
     /// [Druid deep storage configuration](DOCS_BASE_URL_PLACEHOLDER/druid/usage-guide/deep-storage).
     /// Only one backend can be used at a time. Either HDFS or S3 are supported.
     pub deep_storage: DeepStorageSpec,
+
     /// Configuration properties for data ingestion tasks.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub ingestion: Option<IngestionSpec>,
+
     /// Druid requires an SQL database to store metadata into. Specify connection information here.
     pub metadata_storage_database: DatabaseConnectionSpec,
+
     /// TLS encryption settings for Druid, more information in the
     /// [security documentation](DOCS_BASE_URL_PLACEHOLDER/druid/usage-guide/security).
     /// This setting only affects server and internal communication.
     /// It does not affect client tls authentication, use `clusterConfig.authentication` instead.
     #[serde(default = "default_druid_tls", skip_serializing_if = "Option::is_none")]
     pub tls: Option<DruidTls>,
+
     /// Druid requires a ZooKeeper cluster connection to run.
     /// Provide the name of the ZooKeeper [discovery ConfigMap](DOCS_BASE_URL_PLACEHOLDER/concepts/service_discovery)
     /// here. When using the [Stackable operator for Apache ZooKeeper](DOCS_BASE_URL_PLACEHOLDER/zookeeper/)
     /// to deploy a ZooKeeper cluster, this will simply be the name of your ZookeeperCluster resource.
     pub zookeeper_config_map_name: String,
+
     /// Name of the Vector aggregator [discovery ConfigMap](DOCS_BASE_URL_PLACEHOLDER/concepts/service_discovery).
     /// It must contain the key `ADDRESS` with the address of the Vector aggregator.
     /// Follow the [logging tutorial](DOCS_BASE_URL_PLACEHOLDER/tutorials/logging-vector-aggregator)
     /// to learn how to configure log aggregation with Vector.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub vector_aggregator_config_map_name: Option<String>,
+
     /// Extra volumes to mount into every container, this can be useful to for example make client
     /// certificates, keytabs or similar things available to processors
     /// These volumes will be mounted into all pods below `/stackable/userdata/{volumename}`
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub extra_volumes: Vec<Volume>,
+
     /// This field controls which type of Service the Operator creates for this DruidCluster:
     ///
     /// * `cluster-internal`: Use a ClusterIP service

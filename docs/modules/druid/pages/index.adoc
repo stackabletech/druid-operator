@@ -31,7 +31,7 @@ the Operator creates a **Service**.
 
 A **ConfigMap** is created for each RoleGroup containing 3 files: `jvm.config` and `runtime.properties` files generated
 from the DruidCluster configuration (See xref:usage-guide/index.adoc[] for more information), plus a `log4j2.properties`
-file used for xref:usage-guide/logging.adoc[]. For the whole DruidCluster a **xref:discovery.adoc[discovery ConfigMap]**
+file used for xref:usage-guide/logging.adoc[]. For the whole DruidCluster a **xref:reference/discovery.adoc[discovery ConfigMap]**
 is created which contains information on how to connect to the Druid cluster.
 
 == Dependencies and other Operators to connect to
