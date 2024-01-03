@@ -3,7 +3,7 @@ use stackable_operator::{
     k8s_openapi::api::core::v1::{PodAffinity, PodAntiAffinity},
 };
 
-use crate::{DeepStorageSpec, DruidClusterSpec, DruidRole, HdfsDeepStorageSpec, APP_NAME};
+use crate::{DeepStorageSpec, DruidRole, HdfsDeepStorageSpec, APP_NAME};
 
 /// Please have a look at the architecture diagram in <https://druid.apache.org/docs/latest/assets/druid-architecture.png>
 /// to understand which roles do communicate with each other.
@@ -72,48 +72,6 @@ pub fn get_affinity(
         node_affinity: None,
         node_selector: None,
     }
-}
-
-/// Migrate old `selector` attribute, see ADR 26 affinities.
-/// TODO Can be removed after support for the old `selector` field is dropped.
-pub fn migrate_legacy_selector(druid: &DruidClusterSpec) -> DruidClusterSpec {
-    let mut druid = druid.clone();
-    druid.brokers.role_groups.values_mut().for_each(|rg| {
-        if let Some(selector) = &rg.selector {
-            #[allow(deprecated)]
-            rg.config.config.affinity.add_legacy_selector(selector);
-        }
-    });
-    druid.coordinators.role_groups.values_mut().for_each(|rg| {
-        if let Some(selector) = &rg.selector {
-            #[allow(deprecated)]
-            rg.config.config.affinity.add_legacy_selector(selector);
-        }
-    });
-    druid.historicals.role_groups.values_mut().for_each(|rg| {
-        if let Some(selector) = &rg.selector {
-            #[allow(deprecated)]
-            rg.config.config.affinity.add_legacy_selector(selector);
-        }
-    });
-    druid
-        .middle_managers
-        .role_groups
-        .values_mut()
-        .for_each(|rg| {
-            if let Some(selector) = &rg.selector {
-                #[allow(deprecated)]
-                rg.config.config.affinity.add_legacy_selector(selector);
-            }
-        });
-    druid.routers.role_groups.values_mut().for_each(|rg| {
-        if let Some(selector) = &rg.selector {
-            #[allow(deprecated)]
-            rg.config.config.affinity.add_legacy_selector(selector);
-        }
-    });
-
-    druid
 }
 
 #[cfg(test)]

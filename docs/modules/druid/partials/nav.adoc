@@ -18,7 +18,7 @@
 *** xref:druid:usage-guide/operations/graceful-shutdown.adoc[]
 * xref:druid:reference/index.adoc[]
 ** xref:druid:reference/crds.adoc[]
-*** {crd-docs}/druid.stackable.tech/druidcluster/v1alpha1/[DruidCluster]
+*** {crd-docs}/druid.stackable.tech/druidcluster/v1alpha1/[DruidCluster {external-link-icon}^]
 ** xref:druid:reference/discovery.adoc[]
 ** xref:druid:reference/commandline-parameters.adoc[]
 ** xref:druid:reference/environment-variables.adoc[]

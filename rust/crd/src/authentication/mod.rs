@@ -135,7 +135,7 @@ impl ResolvedAuthenticationClasses {
                         // We want the truststore to exist when using LDAP so that we can point to it
                         return LdapAuthenticationWithoutServerTlsNotSupportedSnafu.fail();
                     }
-                    if ldap.bind_credentials.is_none() {
+                    if ldap.bind_credentials_mount_paths().is_none() {
                         // https://github.com/stackabletech/druid-operator/issues/383
                         return LdapAuthenticationWithoutBindCredentialsNotSupportedSnafu.fail();
                     }

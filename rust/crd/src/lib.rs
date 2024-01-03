@@ -8,7 +8,7 @@ pub mod storage;
 pub mod tls;
 
 use crate::{
-    affinity::{get_affinity, migrate_legacy_selector},
+    affinity::get_affinity,
     authentication::DruidAuthentication,
     authorization::DruidAuthorization,
     resource::RoleResource,
@@ -33,12 +33,9 @@ use stackable_operator::{
         fragment::{self, Fragment, FromFragment, ValidationError},
         merge::Merge,
     },
-    k8s_openapi::{
-        api::core::v1::{PodTemplateSpec, Volume},
-        apimachinery::pkg::apis::meta::v1::LabelSelector,
-    },
+    k8s_openapi::api::core::v1::{PodTemplateSpec, Volume},
     kube::{CustomResource, ResourceExt},
-    labels::ObjectLabels,
+    kvp::ObjectLabels,
     memory::{BinaryMultiple, MemoryQuantity},
     product_config_utils::{ConfigError, Configuration},
     product_logging::{
@@ -331,7 +328,6 @@ pub struct CommonRoleGroupConfig {
     pub resources: RoleResource,
     pub logging: Logging<Container>,
     pub replicas: Option<u16>,
-    pub selector: Option<LabelSelector>,
     pub affinity: StackableAffinity,
     pub graceful_shutdown_timeout: Option<Duration>,
 }
@@ -371,7 +367,6 @@ impl MergedConfig {
                     resources: RoleResource::Druid(rolegroup.config.config.resources.to_owned()),
                     logging: rolegroup.config.config.logging.to_owned(),
                     replicas: rolegroup.replicas,
-                    selector: rolegroup.selector.to_owned(),
                     affinity: rolegroup.config.config.affinity.clone(),
                     graceful_shutdown_timeout: rolegroup.config.config.graceful_shutdown_timeout,
                 })
@@ -385,7 +380,6 @@ impl MergedConfig {
                     resources: RoleResource::Druid(rolegroup.config.config.resources.to_owned()),
                     logging: rolegroup.config.config.logging.to_owned(),
                     replicas: rolegroup.replicas,
-                    selector: rolegroup.selector.to_owned(),
                     affinity: rolegroup.config.config.affinity.clone(),
                     graceful_shutdown_timeout: rolegroup.config.config.graceful_shutdown_timeout,
                 })
@@ -401,7 +395,6 @@ impl MergedConfig {
                     ),
                     logging: rolegroup.config.config.logging.to_owned(),
                     replicas: rolegroup.replicas,
-                    selector: rolegroup.selector.to_owned(),
                     affinity: rolegroup.config.config.affinity.clone(),
                     graceful_shutdown_timeout: rolegroup.config.config.graceful_shutdown_timeout,
                 })
@@ -415,7 +408,6 @@ impl MergedConfig {
                     resources: RoleResource::Druid(rolegroup.config.config.resources.to_owned()),
                     logging: rolegroup.config.config.logging.to_owned(),
                     replicas: rolegroup.replicas,
-                    selector: rolegroup.selector.to_owned(),
                     affinity: rolegroup.config.config.affinity.clone(),
                     graceful_shutdown_timeout: rolegroup.config.config.graceful_shutdown_timeout,
                 })
@@ -429,7 +421,6 @@ impl MergedConfig {
                     resources: RoleResource::Druid(rolegroup.config.config.resources.to_owned()),
                     logging: rolegroup.config.config.logging.to_owned(),
                     replicas: rolegroup.replicas,
-                    selector: rolegroup.selector.to_owned(),
                     affinity: rolegroup.config.config.affinity.clone(),
                     graceful_shutdown_timeout: rolegroup.config.config.graceful_shutdown_timeout,
                 })
@@ -795,15 +786,14 @@ impl DruidCluster {
     /// Returns the merged and validated configuration for all roles
     pub fn merged_config(&self) -> Result<MergedConfig, Error> {
         let deep_storage = &self.spec.cluster_config.deep_storage;
-        let migrated_druid_cluster_spec = migrate_legacy_selector(&self.spec);
 
         Ok(MergedConfig {
             brokers: DruidCluster::merged_role(
-                &migrated_druid_cluster_spec.brokers,
+                &self.spec.brokers,
                 &BrokerConfig::default_config(&self.name_any(), &DruidRole::Broker, deep_storage),
             )?,
             coordinators: DruidCluster::merged_role(
-                &migrated_druid_cluster_spec.coordinators,
+                &self.spec.coordinators,
                 &CoordinatorConfig::default_config(
                     &self.name_any(),
                     &DruidRole::Coordinator,
@@ -811,7 +801,7 @@ impl DruidCluster {
                 ),
             )?,
             historicals: DruidCluster::merged_role(
-                &migrated_druid_cluster_spec.historicals,
+                &self.spec.historicals,
                 &HistoricalConfig::default_config(
                     &self.name_any(),
                     &DruidRole::Historical,
@@ -819,7 +809,7 @@ impl DruidCluster {
                 ),
             )?,
             middle_managers: DruidCluster::merged_role(
-                &migrated_druid_cluster_spec.middle_managers,
+                &self.spec.middle_managers,
                 &MiddleManagerConfig::default_config(
                     &self.name_any(),
                     &DruidRole::MiddleManager,
@@ -827,7 +817,7 @@ impl DruidCluster {
                 ),
             )?,
             routers: DruidCluster::merged_role(
-                &migrated_druid_cluster_spec.routers,
+                &self.spec.routers,
                 &RouterConfig::default_config(&self.name_any(), &DruidRole::Router, deep_storage),
             )?,
         })
@@ -877,7 +867,6 @@ impl DruidCluster {
                 pod_overrides: rolegroup.config.pod_overrides.to_owned(),
             },
             replicas: rolegroup.replicas,
-            selector: rolegroup.selector.to_owned(),
         })
     }
 
