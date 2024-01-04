@@ -334,6 +334,11 @@ pub enum Error {
     AddLdapVolumes {
         source: stackable_operator::commons::authentication::ldap::Error,
     },
+
+    #[snafu(display("there was an error adding generating the LDAP runtime settings"))]
+    GenerateLdapRuntimeSettings {
+        source: stackable_druid_crd::authentication::ldap::Error,
+    },
 }
 
 type Result<T, E = Error> = std::result::Result<T, E>;
@@ -719,7 +724,11 @@ fn build_rolegroup_config_map(
                 druid_tls_security.add_tls_config_properties(&mut conf, &role);
 
                 if let Some(ldap_settings) = druid_ldap_settings {
-                    conf.extend(ldap_settings.generate_runtime_properties_config());
+                    conf.extend(
+                        ldap_settings
+                            .generate_runtime_properties_config()
+                            .context(GenerateLdapRuntimeSettingsSnafu)?,
+                    );
                 };
 
                 let transformed_config: BTreeMap<String, Option<String>> = config

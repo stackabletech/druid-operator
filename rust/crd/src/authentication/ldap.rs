@@ -1,5 +1,6 @@
 use std::collections::BTreeMap;
 
+use snafu::{ResultExt, Snafu};
 use stackable_operator::commons::authentication::ldap::AuthenticationProvider;
 use stackable_operator::commons::authentication::AuthenticationClassProvider;
 use stackable_operator::kube::ResourceExt;
@@ -9,6 +10,14 @@ use crate::{
     security::{add_cert_to_trust_store_cmd, STACKABLE_TLS_DIR, TLS_STORE_PASSWORD},
     ENV_INTERNAL_SECRET, RUNTIME_PROPS, RW_CONFIG_DIRECTORY,
 };
+
+#[derive(Snafu, Debug)]
+pub enum Error {
+    #[snafu(display("Failed to create LDAP endpoint url."))]
+    FailedToCreateLdapEndpointUrl {
+        source: stackable_operator::commons::authentication::ldap::Error,
+    },
+}
 
 #[derive(Clone, Debug)]
 pub struct DruidLdapSettings {
@@ -63,7 +72,10 @@ impl DruidLdapSettings {
         config.insert(format!("{PREFIX}.skipOnFailure"), Some("true".to_string()));
     }
 
-    fn add_ldap_authenticator_config(&self, config: &mut BTreeMap<String, Option<String>>) {
+    fn add_ldap_authenticator_config(
+        &self,
+        config: &mut BTreeMap<String, Option<String>>,
+    ) -> Result<(), Error> {
         const PREFIX: &str = "druid.auth.authenticator.Ldap";
 
         config.insert(format!("{PREFIX}.type"), Some("basic".to_string()));
@@ -77,7 +89,12 @@ impl DruidLdapSettings {
         );
         config.insert(
             format!("{PREFIX}.credentialsValidator.url"),
-            Some(self.credentials_validator_url()),
+            Some(
+                self.ldap
+                    .endpoint_url()
+                    .context(FailedToCreateLdapEndpointUrlSnafu)?
+                    .into(),
+            ),
         );
 
         if self.ldap.bind_credentials_mount_paths().is_some() {
@@ -107,6 +124,8 @@ impl DruidLdapSettings {
             format!("{PREFIX}.authorizerName"),
             Some("LdapAuthorizer".to_string()),
         );
+
+        Ok(())
     }
 
     fn add_escalator_config(&self, config: &mut BTreeMap<String, Option<String>>) {
@@ -143,7 +162,9 @@ impl DruidLdapSettings {
         );
     }
 
-    pub fn generate_runtime_properties_config(&self) -> BTreeMap<String, Option<String>> {
+    pub fn generate_runtime_properties_config(
+        &self,
+    ) -> Result<BTreeMap<String, Option<String>>, Error> {
         let mut config: BTreeMap<String, Option<String>> = BTreeMap::new();
 
         config.insert(
@@ -152,16 +173,11 @@ impl DruidLdapSettings {
         );
 
         self.add_druid_system_authenticator_config(&mut config);
-        self.add_ldap_authenticator_config(&mut config);
+        self.add_ldap_authenticator_config(&mut config)?;
         self.add_escalator_config(&mut config);
         self.add_authorizer_config(&mut config);
 
-        config
-    }
-
-    fn credentials_validator_url(&self) -> String {
-        // TODO use new function and handle error better
-        self.ldap.endpoint_url().unwrap().to_string()
+        Ok(config)
     }
 
     pub fn main_container_commands(&self) -> Vec<String> {
@@ -225,7 +241,7 @@ mod test {
             authentication_class_name: "ldap".to_string(),
         };
 
-        let got = ldap_settings.generate_runtime_properties_config();
+        let got = ldap_settings.generate_runtime_properties_config().unwrap();
 
         assert!(got.contains_key("druid.auth.authenticator.Ldap.type"));
     }
