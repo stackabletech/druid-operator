@@ -50,8 +50,7 @@ use stackable_operator::{
         runtime::{controller::Action, reflector::ObjectRef},
         Resource,
     },
-    kvp::{LabelError, Labels},
-    labels::{role_group_selector_labels, role_selector_labels},
+    kvp::{KeyValuePairError, Label, LabelError, LabelValueError, Labels},
     logging::controller::ReconcilerError,
     product_config_utils::{transform_all_roles_to_config, validate_all_roles_and_groups_config},
     product_logging::{
@@ -311,8 +310,30 @@ pub enum Error {
         source: stackable_operator::builder::SecretOperatorVolumeSourceBuilderError,
     },
 
+    #[snafu(display("failed to build Secret operator volume"))]
+    SecretClassVolumeBuild2 {
+        source: stackable_operator::commons::secret_class::SecretClassVolumeError,
+    },
+
     #[snafu(display("failed to build labels"))]
     LabelBuild { source: LabelError },
+
+    #[snafu(display("failed to build metadata"))]
+    MetadataBuild {
+        source: stackable_operator::builder::ObjectMetaBuilderError,
+    },
+
+    #[snafu(display("failed to get required labels"))]
+    GetRequiredLabels {
+        source: KeyValuePairError<LabelValueError>,
+    },
+
+    #[snafu(display(
+        "there was an error adding LDAP Volumes and VolumeMounts to the Pod and containers"
+    ))]
+    AddLdapVolumes {
+        source: stackable_operator::commons::authentication::ldap::Error,
+    },
 }
 
 type Result<T, E = Error> = std::result::Result<T, E>;
@@ -425,7 +446,9 @@ pub async fn reconcile_druid(druid: Arc<DruidCluster>, ctx: Arc<Ctx>) -> Result<
     let (rbac_sa, rbac_rolebinding) = build_rbac_resources(
         druid.as_ref(),
         APP_NAME,
-        cluster_resources.get_required_labels(),
+        cluster_resources
+            .get_required_labels()
+            .context(GetRequiredLabelsSnafu)?,
     )
     .context(BuildRbacResourcesSnafu)?;
     cluster_resources
@@ -601,11 +624,16 @@ pub fn build_role_service(
                 &role_name,
                 "global",
             ))
+            .context(MetadataBuildSnafu)?
             .build(),
         spec: Some(ServiceSpec {
             type_: Some(druid.spec.cluster_config.listener_class.k8s_service_type()),
             ports: Some(druid_tls_security.service_ports(role)),
-            selector: Some(role_selector_labels(druid, APP_NAME, &role_name)),
+            selector: Some(
+                Labels::role_selector(druid, APP_NAME, &role_name)
+                    .context(LabelBuildSnafu)?
+                    .into(),
+            ),
             ..ServiceSpec::default()
         }),
         status: None,
@@ -733,6 +761,7 @@ fn build_rolegroup_config_map(
                 &rolegroup.role,
                 &rolegroup.role_group,
             ))
+            .context(MetadataBuildSnafu)?
             .build(),
     );
 
@@ -799,7 +828,8 @@ fn build_rolegroup_services(
                 &rolegroup.role,
                 &rolegroup.role_group,
             ))
-            .with_label("prometheus.io/scrape", "true")
+            .context(MetadataBuildSnafu)?
+            .with_label(Label::try_from(("prometheus.io/scrape", "true")).context(LabelBuildSnafu)?)
             .build(),
         spec: Some(ServiceSpec {
             // Internal communication does not need to be exposed
@@ -893,7 +923,8 @@ fn build_rolegroup_statefulset(
 
         ldap_settings
             .ldap
-            .add_volumes_and_mounts(&mut pb, vec![&mut cb_druid, &mut cb_prepare]);
+            .add_volumes_and_mounts(&mut pb, vec![&mut cb_druid, &mut cb_prepare])
+            .context(AddLdapVolumesSnafu)?;
 
         prepare_container_commands.extend(ldap_settings.prepare_container_commands());
         main_container_commands.extend(ldap_settings.main_container_commands());
@@ -1000,18 +1031,21 @@ fn build_rolegroup_statefulset(
         cb_druid.add_volume_mount(volume_name, mount_point);
     }
 
+    let metadata = ObjectMetaBuilder::new()
+        .with_recommended_labels(build_recommended_labels(
+            druid,
+            DRUID_CONTROLLER_NAME,
+            &resolved_product_image.app_version_label,
+            &rolegroup_ref.role,
+            &rolegroup_ref.role_group,
+        ))
+        .context(MetadataBuildSnafu)?
+        .build();
+
     pb.image_pull_secrets_from_product_image(resolved_product_image)
         .add_init_container(cb_prepare.build())
         .add_container(cb_druid.build())
-        .metadata_builder(|m| {
-            m.with_recommended_labels(build_recommended_labels(
-                druid,
-                DRUID_CONTROLLER_NAME,
-                &resolved_product_image.app_version_label,
-                &rolegroup_ref.role,
-                &rolegroup_ref.role_group,
-            ))
-        })
+        .metadata(metadata)
         .service_account_name(service_account_name(APP_NAME))
         .security_context(
             PodSecurityContextBuilder::new()
@@ -1059,17 +1093,22 @@ fn build_rolegroup_statefulset(
                 &rolegroup_ref.role,
                 &rolegroup_ref.role_group,
             ))
+            .context(MetadataBuildSnafu)?
             .build(),
         spec: Some(StatefulSetSpec {
             pod_management_policy: Some("Parallel".to_string()),
             replicas: merged_rolegroup_config.replicas.map(i32::from),
             selector: LabelSelector {
-                match_labels: Some(role_group_selector_labels(
-                    druid,
-                    APP_NAME,
-                    &rolegroup_ref.role,
-                    &rolegroup_ref.role_group,
-                )),
+                match_labels: Some(
+                    Labels::role_group_selector(
+                        druid,
+                        APP_NAME,
+                        &rolegroup_ref.role,
+                        &rolegroup_ref.role_group,
+                    )
+                    .context(LabelBuildSnafu)?
+                    .into(),
+                ),
                 ..LabelSelector::default()
             },
             service_name: rolegroup_ref.object_name(),
@@ -1171,7 +1210,11 @@ fn add_s3_volume_and_volume_mounts(
 ) -> Result<()> {
     if let Some(s3_conn) = s3_conn {
         if let Some(credentials) = &s3_conn.credentials {
-            pb.add_volume(credentials.to_volume("s3-credentials"));
+            pb.add_volume(
+                credentials
+                    .to_volume("s3-credentials")
+                    .context(SecretClassVolumeBuild2Snafu)?,
+            );
             cb_druid.add_volume_mount("s3-credentials", S3_SECRET_DIR_NAME);
         }
 
