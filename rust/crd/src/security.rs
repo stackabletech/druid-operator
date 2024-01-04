@@ -23,8 +23,9 @@ use std::collections::BTreeMap;
 pub enum Error {
     #[snafu(display("failed to process authentication class"))]
     InvalidAuthenticationClassConfiguration { source: authentication::Error },
+
     #[snafu(display("failed to build the Secret operator Volume"))]
-    SecretVolumeBuildError {
+    SecretVolumeBuild {
         source: SecretOperatorVolumeSourceBuilderError,
     },
 }
