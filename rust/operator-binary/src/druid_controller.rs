@@ -50,6 +50,7 @@ use stackable_operator::{
         runtime::{controller::Action, reflector::ObjectRef},
         Resource,
     },
+    kvp::{LabelError, Labels},
     labels::{role_group_selector_labels, role_selector_labels},
     logging::controller::ReconcilerError,
     product_config_utils::{transform_all_roles_to_config, validate_all_roles_and_groups_config},
@@ -304,6 +305,14 @@ pub enum Error {
     GracefulShutdown {
         source: crate::operations::graceful_shutdown::Error,
     },
+
+    #[snafu(display("failed to build Secret operator volume"))]
+    SecretClassVolumeBuild {
+        source: stackable_operator::builder::SecretOperatorVolumeSourceBuilderError,
+    },
+
+    #[snafu(display("failed to build labels"))]
+    LabelBuild { source: LabelError },
 }
 
 type Result<T, E = Error> = std::result::Result<T, E>;
@@ -797,12 +806,16 @@ fn build_rolegroup_services(
             type_: Some("ClusterIP".to_string()),
             cluster_ip: Some("None".to_string()),
             ports: Some(druid_tls_security.service_ports(&role)),
-            selector: Some(role_group_selector_labels(
-                druid,
-                APP_NAME,
-                &rolegroup.role,
-                &rolegroup.role_group,
-            )),
+            selector: Some(
+                Labels::role_group_selector(
+                    druid,
+                    APP_NAME,
+                    &rolegroup.role,
+                    &rolegroup.role_group,
+                )
+                .context(LabelBuildSnafu)?
+                .into(),
+            ),
             publish_not_ready_addresses: Some(true),
             ..ServiceSpec::default()
         }),
@@ -874,7 +887,7 @@ fn build_rolegroup_statefulset(
         // TODO: Connecting to an LDAP server without bind credentials does not seem to be configurable in Druid at the moment
         // see https://github.com/stackabletech/druid-operator/issues/383 for future work.
         // Expect bind credentials to be provided for now, and throw return a useful error if there are none.
-        if ldap_settings.ldap.bind_credentials.is_none() {
+        if ldap_settings.ldap.bind_credentials_mount_paths().is_none() {
             return LdapBindCredentialsAreRequiredSnafu.fail();
         }
 
@@ -1173,7 +1186,9 @@ fn add_s3_volume_and_volume_mounts(
 
                             let volume = VolumeBuilder::new(&volume_name)
                                 .ephemeral(
-                                    SecretOperatorVolumeSourceBuilder::new(secret_class).build(),
+                                    SecretOperatorVolumeSourceBuilder::new(secret_class)
+                                        .build()
+                                        .context(SecretClassVolumeBuildSnafu)?,
                                 )
                                 .build();
                             pb.add_volume(volume);
