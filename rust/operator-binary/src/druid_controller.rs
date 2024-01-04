@@ -305,13 +305,13 @@ pub enum Error {
         source: crate::operations::graceful_shutdown::Error,
     },
 
-    #[snafu(display("failed to build Secret operator volume"))]
-    SecretClassVolumeBuild {
+    #[snafu(display("failed to build TLS certificate SecretClass Volume"))]
+    TlsCertSecretClassVolumeBuild {
         source: stackable_operator::builder::SecretOperatorVolumeSourceBuilderError,
     },
 
-    #[snafu(display("failed to build Secret operator volume"))]
-    SecretClassVolumeBuild2 {
+    #[snafu(display("failed to build S3 credentials SecretClass Volume"))]
+    S3CredentialsSecretClassVolumeBuild {
         source: stackable_operator::commons::secret_class::SecretClassVolumeError,
     },
 
@@ -1222,7 +1222,7 @@ fn add_s3_volume_and_volume_mounts(
             pb.add_volume(
                 credentials
                     .to_volume("s3-credentials")
-                    .context(SecretClassVolumeBuild2Snafu)?,
+                    .context(S3CredentialsSecretClassVolumeBuildSnafu)?,
             );
             cb_druid.add_volume_mount("s3-credentials", S3_SECRET_DIR_NAME);
         }
@@ -1240,7 +1240,7 @@ fn add_s3_volume_and_volume_mounts(
                                 .ephemeral(
                                     SecretOperatorVolumeSourceBuilder::new(secret_class)
                                         .build()
-                                        .context(SecretClassVolumeBuildSnafu)?,
+                                        .context(TlsCertSecretClassVolumeBuildSnafu)?,
                                 )
                                 .build();
                             pb.add_volume(volume);
