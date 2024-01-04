@@ -27,6 +27,9 @@ pub enum Error {
     BuildConfigMap {
         source: stackable_operator::error::Error,
     },
+    AddRecommendedLabels {
+        source: stackable_operator::builder::ObjectMetaBuilderError,
+    },
 }
 
 /// Builds discovery [`ConfigMap`]s for connecting to a [`DruidCluster`]
@@ -87,6 +90,7 @@ fn build_discovery_configmap(
                     &DruidRole::Router.to_string(),
                     "discovery",
                 ))
+                .context(AddRecommendedLabelsSnafu)?
                 .build(),
         )
         .add_data("DRUID_ROUTER", router_host)
