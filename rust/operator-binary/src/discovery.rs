@@ -21,11 +21,18 @@ pub enum Error {
         source: stackable_operator::error::Error,
         druid: ObjectRef<DruidCluster>,
     },
+
     #[snafu(display("failed to get service FQDN"))]
     NoServiceFqdn,
+
     #[snafu(display("failed to build ConfigMap"))]
     BuildConfigMap {
         source: stackable_operator::error::Error,
+    },
+
+    #[snafu(display("failed to add recommended labels"))]
+    AddRecommendedLabels {
+        source: stackable_operator::builder::ObjectMetaBuilderError,
     },
 }
 
@@ -87,6 +94,7 @@ fn build_discovery_configmap(
                     &DruidRole::Router.to_string(),
                     "discovery",
                 ))
+                .context(AddRecommendedLabelsSnafu)?
                 .build(),
         )
         .add_data("DRUID_ROUTER", router_host)

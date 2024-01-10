@@ -4,7 +4,10 @@ use crate::{
 };
 use snafu::{ResultExt, Snafu};
 use stackable_operator::{
-    builder::{ContainerBuilder, PodBuilder, SecretOperatorVolumeSourceBuilder, VolumeBuilder},
+    builder::{
+        ContainerBuilder, PodBuilder, SecretOperatorVolumeSourceBuilder,
+        SecretOperatorVolumeSourceBuilderError, VolumeBuilder,
+    },
     client::Client,
     commons::authentication::AuthenticationClass,
     k8s_openapi::{
@@ -20,6 +23,11 @@ use std::collections::BTreeMap;
 pub enum Error {
     #[snafu(display("failed to process authentication class"))]
     InvalidAuthenticationClassConfiguration { source: authentication::Error },
+
+    #[snafu(display("failed to build the Secret operator Volume"))]
+    SecretVolumeBuild {
+        source: SecretOperatorVolumeSourceBuilderError,
+    },
 }
 
 /// Helper struct combining TLS settings for server and internal tls with the resolved AuthenticationClasses
@@ -194,7 +202,8 @@ impl DruidTlsSecurity {
                             .with_node_scope()
                             .with_format(SecretFormat::TlsPkcs12)
                             .with_tls_pkcs12_password(TLS_STORE_PASSWORD)
-                            .build(),
+                            .build()
+                            .context(SecretVolumeBuildSnafu)?,
                     )
                     .build(),
             );

@@ -1,6 +1,7 @@
 use std::collections::BTreeMap;
 
-use stackable_operator::commons::authentication::ldap::LdapAuthenticationProvider;
+use snafu::{ResultExt, Snafu};
+use stackable_operator::commons::authentication::ldap::AuthenticationProvider;
 use stackable_operator::commons::authentication::AuthenticationClassProvider;
 use stackable_operator::kube::ResourceExt;
 
@@ -10,9 +11,17 @@ use crate::{
     ENV_INTERNAL_SECRET, RUNTIME_PROPS, RW_CONFIG_DIRECTORY,
 };
 
+#[derive(Snafu, Debug)]
+pub enum Error {
+    #[snafu(display("Failed to create LDAP endpoint url."))]
+    FailedToCreateLdapEndpointUrl {
+        source: stackable_operator::commons::authentication::ldap::Error,
+    },
+}
+
 #[derive(Clone, Debug)]
 pub struct DruidLdapSettings {
-    pub ldap: LdapAuthenticationProvider,
+    pub ldap: AuthenticationProvider,
     pub authentication_class_name: String,
 }
 
@@ -63,7 +72,10 @@ impl DruidLdapSettings {
         config.insert(format!("{PREFIX}.skipOnFailure"), Some("true".to_string()));
     }
 
-    fn add_ldap_authenticator_config(&self, config: &mut BTreeMap<String, Option<String>>) {
+    fn add_ldap_authenticator_config(
+        &self,
+        config: &mut BTreeMap<String, Option<String>>,
+    ) -> Result<(), Error> {
         const PREFIX: &str = "druid.auth.authenticator.Ldap";
 
         config.insert(format!("{PREFIX}.type"), Some("basic".to_string()));
@@ -77,10 +89,15 @@ impl DruidLdapSettings {
         );
         config.insert(
             format!("{PREFIX}.credentialsValidator.url"),
-            Some(self.credentials_validator_url()),
+            Some(
+                self.ldap
+                    .endpoint_url()
+                    .context(FailedToCreateLdapEndpointUrlSnafu)?
+                    .into(),
+            ),
         );
 
-        if self.ldap.bind_credentials.is_some() {
+        if self.ldap.bind_credentials_mount_paths().is_some() {
             config.insert(
                 format!("{PREFIX}.credentialsValidator.bindUser"),
                 Some(PLACEHOLDER_LDAP_BIND_USER.to_string()), // NOTE: this placeholder will be replaced from a mounted secret operator volume on container startup
@@ -107,6 +124,8 @@ impl DruidLdapSettings {
             format!("{PREFIX}.authorizerName"),
             Some("LdapAuthorizer".to_string()),
         );
+
+        Ok(())
     }
 
     fn add_escalator_config(&self, config: &mut BTreeMap<String, Option<String>>) {
@@ -143,7 +162,9 @@ impl DruidLdapSettings {
         );
     }
 
-    pub fn generate_runtime_properties_config(&self) -> BTreeMap<String, Option<String>> {
+    pub fn generate_runtime_properties_config(
+        &self,
+    ) -> Result<BTreeMap<String, Option<String>>, Error> {
         let mut config: BTreeMap<String, Option<String>> = BTreeMap::new();
 
         config.insert(
@@ -152,36 +173,11 @@ impl DruidLdapSettings {
         );
 
         self.add_druid_system_authenticator_config(&mut config);
-        self.add_ldap_authenticator_config(&mut config);
+        self.add_ldap_authenticator_config(&mut config)?;
         self.add_escalator_config(&mut config);
         self.add_authorizer_config(&mut config);
 
-        config
-    }
-
-    fn is_ssl_enabled(&self) -> bool {
-        self.ldap.tls.is_some()
-    }
-
-    fn get_ldap_protocol_and_port(&self) -> (String, u16) {
-        let protocol = if self.is_ssl_enabled() {
-            "ldaps".to_string()
-        } else {
-            "ldap".to_string()
-        };
-
-        let port = if let Some(port) = self.ldap.port {
-            port
-        } else {
-            self.ldap.default_port()
-        };
-
-        (protocol, port)
-    }
-
-    fn credentials_validator_url(&self) -> String {
-        let (protocol, port) = self.get_ldap_protocol_and_port();
-        format!("{}://{}:{}", protocol, self.ldap.hostname, port,)
+        Ok(config)
     }
 
     pub fn main_container_commands(&self) -> Vec<String> {
@@ -215,7 +211,7 @@ impl DruidLdapSettings {
 
     pub fn prepare_container_commands(&self) -> Vec<String> {
         let mut command = vec![];
-        if let Some(tls_ca_cert_mount_path) = self.ldap.tls_ca_cert_mount_path() {
+        if let Some(tls_ca_cert_mount_path) = self.ldap.tls.tls_ca_cert_mount_path() {
             command.push(add_cert_to_trust_store_cmd(
                 &tls_ca_cert_mount_path,
                 STACKABLE_TLS_DIR,
@@ -230,24 +226,22 @@ impl DruidLdapSettings {
 #[cfg(test)]
 mod test {
     use super::*;
-    use stackable_operator::commons::authentication::ldap::LdapFieldNames;
 
     #[test]
     fn test_ldap_settings_are_added() {
         let ldap_settings = DruidLdapSettings {
-            ldap: LdapAuthenticationProvider {
-                hostname: "openldap".to_string(),
-                port: None,
-                search_base: "ou=users,dc=example,dc=org".to_string(),
-                search_filter: "(uid=%s)".to_string(),
-                ldap_field_names: LdapFieldNames::default(),
-                bind_credentials: None,
-                tls: None,
-            },
+            ldap: serde_yaml::from_str::<AuthenticationProvider>(
+                "
+                hostname: openldap
+                searchBase: ou=users,dc=example,dc=org
+                searchFilter: (uid=%s)
+                ",
+            )
+            .unwrap(),
             authentication_class_name: "ldap".to_string(),
         };
 
-        let got = ldap_settings.generate_runtime_properties_config();
+        let got = ldap_settings.generate_runtime_properties_config().unwrap();
 
         assert!(got.contains_key("druid.auth.authenticator.Ldap.type"));
     }
