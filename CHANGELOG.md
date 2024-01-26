@@ -7,12 +7,14 @@ All notable changes to this project will be documented in this file.
 ### Added
 
 - Various documentation of the CRD ([#494]).
+- Helm: support labels in values.yaml ([#508]).
 
 ### Updated
 
 - `operator-rs` `0.56.1` -> `0.57.0` ([#494]).
 
 [#494]: https://github.com/stackabletech/druid-operator/pull/494
+[#508]: https://github.com/stackabletech/druid-operator/pull/508
 
 ## [23.11.0] - 2023-11-24
 
