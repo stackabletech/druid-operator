@@ -13,8 +13,8 @@
 dimensions:
   - name: druid
     values:
-      - 26.0.0
-      - 27.0.0
+      #- 26.0.0
+      #- 27.0.0
       - 28.0.1
   - name: druid-latest
     values:
@@ -27,7 +27,7 @@ dimensions:
       - 3.9.1
   - name: opa
     values:
-      - 0.57.0
+      - 0.61.0
   - name: hadoop
     values:
       - 3.3.6
