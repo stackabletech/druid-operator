@@ -8,6 +8,7 @@ All notable changes to this project will be documented in this file.
 
 - Various documentation of the CRD ([#494]).
 - Helm: support labels in values.yaml ([#509]).
+- Support druid `28.0.1` ([#518]).
 
 ### Updated
 
@@ -15,6 +16,7 @@ All notable changes to this project will be documented in this file.
 
 [#494]: https://github.com/stackabletech/druid-operator/pull/494
 [#509]: https://github.com/stackabletech/druid-operator/pull/509
+[#518]: https://github.com/stackabletech/druid-operator/pull/518
 
 ## [23.11.0] - 2023-11-24
 
