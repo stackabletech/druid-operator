@@ -23,10 +23,10 @@ spec:
           description: Auto-generated derived type for DruidClusterSpec via `CustomResource`
           properties:
             spec:
-              description: A Druid cluster stacklet. This resource is managed by the Stackable operator for Apache Druid. Find more information on how to use it and the resources that the operator generates in the [operator documentation](https://docs.stackable.tech/home/nightly/druid/).
+              description: A Druid cluster stacklet. This resource is managed by the Stackable operator for Apache Druid. Find more information on how to use it and the resources that the operator generates in the [operator documentation](https://docs.stackable.tech/home/24.3/druid/).
               properties:
                 brokers:
-                  description: This struct represents a role - e.g. HDFS datanodes or Trino workers. It has a key-value-map containing all the roleGroups that are part of this role. Additionally, there is a `config`, which is configurable at the role *and* roleGroup level. Everything at roleGroup level is merged on top of what is configured on role level. There is also a second form of config, which can only be configured at role level, the `roleConfig`. You can learn more about this in the [Roles and role group concept documentation](https://docs.stackable.tech/home/nightly/concepts/roles-and-role-groups).
+                  description: This struct represents a role - e.g. HDFS datanodes or Trino workers. It has a key-value-map containing all the roleGroups that are part of this role. Additionally, there is a `config`, which is configurable at the role *and* roleGroup level. Everything at roleGroup level is merged on top of what is configured on role level. There is also a second form of config, which can only be configured at role level, the `roleConfig`. You can learn more about this in the [Roles and role group concept documentation](https://docs.stackable.tech/home/24.3/concepts/roles-and-role-groups).
                   properties:
                     cliOverrides:
                       additionalProperties:
@@ -42,7 +42,7 @@ spec:
                             podAntiAffinity: null
                             nodeAffinity: null
                             nodeSelector: null
-                          description: These configuration settings control [Pod placement](https://docs.stackable.tech/home/nightly/concepts/operations/pod_placement).
+                          description: These configuration settings control [Pod placement](https://docs.stackable.tech/home/24.3/concepts/operations/pod_placement).
                           properties:
                             nodeAffinity:
                               description: Node affinity is a group of node affinity scheduling rules.
@@ -509,14 +509,14 @@ spec:
                               type: object
                           type: object
                         gracefulShutdownTimeout:
-                          description: The time period Pods have to gracefully shut down, e.g. `30m`, `1h` or `2d`. Read more about graceful shutdown in the [graceful shutdown documentation](https://docs.stackable.tech/home/nightly/druid/usage-guide/operations/graceful-shutdown).
+                          description: The time period Pods have to gracefully shut down, e.g. `30m`, `1h` or `2d`. Read more about graceful shutdown in the [graceful shutdown documentation](https://docs.stackable.tech/home/24.3/druid/usage-guide/operations/graceful-shutdown).
                           nullable: true
                           type: string
                         logging:
                           default:
                             enableVectorAgent: null
                             containers: {}
-                          description: Logging configuration, learn more in the [logging concept documentation](https://docs.stackable.tech/home/nightly/concepts/logging).
+                          description: Logging configuration, learn more in the [logging concept documentation](https://docs.stackable.tech/home/24.3/concepts/logging).
                           properties:
                             containers:
                               additionalProperties:
@@ -642,17 +642,17 @@ spec:
                           type: string
                         type: object
                       default: {}
-                      description: The `configOverrides` can be used to configure properties in product config files that are not exposed in the CRD. Read the [config overrides documentation](https://docs.stackable.tech/home/nightly/concepts/overrides#config-overrides) and consult the operator specific usage guide documentation for details on the available config files and settings for the specific product.
+                      description: The `configOverrides` can be used to configure properties in product config files that are not exposed in the CRD. Read the [config overrides documentation](https://docs.stackable.tech/home/24.3/concepts/overrides#config-overrides) and consult the operator specific usage guide documentation for details on the available config files and settings for the specific product.
                       type: object
                     envOverrides:
                       additionalProperties:
                         type: string
                       default: {}
-                      description: '`envOverrides` configure environment variables to be set in the Pods. It is a map from strings to strings - environment variables and the value to set. Read the [environment variable overrides documentation](https://docs.stackable.tech/home/nightly/concepts/overrides#env-overrides) for more information and consult the operator specific usage guide to find out about the product specific environment variables that are available.'
+                      description: '`envOverrides` configure environment variables to be set in the Pods. It is a map from strings to strings - environment variables and the value to set. Read the [environment variable overrides documentation](https://docs.stackable.tech/home/24.3/concepts/overrides#env-overrides) for more information and consult the operator specific usage guide to find out about the product specific environment variables that are available.'
                       type: object
                     podOverrides:
                       default: {}
-                      description: In the `podOverrides` property you can define a [PodTemplateSpec](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.27/#podtemplatespec-v1-core) to override any property that can be set on a Kubernetes Pod. Read the [Pod overrides documentation](https://docs.stackable.tech/home/nightly/concepts/overrides#pod-overrides) for more information.
+                      description: In the `podOverrides` property you can define a [PodTemplateSpec](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.27/#podtemplatespec-v1-core) to override any property that can be set on a Kubernetes Pod. Read the [Pod overrides documentation](https://docs.stackable.tech/home/24.3/concepts/overrides#pod-overrides) for more information.
                       properties:
                         metadata:
                           properties:
@@ -3464,7 +3464,7 @@ spec:
 
                             1. If PodDisruptionBudgets are created by the operator 2. The allowed number of Pods to be unavailable (`maxUnavailable`)
 
-                            Learn more in the [allowed Pod disruptions documentation](https://docs.stackable.tech/home/nightly/concepts/operations/pod_disruptions).
+                            Learn more in the [allowed Pod disruptions documentation](https://docs.stackable.tech/home/24.3/concepts/operations/pod_disruptions).
                           properties:
                             enabled:
                               default: true
@@ -3495,7 +3495,7 @@ spec:
                                   podAntiAffinity: null
                                   nodeAffinity: null
                                   nodeSelector: null
-                                description: These configuration settings control [Pod placement](https://docs.stackable.tech/home/nightly/concepts/operations/pod_placement).
+                                description: These configuration settings control [Pod placement](https://docs.stackable.tech/home/24.3/concepts/operations/pod_placement).
                                 properties:
                                   nodeAffinity:
                                     description: Node affinity is a group of node affinity scheduling rules.
@@ -3962,14 +3962,14 @@ spec:
                                     type: object
                                 type: object
                               gracefulShutdownTimeout:
-                                description: The time period Pods have to gracefully shut down, e.g. `30m`, `1h` or `2d`. Read more about graceful shutdown in the [graceful shutdown documentation](https://docs.stackable.tech/home/nightly/druid/usage-guide/operations/graceful-shutdown).
+                                description: The time period Pods have to gracefully shut down, e.g. `30m`, `1h` or `2d`. Read more about graceful shutdown in the [graceful shutdown documentation](https://docs.stackable.tech/home/24.3/druid/usage-guide/operations/graceful-shutdown).
                                 nullable: true
                                 type: string
                               logging:
                                 default:
                                   enableVectorAgent: null
                                   containers: {}
-                                description: Logging configuration, learn more in the [logging concept documentation](https://docs.stackable.tech/home/nightly/concepts/logging).
+                                description: Logging configuration, learn more in the [logging concept documentation](https://docs.stackable.tech/home/24.3/concepts/logging).
                                 properties:
                                   containers:
                                     additionalProperties:
@@ -4095,17 +4095,17 @@ spec:
                                 type: string
                               type: object
                             default: {}
-                            description: The `configOverrides` can be used to configure properties in product config files that are not exposed in the CRD. Read the [config overrides documentation](https://docs.stackable.tech/home/nightly/concepts/overrides#config-overrides) and consult the operator specific usage guide documentation for details on the available config files and settings for the specific product.
+                            description: The `configOverrides` can be used to configure properties in product config files that are not exposed in the CRD. Read the [config overrides documentation](https://docs.stackable.tech/home/24.3/concepts/overrides#config-overrides) and consult the operator specific usage guide documentation for details on the available config files and settings for the specific product.
                             type: object
                           envOverrides:
                             additionalProperties:
                               type: string
                             default: {}
-                            description: '`envOverrides` configure environment variables to be set in the Pods. It is a map from strings to strings - environment variables and the value to set. Read the [environment variable overrides documentation](https://docs.stackable.tech/home/nightly/concepts/overrides#env-overrides) for more information and consult the operator specific usage guide to find out about the product specific environment variables that are available.'
+                            description: '`envOverrides` configure environment variables to be set in the Pods. It is a map from strings to strings - environment variables and the value to set. Read the [environment variable overrides documentation](https://docs.stackable.tech/home/24.3/concepts/overrides#env-overrides) for more information and consult the operator specific usage guide to find out about the product specific environment variables that are available.'
                             type: object
                           podOverrides:
                             default: {}
-                            description: In the `podOverrides` property you can define a [PodTemplateSpec](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.27/#podtemplatespec-v1-core) to override any property that can be set on a Kubernetes Pod. Read the [Pod overrides documentation](https://docs.stackable.tech/home/nightly/concepts/overrides#pod-overrides) for more information.
+                            description: In the `podOverrides` property you can define a [PodTemplateSpec](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.27/#podtemplatespec-v1-core) to override any property that can be set on a Kubernetes Pod. Read the [Pod overrides documentation](https://docs.stackable.tech/home/24.3/concepts/overrides#pod-overrides) for more information.
                             properties:
                               metadata:
                                 properties:
@@ -6917,13 +6917,13 @@ spec:
                     authentication:
                       default: []
                       description: |-
-                        List of [AuthenticationClasses](https://docs.stackable.tech/home/nightly/concepts/authentication) to use for authenticating users. TLS and LDAP authentication are supported. More information in the [Druid operator security documentation](https://docs.stackable.tech/home/nightly/druid/usage-guide/security#_authentication).
+                        List of [AuthenticationClasses](https://docs.stackable.tech/home/24.3/concepts/authentication) to use for authenticating users. TLS and LDAP authentication are supported. More information in the [Druid operator security documentation](https://docs.stackable.tech/home/24.3/druid/usage-guide/security#_authentication).
 
                         For TLS: Please note that the SecretClass used to authenticate users needs to be the same as the SecretClass used for internal communication.
                       items:
                         properties:
                           authenticationClass:
-                            description: 'The name of an [AuthenticationClass](https://docs.stackable.tech/home/nightly/concepts/authentication) object. When using TLS authentication, the `clientCertSecretClass` must be identical to the `serverAndInternalSecretClass` in the `clusterConfig.tls` settings of Druid. This is a limitation of Druid: Only one CA certificate can be used for both internal authentication between processes as well as authentication of users.'
+                            description: 'The name of an [AuthenticationClass](https://docs.stackable.tech/home/24.3/concepts/authentication) object. When using TLS authentication, the `clientCertSecretClass` must be identical to the `serverAndInternalSecretClass` in the `clusterConfig.tls` settings of Druid. This is a limitation of Druid: Only one CA certificate can be used for both internal authentication between processes as well as authentication of users.'
                             type: string
                         required:
                           - authenticationClass
@@ -6934,10 +6934,10 @@ spec:
                       nullable: true
                       properties:
                         opa:
-                          description: Configure the OPA stacklet [discovery ConfigMap](https://docs.stackable.tech/home/nightly/concepts/service_discovery) and the name of the Rego package containing your Druid authorization rules. Consult the [OPA authorization documentation](https://docs.stackable.tech/home/nightly/concepts/opa) to learn how to deploy Rego authorization rules with OPA. Read the [Druid operator security documentation](https://docs.stackable.tech/home/nightly/druid/usage-guide/security) for more information on how to write rules specifically for Druid.
+                          description: Configure the OPA stacklet [discovery ConfigMap](https://docs.stackable.tech/home/24.3/concepts/service_discovery) and the name of the Rego package containing your Druid authorization rules. Consult the [OPA authorization documentation](https://docs.stackable.tech/home/24.3/concepts/opa) to learn how to deploy Rego authorization rules with OPA. Read the [Druid operator security documentation](https://docs.stackable.tech/home/24.3/druid/usage-guide/security) for more information on how to write rules specifically for Druid.
                           properties:
                             configMapName:
-                              description: The [discovery ConfigMap](https://docs.stackable.tech/home/nightly/concepts/service_discovery) for the OPA stacklet that should be used for authorization requests.
+                              description: The [discovery ConfigMap](https://docs.stackable.tech/home/24.3/concepts/service_discovery) for the OPA stacklet that should be used for authorization requests.
                               type: string
                             package:
                               description: The name of the Rego package containing the Rego rules for the product.
@@ -6950,7 +6950,7 @@ spec:
                         - opa
                       type: object
                     deepStorage:
-                      description: '[Druid deep storage configuration](https://docs.stackable.tech/home/nightly/druid/usage-guide/deep-storage). Only one backend can be used at a time. Either HDFS or S3 are supported.'
+                      description: '[Druid deep storage configuration](https://docs.stackable.tech/home/24.3/druid/usage-guide/deep-storage). Only one backend can be used at a time. Either HDFS or S3 are supported.'
                       oneOf:
                         - required:
                             - hdfs
@@ -6958,10 +6958,10 @@ spec:
                             - s3
                       properties:
                         hdfs:
-                          description: '[The HDFS deep storage configuration](https://docs.stackable.tech/home/nightly/druid/usage-guide/deep-storage#_hdfs). You can run an HDFS cluster with the [Stackable operator for Apache HDFS](https://docs.stackable.tech/home/nightly/hdfs/).'
+                          description: '[The HDFS deep storage configuration](https://docs.stackable.tech/home/24.3/druid/usage-guide/deep-storage#_hdfs). You can run an HDFS cluster with the [Stackable operator for Apache HDFS](https://docs.stackable.tech/home/24.3/hdfs/).'
                           properties:
                             configMapName:
-                              description: The [discovery ConfigMap](https://docs.stackable.tech/home/nightly/concepts/service_discovery) for the HDFS instance. When running an HDFS cluster with the Stackable operator, the operator will create this ConfigMap for you. It has the same name as your HDFSCluster resource.
+                              description: The [discovery ConfigMap](https://docs.stackable.tech/home/24.3/concepts/service_discovery) for the HDFS instance. When running an HDFS cluster with the Stackable operator, the operator will create this ConfigMap for you. It has the same name as your HDFSCluster resource.
                               type: string
                             directory:
                               description: The directory inside of HDFS where Druid should store its data.
@@ -6971,14 +6971,14 @@ spec:
                             - directory
                           type: object
                         s3:
-                          description: '[The S3 deep storage configuration](https://docs.stackable.tech/home/nightly/druid/usage-guide/deep-storage#_s3).'
+                          description: '[The S3 deep storage configuration](https://docs.stackable.tech/home/24.3/druid/usage-guide/deep-storage#_s3).'
                           properties:
                             baseKey:
                               description: The `baseKey` is similar to the `directory` in HDFS; it is the root key at which Druid will create its deep storage. If no `baseKey` is given, the bucket root will be used.
                               nullable: true
                               type: string
                             bucket:
-                              description: The S3 bucket to use for deep storage. Can either be defined inline or as a reference, read the [S3 bucket docs](https://docs.stackable.tech/home/nightly/concepts/s3) to learn more.
+                              description: The S3 bucket to use for deep storage. Can either be defined inline or as a reference, read the [S3 bucket docs](https://docs.stackable.tech/home/24.3/concepts/s3) to learn more.
                               oneOf:
                                 - required:
                                     - inline
@@ -7012,11 +7012,11 @@ spec:
                                               nullable: true
                                               type: string
                                             credentials:
-                                              description: If the S3 uses authentication you have to specify you S3 credentials. In the most cases a [SecretClass](https://docs.stackable.tech/home/nightly/secret-operator/secretclass) providing `accessKey` and `secretKey` is sufficient.
+                                              description: If the S3 uses authentication you have to specify you S3 credentials. In the most cases a [SecretClass](https://docs.stackable.tech/home/24.3/secret-operator/secretclass) providing `accessKey` and `secretKey` is sufficient.
                                               nullable: true
                                               properties:
                                                 scope:
-                                                  description: '[Scope](https://docs.stackable.tech/home/nightly/secret-operator/scope) of the [SecretClass](https://docs.stackable.tech/home/nightly/secret-operator/secretclass).'
+                                                  description: '[Scope](https://docs.stackable.tech/home/24.3/secret-operator/scope) of the [SecretClass](https://docs.stackable.tech/home/24.3/secret-operator/secretclass).'
                                                   nullable: true
                                                   properties:
                                                     node:
@@ -7035,7 +7035,7 @@ spec:
                                                       type: array
                                                   type: object
                                                 secretClass:
-                                                  description: '[SecretClass](https://docs.stackable.tech/home/nightly/secret-operator/secretclass) containing the LDAP bind credentials.'
+                                                  description: '[SecretClass](https://docs.stackable.tech/home/24.3/secret-operator/secretclass) containing the LDAP bind credentials.'
                                                   type: string
                                               required:
                                                 - secretClass
@@ -7077,7 +7077,7 @@ spec:
                                                                 - secretClass
                                                           properties:
                                                             secretClass:
-                                                              description: Name of the [SecretClass](https://docs.stackable.tech/home/nightly/secret-operator/secretclass) which will provide the CA certificate. Note that a SecretClass does not need to have a key but can also work with just a CA certificate, so if you got provided with a CA cert but don't have access to the key you can still use this method.
+                                                              description: Name of the [SecretClass](https://docs.stackable.tech/home/24.3/secret-operator/secretclass) which will provide the CA certificate. Note that a SecretClass does not need to have a key but can also work with just a CA certificate, so if you got provided with a CA cert but don't have access to the key you can still use this method.
                                                               type: string
                                                             webPki:
                                                               description: Use TLS and the CA certificates trusted by the common web browsers to verify the server. This can be useful when you e.g. use public AWS S3 or other public available services.
@@ -8185,7 +8185,7 @@ spec:
                       nullable: true
                       properties:
                         s3connection:
-                          description: Druid supports ingesting data from S3 buckets where the bucket name is specified in the ingestion task. However, the S3 connection has to be specified in advance and only a single S3 connection is supported. S3 connections can either be specified `inline` or as a `reference`. Read the [S3 resource concept docs](https://docs.stackable.tech/home/nightly/concepts/s3) to learn more.
+                          description: Druid supports ingesting data from S3 buckets where the bucket name is specified in the ingestion task. However, the S3 connection has to be specified in advance and only a single S3 connection is supported. S3 connections can either be specified `inline` or as a `reference`. Read the [S3 resource concept docs](https://docs.stackable.tech/home/24.3/concepts/s3) to learn more.
                           nullable: true
                           oneOf:
                             - required:
@@ -8204,11 +8204,11 @@ spec:
                                   nullable: true
                                   type: string
                                 credentials:
-                                  description: If the S3 uses authentication you have to specify you S3 credentials. In the most cases a [SecretClass](https://docs.stackable.tech/home/nightly/secret-operator/secretclass) providing `accessKey` and `secretKey` is sufficient.
+                                  description: If the S3 uses authentication you have to specify you S3 credentials. In the most cases a [SecretClass](https://docs.stackable.tech/home/24.3/secret-operator/secretclass) providing `accessKey` and `secretKey` is sufficient.
                                   nullable: true
                                   properties:
                                     scope:
-                                      description: '[Scope](https://docs.stackable.tech/home/nightly/secret-operator/scope) of the [SecretClass](https://docs.stackable.tech/home/nightly/secret-operator/secretclass).'
+                                      description: '[Scope](https://docs.stackable.tech/home/24.3/secret-operator/scope) of the [SecretClass](https://docs.stackable.tech/home/24.3/secret-operator/secretclass).'
                                       nullable: true
                                       properties:
                                         node:
@@ -8227,7 +8227,7 @@ spec:
                                           type: array
                                       type: object
                                     secretClass:
-                                      description: '[SecretClass](https://docs.stackable.tech/home/nightly/secret-operator/secretclass) containing the LDAP bind credentials.'
+                                      description: '[SecretClass](https://docs.stackable.tech/home/24.3/secret-operator/secretclass) containing the LDAP bind credentials.'
                                       type: string
                                   required:
                                     - secretClass
@@ -8269,7 +8269,7 @@ spec:
                                                     - secretClass
                                               properties:
                                                 secretClass:
-                                                  description: Name of the [SecretClass](https://docs.stackable.tech/home/nightly/secret-operator/secretclass) which will provide the CA certificate. Note that a SecretClass does not need to have a key but can also work with just a CA certificate, so if you got provided with a CA cert but don't have access to the key you can still use this method.
+                                                  description: Name of the [SecretClass](https://docs.stackable.tech/home/24.3/secret-operator/secretclass) which will provide the CA certificate. Note that a SecretClass does not need to have a key but can also work with just a CA certificate, so if you got provided with a CA cert but don't have access to the key you can still use this method.
                                                   type: string
                                                 webPki:
                                                   description: Use TLS and the CA certificates trusted by the common web browsers to verify the server. This can be useful when you e.g. use public AWS S3 or other public available services.
@@ -8295,7 +8295,7 @@ spec:
 
                         * `cluster-internal`: Use a ClusterIP service * `external-unstable`: Use a NodePort service * `external-stable`: Use a LoadBalancer service
 
-                        This is a temporary solution with the goal to keep yaml manifests forward compatible. In the future, this setting will control which [ListenerClass](https://docs.stackable.tech/home/nightly/listener-operator/listenerclass.html) will be used to expose the service, and ListenerClass names will stay the same, allowing for a non-breaking change.
+                        This is a temporary solution with the goal to keep yaml manifests forward compatible. In the future, this setting will control which [ListenerClass](https://docs.stackable.tech/home/24.3/listener-operator/listenerclass.html) will be used to expose the service, and ListenerClass names will stay the same, allowing for a non-breaking change.
                       enum:
                         - cluster-internal
                         - external-unstable
@@ -8339,7 +8339,7 @@ spec:
                     tls:
                       default:
                         serverAndInternalSecretClass: tls
-                      description: TLS encryption settings for Druid, more information in the [security documentation](https://docs.stackable.tech/home/nightly/druid/usage-guide/security). This setting only affects server and internal communication. It does not affect client tls authentication, use `clusterConfig.authentication` instead.
+                      description: TLS encryption settings for Druid, more information in the [security documentation](https://docs.stackable.tech/home/24.3/druid/usage-guide/security). This setting only affects server and internal communication. It does not affect client tls authentication, use `clusterConfig.authentication` instead.
                       nullable: true
                       properties:
                         serverAndInternalSecretClass:
@@ -8349,11 +8349,11 @@ spec:
                           type: string
                       type: object
                     vectorAggregatorConfigMapName:
-                      description: Name of the Vector aggregator [discovery ConfigMap](https://docs.stackable.tech/home/nightly/concepts/service_discovery). It must contain the key `ADDRESS` with the address of the Vector aggregator. Follow the [logging tutorial](https://docs.stackable.tech/home/nightly/tutorials/logging-vector-aggregator) to learn how to configure log aggregation with Vector.
+                      description: Name of the Vector aggregator [discovery ConfigMap](https://docs.stackable.tech/home/24.3/concepts/service_discovery). It must contain the key `ADDRESS` with the address of the Vector aggregator. Follow the [logging tutorial](https://docs.stackable.tech/home/24.3/tutorials/logging-vector-aggregator) to learn how to configure log aggregation with Vector.
                       nullable: true
                       type: string
                     zookeeperConfigMapName:
-                      description: Druid requires a ZooKeeper cluster connection to run. Provide the name of the ZooKeeper [discovery ConfigMap](https://docs.stackable.tech/home/nightly/concepts/service_discovery) here. When using the [Stackable operator for Apache ZooKeeper](https://docs.stackable.tech/home/nightly/zookeeper/) to deploy a ZooKeeper cluster, this will simply be the name of your ZookeeperCluster resource.
+                      description: Druid requires a ZooKeeper cluster connection to run. Provide the name of the ZooKeeper [discovery ConfigMap](https://docs.stackable.tech/home/24.3/concepts/service_discovery) here. When using the [Stackable operator for Apache ZooKeeper](https://docs.stackable.tech/home/24.3/zookeeper/) to deploy a ZooKeeper cluster, this will simply be the name of your ZookeeperCluster resource.
                       type: string
                   required:
                     - deepStorage
@@ -8364,7 +8364,7 @@ spec:
                   default:
                     stopped: false
                     reconciliationPaused: false
-                  description: '[Cluster operations](https://docs.stackable.tech/home/nightly/concepts/operations/cluster_operations) properties, allow stopping the product instance as well as pausing reconciliation.'
+                  description: '[Cluster operations](https://docs.stackable.tech/home/24.3/concepts/operations/cluster_operations) properties, allow stopping the product instance as well as pausing reconciliation.'
                   properties:
                     reconciliationPaused:
                       default: false
@@ -8376,7 +8376,7 @@ spec:
                       type: boolean
                   type: object
                 coordinators:
-                  description: This struct represents a role - e.g. HDFS datanodes or Trino workers. It has a key-value-map containing all the roleGroups that are part of this role. Additionally, there is a `config`, which is configurable at the role *and* roleGroup level. Everything at roleGroup level is merged on top of what is configured on role level. There is also a second form of config, which can only be configured at role level, the `roleConfig`. You can learn more about this in the [Roles and role group concept documentation](https://docs.stackable.tech/home/nightly/concepts/roles-and-role-groups).
+                  description: This struct represents a role - e.g. HDFS datanodes or Trino workers. It has a key-value-map containing all the roleGroups that are part of this role. Additionally, there is a `config`, which is configurable at the role *and* roleGroup level. Everything at roleGroup level is merged on top of what is configured on role level. There is also a second form of config, which can only be configured at role level, the `roleConfig`. You can learn more about this in the [Roles and role group concept documentation](https://docs.stackable.tech/home/24.3/concepts/roles-and-role-groups).
                   properties:
                     cliOverrides:
                       additionalProperties:
@@ -8392,7 +8392,7 @@ spec:
                             podAntiAffinity: null
                             nodeAffinity: null
                             nodeSelector: null
-                          description: These configuration settings control [Pod placement](https://docs.stackable.tech/home/nightly/concepts/operations/pod_placement).
+                          description: These configuration settings control [Pod placement](https://docs.stackable.tech/home/24.3/concepts/operations/pod_placement).
                           properties:
                             nodeAffinity:
                               description: Node affinity is a group of node affinity scheduling rules.
@@ -8859,14 +8859,14 @@ spec:
                               type: object
                           type: object
                         gracefulShutdownTimeout:
-                          description: The time period Pods have to gracefully shut down, e.g. `30m`, `1h` or `2d`. Read more about graceful shutdown in the [graceful shutdown documentation](https://docs.stackable.tech/home/nightly/druid/usage-guide/operations/graceful-shutdown).
+                          description: The time period Pods have to gracefully shut down, e.g. `30m`, `1h` or `2d`. Read more about graceful shutdown in the [graceful shutdown documentation](https://docs.stackable.tech/home/24.3/druid/usage-guide/operations/graceful-shutdown).
                           nullable: true
                           type: string
                         logging:
                           default:
                             enableVectorAgent: null
                             containers: {}
-                          description: Logging configuration, learn more in the [logging concept documentation](https://docs.stackable.tech/home/nightly/concepts/logging).
+                          description: Logging configuration, learn more in the [logging concept documentation](https://docs.stackable.tech/home/24.3/concepts/logging).
                           properties:
                             containers:
                               additionalProperties:
@@ -8992,17 +8992,17 @@ spec:
                           type: string
                         type: object
                       default: {}
-                      description: The `configOverrides` can be used to configure properties in product config files that are not exposed in the CRD. Read the [config overrides documentation](https://docs.stackable.tech/home/nightly/concepts/overrides#config-overrides) and consult the operator specific usage guide documentation for details on the available config files and settings for the specific product.
+                      description: The `configOverrides` can be used to configure properties in product config files that are not exposed in the CRD. Read the [config overrides documentation](https://docs.stackable.tech/home/24.3/concepts/overrides#config-overrides) and consult the operator specific usage guide documentation for details on the available config files and settings for the specific product.
                       type: object
                     envOverrides:
                       additionalProperties:
                         type: string
                       default: {}
-                      description: '`envOverrides` configure environment variables to be set in the Pods. It is a map from strings to strings - environment variables and the value to set. Read the [environment variable overrides documentation](https://docs.stackable.tech/home/nightly/concepts/overrides#env-overrides) for more information and consult the operator specific usage guide to find out about the product specific environment variables that are available.'
+                      description: '`envOverrides` configure environment variables to be set in the Pods. It is a map from strings to strings - environment variables and the value to set. Read the [environment variable overrides documentation](https://docs.stackable.tech/home/24.3/concepts/overrides#env-overrides) for more information and consult the operator specific usage guide to find out about the product specific environment variables that are available.'
                       type: object
                     podOverrides:
                       default: {}
-                      description: In the `podOverrides` property you can define a [PodTemplateSpec](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.27/#podtemplatespec-v1-core) to override any property that can be set on a Kubernetes Pod. Read the [Pod overrides documentation](https://docs.stackable.tech/home/nightly/concepts/overrides#pod-overrides) for more information.
+                      description: In the `podOverrides` property you can define a [PodTemplateSpec](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.27/#podtemplatespec-v1-core) to override any property that can be set on a Kubernetes Pod. Read the [Pod overrides documentation](https://docs.stackable.tech/home/24.3/concepts/overrides#pod-overrides) for more information.
                       properties:
                         metadata:
                           properties:
@@ -11814,7 +11814,7 @@ spec:
 
                             1. If PodDisruptionBudgets are created by the operator 2. The allowed number of Pods to be unavailable (`maxUnavailable`)
 
-                            Learn more in the [allowed Pod disruptions documentation](https://docs.stackable.tech/home/nightly/concepts/operations/pod_disruptions).
+                            Learn more in the [allowed Pod disruptions documentation](https://docs.stackable.tech/home/24.3/concepts/operations/pod_disruptions).
                           properties:
                             enabled:
                               default: true
@@ -11845,7 +11845,7 @@ spec:
                                   podAntiAffinity: null
                                   nodeAffinity: null
                                   nodeSelector: null
-                                description: These configuration settings control [Pod placement](https://docs.stackable.tech/home/nightly/concepts/operations/pod_placement).
+                                description: These configuration settings control [Pod placement](https://docs.stackable.tech/home/24.3/concepts/operations/pod_placement).
                                 properties:
                                   nodeAffinity:
                                     description: Node affinity is a group of node affinity scheduling rules.
@@ -12312,14 +12312,14 @@ spec:
                                     type: object
                                 type: object
                               gracefulShutdownTimeout:
-                                description: The time period Pods have to gracefully shut down, e.g. `30m`, `1h` or `2d`. Read more about graceful shutdown in the [graceful shutdown documentation](https://docs.stackable.tech/home/nightly/druid/usage-guide/operations/graceful-shutdown).
+                                description: The time period Pods have to gracefully shut down, e.g. `30m`, `1h` or `2d`. Read more about graceful shutdown in the [graceful shutdown documentation](https://docs.stackable.tech/home/24.3/druid/usage-guide/operations/graceful-shutdown).
                                 nullable: true
                                 type: string
                               logging:
                                 default:
                                   enableVectorAgent: null
                                   containers: {}
-                                description: Logging configuration, learn more in the [logging concept documentation](https://docs.stackable.tech/home/nightly/concepts/logging).
+                                description: Logging configuration, learn more in the [logging concept documentation](https://docs.stackable.tech/home/24.3/concepts/logging).
                                 properties:
                                   containers:
                                     additionalProperties:
@@ -12445,17 +12445,17 @@ spec:
                                 type: string
                               type: object
                             default: {}
-                            description: The `configOverrides` can be used to configure properties in product config files that are not exposed in the CRD. Read the [config overrides documentation](https://docs.stackable.tech/home/nightly/concepts/overrides#config-overrides) and consult the operator specific usage guide documentation for details on the available config files and settings for the specific product.
+                            description: The `configOverrides` can be used to configure properties in product config files that are not exposed in the CRD. Read the [config overrides documentation](https://docs.stackable.tech/home/24.3/concepts/overrides#config-overrides) and consult the operator specific usage guide documentation for details on the available config files and settings for the specific product.
                             type: object
                           envOverrides:
                             additionalProperties:
                               type: string
                             default: {}
-                            description: '`envOverrides` configure environment variables to be set in the Pods. It is a map from strings to strings - environment variables and the value to set. Read the [environment variable overrides documentation](https://docs.stackable.tech/home/nightly/concepts/overrides#env-overrides) for more information and consult the operator specific usage guide to find out about the product specific environment variables that are available.'
+                            description: '`envOverrides` configure environment variables to be set in the Pods. It is a map from strings to strings - environment variables and the value to set. Read the [environment variable overrides documentation](https://docs.stackable.tech/home/24.3/concepts/overrides#env-overrides) for more information and consult the operator specific usage guide to find out about the product specific environment variables that are available.'
                             type: object
                           podOverrides:
                             default: {}
-                            description: In the `podOverrides` property you can define a [PodTemplateSpec](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.27/#podtemplatespec-v1-core) to override any property that can be set on a Kubernetes Pod. Read the [Pod overrides documentation](https://docs.stackable.tech/home/nightly/concepts/overrides#pod-overrides) for more information.
+                            description: In the `podOverrides` property you can define a [PodTemplateSpec](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.27/#podtemplatespec-v1-core) to override any property that can be set on a Kubernetes Pod. Read the [Pod overrides documentation](https://docs.stackable.tech/home/24.3/concepts/overrides#pod-overrides) for more information.
                             properties:
                               metadata:
                                 properties:
@@ -15262,7 +15262,7 @@ spec:
                     - roleGroups
                   type: object
                 historicals:
-                  description: This struct represents a role - e.g. HDFS datanodes or Trino workers. It has a key-value-map containing all the roleGroups that are part of this role. Additionally, there is a `config`, which is configurable at the role *and* roleGroup level. Everything at roleGroup level is merged on top of what is configured on role level. There is also a second form of config, which can only be configured at role level, the `roleConfig`. You can learn more about this in the [Roles and role group concept documentation](https://docs.stackable.tech/home/nightly/concepts/roles-and-role-groups).
+                  description: This struct represents a role - e.g. HDFS datanodes or Trino workers. It has a key-value-map containing all the roleGroups that are part of this role. Additionally, there is a `config`, which is configurable at the role *and* roleGroup level. Everything at roleGroup level is merged on top of what is configured on role level. There is also a second form of config, which can only be configured at role level, the `roleConfig`. You can learn more about this in the [Roles and role group concept documentation](https://docs.stackable.tech/home/24.3/concepts/roles-and-role-groups).
                   properties:
                     cliOverrides:
                       additionalProperties:
@@ -15278,7 +15278,7 @@ spec:
                             podAntiAffinity: null
                             nodeAffinity: null
                             nodeSelector: null
-                          description: These configuration settings control [Pod placement](https://docs.stackable.tech/home/nightly/concepts/operations/pod_placement).
+                          description: These configuration settings control [Pod placement](https://docs.stackable.tech/home/24.3/concepts/operations/pod_placement).
                           properties:
                             nodeAffinity:
                               description: Node affinity is a group of node affinity scheduling rules.
@@ -15745,14 +15745,14 @@ spec:
                               type: object
                           type: object
                         gracefulShutdownTimeout:
-                          description: The time period Pods have to gracefully shut down, e.g. `30m`, `1h` or `2d`. Read more about graceful shutdown in the [graceful shutdown documentation](https://docs.stackable.tech/home/nightly/druid/usage-guide/operations/graceful-shutdown).
+                          description: The time period Pods have to gracefully shut down, e.g. `30m`, `1h` or `2d`. Read more about graceful shutdown in the [graceful shutdown documentation](https://docs.stackable.tech/home/24.3/druid/usage-guide/operations/graceful-shutdown).
                           nullable: true
                           type: string
                         logging:
                           default:
                             enableVectorAgent: null
                             containers: {}
-                          description: Logging configuration, learn more in the [logging concept documentation](https://docs.stackable.tech/home/nightly/concepts/logging).
+                          description: Logging configuration, learn more in the [logging concept documentation](https://docs.stackable.tech/home/24.3/concepts/logging).
                           properties:
                             containers:
                               additionalProperties:
@@ -15871,7 +15871,7 @@ spec:
                                   type: object
                               type: object
                             storage:
-                              description: The storage settings for the Historical process. Read more in the [storage and resource documentation](https://docs.stackable.tech/home/nightly/druid/usage-guide/resources-and-storage#_historical_resources).
+                              description: The storage settings for the Historical process. Read more in the [storage and resource documentation](https://docs.stackable.tech/home/24.3/druid/usage-guide/resources-and-storage#_historical_resources).
                               properties:
                                 segmentCache:
                                   default:
@@ -15909,17 +15909,17 @@ spec:
                           type: string
                         type: object
                       default: {}
-                      description: The `configOverrides` can be used to configure properties in product config files that are not exposed in the CRD. Read the [config overrides documentation](https://docs.stackable.tech/home/nightly/concepts/overrides#config-overrides) and consult the operator specific usage guide documentation for details on the available config files and settings for the specific product.
+                      description: The `configOverrides` can be used to configure properties in product config files that are not exposed in the CRD. Read the [config overrides documentation](https://docs.stackable.tech/home/24.3/concepts/overrides#config-overrides) and consult the operator specific usage guide documentation for details on the available config files and settings for the specific product.
                       type: object
                     envOverrides:
                       additionalProperties:
                         type: string
                       default: {}
-                      description: '`envOverrides` configure environment variables to be set in the Pods. It is a map from strings to strings - environment variables and the value to set. Read the [environment variable overrides documentation](https://docs.stackable.tech/home/nightly/concepts/overrides#env-overrides) for more information and consult the operator specific usage guide to find out about the product specific environment variables that are available.'
+                      description: '`envOverrides` configure environment variables to be set in the Pods. It is a map from strings to strings - environment variables and the value to set. Read the [environment variable overrides documentation](https://docs.stackable.tech/home/24.3/concepts/overrides#env-overrides) for more information and consult the operator specific usage guide to find out about the product specific environment variables that are available.'
                       type: object
                     podOverrides:
                       default: {}
-                      description: In the `podOverrides` property you can define a [PodTemplateSpec](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.27/#podtemplatespec-v1-core) to override any property that can be set on a Kubernetes Pod. Read the [Pod overrides documentation](https://docs.stackable.tech/home/nightly/concepts/overrides#pod-overrides) for more information.
+                      description: In the `podOverrides` property you can define a [PodTemplateSpec](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.27/#podtemplatespec-v1-core) to override any property that can be set on a Kubernetes Pod. Read the [Pod overrides documentation](https://docs.stackable.tech/home/24.3/concepts/overrides#pod-overrides) for more information.
                       properties:
                         metadata:
                           properties:
@@ -18731,7 +18731,7 @@ spec:
 
                             1. If PodDisruptionBudgets are created by the operator 2. The allowed number of Pods to be unavailable (`maxUnavailable`)
 
-                            Learn more in the [allowed Pod disruptions documentation](https://docs.stackable.tech/home/nightly/concepts/operations/pod_disruptions).
+                            Learn more in the [allowed Pod disruptions documentation](https://docs.stackable.tech/home/24.3/concepts/operations/pod_disruptions).
                           properties:
                             enabled:
                               default: true
@@ -18762,7 +18762,7 @@ spec:
                                   podAntiAffinity: null
                                   nodeAffinity: null
                                   nodeSelector: null
-                                description: These configuration settings control [Pod placement](https://docs.stackable.tech/home/nightly/concepts/operations/pod_placement).
+                                description: These configuration settings control [Pod placement](https://docs.stackable.tech/home/24.3/concepts/operations/pod_placement).
                                 properties:
                                   nodeAffinity:
                                     description: Node affinity is a group of node affinity scheduling rules.
@@ -19229,14 +19229,14 @@ spec:
                                     type: object
                                 type: object
                               gracefulShutdownTimeout:
-                                description: The time period Pods have to gracefully shut down, e.g. `30m`, `1h` or `2d`. Read more about graceful shutdown in the [graceful shutdown documentation](https://docs.stackable.tech/home/nightly/druid/usage-guide/operations/graceful-shutdown).
+                                description: The time period Pods have to gracefully shut down, e.g. `30m`, `1h` or `2d`. Read more about graceful shutdown in the [graceful shutdown documentation](https://docs.stackable.tech/home/24.3/druid/usage-guide/operations/graceful-shutdown).
                                 nullable: true
                                 type: string
                               logging:
                                 default:
                                   enableVectorAgent: null
                                   containers: {}
-                                description: Logging configuration, learn more in the [logging concept documentation](https://docs.stackable.tech/home/nightly/concepts/logging).
+                                description: Logging configuration, learn more in the [logging concept documentation](https://docs.stackable.tech/home/24.3/concepts/logging).
                                 properties:
                                   containers:
                                     additionalProperties:
@@ -19355,7 +19355,7 @@ spec:
                                         type: object
                                     type: object
                                   storage:
-                                    description: The storage settings for the Historical process. Read more in the [storage and resource documentation](https://docs.stackable.tech/home/nightly/druid/usage-guide/resources-and-storage#_historical_resources).
+                                    description: The storage settings for the Historical process. Read more in the [storage and resource documentation](https://docs.stackable.tech/home/24.3/druid/usage-guide/resources-and-storage#_historical_resources).
                                     properties:
                                       segmentCache:
                                         default:
@@ -19393,17 +19393,17 @@ spec:
                                 type: string
                               type: object
                             default: {}
-                            description: The `configOverrides` can be used to configure properties in product config files that are not exposed in the CRD. Read the [config overrides documentation](https://docs.stackable.tech/home/nightly/concepts/overrides#config-overrides) and consult the operator specific usage guide documentation for details on the available config files and settings for the specific product.
+                            description: The `configOverrides` can be used to configure properties in product config files that are not exposed in the CRD. Read the [config overrides documentation](https://docs.stackable.tech/home/24.3/concepts/overrides#config-overrides) and consult the operator specific usage guide documentation for details on the available config files and settings for the specific product.
                             type: object
                           envOverrides:
                             additionalProperties:
                               type: string
                             default: {}
-                            description: '`envOverrides` configure environment variables to be set in the Pods. It is a map from strings to strings - environment variables and the value to set. Read the [environment variable overrides documentation](https://docs.stackable.tech/home/nightly/concepts/overrides#env-overrides) for more information and consult the operator specific usage guide to find out about the product specific environment variables that are available.'
+                            description: '`envOverrides` configure environment variables to be set in the Pods. It is a map from strings to strings - environment variables and the value to set. Read the [environment variable overrides documentation](https://docs.stackable.tech/home/24.3/concepts/overrides#env-overrides) for more information and consult the operator specific usage guide to find out about the product specific environment variables that are available.'
                             type: object
                           podOverrides:
                             default: {}
-                            description: In the `podOverrides` property you can define a [PodTemplateSpec](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.27/#podtemplatespec-v1-core) to override any property that can be set on a Kubernetes Pod. Read the [Pod overrides documentation](https://docs.stackable.tech/home/nightly/concepts/overrides#pod-overrides) for more information.
+                            description: In the `podOverrides` property you can define a [PodTemplateSpec](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.27/#podtemplatespec-v1-core) to override any property that can be set on a Kubernetes Pod. Read the [Pod overrides documentation](https://docs.stackable.tech/home/24.3/concepts/overrides#pod-overrides) for more information.
                             properties:
                               metadata:
                                 properties:
@@ -22219,7 +22219,7 @@ spec:
                   description: |-
                     Specify which image to use, the easiest way is to only configure the `productVersion`. You can also configure a custom image registry to pull from, as well as completely custom images.
 
-                    Consult the [Product image selection documentation](https://docs.stackable.tech/home/nightly/concepts/product_image_selection) for details.
+                    Consult the [Product image selection documentation](https://docs.stackable.tech/home/24.3/concepts/product_image_selection) for details.
                   properties:
                     custom:
                       description: Overwrite the docker image. Specify the full docker image name, e.g. `docker.stackable.tech/stackable/superset:1.4.1-stackable2.1.0`
@@ -22256,7 +22256,7 @@ spec:
                       type: string
                   type: object
                 middleManagers:
-                  description: This struct represents a role - e.g. HDFS datanodes or Trino workers. It has a key-value-map containing all the roleGroups that are part of this role. Additionally, there is a `config`, which is configurable at the role *and* roleGroup level. Everything at roleGroup level is merged on top of what is configured on role level. There is also a second form of config, which can only be configured at role level, the `roleConfig`. You can learn more about this in the [Roles and role group concept documentation](https://docs.stackable.tech/home/nightly/concepts/roles-and-role-groups).
+                  description: This struct represents a role - e.g. HDFS datanodes or Trino workers. It has a key-value-map containing all the roleGroups that are part of this role. Additionally, there is a `config`, which is configurable at the role *and* roleGroup level. Everything at roleGroup level is merged on top of what is configured on role level. There is also a second form of config, which can only be configured at role level, the `roleConfig`. You can learn more about this in the [Roles and role group concept documentation](https://docs.stackable.tech/home/24.3/concepts/roles-and-role-groups).
                   properties:
                     cliOverrides:
                       additionalProperties:
@@ -22272,7 +22272,7 @@ spec:
                             podAntiAffinity: null
                             nodeAffinity: null
                             nodeSelector: null
-                          description: These configuration settings control [Pod placement](https://docs.stackable.tech/home/nightly/concepts/operations/pod_placement).
+                          description: These configuration settings control [Pod placement](https://docs.stackable.tech/home/24.3/concepts/operations/pod_placement).
                           properties:
                             nodeAffinity:
                               description: Node affinity is a group of node affinity scheduling rules.
@@ -22739,14 +22739,14 @@ spec:
                               type: object
                           type: object
                         gracefulShutdownTimeout:
-                          description: The time period Pods have to gracefully shut down, e.g. `30m`, `1h` or `2d`. Read more about graceful shutdown in the [graceful shutdown documentation](https://docs.stackable.tech/home/nightly/druid/usage-guide/operations/graceful-shutdown).
+                          description: The time period Pods have to gracefully shut down, e.g. `30m`, `1h` or `2d`. Read more about graceful shutdown in the [graceful shutdown documentation](https://docs.stackable.tech/home/24.3/druid/usage-guide/operations/graceful-shutdown).
                           nullable: true
                           type: string
                         logging:
                           default:
                             enableVectorAgent: null
                             containers: {}
-                          description: Logging configuration, learn more in the [logging concept documentation](https://docs.stackable.tech/home/nightly/concepts/logging).
+                          description: Logging configuration, learn more in the [logging concept documentation](https://docs.stackable.tech/home/24.3/concepts/logging).
                           properties:
                             containers:
                               additionalProperties:
@@ -22872,17 +22872,17 @@ spec:
                           type: string
                         type: object
                       default: {}
-                      description: The `configOverrides` can be used to configure properties in product config files that are not exposed in the CRD. Read the [config overrides documentation](https://docs.stackable.tech/home/nightly/concepts/overrides#config-overrides) and consult the operator specific usage guide documentation for details on the available config files and settings for the specific product.
+                      description: The `configOverrides` can be used to configure properties in product config files that are not exposed in the CRD. Read the [config overrides documentation](https://docs.stackable.tech/home/24.3/concepts/overrides#config-overrides) and consult the operator specific usage guide documentation for details on the available config files and settings for the specific product.
                       type: object
                     envOverrides:
                       additionalProperties:
                         type: string
                       default: {}
-                      description: '`envOverrides` configure environment variables to be set in the Pods. It is a map from strings to strings - environment variables and the value to set. Read the [environment variable overrides documentation](https://docs.stackable.tech/home/nightly/concepts/overrides#env-overrides) for more information and consult the operator specific usage guide to find out about the product specific environment variables that are available.'
+                      description: '`envOverrides` configure environment variables to be set in the Pods. It is a map from strings to strings - environment variables and the value to set. Read the [environment variable overrides documentation](https://docs.stackable.tech/home/24.3/concepts/overrides#env-overrides) for more information and consult the operator specific usage guide to find out about the product specific environment variables that are available.'
                       type: object
                     podOverrides:
                       default: {}
-                      description: In the `podOverrides` property you can define a [PodTemplateSpec](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.27/#podtemplatespec-v1-core) to override any property that can be set on a Kubernetes Pod. Read the [Pod overrides documentation](https://docs.stackable.tech/home/nightly/concepts/overrides#pod-overrides) for more information.
+                      description: In the `podOverrides` property you can define a [PodTemplateSpec](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.27/#podtemplatespec-v1-core) to override any property that can be set on a Kubernetes Pod. Read the [Pod overrides documentation](https://docs.stackable.tech/home/24.3/concepts/overrides#pod-overrides) for more information.
                       properties:
                         metadata:
                           properties:
@@ -25694,7 +25694,7 @@ spec:
 
                             1. If PodDisruptionBudgets are created by the operator 2. The allowed number of Pods to be unavailable (`maxUnavailable`)
 
-                            Learn more in the [allowed Pod disruptions documentation](https://docs.stackable.tech/home/nightly/concepts/operations/pod_disruptions).
+                            Learn more in the [allowed Pod disruptions documentation](https://docs.stackable.tech/home/24.3/concepts/operations/pod_disruptions).
                           properties:
                             enabled:
                               default: true
@@ -25725,7 +25725,7 @@ spec:
                                   podAntiAffinity: null
                                   nodeAffinity: null
                                   nodeSelector: null
-                                description: These configuration settings control [Pod placement](https://docs.stackable.tech/home/nightly/concepts/operations/pod_placement).
+                                description: These configuration settings control [Pod placement](https://docs.stackable.tech/home/24.3/concepts/operations/pod_placement).
                                 properties:
                                   nodeAffinity:
                                     description: Node affinity is a group of node affinity scheduling rules.
@@ -26192,14 +26192,14 @@ spec:
                                     type: object
                                 type: object
                               gracefulShutdownTimeout:
-                                description: The time period Pods have to gracefully shut down, e.g. `30m`, `1h` or `2d`. Read more about graceful shutdown in the [graceful shutdown documentation](https://docs.stackable.tech/home/nightly/druid/usage-guide/operations/graceful-shutdown).
+                                description: The time period Pods have to gracefully shut down, e.g. `30m`, `1h` or `2d`. Read more about graceful shutdown in the [graceful shutdown documentation](https://docs.stackable.tech/home/24.3/druid/usage-guide/operations/graceful-shutdown).
                                 nullable: true
                                 type: string
                               logging:
                                 default:
                                   enableVectorAgent: null
                                   containers: {}
-                                description: Logging configuration, learn more in the [logging concept documentation](https://docs.stackable.tech/home/nightly/concepts/logging).
+                                description: Logging configuration, learn more in the [logging concept documentation](https://docs.stackable.tech/home/24.3/concepts/logging).
                                 properties:
                                   containers:
                                     additionalProperties:
@@ -26325,17 +26325,17 @@ spec:
                                 type: string
                               type: object
                             default: {}
-                            description: The `configOverrides` can be used to configure properties in product config files that are not exposed in the CRD. Read the [config overrides documentation](https://docs.stackable.tech/home/nightly/concepts/overrides#config-overrides) and consult the operator specific usage guide documentation for details on the available config files and settings for the specific product.
+                            description: The `configOverrides` can be used to configure properties in product config files that are not exposed in the CRD. Read the [config overrides documentation](https://docs.stackable.tech/home/24.3/concepts/overrides#config-overrides) and consult the operator specific usage guide documentation for details on the available config files and settings for the specific product.
                             type: object
                           envOverrides:
                             additionalProperties:
                               type: string
                             default: {}
-                            description: '`envOverrides` configure environment variables to be set in the Pods. It is a map from strings to strings - environment variables and the value to set. Read the [environment variable overrides documentation](https://docs.stackable.tech/home/nightly/concepts/overrides#env-overrides) for more information and consult the operator specific usage guide to find out about the product specific environment variables that are available.'
+                            description: '`envOverrides` configure environment variables to be set in the Pods. It is a map from strings to strings - environment variables and the value to set. Read the [environment variable overrides documentation](https://docs.stackable.tech/home/24.3/concepts/overrides#env-overrides) for more information and consult the operator specific usage guide to find out about the product specific environment variables that are available.'
                             type: object
                           podOverrides:
                             default: {}
-                            description: In the `podOverrides` property you can define a [PodTemplateSpec](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.27/#podtemplatespec-v1-core) to override any property that can be set on a Kubernetes Pod. Read the [Pod overrides documentation](https://docs.stackable.tech/home/nightly/concepts/overrides#pod-overrides) for more information.
+                            description: In the `podOverrides` property you can define a [PodTemplateSpec](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.27/#podtemplatespec-v1-core) to override any property that can be set on a Kubernetes Pod. Read the [Pod overrides documentation](https://docs.stackable.tech/home/24.3/concepts/overrides#pod-overrides) for more information.
                             properties:
                               metadata:
                                 properties:
@@ -29142,7 +29142,7 @@ spec:
                     - roleGroups
                   type: object
                 routers:
-                  description: This struct represents a role - e.g. HDFS datanodes or Trino workers. It has a key-value-map containing all the roleGroups that are part of this role. Additionally, there is a `config`, which is configurable at the role *and* roleGroup level. Everything at roleGroup level is merged on top of what is configured on role level. There is also a second form of config, which can only be configured at role level, the `roleConfig`. You can learn more about this in the [Roles and role group concept documentation](https://docs.stackable.tech/home/nightly/concepts/roles-and-role-groups).
+                  description: This struct represents a role - e.g. HDFS datanodes or Trino workers. It has a key-value-map containing all the roleGroups that are part of this role. Additionally, there is a `config`, which is configurable at the role *and* roleGroup level. Everything at roleGroup level is merged on top of what is configured on role level. There is also a second form of config, which can only be configured at role level, the `roleConfig`. You can learn more about this in the [Roles and role group concept documentation](https://docs.stackable.tech/home/24.3/concepts/roles-and-role-groups).
                   properties:
                     cliOverrides:
                       additionalProperties:
@@ -29158,7 +29158,7 @@ spec:
                             podAntiAffinity: null
                             nodeAffinity: null
                             nodeSelector: null
-                          description: These configuration settings control [Pod placement](https://docs.stackable.tech/home/nightly/concepts/operations/pod_placement).
+                          description: These configuration settings control [Pod placement](https://docs.stackable.tech/home/24.3/concepts/operations/pod_placement).
                           properties:
                             nodeAffinity:
                               description: Node affinity is a group of node affinity scheduling rules.
@@ -29625,14 +29625,14 @@ spec:
                               type: object
                           type: object
                         gracefulShutdownTimeout:
-                          description: The time period Pods have to gracefully shut down, e.g. `30m`, `1h` or `2d`. Read more about graceful shutdown in the [graceful shutdown documentation](https://docs.stackable.tech/home/nightly/druid/usage-guide/operations/graceful-shutdown).
+                          description: The time period Pods have to gracefully shut down, e.g. `30m`, `1h` or `2d`. Read more about graceful shutdown in the [graceful shutdown documentation](https://docs.stackable.tech/home/24.3/druid/usage-guide/operations/graceful-shutdown).
                           nullable: true
                           type: string
                         logging:
                           default:
                             enableVectorAgent: null
                             containers: {}
-                          description: Logging configuration, learn more in the [logging concept documentation](https://docs.stackable.tech/home/nightly/concepts/logging).
+                          description: Logging configuration, learn more in the [logging concept documentation](https://docs.stackable.tech/home/24.3/concepts/logging).
                           properties:
                             containers:
                               additionalProperties:
@@ -29758,17 +29758,17 @@ spec:
                           type: string
                         type: object
                       default: {}
-                      description: The `configOverrides` can be used to configure properties in product config files that are not exposed in the CRD. Read the [config overrides documentation](https://docs.stackable.tech/home/nightly/concepts/overrides#config-overrides) and consult the operator specific usage guide documentation for details on the available config files and settings for the specific product.
+                      description: The `configOverrides` can be used to configure properties in product config files that are not exposed in the CRD. Read the [config overrides documentation](https://docs.stackable.tech/home/24.3/concepts/overrides#config-overrides) and consult the operator specific usage guide documentation for details on the available config files and settings for the specific product.
                       type: object
                     envOverrides:
                       additionalProperties:
                         type: string
                       default: {}
-                      description: '`envOverrides` configure environment variables to be set in the Pods. It is a map from strings to strings - environment variables and the value to set. Read the [environment variable overrides documentation](https://docs.stackable.tech/home/nightly/concepts/overrides#env-overrides) for more information and consult the operator specific usage guide to find out about the product specific environment variables that are available.'
+                      description: '`envOverrides` configure environment variables to be set in the Pods. It is a map from strings to strings - environment variables and the value to set. Read the [environment variable overrides documentation](https://docs.stackable.tech/home/24.3/concepts/overrides#env-overrides) for more information and consult the operator specific usage guide to find out about the product specific environment variables that are available.'
                       type: object
                     podOverrides:
                       default: {}
-                      description: In the `podOverrides` property you can define a [PodTemplateSpec](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.27/#podtemplatespec-v1-core) to override any property that can be set on a Kubernetes Pod. Read the [Pod overrides documentation](https://docs.stackable.tech/home/nightly/concepts/overrides#pod-overrides) for more information.
+                      description: In the `podOverrides` property you can define a [PodTemplateSpec](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.27/#podtemplatespec-v1-core) to override any property that can be set on a Kubernetes Pod. Read the [Pod overrides documentation](https://docs.stackable.tech/home/24.3/concepts/overrides#pod-overrides) for more information.
                       properties:
                         metadata:
                           properties:
@@ -32580,7 +32580,7 @@ spec:
 
                             1. If PodDisruptionBudgets are created by the operator 2. The allowed number of Pods to be unavailable (`maxUnavailable`)
 
-                            Learn more in the [allowed Pod disruptions documentation](https://docs.stackable.tech/home/nightly/concepts/operations/pod_disruptions).
+                            Learn more in the [allowed Pod disruptions documentation](https://docs.stackable.tech/home/24.3/concepts/operations/pod_disruptions).
                           properties:
                             enabled:
                               default: true
@@ -32611,7 +32611,7 @@ spec:
                                   podAntiAffinity: null
                                   nodeAffinity: null
                                   nodeSelector: null
-                                description: These configuration settings control [Pod placement](https://docs.stackable.tech/home/nightly/concepts/operations/pod_placement).
+                                description: These configuration settings control [Pod placement](https://docs.stackable.tech/home/24.3/concepts/operations/pod_placement).
                                 properties:
                                   nodeAffinity:
                                     description: Node affinity is a group of node affinity scheduling rules.
@@ -33078,14 +33078,14 @@ spec:
                                     type: object
                                 type: object
                               gracefulShutdownTimeout:
-                                description: The time period Pods have to gracefully shut down, e.g. `30m`, `1h` or `2d`. Read more about graceful shutdown in the [graceful shutdown documentation](https://docs.stackable.tech/home/nightly/druid/usage-guide/operations/graceful-shutdown).
+                                description: The time period Pods have to gracefully shut down, e.g. `30m`, `1h` or `2d`. Read more about graceful shutdown in the [graceful shutdown documentation](https://docs.stackable.tech/home/24.3/druid/usage-guide/operations/graceful-shutdown).
                                 nullable: true
                                 type: string
                               logging:
                                 default:
                                   enableVectorAgent: null
                                   containers: {}
-                                description: Logging configuration, learn more in the [logging concept documentation](https://docs.stackable.tech/home/nightly/concepts/logging).
+                                description: Logging configuration, learn more in the [logging concept documentation](https://docs.stackable.tech/home/24.3/concepts/logging).
                                 properties:
                                   containers:
                                     additionalProperties:
@@ -33211,17 +33211,17 @@ spec:
                                 type: string
                               type: object
                             default: {}
-                            description: The `configOverrides` can be used to configure properties in product config files that are not exposed in the CRD. Read the [config overrides documentation](https://docs.stackable.tech/home/nightly/concepts/overrides#config-overrides) and consult the operator specific usage guide documentation for details on the available config files and settings for the specific product.
+                            description: The `configOverrides` can be used to configure properties in product config files that are not exposed in the CRD. Read the [config overrides documentation](https://docs.stackable.tech/home/24.3/concepts/overrides#config-overrides) and consult the operator specific usage guide documentation for details on the available config files and settings for the specific product.
                             type: object
                           envOverrides:
                             additionalProperties:
                               type: string
                             default: {}
-                            description: '`envOverrides` configure environment variables to be set in the Pods. It is a map from strings to strings - environment variables and the value to set. Read the [environment variable overrides documentation](https://docs.stackable.tech/home/nightly/concepts/overrides#env-overrides) for more information and consult the operator specific usage guide to find out about the product specific environment variables that are available.'
+                            description: '`envOverrides` configure environment variables to be set in the Pods. It is a map from strings to strings - environment variables and the value to set. Read the [environment variable overrides documentation](https://docs.stackable.tech/home/24.3/concepts/overrides#env-overrides) for more information and consult the operator specific usage guide to find out about the product specific environment variables that are available.'
                             type: object
                           podOverrides:
                             default: {}
-                            description: In the `podOverrides` property you can define a [PodTemplateSpec](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.27/#podtemplatespec-v1-core) to override any property that can be set on a Kubernetes Pod. Read the [Pod overrides documentation](https://docs.stackable.tech/home/nightly/concepts/overrides#pod-overrides) for more information.
+                            description: In the `podOverrides` property you can define a [PodTemplateSpec](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.27/#podtemplatespec-v1-core) to override any property that can be set on a Kubernetes Pod. Read the [Pod overrides documentation](https://docs.stackable.tech/home/24.3/concepts/overrides#pod-overrides) for more information.
                             properties:
                               metadata:
                                 properties:
