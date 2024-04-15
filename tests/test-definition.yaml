@@ -67,35 +67,42 @@ tests:
       - zookeeper-latest
       - opa
       - hadoop
+      - openshift
   - name: ingestion-no-s3-ext
     dimensions:
       - druid-latest
       - zookeeper-latest
       - hadoop
+      - openshift
   - name: ingestion-s3-ext
     dimensions:
       - druid-latest
       - zookeeper-latest
       - hadoop
+      - openshift
   - name: s3-deep-storage
     dimensions:
       - druid-latest
       - zookeeper-latest
       - s3-use-tls
+      - openshift
   - name: hdfs-deep-storage
     dimensions:
       - druid-latest
       - hadoop
       - zookeeper-latest
+      - openshift
   - name: resources
     dimensions:
       - druid-latest
       - zookeeper-latest
+      - openshift
   - name: orphaned-resources
     dimensions:
       - druid-latest
       - zookeeper-latest
       - hadoop
+      - openshift
   - name: tls
     dimensions:
       - druid-latest
@@ -116,11 +123,13 @@ tests:
       - druid
       - hadoop
       - zookeeper-latest
+      - openshift
   - name: cluster-operation
     dimensions:
       - zookeeper-latest
       - hadoop-latest
       - druid-latest
+      - openshift
   - name: oidc
     dimensions:
       - druid-latest
