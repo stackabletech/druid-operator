@@ -1,4 +1,6 @@
-use stackable_druid_crd::{security::DruidTlsSecurity, DbType, DruidCluster};
+use stackable_druid_crd::{
+    security::DruidTlsSecurity, AdditionalExtensionsConfig, DbType, DruidCluster,
+};
 
 const EXT_S3: &str = "druid-s3-extensions";
 const EXT_KAFKA_INDEXING: &str = "druid-kafka-indexing-service";
@@ -38,5 +40,28 @@ pub fn get_extension_list(
         extensions.push(EXT_S3.to_string());
     }
 
+    if druid.spec.cluster_config.additional_extensions.is_some() {
+        // Add user specified extensions to the list of loaded extensions if any are present
+        match druid
+            .spec
+            .cluster_config
+            .additional_extensions
+            .as_ref()
+            .unwrap()
+        {
+            AdditionalExtensionsConfig::AdditionalExtensionsList { extension_list } => {
+                for additional_extension in extension_list {
+                    if extensions.contains(&additional_extension) {
+                        tracing::warn!("Skipping user specified extension [{additional_extension}] as it was already added to the extensions.");
+                    } else {
+                        tracing::info!(
+                        "Adding user specified extension [{additional_extension}] to list of enabled extensions."
+                    );
+                        extensions.push(additional_extension.to_string());
+                    }
+                }
+            }
+        }
+    }
     extensions
 }
