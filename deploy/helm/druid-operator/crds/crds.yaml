@@ -6925,6 +6925,7 @@ spec:
                           items:
                             type: string
                           type: array
+                          uniqueItems: true
                       type: object
                     authentication:
                       default: []

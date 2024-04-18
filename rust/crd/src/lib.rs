@@ -1386,10 +1386,10 @@ impl Configuration for MiddleManagerConfigFragment {
         let mut result = resource.common_compute_files(file)?;
         result.insert(
             INDEXER_JAVA_OPTS.to_string(),
-            Some(build_string_list(vec![
+            Some(build_string_list(&[
                 format!("-Djavax.net.ssl.trustStore={STACKABLE_TRUST_STORE}"),
                 format!("-Djavax.net.ssl.trustStorePassword={STACKABLE_TRUST_STORE_PASSWORD}"),
-                "-Djavax.net.ssl.trustStoreType=pkcs12".to_string(),
+                "-Djavax.net.ssl.trustStoreType=pkcs12".to_owned(),
             ])),
         );
         Ok(result)
@@ -1442,7 +1442,7 @@ pub struct DruidClusterStatus {
 
 /// Takes a vec of strings and returns them as a formatted json
 /// list.
-pub fn build_string_list(strings: Vec<String>) -> String {
+pub fn build_string_list(strings: &[String]) -> String {
     let quoted_strings: Vec<String> = strings.iter().map(|s| format!("\"{}\"", s)).collect();
     let comma_list = quoted_strings.join(", ");
     format!("[{}]", comma_list)
