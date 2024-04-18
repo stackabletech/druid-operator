@@ -49,7 +49,7 @@ use stackable_operator::{
     time::Duration,
     utils::COMMON_BASH_TRAP_FUNCTIONS,
 };
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 use strum::{Display, EnumDiscriminants, EnumIter, EnumString, IntoStaticStr};
 
 pub const APP_NAME: &str = "druid";
@@ -1386,7 +1386,7 @@ impl Configuration for MiddleManagerConfigFragment {
         let mut result = resource.common_compute_files(file)?;
         result.insert(
             INDEXER_JAVA_OPTS.to_string(),
-            Some(build_string_list(&[
+            Some(build_string_list(vec![
                 format!("-Djavax.net.ssl.trustStore={STACKABLE_TRUST_STORE}"),
                 format!("-Djavax.net.ssl.trustStorePassword={STACKABLE_TRUST_STORE_PASSWORD}"),
                 "-Djavax.net.ssl.trustStoreType=pkcs12".to_string(),
@@ -1428,8 +1428,9 @@ impl Configuration for CoordinatorConfigFragment {
 
 #[derive(Clone, Debug, Deserialize, JsonSchema, Serialize)]
 #[serde(untagged)]
+#[non_exhaustive]
 pub enum AdditionalExtensionsConfig {
-    AdditionalExtensionsList { extension_list: Vec<String> },
+    AdditionalExtensionsList { extension_list: BTreeSet<String> },
 }
 
 #[derive(Clone, Debug, Default, Deserialize, JsonSchema, Serialize)]
@@ -1441,7 +1442,7 @@ pub struct DruidClusterStatus {
 
 /// Takes a vec of strings and returns them as a formatted json
 /// list.
-pub fn build_string_list(strings: &[String]) -> String {
+pub fn build_string_list(strings: Vec<String>) -> String {
     let quoted_strings: Vec<String> = strings.iter().map(|s| format!("\"{}\"", s)).collect();
     let comma_list = quoted_strings.join(", ");
     format!("[{}]", comma_list)

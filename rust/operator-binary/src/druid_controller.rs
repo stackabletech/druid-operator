@@ -687,10 +687,11 @@ fn build_rolegroup_config_map(
 
                 conf.insert(
                     EXTENSIONS_LOADLIST.to_string(),
-                    Some(build_string_list(&get_extension_list(
-                        druid,
-                        druid_tls_security,
-                    ))),
+                    Some(build_string_list(
+                        get_extension_list(druid, druid_tls_security)
+                            .into_iter()
+                            .collect(),
+                    )),
                 );
 
                 if let Some(opa_str) = opa_connstr {

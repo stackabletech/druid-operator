@@ -1,3 +1,5 @@
+use std::collections::BTreeSet;
+
 use stackable_druid_crd::{
     security::DruidTlsSecurity, AdditionalExtensionsConfig, DbType, DruidCluster,
 };
@@ -16,52 +18,42 @@ const EXT_SIMPLE_CLIENT_SSL_CONTEXT: &str = "simple-client-sslcontext";
 pub fn get_extension_list(
     druid: &DruidCluster,
     druid_tls_security: &DruidTlsSecurity,
-) -> Vec<String> {
-    let mut extensions = vec![
+) -> BTreeSet<String> {
+    let mut extensions = BTreeSet::from([
         EXT_KAFKA_INDEXING.to_string(),
         EXT_DATASKETCHES.to_string(),
         PROMETHEUS_EMITTER.to_string(),
         EXT_BASIC_SECURITY.to_string(),
         EXT_OPA_AUTHORIZER.to_string(),
         EXT_HDFS.to_string(),
-    ];
+    ]);
 
     match druid.spec.cluster_config.metadata_storage_database.db_type {
         DbType::Derby => {} // no additional extensions required
-        DbType::Postgresql => extensions.push(EXT_PSQL_MD_ST.to_string()),
-        DbType::Mysql => extensions.push(EXT_MYSQL_MD_ST.to_string()),
+        DbType::Postgresql => {
+            extensions.insert(EXT_PSQL_MD_ST.to_string());
+        }
+        DbType::Mysql => {
+            extensions.insert(EXT_MYSQL_MD_ST.to_string());
+        }
     }
 
     if druid_tls_security.tls_enabled() {
-        extensions.push(EXT_SIMPLE_CLIENT_SSL_CONTEXT.to_string());
+        extensions.insert(EXT_SIMPLE_CLIENT_SSL_CONTEXT.to_string());
     }
 
     if druid.uses_s3() {
-        extensions.push(EXT_S3.to_string());
+        extensions.insert(EXT_S3.to_string());
     }
 
-    if druid.spec.cluster_config.additional_extensions.is_some() {
-        // Add user specified extensions to the list of loaded extensions if any are present
-        match druid
-            .spec
-            .cluster_config
-            .additional_extensions
-            .as_ref()
-            .unwrap()
-        {
-            AdditionalExtensionsConfig::AdditionalExtensionsList { extension_list } => {
-                for additional_extension in extension_list {
-                    if extensions.contains(&additional_extension) {
-                        tracing::warn!("Skipping user specified extension [{additional_extension}] as it was already added to the extensions.");
-                    } else {
-                        tracing::info!(
-                        "Adding user specified extension [{additional_extension}] to list of enabled extensions."
-                    );
-                        extensions.push(additional_extension.to_string());
-                    }
-                }
-            }
-        }
+    if let Some(AdditionalExtensionsConfig::AdditionalExtensionsList { extension_list }) =
+        &druid.spec.cluster_config.additional_extensions
+    {
+        extensions.extend(extension_list.clone());
+        tracing::info!(
+            "adding user specified extensions {extension_list:?} to list of enabled extensions"
+        );
     }
+
     extensions
 }
