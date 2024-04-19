@@ -1,6 +1,4 @@
-use stackable_druid_crd::{
-    security::DruidTlsSecurity, AdditionalExtensionsConfig, DbType, DruidCluster,
-};
+use stackable_druid_crd::{security::DruidTlsSecurity, DbType, DruidCluster};
 
 const EXT_S3: &str = "druid-s3-extensions";
 const EXT_KAFKA_INDEXING: &str = "druid-kafka-indexing-service";
@@ -40,14 +38,14 @@ pub fn get_extension_list(
         extensions.push(EXT_S3.to_string());
     }
 
-    if let Some(AdditionalExtensionsConfig::AdditionalExtensionsList { extension_list }) =
-        &druid.spec.cluster_config.additional_extensions
-    {
-        for extension in extension_list {
-            if extensions.contains(extension) {
-                continue;
+    if let Some(additional_extensions) = &druid.spec.cluster_config.additional_extensions {
+        if let Some(custom_extensions) = &additional_extensions.custom_extensions {
+            for extension in custom_extensions {
+                if extensions.contains(extension) {
+                    continue;
+                }
+                extensions.push(extension.to_owned())
             }
-            extensions.push(extension.to_owned())
         }
     }
 
