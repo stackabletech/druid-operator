@@ -1,0 +1,38 @@
+= Druid extensions
+
+https://druid.apache.org/docs/latest/configuration/extensions/[Druid Extensions] are used to provide additional functionality at runtime, e.g. for data formats or different types of deep storage.
+
+== [[default-extensions]]Default Extensions
+
+Some extensions are loaded by default:
+
+- `druid-kafka-indexing-service`
+- `druid-datasketches`
+- `prometheus-emitter`
+- `druid-basic-security`
+- `druid-opa-authorizer`
+- `druid-hdfs-storage`
+
+Some extensions are loaded conditionally depending on the `DruidCluster` configuration:
+
+- `postgresql-metadata-storage` (when using PostgreSQL as metadata store)
+- `mysql-metadata-storage` (when using MySQL as metadata store)
+- `druid-s3-extensions` (when S3 is used as deep storage)
+- `simple-client-sslcontext` (when TLS is enabled)
+
+== [[custom-extensions]]Custom Extensions
+
+Druid can be configured load any number of additional extensions:
+
+[source,yaml]
+----
+spec:
+  clusterConfig:
+    additionalExtenions:
+      customExtensions:
+      - druid-avro-extensions
+      - druid-google-extensions
+      ...
+----
+
+Some extensions require additional configuration which can be added to the `runtime.properties` file using xref:configuration-and-environment-overrides.adoc[configuration and environment overrides].
