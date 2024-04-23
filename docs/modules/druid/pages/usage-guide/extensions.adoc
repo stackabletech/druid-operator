@@ -22,7 +22,7 @@ Some extensions are loaded conditionally depending on the `DruidCluster` configu
 
 == [[custom-extensions]]Custom Extensions
 
-Druid can be configured load any number of additional extensions:
+Druid can be configured load any number of additional extensions. Core extensions are already bundled with Druid but adding community extensions requires https://druid.apache.org/docs/latest/configuration/extensions/#loading-community-extensions[some extra steps].
 
 [source,yaml]
 ----
