@@ -39,12 +39,14 @@ pub fn get_extension_list(
     }
 
     if let Some(additional_extensions) = &druid.spec.cluster_config.additional_extensions {
-        if let Some(custom_extensions) = &additional_extensions.custom_extensions {
-            for extension in custom_extensions {
-                if extensions.contains(extension) {
-                    continue;
-                }
-                extensions.push(extension.to_owned())
+        for extension in additional_extensions {
+            if extensions.contains(extension) {
+                tracing::warn!("Skipping user specified extension [{extension}] as it was already added to the extensions.");
+            } else {
+                tracing::info!(
+                    "Adding user specified extension [{extension}] to list of enabled extensions."
+                );
+                extensions.push(extension.to_owned());
             }
         }
     }
