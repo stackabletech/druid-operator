@@ -13,10 +13,10 @@ use product_config::{
 };
 use snafu::{OptionExt, ResultExt, Snafu};
 use stackable_druid_crd::{
-    authentication::ldap::DruidLdapSettings,
+    authentication::{ldap::DruidLdapSettings, ResolvedAuthenticationClasses},
     authorization::DruidAuthorization,
     build_recommended_labels, build_string_list,
-    security::{resolve_authentication_classes, DruidTlsSecurity},
+    security::DruidTlsSecurity,
     CommonRoleGroupConfig, Container, DeepStorageSpec, DruidCluster, DruidClusterStatus, DruidRole,
     APP_NAME, AUTH_AUTHORIZER_OPA_URI, CERTS_DIR, CREDENTIALS_SECRET_PROPERTY,
     DRUID_CONFIG_DIRECTORY, DS_BUCKET, ENV_INTERNAL_SECRET, EXTENSIONS_LOADLIST,
@@ -237,6 +237,11 @@ pub enum Error {
         source: stackable_druid_crd::security::Error,
     },
 
+    #[snafu(display("failed to retrieve AuthenticationClass"))]
+    AuthenticationClassRetrieval {
+        source: stackable_druid_crd::authentication::Error,
+    },
+
     #[snafu(display("failed to get JVM config"))]
     GetJvmConfig { source: crate::config::Error },
 
@@ -418,11 +423,12 @@ pub async fn reconcile_druid(druid: Arc<DruidCluster>, ctx: Arc<Ctx>) -> Result<
         _ => None,
     };
 
-    let resolved_authentication_classes = resolve_authentication_classes(client, &druid)
+    let resolved_authentication_classes = ResolvedAuthenticationClasses::resolve_authentication_classes(client, &druid.spec.cluster_config.authentication)
         .await
-        .context(FailedToInitializeSecurityContextSnafu)?;
+        .context(AuthenticationClassRetrievalSnafu)?;
 
     let druid_ldap_settings = DruidLdapSettings::new_from(&resolved_authentication_classes);
+    let druid_oidc_settings = DruidOidcSettings::new_from(&resolved_authentication_classes);
 
     let druid_tls_security =
         DruidTlsSecurity::new_from_druid_cluster(&druid, resolved_authentication_classes);
@@ -433,6 +439,7 @@ pub async fn reconcile_druid(druid: Arc<DruidCluster>, ctx: Arc<Ctx>) -> Result<
         &role_config.context(ProductConfigTransformSnafu)?,
         &ctx.product_config,
         false,
+
         false,
     )
     .context(InvalidProductConfigSnafu)?;

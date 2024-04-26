@@ -9,7 +9,6 @@ pub mod tls;
 
 use crate::{
     affinity::get_affinity,
-    authentication::DruidAuthentication,
     authorization::DruidAuthorization,
     resource::RoleResource,
     tls::{default_druid_tls, DruidTls},
@@ -23,11 +22,12 @@ use stackable_operator::{
     client::Client,
     commons::{
         affinity::StackableAffinity,
-        authentication::tls::{CaCert, Tls, TlsServerVerification, TlsVerification},
+        authentication::{tls::{CaCert, Tls, TlsServerVerification, TlsVerification}, ClientAuthenticationDetails},
         cluster_operation::ClusterOperation,
         product_image_selection::ProductImage,
         resources::{NoRuntimeLimits, Resources},
         s3::{InlinedS3BucketSpec, S3BucketDef, S3ConnectionDef, S3ConnectionSpec},
+        
     },
     config::{
         fragment::{self, Fragment, FromFragment, ValidationError},
@@ -237,13 +237,13 @@ pub enum Container {
 #[serde(rename_all = "camelCase")]
 pub struct DruidClusterConfig {
     /// List of [AuthenticationClasses](DOCS_BASE_URL_PLACEHOLDER/concepts/authentication)
-    /// to use for authenticating users. TLS and LDAP authentication are supported. More information in
+    /// to use for authenticating users. TLS, LDAP and OIDC authentication are supported. More information in
     /// the [Druid operator security documentation](DOCS_BASE_URL_PLACEHOLDER/druid/usage-guide/security#_authentication).
     ///
     /// For TLS: Please note that the SecretClass used to authenticate users needs to be the same
     /// as the SecretClass used for internal communication.
     #[serde(default)]
-    pub authentication: Vec<DruidAuthentication>,
+    pub authentication: Vec<ClientAuthenticationDetails>,
 
     /// Authorization settings for Druid like OPA
     #[serde(skip_serializing_if = "Option::is_none")]

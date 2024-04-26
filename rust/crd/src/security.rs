@@ -1,5 +1,5 @@
 use crate::{
-    authentication::{self, ResolvedAuthenticationClasses},
+    authentication::{self, ResolvedAuthenticationClass, ResolvedAuthenticationClasses},
     DruidCluster, DruidRole, METRICS_PORT,
 };
 use snafu::{ResultExt, Snafu};
@@ -8,8 +8,6 @@ use stackable_operator::{
         ContainerBuilder, PodBuilder, SecretOperatorVolumeSourceBuilder,
         SecretOperatorVolumeSourceBuilderError, VolumeBuilder,
     },
-    client::Client,
-    commons::authentication::AuthenticationClass,
     k8s_openapi::{
         api::core::v1::{ContainerPort, Probe, ServicePort, TCPSocketAction},
         apimachinery::pkg::util::intstr::IntOrString,
@@ -21,6 +19,11 @@ use std::collections::BTreeMap;
 
 #[derive(Snafu, Debug)]
 pub enum Error {
+    #[snafu(display("Failed to retrieve AuthenticationClass"))]
+    AuthenticationClassRetrieval {
+        source: stackable_operator::error::Error,
+    },
+
     #[snafu(display("failed to process authentication class"))]
     InvalidAuthenticationClassConfiguration { source: authentication::Error },
 
@@ -34,19 +37,6 @@ pub enum Error {
 pub struct DruidTlsSecurity {
     resolved_authentication_classes: ResolvedAuthenticationClasses,
     server_and_internal_secret_class: Option<String>,
-}
-
-pub async fn resolve_authentication_classes(
-    client: &Client,
-    druid: &DruidCluster,
-) -> Result<ResolvedAuthenticationClasses, Error> {
-    authentication::ResolvedAuthenticationClasses::from_references(
-        client,
-        druid,
-        &druid.spec.cluster_config.authentication,
-    )
-    .await
-    .context(InvalidAuthenticationClassConfigurationSnafu)
 }
 
 // Ports
@@ -142,7 +132,7 @@ impl DruidTlsSecurity {
     }
 
     /// Retrieve an optional TLS `AuthenticationClass`.
-    pub fn tls_client_authentication_class(&self) -> Option<&AuthenticationClass> {
+    pub fn tls_client_authentication_class(&self) -> Option<&ResolvedAuthenticationClass> {
         self.resolved_authentication_classes
             .get_tls_authentication_class()
     }

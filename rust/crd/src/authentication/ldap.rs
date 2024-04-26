@@ -34,15 +34,15 @@ impl DruidLdapSettings {
     pub fn new_from(
         resolved_authentication_config: &ResolvedAuthenticationClasses,
     ) -> Option<DruidLdapSettings> {
-        if let Some(authentication_class) =
+        if let Some(resolved_authentication_class) =
             resolved_authentication_config.get_ldap_authentication_class()
         {
             if let AuthenticationClassProvider::Ldap(ref provider) =
-                authentication_class.spec.provider
+                resolved_authentication_class.authentication_class.spec.provider
             {
                 return Some(DruidLdapSettings {
                     ldap: provider.clone(),
-                    authentication_class_name: authentication_class.name_unchecked(),
+                    authentication_class_name: resolved_authentication_class.authentication_class.name_any(),
                 });
             }
         }
