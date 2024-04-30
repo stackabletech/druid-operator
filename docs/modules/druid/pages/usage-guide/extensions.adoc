@@ -29,10 +29,9 @@ Druid can be configured load any number of additional extensions. Core extension
 spec:
   clusterConfig:
     additionalExtenions:
-      customExtensions:
-      - druid-avro-extensions
-      - druid-google-extensions
-      ...
+    - druid-avro-extensions
+    - druid-google-extensions
+    ...
 ----
 
 Some extensions may require additional configuration which can be added using xref:configuration-and-environment-overrides.adoc[configuration and environment overrides].
