@@ -1,6 +1,6 @@
 = Deep storage configuration
 
-https://druid.apache.org/docs/latest/dependencies/deep-storage.html[Deep Storage] is where Druid stores data segments. For a Kubernetes environment, either the HDFS or S3 backend is recommended.
+https://druid.apache.org/docs/latest/design/deep-storage/[Deep Storage] is where Druid stores data segments. For a Kubernetes environment, either the HDFS or S3 backend is recommended.
 
 == [[hdfs]]HDFS
 
