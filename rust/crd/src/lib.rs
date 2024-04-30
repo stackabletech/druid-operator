@@ -240,7 +240,7 @@ pub struct DruidClusterConfig {
     /// The operator will automatically load all extensions needed based on the cluster
     /// configuration, but for extra functionality which the operator cannot anticipate, it can
     /// sometimes be necessary to load additional extensions.
-    /// Add configuration for additonal extensions using [configuration override for Druid](https://docs.stackable.tech/home/stable/druid/usage-guide/configuration-and-environment-overrides).
+    /// Add configuration for additional extensions using [configuration override for Druid](https://docs.stackable.tech/home/stable/druid/usage-guide/configuration-and-environment-overrides).
     pub additional_extensions: Option<Vec<String>>,
     /// List of [AuthenticationClasses](DOCS_BASE_URL_PLACEHOLDER/concepts/authentication)
     /// to use for authenticating users. TLS and LDAP authentication are supported. More information in
