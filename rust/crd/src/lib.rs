@@ -49,7 +49,7 @@ use stackable_operator::{
     time::Duration,
     utils::COMMON_BASH_TRAP_FUNCTIONS,
 };
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use strum::{Display, EnumDiscriminants, EnumIter, EnumString, IntoStaticStr};
 
 pub const APP_NAME: &str = "druid";
@@ -236,12 +236,14 @@ pub enum Container {
 #[derive(Clone, Debug, Deserialize, JsonSchema, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DruidClusterConfig {
-    /// Additional extensions to load in Druid
+    /// Additional extensions to load in Druid.
     /// The operator will automatically load all extensions needed based on the cluster
     /// configuration, but for extra functionality which the operator cannot anticipate, it can
     /// sometimes be necessary to load additional extensions.
     /// Add configuration for additional extensions using [configuration override for Druid](https://docs.stackable.tech/home/stable/druid/usage-guide/configuration-and-environment-overrides).
-    pub additional_extensions: Option<Vec<String>>,
+    #[serde(default)]
+    pub additional_extensions: HashSet<String>,
+
     /// List of [AuthenticationClasses](DOCS_BASE_URL_PLACEHOLDER/concepts/authentication)
     /// to use for authenticating users. TLS and LDAP authentication are supported. More information in
     /// the [Druid operator security documentation](DOCS_BASE_URL_PLACEHOLDER/druid/usage-guide/security#_authentication).
