@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 
 use stackable_druid_crd::{security::DruidTlsSecurity, DbType, DruidCluster};
-use tracing::info;
+use tracing::debug;
 
 const EXT_S3: &str = "druid-s3-extensions";
 const EXT_KAFKA_INDEXING: &str = "druid-kafka-indexing-service";
@@ -47,7 +47,7 @@ pub fn get_extension_list(
 
     let additional_extensions = druid.spec.cluster_config.additional_extensions.clone();
     if !additional_extensions.is_empty() {
-        info!(
+        debug!(
             enabled_extensions = ?extensions,
             ?additional_extensions,
             "Adding user specified additional extensions to list of enabled extensions"
