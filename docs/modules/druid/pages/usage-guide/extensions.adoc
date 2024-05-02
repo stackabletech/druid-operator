@@ -1,8 +1,10 @@
 = Druid extensions
+:druid-extensions: https://druid.apache.org/docs/latest/configuration/extensions/
+:druid-community-extensions: https://druid.apache.org/docs/latest/configuration/extensions/#loading-community-extensions
 
-https://druid.apache.org/docs/latest/configuration/extensions/[Druid Extensions] are used to provide additional functionality at runtime, e.g. for data formats or different types of deep storage.
+{druid-extensions}[Druid extensions] are used to provide additional functionality at runtime, e.g. for data formats or different types of deep storage.
 
-== [[default-extensions]]Default Extensions
+== [[default-extensions]]Default extensions
 
 Some extensions are loaded by default:
 
@@ -13,16 +15,17 @@ Some extensions are loaded by default:
 - `druid-opa-authorizer`
 - `druid-hdfs-storage`
 
-Some extensions are loaded conditionally depending on the `DruidCluster` configuration:
+Some extensions are loaded conditionally depending on the DruidCluster configuration:
 
 - `postgresql-metadata-storage` (when using PostgreSQL as metadata store)
 - `mysql-metadata-storage` (when using MySQL as metadata store)
 - `druid-s3-extensions` (when S3 is used as deep storage)
 - `simple-client-sslcontext` (when TLS is enabled)
 
-== [[custom-extensions]]Custom Extensions
+== [[custom-extensions]]Custom extensions
 
-Druid can be configured load any number of additional extensions. Core extensions are already bundled with Druid but adding community extensions requires https://druid.apache.org/docs/latest/configuration/extensions/#loading-community-extensions[some extra steps].
+Druid can be configured load any number of additional extensions.
+Core extensions are already bundled with Druid but adding community extensions requires {druid-community-extensions}[some extra steps].
 
 [source,yaml]
 ----
@@ -34,4 +37,4 @@ spec:
     ...
 ----
 
-Some extensions may require additional configuration which can be added using xref:configuration-and-environment-overrides.adoc[configuration and environment overrides].
+Some extensions may require additional configuration which can be added using xref:usage-guide/configuration-and-environment-overrides.adoc[configuration and environment overrides].

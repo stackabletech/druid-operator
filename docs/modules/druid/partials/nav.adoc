@@ -10,6 +10,7 @@
 ** xref:druid:usage-guide/security.adoc[]
 ** xref:druid:usage-guide/logging.adoc[]
 ** xref:druid:usage-guide/monitoring.adoc[]
+** xref:druid:usage-guide/extensions.adoc[]
 ** xref:druid:usage-guide/configuration-and-environment-overrides.adoc[]
 ** xref:druid:usage-guide/operations/index.adoc[]
 *** xref:druid:usage-guide/operations/cluster-operations.adoc[]
