@@ -44,12 +44,12 @@ use stackable_operator::{
         spec::Logging,
     },
     role_utils::{CommonConfiguration, GenericRoleConfig, Role, RoleGroup},
-    schemars::{self, JsonSchema},
+    schemars::{self, schema::Schema, JsonSchema},
     status::condition::{ClusterCondition, HasStatusCondition},
     time::Duration,
     utils::COMMON_BASH_TRAP_FUNCTIONS,
 };
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use strum::{Display, EnumDiscriminants, EnumIter, EnumString, IntoStaticStr};
 
 pub const APP_NAME: &str = "druid";
@@ -236,6 +236,15 @@ pub enum Container {
 #[derive(Clone, Debug, Deserialize, JsonSchema, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DruidClusterConfig {
+    /// Additional extensions to load in Druid.
+    /// The operator will automatically load all extensions needed based on the cluster
+    /// configuration, but for extra functionality which the operator cannot anticipate, it can
+    /// sometimes be necessary to load additional extensions.
+    /// Add configuration for additional extensions using [configuration override for Druid](https://docs.stackable.tech/home/stable/druid/usage-guide/configuration-and-environment-overrides).
+    #[serde(default)]
+    #[schemars(schema_with = "additional_extensions_schema")]
+    pub additional_extensions: HashSet<String>,
+
     /// List of [AuthenticationClasses](DOCS_BASE_URL_PLACEHOLDER/concepts/authentication)
     /// to use for authenticating users. TLS and LDAP authentication are supported. More information in
     /// the [Druid operator security documentation](DOCS_BASE_URL_PLACEHOLDER/druid/usage-guide/security#_authentication).
@@ -298,6 +307,21 @@ pub struct DruidClusterConfig {
     /// will be used to expose the service, and ListenerClass names will stay the same, allowing for a non-breaking change.
     #[serde(default)]
     pub listener_class: CurrentlySupportedListenerClasses,
+}
+
+/// TODO: Remove once kube-rs is fixed.
+/// Currently using HashSets and BTreeMaps in the schema will result in an invalid CRD that is rejected by the kube-apiserver with
+/// error message `Forbidden: uniqueItems cannot be set to true since the runtime complexity becomes quadratic`.
+/// This issue will be fixed in kube-rs by `<https://github.com/kube-rs/kube/pull/1484>`
+pub fn additional_extensions_schema(gen: &mut schemars::gen::SchemaGenerator) -> Schema {
+    let mut schema = HashSet::<String>::json_schema(gen);
+
+    if let Schema::Object(schema) = &mut schema {
+        let array = schema.array();
+        array.unique_items = None;
+    }
+
+    schema
 }
 
 // TODO: Temporary solution until listener-operator is finished
@@ -1382,7 +1406,7 @@ impl Configuration for MiddleManagerConfigFragment {
             Some(build_string_list(&[
                 format!("-Djavax.net.ssl.trustStore={STACKABLE_TRUST_STORE}"),
                 format!("-Djavax.net.ssl.trustStorePassword={STACKABLE_TRUST_STORE_PASSWORD}"),
-                "-Djavax.net.ssl.trustStoreType=pkcs12".to_string(),
+                "-Djavax.net.ssl.trustStoreType=pkcs12".to_owned(),
             ])),
         );
         Ok(result)

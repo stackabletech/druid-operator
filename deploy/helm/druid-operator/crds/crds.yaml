@@ -6914,6 +6914,12 @@ spec:
                 clusterConfig:
                   description: Common cluster wide configuration that can not differ or be overridden on a role or role group level.
                   properties:
+                    additionalExtensions:
+                      default: []
+                      description: Additional extensions to load in Druid. The operator will automatically load all extensions needed based on the cluster configuration, but for extra functionality which the operator cannot anticipate, it can sometimes be necessary to load additional extensions. Add configuration for additional extensions using [configuration override for Druid](https://docs.stackable.tech/home/stable/druid/usage-guide/configuration-and-environment-overrides).
+                      items:
+                        type: string
+                      type: array
                     authentication:
                       default: []
                       description: |-
