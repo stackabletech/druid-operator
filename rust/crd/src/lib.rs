@@ -309,9 +309,10 @@ pub struct DruidClusterConfig {
     pub listener_class: CurrentlySupportedListenerClasses,
 }
 
-/// TODO: Better docs
 /// TODO: Remove once kube-rs is fixed.
-/// `Forbidden: uniqueItems cannot be set to true since the runtime complexity becomes quadratic`
+/// Currently using HashSets and BTreeMaps in the schema will result in an invalid CRD that is rejected by the kube-apiserver with 
+/// error message `Forbidden: uniqueItems cannot be set to true since the runtime complexity becomes quadratic`.
+/// This issue will be fixed in kube-rs by https://github.com/kube-rs/kube/pull/1484
 pub fn additional_extensions_schema(gen: &mut schemars::gen::SchemaGenerator) -> Schema {
     let mut schema = HashSet::<String>::json_schema(gen);
 
