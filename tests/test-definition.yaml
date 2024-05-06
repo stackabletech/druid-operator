@@ -56,7 +56,7 @@ dimensions:
       - "false"
   - name: oidc-use-tls
     values:
-      #- "true"
+      - "true"
       - "false"
 tests:
   # - name: smoke
