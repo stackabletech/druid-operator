@@ -68,7 +68,7 @@ pub const LOG4J2_CONFIG: &str = "log4j2.properties";
 pub const JVM_SECURITY_PROPERTIES_FILE: &str = "security.properties";
 
 // store directories
-pub const STACKABLE_TRUST_STORE: &str = "/stackable/truststore.p12";
+pub const STACKABLE_TRUST_STORE: &str = "/stackable/tls/truststore.p12";
 pub const STACKABLE_TRUST_STORE_PASSWORD: &str = "changeit";
 pub const CERTS_DIR: &str = "/stackable/certificates";
 pub const LOG_DIR: &str = "/stackable/log";
