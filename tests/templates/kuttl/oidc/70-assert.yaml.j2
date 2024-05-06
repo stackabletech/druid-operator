@@ -1,0 +1,8 @@
+---
+apiVersion: kuttl.dev/v1beta1
+kind: TestAssert
+metadata:
+  name: ingestion-check
+timeout: 300
+commands:
+  - script: kubectl exec python-0 -n $NAMESPACE -- python /tmp/ingestioncheck-tls.py $NAMESPACE druid internal-and-server-tls true

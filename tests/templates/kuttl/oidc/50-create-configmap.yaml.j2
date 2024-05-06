@@ -1,0 +1,6 @@
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+metadata:
+  name: create-configmap
+commands:
+  - script: kubectl create cm ingestion-check -n $NAMESPACE --from-file=../../../../templates/kuttl/commons/ingestioncheck-tls.py --from-file=../../../../templates/kuttl/commons/druid-quickstartimport.json

@@ -1,7 +1,9 @@
 import urllib
 
 import requests
+from requests.auth import HTTPBasicAuth
 import http
+import os
 import sys
 import json
 import time
@@ -11,6 +13,10 @@ class DruidClient:
     def __init__(self, cert, verify):
         self.session = requests.Session()
         self.session.headers.update({'Accept': 'application/json', 'Content-Type': 'application/json'})
+        if os.environ['DRUID_OIDC'] == 'true':
+            if os.environ['DRUID_USER'] == '' or os.environ['DRUID_PASSWORD'] == '':
+                sys.exit("Need to provide basic auth user and password when OIDC is enabled.")
+            self.session.auth = HTTPBasicAuth(os.environ['DRUID_USER'], os.environ['DRUID_PASSWORD'])
         self.session.cert = cert
         self.session.verify = verify
 
