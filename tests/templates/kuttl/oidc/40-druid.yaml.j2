@@ -85,7 +85,11 @@ spec:
         # OIDC common config
         druid.auth.pac4j.oidc.clientID: druid
         druid.auth.pac4j.oidc.clientSecret: R1bxHUD569vHeQdw
+{% if test_scenario['values']['oidc-use-tls'] == 'true' %}
+        druid.auth.pac4j.oidc.discoveryURI: 'https://keycloak:8443/realms/test/.well-known/openid-configuration'
+{% else %}
         druid.auth.pac4j.oidc.discoveryURI: 'http://keycloak:8080/realms/test/.well-known/openid-configuration'
+{% endif %}
         druid.auth.pac4j.oidc.oidcClaim: preferred_username
 
         druid.auth.authenticatorChain: '["DruidInternal","pac4j"]'

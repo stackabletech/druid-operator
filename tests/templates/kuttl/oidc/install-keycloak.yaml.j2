@@ -76,18 +76,23 @@ spec:
           args:
             - start-dev
             - --import-realm
-            #- --https-certificate-file=/tls/tls.crt
-            #- --https-certificate-key-file=/tls/tls.key
+{% if test_scenario['values']['oidc-use-tls'] == 'true' %}
+            - --https-certificate-file=/tls/tls.crt
+            - --https-certificate-key-file=/tls/tls.key
+{% endif %}
           env:
             - name: KEYCLOAK_ADMIN
               value: admin
             - name: KEYCLOAK_ADMIN_PASSWORD
               value: admin
           ports:
+{% if test_scenario['values']['oidc-use-tls'] == 'true' %}
+            - name: https
+              containerPort: 8443
+{% else %}
             - name: http
               containerPort: 8080
-            #- name: https
-            #  containerPort: 8443
+{% endif %}
           volumeMounts:
             - name: realms
               mountPath: /opt/keycloak/data/import
@@ -95,11 +100,14 @@ spec:
               mountPath: /tls
           readinessProbe:
             httpGet:
-              scheme: HTTP
-              #scheme: HTTPS
               path: /realms/$REALM
+{% if test_scenario['values']['oidc-use-tls'] == 'true' %}
+              port: 8443
+              scheme: HTTPS
+{% else %}
               port: 8080
-              #port: 8443
+              scheme: HTTP
+{% endif %}
       volumes:
         - name: realms
           configMap:
@@ -129,8 +137,11 @@ spec:
     app: $INSTANCE_NAME
   ports:
     - protocol: TCP
+{% if test_scenario['values']['oidc-use-tls'] == 'true' %}
+      port: 8443
+{% else %}
       port: 8080
-      #port: 8443
+{% endif %}
 ---
 apiVersion: authentication.stackable.tech/v1alpha1
 kind: AuthenticationClass

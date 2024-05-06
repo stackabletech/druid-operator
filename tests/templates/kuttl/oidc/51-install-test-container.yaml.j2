@@ -79,6 +79,12 @@ spec:
               value: druid_system
             - name: DRUID_PASSWORD
               value: druid-system-password
+            - name: KEYCLOAK_BASE_URL
+{% if test_scenario['values']['oidc-use-tls'] == 'true' %}
+              value: https://keycloak:8443
+{% else %}
+              value: http://keycloak:8080
+{% endif %}
       volumes:
         - name: tls
           csi:
