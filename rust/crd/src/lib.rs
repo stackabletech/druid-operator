@@ -136,6 +136,12 @@ pub const SC_VOLUME_NAME: &str = "segment-cache";
 
 pub const ENV_INTERNAL_SECRET: &str = "INTERNAL_SECRET";
 
+// DB credentials
+pub const DB_USERNAME_PLACEHOLDER: &str = "xxx_db_username_xxx";
+pub const DB_PASSWORD_PLACEHOLDER: &str = "xxx_db_password_xxx";
+pub const DB_USERNAME_ENV: &str = "DB_USERNAME_ENV";
+pub const DB_PASSWORD_ENV: &str = "DB_PASSWORD_ENV";
+
 // Graceful shutdown timeouts
 const DEFAULT_BROKER_GRACEFUL_SHUTDOWN_TIMEOUT: Duration = Duration::from_minutes_unchecked(5);
 const DEFAULT_COORDINATOR_GRACEFUL_SHUTDOWN_TIMEOUT: Duration = Duration::from_minutes_unchecked(5);
@@ -528,6 +534,7 @@ impl DruidRole {
     pub fn main_container_prepare_commands(
         &self,
         s3_connection: Option<&S3ConnectionSpec>,
+        credentials_secret: Option<&String>,
     ) -> Vec<String> {
         let mut commands = vec![];
 
@@ -568,6 +575,15 @@ impl DruidRole {
             hdfs_conf = HDFS_CONFIG_DIRECTORY,
             rw_conf = RW_CONFIG_DIRECTORY,
         ));
+
+        // db credentials
+        if credentials_secret.is_some() {
+            commands.extend([
+                format!("echo replacing {DB_USERNAME_PLACEHOLDER} and {DB_PASSWORD_PLACEHOLDER} with secret values."),
+                format!("sed -i \"s|{DB_USERNAME_PLACEHOLDER}|${DB_USERNAME_ENV}|g\" {RW_CONFIG_DIRECTORY}/{RUNTIME_PROPS}"),
+                format!("sed -i \"s|{DB_PASSWORD_PLACEHOLDER}|${DB_PASSWORD_ENV}|g\" {RW_CONFIG_DIRECTORY}/{RUNTIME_PROPS}"),
+            ]);
+        }
 
         commands
     }
@@ -619,11 +635,12 @@ impl DruidCluster {
                 );
                 result.insert(MD_ST_HOST.to_string(), Some(mds.host.to_string()));
                 result.insert(MD_ST_PORT.to_string(), Some(mds.port.to_string()));
-                if let Some(user) = &mds.user {
-                    result.insert(MD_ST_USER.to_string(), Some(user.to_string()));
-                }
-                if let Some(password) = &mds.password {
-                    result.insert(MD_ST_PASSWORD.to_string(), Some(password.to_string()));
+                if mds.credentials_secret.is_some() {
+                    result.insert(MD_ST_USER.to_string(), Some(DB_USERNAME_PLACEHOLDER.into()));
+                    result.insert(
+                        MD_ST_PASSWORD.to_string(),
+                        Some(DB_PASSWORD_PLACEHOLDER.into()),
+                    );
                 }
 
                 // OPA
@@ -987,10 +1004,9 @@ pub struct DatabaseConnectionSpec {
     pub host: String,
     /// The port, i.e. 5432
     pub port: u16,
-    /// The username that should be used to access the database.
-    pub user: Option<String>,
-    /// The password for the database user.
-    pub password: Option<String>,
+    /// A reference to a Secret containing the database credentials.
+    /// The Secret needs to contain the keys `username` and `password`.
+    pub credentials_secret: Option<String>,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, JsonSchema, PartialEq, Serialize, Display, EnumString)]

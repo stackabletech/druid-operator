@@ -117,8 +117,7 @@ mod tests {
               connString: jdbc:postgresql://druid-postgresql/druid
               host: druid-postgresql
               port: 5432
-              user: druid
-              password: druid
+              credentialsSecret: mySecret
             zookeeperConfigMapName: simple-druid-znode
           brokers:
             roleGroups:
