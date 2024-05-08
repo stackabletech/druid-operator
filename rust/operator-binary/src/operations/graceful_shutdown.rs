@@ -4,7 +4,7 @@ use stackable_druid_crd::security::DruidTlsSecurity;
 use stackable_druid_crd::DruidRole;
 use stackable_operator::k8s_openapi::api::core::v1::{ExecAction, LifecycleHandler};
 use stackable_operator::{
-    builder::{ContainerBuilder, PodBuilder},
+    builder::pod::{container::ContainerBuilder, PodBuilder},
     time::Duration,
 };
 
