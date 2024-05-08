@@ -13,7 +13,7 @@ pub enum Error {
     ))]
     FormatMemoryStringForJava {
         value: MemoryQuantity,
-        source: stackable_operator::error::Error,
+        source: stackable_operator::memory::Error,
     },
 }
 
