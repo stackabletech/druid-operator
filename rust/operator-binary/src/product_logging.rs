@@ -3,7 +3,7 @@ use stackable_druid_crd::{
     Container, DruidCluster, DRUID_LOG_FILE, LOG4J2_CONFIG, LOG_DIR, MAX_DRUID_LOG_FILES_SIZE,
 };
 use stackable_operator::{
-    builder::ConfigMapBuilder,
+    builder::configmap::ConfigMapBuilder,
     client::Client,
     k8s_openapi::api::core::v1::ConfigMap,
     kube::ResourceExt,
@@ -21,7 +21,7 @@ pub enum Error {
     ObjectHasNoNamespace,
     #[snafu(display("failed to retrieve the ConfigMap {cm_name}"))]
     ConfigMapNotFound {
-        source: stackable_operator::error::Error,
+        source: stackable_operator::client::Error,
         cm_name: String,
     },
     #[snafu(display("failed to retrieve the entry {entry} for ConfigMap {cm_name}"))]
