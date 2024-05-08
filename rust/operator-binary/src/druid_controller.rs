@@ -366,7 +366,7 @@ pub async fn reconcile_druid(druid: Arc<DruidCluster>, ctx: Arc<Ctx>) -> Result<
     let resolved_product_image: ResolvedProductImage = druid
         .spec
         .image
-        .resolve(DOCKER_IMAGE_BASE_NAME, crate::built_info::CARGO_PKG_VERSION);
+        .resolve(DOCKER_IMAGE_BASE_NAME, crate::built_info::PKG_VERSION);
 
     let zk_confmap = druid.spec.cluster_config.zookeeper_config_map_name.clone();
     let zk_connstr = client
@@ -1328,7 +1328,7 @@ mod test {
         let resolved_product_image: ResolvedProductImage = druid
             .spec
             .image
-            .resolve(DOCKER_IMAGE_BASE_NAME, crate::built_info::CARGO_PKG_VERSION);
+            .resolve(DOCKER_IMAGE_BASE_NAME, crate::built_info::PKG_VERSION);
         let role_config = transform_all_roles_to_config(&druid, druid.build_role_properties());
 
         let product_config_manager =
