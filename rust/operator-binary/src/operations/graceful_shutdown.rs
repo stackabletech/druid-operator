@@ -65,13 +65,13 @@ pub fn add_graceful_shutdown_config(
                             "pipefail".to_string(),
                             "-c".to_string(),
                             formatdoc!(r#"
-                                log() {{ 
-                                  echo "{debug_message} $1" >> /proc/$(cat /tmp/DRUID_PID)/fd/1 2>&1 
+                                log() {{
+                                  echo "{debug_message} $1" >> /proc/$(cat /tmp/DRUID_PID)/fd/1 2>&1
                                 }}
-                                
+
                                 response=$(curl -v --fail --insecure -X POST {middle_manager_host}/druid/worker/v1/disable)
                                 log "Disable middle manager to stop overlord from sending tasks: $response"
-                                
+
                                 end_time_seconds=$(date --date="+{termination_grace_period_seconds} seconds" '+%s')
                                 while :
                                 do
@@ -82,7 +82,7 @@ pub fn add_graceful_shutdown_config(
                                     log "The termination grace period is reached!"
                                     break
                                   fi
-                                  
+
                                   tasks=$(curl -v --fail --insecure -X GET {middle_manager_host}/druid/worker/v1/tasks)
                                   log "Check if all tasks are finished... Running: $tasks"
                                   if [ $tasks = "[]" ]
@@ -90,7 +90,7 @@ pub fn add_graceful_shutdown_config(
                                     log "All tasks finished!"
                                      break
                                   fi
-                                  
+
                                   log "Sleeping {sleep_interval} seconds..."
                                   log ""
                                   sleep {sleep_interval}

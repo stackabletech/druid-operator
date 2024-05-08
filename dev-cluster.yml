@@ -20,4 +20,3 @@ nodes:
           node-labels: "nodeType=druid-data"
 - role: worker
 - role: worker
-

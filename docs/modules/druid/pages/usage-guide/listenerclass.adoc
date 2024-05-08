@@ -12,6 +12,6 @@ spec:
   clusterConfig:
     listenerClass: cluster-internal  # <1>
 ----
-<1> The default `cluster-internal` setting. 
+<1> The default `cluster-internal` setting.
 
 This setting affects all role Services at once.
