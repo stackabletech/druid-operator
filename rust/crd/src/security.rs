@@ -4,9 +4,13 @@ use crate::{
 };
 use snafu::{ResultExt, Snafu};
 use stackable_operator::{
-    builder::{
-        ContainerBuilder, PodBuilder, SecretOperatorVolumeSourceBuilder,
-        SecretOperatorVolumeSourceBuilderError, VolumeBuilder,
+    builder::pod::{
+        container::ContainerBuilder,
+        volume::{
+            SecretOperatorVolumeSourceBuilder, SecretOperatorVolumeSourceBuilderError,
+            VolumeBuilder,
+        },
+        PodBuilder,
     },
     k8s_openapi::{
         api::core::v1::{ContainerPort, Probe, ServicePort, TCPSocketAction},
@@ -14,7 +18,7 @@ use stackable_operator::{
     },
 };
 
-use stackable_operator::builder::SecretFormat;
+use stackable_operator::builder::pod::volume::SecretFormat;
 use std::collections::BTreeMap;
 
 #[derive(Snafu, Debug)]

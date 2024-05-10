@@ -37,7 +37,7 @@ use stackable_operator::{
     kube::{CustomResource, ResourceExt},
     kvp::ObjectLabels,
     memory::{BinaryMultiple, MemoryQuantity},
-    product_config_utils::{ConfigError, Configuration},
+    product_config_utils::{Configuration, Error as ConfigError},
     product_logging::{
         self,
         framework::{create_vector_shutdown_file_command, remove_vector_shutdown_file_command},
@@ -49,7 +49,7 @@ use stackable_operator::{
     time::Duration,
     utils::COMMON_BASH_TRAP_FUNCTIONS,
 };
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use strum::{Display, EnumDiscriminants, EnumIter, EnumString, IntoStaticStr};
 
 pub const APP_NAME: &str = "druid";
@@ -150,11 +150,11 @@ const DEFAULT_HISTORICAL_GRACEFUL_SHUTDOWN_TIMEOUT: Duration = Duration::from_mi
 pub enum Error {
     #[snafu(display("failed to resolve S3 connection"))]
     ResolveS3Connection {
-        source: stackable_operator::error::Error,
+        source: stackable_operator::commons::s3::Error,
     },
     #[snafu(display("failed to resolve S3 bucket"))]
     ResolveS3Bucket {
-        source: stackable_operator::error::Error,
+        source: stackable_operator::commons::s3::Error,
     },
     #[snafu(display("2 differing s3 connections were given, this is unsupported by Druid"))]
     IncompatibleS3Connections,
@@ -236,6 +236,14 @@ pub enum Container {
 #[derive(Clone, Debug, Deserialize, JsonSchema, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DruidClusterConfig {
+    /// Additional extensions to load in Druid.
+    /// The operator will automatically load all extensions needed based on the cluster
+    /// configuration, but for extra functionality which the operator cannot anticipate, it can
+    /// sometimes be necessary to load additional extensions.
+    /// Add configuration for additional extensions using [configuration override for Druid](https://docs.stackable.tech/home/stable/druid/usage-guide/configuration-and-environment-overrides).
+    #[serde(default)]
+    pub additional_extensions: HashSet<String>,
+
     /// List of [AuthenticationClasses](DOCS_BASE_URL_PLACEHOLDER/concepts/authentication)
     /// to use for authenticating users. TLS, LDAP and OIDC authentication are supported. More information in
     /// the [Druid operator security documentation](DOCS_BASE_URL_PLACEHOLDER/druid/usage-guide/security#_authentication).
@@ -1382,7 +1390,7 @@ impl Configuration for MiddleManagerConfigFragment {
             Some(build_string_list(&[
                 format!("-Djavax.net.ssl.trustStore={STACKABLE_TRUST_STORE}"),
                 format!("-Djavax.net.ssl.trustStorePassword={STACKABLE_TRUST_STORE_PASSWORD}"),
-                "-Djavax.net.ssl.trustStoreType=pkcs12".to_string(),
+                "-Djavax.net.ssl.trustStoreType=pkcs12".to_owned(),
             ])),
         );
         Ok(result)
