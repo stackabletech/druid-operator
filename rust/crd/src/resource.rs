@@ -7,7 +7,7 @@ use lazy_static::lazy_static;
 use snafu::{OptionExt, ResultExt, Snafu};
 use stackable_operator::memory::MemoryQuantity;
 use stackable_operator::{
-    builder::{ContainerBuilder, PodBuilder, VolumeBuilder},
+    builder::pod::{container::ContainerBuilder, volume::VolumeBuilder, PodBuilder},
     commons::resources::{
         CpuLimitsFragment, MemoryLimits, MemoryLimitsFragment, NoRuntimeLimits,
         NoRuntimeLimitsFragment, Resources, ResourcesFragment,
@@ -33,7 +33,7 @@ pub enum Error {
     GetMemoryLimit,
     #[snafu(display("failed to parse memory quantity"))]
     ParseMemoryQuantity {
-        source: stackable_operator::error::Error,
+        source: stackable_operator::memory::Error,
     },
     #[snafu(display("the operator produced an internally inconsistent state"))]
     InconsistentConfiguration,

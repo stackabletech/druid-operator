@@ -3,7 +3,7 @@ use stackable_druid_crd::{DruidCluster, ENV_INTERNAL_SECRET};
 use stackable_operator::k8s_openapi::api::core::v1::{EnvVar, EnvVarSource, SecretKeySelector};
 use stackable_operator::kube::ResourceExt;
 use stackable_operator::{
-    builder::ObjectMetaBuilder, client::Client, k8s_openapi::api::core::v1::Secret,
+    builder::meta::ObjectMetaBuilder, client::Client, k8s_openapi::api::core::v1::Secret,
 };
 use std::collections::BTreeMap;
 use strum::{EnumDiscriminants, IntoStaticStr};
@@ -14,17 +14,17 @@ use strum::{EnumDiscriminants, IntoStaticStr};
 pub enum Error {
     #[snafu(display("failed to apply internal secret"))]
     ApplyInternalSecret {
-        source: stackable_operator::error::Error,
+        source: stackable_operator::client::Error,
     },
     #[snafu(display("failed to retrieve secret for internal communications"))]
     FailedToRetrieveInternalSecret {
-        source: stackable_operator::error::Error,
+        source: stackable_operator::client::Error,
     },
     #[snafu(display("object defines no namespace"))]
     ObjectHasNoNamespace,
     #[snafu(display("object is missing metadata to build owner reference"))]
     ObjectMissingMetadataForOwnerRef {
-        source: stackable_operator::error::Error,
+        source: stackable_operator::builder::meta::Error,
     },
 }
 

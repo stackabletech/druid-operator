@@ -1,8 +1,11 @@
 = Service exposition with ListenerClasses
 
-Apache Druid offers a web UI and an API, both are exposed by the `router` role. Other roles also expose API endpoints such as the `broker` and `coordinator`. The Operator deploys services called `<name>-<role>` (where `<name>` is the name of the DruidCluster and `<role>` is the role for the Service) through which Druid can be reached.
+Apache Druid offers a web UI and an API, both are exposed by the `router` role.
+Other roles also expose API endpoints such as the `broker` and `coordinator`.
+The Operator deploys services called `<name>-<role>` (where `<name>` is the name of the DruidCluster and `<role>` is the role for the Service) through which Druid can be reached.
 
-These services can have three different types: `cluster-internal`, `external-unstable` and `external-stable`. Read more about the types in the xref:concepts:service-exposition.adoc[service exposition] documentation at platform level.
+These services can have three different types: `cluster-internal`, `external-unstable` and `external-stable`.
+Read more about the types in the xref:concepts:service-exposition.adoc[service exposition] documentation at platform level.
 
 This is how the listener class is configured:
 

@@ -8,7 +8,7 @@ use stackable_druid_crd::{
     build_recommended_labels, security::DruidTlsSecurity, DruidCluster, DruidRole,
 };
 use stackable_operator::{
-    builder::{ConfigMapBuilder, ObjectMetaBuilder},
+    builder::{configmap::ConfigMapBuilder, meta::ObjectMetaBuilder},
     commons::product_image_selection::ResolvedProductImage,
     k8s_openapi::api::core::v1::ConfigMap,
     kube::{runtime::reflector::ObjectRef, Resource, ResourceExt},
@@ -18,7 +18,7 @@ use stackable_operator::{
 pub enum Error {
     #[snafu(display("object {} is missing metadata to build owner reference", druid))]
     ObjectMissingMetadataForOwnerRef {
-        source: stackable_operator::error::Error,
+        source: stackable_operator::builder::meta::Error,
         druid: ObjectRef<DruidCluster>,
     },
 
@@ -27,12 +27,12 @@ pub enum Error {
 
     #[snafu(display("failed to build ConfigMap"))]
     BuildConfigMap {
-        source: stackable_operator::error::Error,
+        source: stackable_operator::builder::configmap::Error,
     },
 
     #[snafu(display("failed to add recommended labels"))]
     AddRecommendedLabels {
-        source: stackable_operator::builder::ObjectMetaBuilderError,
+        source: stackable_operator::builder::meta::Error,
     },
 }
 
