@@ -6,7 +6,10 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
-- Add support for specifying additional extensions to load ([#547])
+- Add support for specifying additional extensions to load ([#547], [#563])
+
+[#547]: https://github.com/stackabletech/druid-operator/pull/547
+[#563]: https://github.com/stackabletech/druid-operator/pull/563
 
 ## [24.3.0] - 2024-03-20
 
@@ -23,7 +26,6 @@ All notable changes to this project will be documented in this file.
 [#494]: https://github.com/stackabletech/druid-operator/pull/494
 [#509]: https://github.com/stackabletech/druid-operator/pull/509
 [#518]: https://github.com/stackabletech/druid-operator/pull/518
-[#547]: https://github.com/stackabletech/druid-operator/pull/547
 
 ## [23.11.0] - 2023-11-24
 
