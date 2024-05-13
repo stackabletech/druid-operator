@@ -10,7 +10,7 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 
-- [BREAKING] Move the DB credentials out of the CRD into a secret ([#557]).
+- [BREAKING] Move the DB credentials `user` and `password` out of the CRD into a secret containing the keys `username` and `password` ([#557]).
 
 [#547]: https://github.com/stackabletech/druid-operator/pull/547
 [#557]: https://github.com/stackabletech/druid-operator/pull/557
