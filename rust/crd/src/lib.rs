@@ -101,12 +101,12 @@ pub const AUTH_AUTHORIZER_OPA_TYPE: &str = "druid.auth.authorizer.OpaAuthorizer.
 pub const AUTH_AUTHORIZER_OPA_TYPE_VALUE: &str = "opa";
 pub const AUTH_AUTHORIZER_OPA_URI: &str = "druid.auth.authorizer.OpaAuthorizer.opaUri";
 // metadata storage config properties
-pub const MD_ST_TYPE: &str = "druid.metadata.storage.type";
-pub const MD_ST_CONNECT_URI: &str = "druid.metadata.storage.connector.connectURI";
-pub const MD_ST_HOST: &str = "druid.metadata.storage.connector.host";
-pub const MD_ST_PORT: &str = "druid.metadata.storage.connector.port";
-pub const MD_ST_USER: &str = "druid.metadata.storage.connector.user";
-pub const MD_ST_PASSWORD: &str = "druid.metadata.storage.connector.password";
+const METADATA_STORAGE_TYPE: &str = "druid.metadata.storage.type";
+const METADATA_STORAGE_URI: &str = "druid.metadata.storage.connector.connectURI";
+const METADATA_STORAGE_HOST: &str = "druid.metadata.storage.connector.host";
+const METADATA_STORAGE_PORT: &str = "druid.metadata.storage.connector.port";
+const METADATA_STORAGE_USER: &str = "druid.metadata.storage.connector.user";
+const METADATA_STORAGE_PASSWORD: &str = "druid.metadata.storage.connector.password";
 // indexer properties
 pub const INDEXER_JAVA_OPTS: &str = "druid.indexer.runner.javaOptsArray";
 // historical settings
@@ -628,17 +628,29 @@ impl DruidCluster {
             JVM_CONFIG => {}
             RUNTIME_PROPS => {
                 let mds = &self.spec.cluster_config.metadata_storage_database;
-                result.insert(MD_ST_TYPE.to_string(), Some(mds.db_type.to_string()));
                 result.insert(
-                    MD_ST_CONNECT_URI.to_string(),
+                    METADATA_STORAGE_TYPE.to_string(),
+                    Some(mds.db_type.to_string()),
+                );
+                result.insert(
+                    METADATA_STORAGE_URI.to_string(),
                     Some(mds.conn_string.to_string()),
                 );
-                result.insert(MD_ST_HOST.to_string(), Some(mds.host.to_string()));
-                result.insert(MD_ST_PORT.to_string(), Some(mds.port.to_string()));
+                result.insert(
+                    METADATA_STORAGE_HOST.to_string(),
+                    Some(mds.host.to_string()),
+                );
+                result.insert(
+                    METADATA_STORAGE_PORT.to_string(),
+                    Some(mds.port.to_string()),
+                );
                 if mds.credentials_secret.is_some() {
-                    result.insert(MD_ST_USER.to_string(), Some(DB_USERNAME_PLACEHOLDER.into()));
                     result.insert(
-                        MD_ST_PASSWORD.to_string(),
+                        METADATA_STORAGE_USER.to_string(),
+                        Some(DB_USERNAME_PLACEHOLDER.into()),
+                    );
+                    result.insert(
+                        METADATA_STORAGE_PASSWORD.to_string(),
                         Some(DB_PASSWORD_PLACEHOLDER.into()),
                     );
                 }
