@@ -21,7 +21,8 @@ IMPORTANT: A Stackable Druid cluster is always encrypted per default i.e. `spec.
 
 === TLS
 
-The access to the Druid cluster can be limited by configuring client authentication (mutual TLS) for all participants. This means that processes acting as internal clients (e.g. a Broker) or external clients (e.g. a Browser) have to authenticate themselves with valid certificates in order to communicate with the Druid cluster.
+The access to the Druid cluster can be limited by configuring client authentication (mutual TLS) for all participants.
+This means that processes acting as internal clients (e.g. a Broker) or external clients (e.g. a Browser) have to authenticate themselves with valid certificates in order to communicate with the Druid cluster.
 
 [source,yaml]
 ----
@@ -70,7 +71,8 @@ Reference the AuthenticationClass in your DruidCluster resource:
 include::example$druid-ldap-authentication.yaml[tag=druid]
 ----
 
-Check out the xref:tutorials:authentication_with_openldap.adoc[] tutorial to see a complete example of how to set LDAP authentication for another Stackable operator. You can also consult the home:reference:authenticationclass.adoc[] reference, or
+Check out the xref:tutorials:authentication_with_openldap.adoc[] tutorial to see a complete example of how to set LDAP authentication for another Stackable operator.
+You can also consult the home:reference:authenticationclass.adoc[] reference, or
 https://github.com/stackabletech/druid-operator/tree/main/tests/templates/kuttl/ldap-authentication[the LDAP test] suite.
 
 === Current Limitations and Upcoming Work

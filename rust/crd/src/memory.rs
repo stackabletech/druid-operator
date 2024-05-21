@@ -24,11 +24,11 @@ lazy_static! {
 pub enum Error {
     #[snafu(display("failed to parse memory limits"))]
     ParsingMemoryLimitFailure {
-        source: stackable_operator::error::Error,
+        source: stackable_operator::memory::Error,
     },
     #[snafu(display("failed to parse CPU limits"))]
     ParsingCpuLimitFailure {
-        source: stackable_operator::error::Error,
+        source: stackable_operator::cpu::Error,
     },
     #[snafu(display("could not derive memory distribution, no memory limits defined"))]
     NoMemoryLimitsDefined,
