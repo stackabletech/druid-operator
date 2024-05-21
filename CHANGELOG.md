@@ -8,15 +8,13 @@ All notable changes to this project will be documented in this file.
 
 - Add support for specifying additional extensions to load ([#547], [#563])
 
-[#547]: https://github.com/stackabletech/druid-operator/pull/547
-[#563]: https://github.com/stackabletech/druid-operator/pull/563
-
 ### Fixed
 
 - [BREAKING] Move the DB credentials `user` and `password` out of the CRD into a secret containing the keys `username` and `password` ([#557]).
 
 [#547]: https://github.com/stackabletech/druid-operator/pull/547
 [#557]: https://github.com/stackabletech/druid-operator/pull/557
+[#563]: https://github.com/stackabletech/druid-operator/pull/563
 
 ## [24.3.0] - 2024-03-20
 
