@@ -1,0 +1,5 @@
+---
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands:
+  - script: envsubst < install-druid.yaml | kubectl apply -n $NAMESPACE -f -
