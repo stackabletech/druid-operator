@@ -18,17 +18,23 @@ use stackable_druid_crd::{
     build_recommended_labels, build_string_list,
     security::{resolve_authentication_classes, DruidTlsSecurity},
     CommonRoleGroupConfig, Container, DeepStorageSpec, DruidCluster, DruidClusterStatus, DruidRole,
-    APP_NAME, AUTH_AUTHORIZER_OPA_URI, CERTS_DIR, CREDENTIALS_SECRET_PROPERTY,
-    DRUID_CONFIG_DIRECTORY, DS_BUCKET, ENV_INTERNAL_SECRET, EXTENSIONS_LOADLIST,
+    APP_NAME, AUTH_AUTHORIZER_OPA_URI, CERTS_DIR, CREDENTIALS_SECRET_PROPERTY, DB_PASSWORD_ENV,
+    DB_USERNAME_ENV, DRUID_CONFIG_DIRECTORY, DS_BUCKET, ENV_INTERNAL_SECRET, EXTENSIONS_LOADLIST,
     HDFS_CONFIG_DIRECTORY, JVM_CONFIG, JVM_SECURITY_PROPERTIES_FILE, LOG_CONFIG_DIRECTORY, LOG_DIR,
     MAX_DRUID_LOG_FILES_SIZE, RUNTIME_PROPS, RW_CONFIG_DIRECTORY, S3_ENDPOINT_URL,
     S3_PATH_STYLE_ACCESS, S3_SECRET_DIR_NAME, ZOOKEEPER_CONNECTION_STRING,
 };
 use stackable_operator::{
     builder::{
-        resources::ResourceRequirementsBuilder, ConfigMapBuilder, ContainerBuilder,
-        ObjectMetaBuilder, PodBuilder, PodSecurityContextBuilder,
-        SecretOperatorVolumeSourceBuilder, VolumeBuilder,
+        configmap::ConfigMapBuilder,
+        meta::ObjectMetaBuilder,
+        pod::{
+            container::ContainerBuilder,
+            resources::ResourceRequirementsBuilder,
+            security::PodSecurityContextBuilder,
+            volume::{SecretOperatorVolumeSourceBuilder, VolumeBuilder},
+            PodBuilder,
+        },
     },
     cluster_resources::{ClusterResourceApplyStrategy, ClusterResources},
     commons::{
@@ -106,41 +112,41 @@ pub struct Ctx {
 pub enum Error {
     #[snafu(display("failed to apply global Service"))]
     ApplyRoleService {
-        source: stackable_operator::error::Error,
+        source: stackable_operator::cluster_resources::Error,
     },
 
     #[snafu(display("failed to apply Service for {}", rolegroup))]
     ApplyRoleGroupService {
-        source: stackable_operator::error::Error,
+        source: stackable_operator::cluster_resources::Error,
         rolegroup: RoleGroupRef<DruidCluster>,
     },
 
     #[snafu(display("failed to build ConfigMap for {}", rolegroup))]
     BuildRoleGroupConfig {
-        source: stackable_operator::error::Error,
+        source: stackable_operator::builder::configmap::Error,
         rolegroup: RoleGroupRef<DruidCluster>,
     },
 
     #[snafu(display("failed to apply ConfigMap for {}", rolegroup))]
     ApplyRoleGroupConfig {
-        source: stackable_operator::error::Error,
+        source: stackable_operator::cluster_resources::Error,
         rolegroup: RoleGroupRef<DruidCluster>,
     },
 
     #[snafu(display("failed to apply StatefulSet for {}", rolegroup))]
     ApplyRoleGroupStatefulSet {
-        source: stackable_operator::error::Error,
+        source: stackable_operator::cluster_resources::Error,
         rolegroup: RoleGroupRef<DruidCluster>,
     },
 
     #[snafu(display("invalid product config"))]
     InvalidProductConfig {
-        source: stackable_operator::error::Error,
+        source: stackable_operator::product_config_utils::Error,
     },
 
     #[snafu(display("object is missing metadata to build owner reference"))]
     ObjectMissingMetadataForOwnerRef {
-        source: stackable_operator::error::Error,
+        source: stackable_operator::builder::meta::Error,
     },
 
     #[snafu(display(
@@ -148,7 +154,7 @@ pub enum Error {
         cm_name
     ))]
     GetZookeeperConnStringConfigMap {
-        source: stackable_operator::error::Error,
+        source: stackable_operator::client::Error,
         cm_name: String,
     },
 
@@ -157,7 +163,7 @@ pub enum Error {
         cm_name
     ))]
     GetOpaConnString {
-        source: stackable_operator::error::Error,
+        source: stackable_operator::commons::opa::Error,
         cm_name: String,
     },
 
@@ -166,7 +172,7 @@ pub enum Error {
 
     #[snafu(display("failed to get deep storage bucket"))]
     GetDeepStorageBucket {
-        source: stackable_operator::error::Error,
+        source: stackable_operator::commons::s3::Error,
     },
 
     #[snafu(display(
@@ -177,7 +183,7 @@ pub enum Error {
 
     #[snafu(display("failed to transform configs"))]
     ProductConfigTransform {
-        source: stackable_operator::product_config_utils::ConfigError,
+        source: stackable_operator::product_config_utils::Error,
     },
 
     #[snafu(display("failed to format runtime properties"))]
@@ -188,12 +194,12 @@ pub enum Error {
 
     #[snafu(display("failed to apply discovery ConfigMap"))]
     ApplyDiscoveryConfig {
-        source: stackable_operator::error::Error,
+        source: stackable_operator::cluster_resources::Error,
     },
 
     #[snafu(display("failed to apply cluster status"))]
     ApplyStatus {
-        source: stackable_operator::error::Error,
+        source: stackable_operator::client::Error,
     },
 
     #[snafu(display(
@@ -215,17 +221,17 @@ pub enum Error {
 
     #[snafu(display("failed to create cluster resources"))]
     CreateClusterResources {
-        source: stackable_operator::error::Error,
+        source: stackable_operator::cluster_resources::Error,
     },
 
     #[snafu(display("failed to delete orphaned resources"))]
     DeleteOrphanedResources {
-        source: stackable_operator::error::Error,
+        source: stackable_operator::cluster_resources::Error,
     },
 
     #[snafu(display("failed to create container builder with name [{name}]"))]
     FailedContainerBuilderCreation {
-        source: stackable_operator::error::Error,
+        source: stackable_operator::builder::pod::container::Error,
         name: String,
     },
 
@@ -273,17 +279,17 @@ pub enum Error {
 
     #[snafu(display("failed to create RBAC service account"))]
     ApplyServiceAccount {
-        source: stackable_operator::error::Error,
+        source: stackable_operator::cluster_resources::Error,
     },
 
     #[snafu(display("failed to create RBAC role binding"))]
     ApplyRoleBinding {
-        source: stackable_operator::error::Error,
+        source: stackable_operator::cluster_resources::Error,
     },
 
     #[snafu(display("failed to build RBAC resources"))]
     BuildRbacResources {
-        source: stackable_operator::error::Error,
+        source: stackable_operator::commons::rbac::Error,
     },
 
     #[snafu(display(
@@ -307,7 +313,7 @@ pub enum Error {
 
     #[snafu(display("failed to build TLS certificate SecretClass Volume"))]
     TlsCertSecretClassVolumeBuild {
-        source: stackable_operator::builder::SecretOperatorVolumeSourceBuilderError,
+        source: stackable_operator::builder::pod::volume::SecretOperatorVolumeSourceBuilderError,
     },
 
     #[snafu(display("failed to build S3 credentials SecretClass Volume"))]
@@ -320,7 +326,7 @@ pub enum Error {
 
     #[snafu(display("failed to build metadata"))]
     MetadataBuild {
-        source: stackable_operator::builder::ObjectMetaBuilderError,
+        source: stackable_operator::builder::meta::Error,
     },
 
     #[snafu(display("failed to get required labels"))]
@@ -360,7 +366,7 @@ pub async fn reconcile_druid(druid: Arc<DruidCluster>, ctx: Arc<Ctx>) -> Result<
     let resolved_product_image: ResolvedProductImage = druid
         .spec
         .image
-        .resolve(DOCKER_IMAGE_BASE_NAME, crate::built_info::CARGO_PKG_VERSION);
+        .resolve(DOCKER_IMAGE_BASE_NAME, crate::built_info::PKG_VERSION);
 
     let zk_confmap = druid.spec.cluster_config.zookeeper_config_map_name.clone();
     let zk_connstr = client
@@ -903,7 +909,14 @@ fn build_rolegroup_statefulset(
     )
     .context(GracefulShutdownSnafu)?;
 
-    let mut main_container_commands = role.main_container_prepare_commands(s3_conn);
+    let credentials_secret = druid
+        .spec
+        .cluster_config
+        .metadata_storage_database
+        .credentials_secret
+        .as_ref();
+    let mut main_container_commands =
+        role.main_container_prepare_commands(s3_conn, credentials_secret);
     let mut prepare_container_commands = vec![];
     if let Some(ContainerLogConfig {
         choice: Some(ContainerLogConfigChoice::Automatic(log_config)),
@@ -995,6 +1008,21 @@ fn build_rolegroup_statefulset(
 
     let secret_name = build_shared_internal_secret_name(druid);
     rest_env.push(env_var_from_secret(&secret_name, None, ENV_INTERNAL_SECRET));
+
+    // load database credentials to environment variables: these will be used to replace
+    // the placeholders in runtime.properties so that the operator does not "touch" the secret.
+    if let Some(credentials_secret_name) = credentials_secret {
+        rest_env.push(env_var_from_secret(
+            credentials_secret_name,
+            Some("username"),
+            DB_USERNAME_ENV,
+        ));
+        rest_env.push(env_var_from_secret(
+            credentials_secret_name,
+            Some("password"),
+            DB_PASSWORD_ENV,
+        ));
+    }
 
     main_container_commands.push(role.main_container_start_command());
     cb_druid
@@ -1284,11 +1312,11 @@ mod test {
         },
         #[snafu(display("product config utils error"))]
         ProductConfigUtils {
-            source: stackable_operator::product_config_utils::ConfigError,
+            source: stackable_operator::product_config_utils::Error,
         },
         #[snafu(display("operator framework error"))]
         OperatorFramework {
-            source: stackable_operator::error::Error,
+            source: stackable_operator::product_config_utils::Error,
         },
         #[snafu(display("failed to resolve and merge config for role and role group"))]
         FailedToResolveConfig { source: stackable_druid_crd::Error },
@@ -1322,7 +1350,7 @@ mod test {
         let resolved_product_image: ResolvedProductImage = druid
             .spec
             .image
-            .resolve(DOCKER_IMAGE_BASE_NAME, crate::built_info::CARGO_PKG_VERSION);
+            .resolve(DOCKER_IMAGE_BASE_NAME, crate::built_info::PKG_VERSION);
         let role_config = transform_all_roles_to_config(&druid, druid.build_role_properties());
 
         let product_config_manager =

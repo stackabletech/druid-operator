@@ -37,14 +37,14 @@ use stackable_operator::{
     kube::{CustomResource, ResourceExt},
     kvp::ObjectLabels,
     memory::{BinaryMultiple, MemoryQuantity},
-    product_config_utils::{ConfigError, Configuration},
+    product_config_utils::{Configuration, Error as ConfigError},
     product_logging::{
         self,
         framework::{create_vector_shutdown_file_command, remove_vector_shutdown_file_command},
         spec::Logging,
     },
     role_utils::{CommonConfiguration, GenericRoleConfig, Role, RoleGroup},
-    schemars::{self, schema::Schema, JsonSchema},
+    schemars::{self, JsonSchema},
     status::condition::{ClusterCondition, HasStatusCondition},
     time::Duration,
     utils::COMMON_BASH_TRAP_FUNCTIONS,
@@ -101,12 +101,12 @@ pub const AUTH_AUTHORIZER_OPA_TYPE: &str = "druid.auth.authorizer.OpaAuthorizer.
 pub const AUTH_AUTHORIZER_OPA_TYPE_VALUE: &str = "opa";
 pub const AUTH_AUTHORIZER_OPA_URI: &str = "druid.auth.authorizer.OpaAuthorizer.opaUri";
 // metadata storage config properties
-pub const MD_ST_TYPE: &str = "druid.metadata.storage.type";
-pub const MD_ST_CONNECT_URI: &str = "druid.metadata.storage.connector.connectURI";
-pub const MD_ST_HOST: &str = "druid.metadata.storage.connector.host";
-pub const MD_ST_PORT: &str = "druid.metadata.storage.connector.port";
-pub const MD_ST_USER: &str = "druid.metadata.storage.connector.user";
-pub const MD_ST_PASSWORD: &str = "druid.metadata.storage.connector.password";
+const METADATA_STORAGE_TYPE: &str = "druid.metadata.storage.type";
+const METADATA_STORAGE_URI: &str = "druid.metadata.storage.connector.connectURI";
+const METADATA_STORAGE_HOST: &str = "druid.metadata.storage.connector.host";
+const METADATA_STORAGE_PORT: &str = "druid.metadata.storage.connector.port";
+const METADATA_STORAGE_USER: &str = "druid.metadata.storage.connector.user";
+const METADATA_STORAGE_PASSWORD: &str = "druid.metadata.storage.connector.password";
 // indexer properties
 pub const INDEXER_JAVA_OPTS: &str = "druid.indexer.runner.javaOptsArray";
 // historical settings
@@ -136,6 +136,12 @@ pub const SC_VOLUME_NAME: &str = "segment-cache";
 
 pub const ENV_INTERNAL_SECRET: &str = "INTERNAL_SECRET";
 
+// DB credentials
+pub const DB_USERNAME_PLACEHOLDER: &str = "xxx_db_username_xxx";
+pub const DB_PASSWORD_PLACEHOLDER: &str = "xxx_db_password_xxx";
+pub const DB_USERNAME_ENV: &str = "DB_USERNAME_ENV";
+pub const DB_PASSWORD_ENV: &str = "DB_PASSWORD_ENV";
+
 // Graceful shutdown timeouts
 const DEFAULT_BROKER_GRACEFUL_SHUTDOWN_TIMEOUT: Duration = Duration::from_minutes_unchecked(5);
 const DEFAULT_COORDINATOR_GRACEFUL_SHUTDOWN_TIMEOUT: Duration = Duration::from_minutes_unchecked(5);
@@ -150,11 +156,11 @@ const DEFAULT_HISTORICAL_GRACEFUL_SHUTDOWN_TIMEOUT: Duration = Duration::from_mi
 pub enum Error {
     #[snafu(display("failed to resolve S3 connection"))]
     ResolveS3Connection {
-        source: stackable_operator::error::Error,
+        source: stackable_operator::commons::s3::Error,
     },
     #[snafu(display("failed to resolve S3 bucket"))]
     ResolveS3Bucket {
-        source: stackable_operator::error::Error,
+        source: stackable_operator::commons::s3::Error,
     },
     #[snafu(display("2 differing s3 connections were given, this is unsupported by Druid"))]
     IncompatibleS3Connections,
@@ -242,7 +248,6 @@ pub struct DruidClusterConfig {
     /// sometimes be necessary to load additional extensions.
     /// Add configuration for additional extensions using [configuration override for Druid](https://docs.stackable.tech/home/stable/druid/usage-guide/configuration-and-environment-overrides).
     #[serde(default)]
-    #[schemars(schema_with = "additional_extensions_schema")]
     pub additional_extensions: HashSet<String>,
 
     /// List of [AuthenticationClasses](DOCS_BASE_URL_PLACEHOLDER/concepts/authentication)
@@ -307,21 +312,6 @@ pub struct DruidClusterConfig {
     /// will be used to expose the service, and ListenerClass names will stay the same, allowing for a non-breaking change.
     #[serde(default)]
     pub listener_class: CurrentlySupportedListenerClasses,
-}
-
-/// TODO: Remove once kube-rs is fixed.
-/// Currently using HashSets and BTreeMaps in the schema will result in an invalid CRD that is rejected by the kube-apiserver with
-/// error message `Forbidden: uniqueItems cannot be set to true since the runtime complexity becomes quadratic`.
-/// This issue will be fixed in kube-rs by `<https://github.com/kube-rs/kube/pull/1484>`
-pub fn additional_extensions_schema(gen: &mut schemars::gen::SchemaGenerator) -> Schema {
-    let mut schema = HashSet::<String>::json_schema(gen);
-
-    if let Schema::Object(schema) = &mut schema {
-        let array = schema.array();
-        array.unique_items = None;
-    }
-
-    schema
 }
 
 // TODO: Temporary solution until listener-operator is finished
@@ -528,6 +518,7 @@ impl DruidRole {
     pub fn main_container_prepare_commands(
         &self,
         s3_connection: Option<&S3ConnectionSpec>,
+        credentials_secret: Option<&String>,
     ) -> Vec<String> {
         let mut commands = vec![];
 
@@ -568,6 +559,15 @@ impl DruidRole {
             hdfs_conf = HDFS_CONFIG_DIRECTORY,
             rw_conf = RW_CONFIG_DIRECTORY,
         ));
+
+        // db credentials
+        if credentials_secret.is_some() {
+            commands.extend([
+                format!("echo replacing {DB_USERNAME_PLACEHOLDER} and {DB_PASSWORD_PLACEHOLDER} with secret values."),
+                format!("sed -i \"s|{DB_USERNAME_PLACEHOLDER}|${DB_USERNAME_ENV}|g\" {RW_CONFIG_DIRECTORY}/{RUNTIME_PROPS}"),
+                format!("sed -i \"s|{DB_PASSWORD_PLACEHOLDER}|${DB_PASSWORD_ENV}|g\" {RW_CONFIG_DIRECTORY}/{RUNTIME_PROPS}"),
+            ]);
+        }
 
         commands
     }
@@ -612,18 +612,31 @@ impl DruidCluster {
             JVM_CONFIG => {}
             RUNTIME_PROPS => {
                 let mds = &self.spec.cluster_config.metadata_storage_database;
-                result.insert(MD_ST_TYPE.to_string(), Some(mds.db_type.to_string()));
                 result.insert(
-                    MD_ST_CONNECT_URI.to_string(),
+                    METADATA_STORAGE_TYPE.to_string(),
+                    Some(mds.db_type.to_string()),
+                );
+                result.insert(
+                    METADATA_STORAGE_URI.to_string(),
                     Some(mds.conn_string.to_string()),
                 );
-                result.insert(MD_ST_HOST.to_string(), Some(mds.host.to_string()));
-                result.insert(MD_ST_PORT.to_string(), Some(mds.port.to_string()));
-                if let Some(user) = &mds.user {
-                    result.insert(MD_ST_USER.to_string(), Some(user.to_string()));
-                }
-                if let Some(password) = &mds.password {
-                    result.insert(MD_ST_PASSWORD.to_string(), Some(password.to_string()));
+                result.insert(
+                    METADATA_STORAGE_HOST.to_string(),
+                    Some(mds.host.to_string()),
+                );
+                result.insert(
+                    METADATA_STORAGE_PORT.to_string(),
+                    Some(mds.port.to_string()),
+                );
+                if mds.credentials_secret.is_some() {
+                    result.insert(
+                        METADATA_STORAGE_USER.to_string(),
+                        Some(DB_USERNAME_PLACEHOLDER.into()),
+                    );
+                    result.insert(
+                        METADATA_STORAGE_PASSWORD.to_string(),
+                        Some(DB_PASSWORD_PLACEHOLDER.into()),
+                    );
                 }
 
                 // OPA
@@ -987,10 +1000,9 @@ pub struct DatabaseConnectionSpec {
     pub host: String,
     /// The port, i.e. 5432
     pub port: u16,
-    /// The username that should be used to access the database.
-    pub user: Option<String>,
-    /// The password for the database user.
-    pub password: Option<String>,
+    /// A reference to a Secret containing the database credentials.
+    /// The Secret needs to contain the keys `username` and `password`.
+    pub credentials_secret: Option<String>,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, JsonSchema, PartialEq, Serialize, Display, EnumString)]

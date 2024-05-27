@@ -117,8 +117,7 @@ mod tests {
               connString: jdbc:postgresql://druid-postgresql/druid
               host: druid-postgresql
               port: 5432
-              user: druid
-              password: druid
+              credentialsSecret: mySecret
             zookeeperConfigMapName: simple-druid-znode
           brokers:
             roleGroups:
@@ -170,6 +169,8 @@ mod tests {
                                 ),
                             ])),
                         }),
+                        match_label_keys: None,
+                        mismatch_label_keys: None,
                         namespace_selector: None,
                         namespaces: None,
                         topology_key: "kubernetes.io/hostname".to_string(),
@@ -192,6 +193,8 @@ mod tests {
                                 ),
                             ])),
                         }),
+                        match_label_keys: None,
+                        mismatch_label_keys: None,
                         namespace_selector: None,
                         namespaces: None,
                         topology_key: "kubernetes.io/hostname".to_string(),
@@ -216,6 +219,8 @@ mod tests {
                                 ),
                             ])),
                         }),
+                        match_label_keys: None,
+                        mismatch_label_keys: None,
                         namespace_selector: None,
                         namespaces: None,
                         topology_key: "kubernetes.io/hostname".to_string(),
@@ -240,6 +245,8 @@ mod tests {
                                 ),
                             ])),
                         }),
+                        match_label_keys: None,
+                        mismatch_label_keys: None,
                         namespace_selector: None,
                         namespaces: None,
                         topology_key: "kubernetes.io/hostname".to_string(),
@@ -275,6 +282,8 @@ mod tests {
                                         )
                                     ]))
                                 }),
+                                match_label_keys: None,
+                                mismatch_label_keys: None,
                                 namespace_selector: None,
                                 namespaces: None,
                                 topology_key: "kubernetes.io/hostname".to_string(),
