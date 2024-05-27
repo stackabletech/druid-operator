@@ -79,10 +79,8 @@ spec:
               value: druid_system
             - name: DRUID_PASSWORD
               value: druid-system-password
-{% if test_scenario['values']['oidc-use-tls'] == 'true' %}
             - name: OIDC_USE_TLS
-              value: 'true'
-{% endif %}
+              value: "{{ test_scenario['values']['oidc-use-tls'] }}"
       volumes:
         - name: tls
           csi:
