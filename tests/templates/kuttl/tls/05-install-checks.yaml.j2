@@ -52,6 +52,9 @@ spec:
         - name: druid-checks
           image: docker.stackable.tech/stackable/testing-tools:0.2.0-stackable0.0.0-dev
           command: ["sleep", "infinity"]
+          env:
+          - name: DRUID_OIDC
+            value: "false"
           volumeMounts:
 {% if test_scenario['values']['tls-mode'] == 'internal-and-server-tls' or test_scenario['values']['tls-mode'] == 'internal-and-server-tls-and-tls-client-auth' %}
             - name: druid-tls
