@@ -8,7 +8,7 @@ use stackable_operator::kube::ResourceExt;
 use crate::authentication::ResolvedAuthenticationClasses;
 use crate::{
     security::{add_cert_to_trust_store_cmd, STACKABLE_TLS_DIR, TLS_STORE_PASSWORD},
-    ENV_INTERNAL_SECRET, RUNTIME_PROPS, RW_CONFIG_DIRECTORY,
+    ENV_INTERNAL_SECRET,
 };
 
 #[derive(Snafu, Debug)]
@@ -25,10 +25,8 @@ pub struct DruidLdapSettings {
     pub authentication_class_name: String,
 }
 
-pub const PLACEHOLDER_INTERNAL_CLIENT_PASSWORD: &str =
-    "xxx_druid_system_internal_client_password_xxx";
-pub const PLACEHOLDER_LDAP_BIND_PASSWORD: &str = "xxx_ldap_bind_password_xxx";
-pub const PLACEHOLDER_LDAP_BIND_USER: &str = "xxx_ldap_bind_user_xxx";
+pub const ENV_LDAP_BIND_USER: &str = "LDAP_BIND_USER";
+pub const ENV_LDAP_BIND_PASSWORD: &str = "LDAP_BIND_PASSWORD";
 
 impl DruidLdapSettings {
     pub fn new_from(
@@ -63,7 +61,7 @@ impl DruidLdapSettings {
 
         config.insert(
             format!("{PREFIX}.initialInternalClientPassword"),
-            Some(PLACEHOLDER_INTERNAL_CLIENT_PASSWORD.to_string()),
+            Some(format!("${{env:{ENV_INTERNAL_SECRET}}}").to_string()),
         );
         config.insert(
             format!("{PREFIX}.authorizerName"),
@@ -100,11 +98,11 @@ impl DruidLdapSettings {
         if self.ldap.bind_credentials_mount_paths().is_some() {
             config.insert(
                 format!("{PREFIX}.credentialsValidator.bindUser"),
-                Some(PLACEHOLDER_LDAP_BIND_USER.to_string()), // NOTE: this placeholder will be replaced from a mounted secret operator volume on container startup
+                Some(format!("${{env:{ENV_LDAP_BIND_USER}}}").to_string()), // NOTE: this placeholder will be replaced from a mounted secret operator volume on container startup
             );
             config.insert(
                 format!("{PREFIX}.credentialsValidator.bindPassword"),
-                Some(PLACEHOLDER_LDAP_BIND_PASSWORD.to_string()), // NOTE: this placeholder will be replaced from a mounted secret operator volume on container startup
+                Some(format!("${{env:{ENV_LDAP_BIND_PASSWORD}}}").to_string()), // NOTE: this placeholder will be replaced from a mounted secret operator volume on container startup
             );
         }
 
@@ -139,7 +137,7 @@ impl DruidLdapSettings {
         );
         config.insert(
             "druid.escalator.internalClientPassword".to_string(),
-            Some(PLACEHOLDER_INTERNAL_CLIENT_PASSWORD.to_string()),
+            Some(format!("${{env:{ENV_INTERNAL_SECRET}}}").to_string()),
         );
         config.insert(
             "druid.escalator.authorizerName".to_string(),
@@ -183,27 +181,17 @@ impl DruidLdapSettings {
     pub fn main_container_commands(&self) -> Vec<String> {
         let mut commands = Vec::new();
 
-        let runtime_properties_file: String = format!("{RW_CONFIG_DIRECTORY}/{RUNTIME_PROPS}");
-        let internal_client_password = format!("$(echo ${ENV_INTERNAL_SECRET})");
-
-        commands
-                .push(format!("echo \"Replacing LDAP placeholders with their proper values in {runtime_properties_file}\""));
-        commands.push(format!(
-            r#"sed "s|{PLACEHOLDER_INTERNAL_CLIENT_PASSWORD}|{internal_client_password}|g" -i {runtime_properties_file}"# // using another delimiter (|) here because of base64 string
-        ));
-
         if let Some((ldap_bind_user_path, ldap_bind_password_path)) =
             self.ldap.bind_credentials_mount_paths()
         {
             let ldap_bind_user = format!("$(cat {ldap_bind_user_path})");
             let ldap_bind_password = format!("$(cat {ldap_bind_password_path})");
 
+            commands.push(format!("export {ENV_LDAP_BIND_USER}={ldap_bind_user}"));
             commands.push(format!(
-                    r#"sed "s/{PLACEHOLDER_LDAP_BIND_USER}/{ldap_bind_user}/g" -i {runtime_properties_file}"#
-                ));
-            commands.push(format!(
-                    r#"sed "s/{PLACEHOLDER_LDAP_BIND_PASSWORD}/{ldap_bind_password}/g" -i {runtime_properties_file}"#
-                ));
+                "export {ENV_LDAP_BIND_PASSWORD}={ldap_bind_password}"
+            ));
+            // TODO test if it works - need to run the LDAP test
         }
 
         commands

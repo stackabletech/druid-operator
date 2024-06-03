@@ -619,11 +619,11 @@ impl DruidCluster {
                 if mds.credentials_secret.is_some() {
                     result.insert(
                         METADATA_STORAGE_USER.to_string(),
-                        Some(format!("${{env:{DB_USERNAME_ENV}}}").into()),
+                        Some(format!("${{env:{DB_USERNAME_ENV}}}")),
                     );
                     result.insert(
                         METADATA_STORAGE_PASSWORD.to_string(),
-                        Some(format!("${{env:{DB_PASSWORD_ENV}}}").into()),
+                        Some(format!("${{env:{DB_PASSWORD_ENV}}}")),
                     );
                 }
 
