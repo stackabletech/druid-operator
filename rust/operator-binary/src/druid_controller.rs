@@ -915,8 +915,7 @@ fn build_rolegroup_statefulset(
         .metadata_storage_database
         .credentials_secret
         .as_ref();
-    let mut main_container_commands =
-        role.main_container_prepare_commands(s3_conn, credentials_secret);
+    let mut main_container_commands = role.main_container_prepare_commands(s3_conn);
     let mut prepare_container_commands = vec![];
     if let Some(ContainerLogConfig {
         choice: Some(ContainerLogConfigChoice::Automatic(log_config)),

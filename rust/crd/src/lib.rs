@@ -136,9 +136,7 @@ pub const SC_VOLUME_NAME: &str = "segment-cache";
 
 pub const ENV_INTERNAL_SECRET: &str = "INTERNAL_SECRET";
 
-// DB credentials
-pub const DB_USERNAME_PLACEHOLDER: &str = "xxx_db_username_xxx";
-pub const DB_PASSWORD_PLACEHOLDER: &str = "xxx_db_password_xxx";
+// DB credentials - both of these are read from an env var by Druid with the ${env:...} syntax
 pub const DB_USERNAME_ENV: &str = "DB_USERNAME_ENV";
 pub const DB_PASSWORD_ENV: &str = "DB_PASSWORD_ENV";
 
@@ -518,7 +516,6 @@ impl DruidRole {
     pub fn main_container_prepare_commands(
         &self,
         s3_connection: Option<&S3ConnectionSpec>,
-        credentials_secret: Option<&String>,
     ) -> Vec<String> {
         let mut commands = vec![];
 
@@ -559,15 +556,6 @@ impl DruidRole {
             hdfs_conf = HDFS_CONFIG_DIRECTORY,
             rw_conf = RW_CONFIG_DIRECTORY,
         ));
-
-        // db credentials
-        if credentials_secret.is_some() {
-            commands.extend([
-                format!("echo replacing {DB_USERNAME_PLACEHOLDER} and {DB_PASSWORD_PLACEHOLDER} with secret values."),
-                format!("sed -i \"s|{DB_USERNAME_PLACEHOLDER}|${DB_USERNAME_ENV}|g\" {RW_CONFIG_DIRECTORY}/{RUNTIME_PROPS}"),
-                format!("sed -i \"s|{DB_PASSWORD_PLACEHOLDER}|${DB_PASSWORD_ENV}|g\" {RW_CONFIG_DIRECTORY}/{RUNTIME_PROPS}"),
-            ]);
-        }
 
         commands
     }
@@ -631,11 +619,11 @@ impl DruidCluster {
                 if mds.credentials_secret.is_some() {
                     result.insert(
                         METADATA_STORAGE_USER.to_string(),
-                        Some(DB_USERNAME_PLACEHOLDER.into()),
+                        Some(format!("${{env:{DB_USERNAME_ENV}}}").into()),
                     );
                     result.insert(
                         METADATA_STORAGE_PASSWORD.to_string(),
-                        Some(DB_PASSWORD_PLACEHOLDER.into()),
+                        Some(format!("${{env:{DB_PASSWORD_ENV}}}").into()),
                     );
                 }
 
