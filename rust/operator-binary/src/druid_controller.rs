@@ -18,8 +18,8 @@ use stackable_druid_crd::{
     build_recommended_labels, build_string_list,
     security::DruidTlsSecurity,
     CommonRoleGroupConfig, Container, DeepStorageSpec, DruidCluster, DruidClusterStatus, DruidRole,
-    APP_NAME, AUTH_AUTHORIZER_OPA_URI, CERTS_DIR, CREDENTIALS_SECRET_PROPERTY,
-    DRUID_CONFIG_DIRECTORY, DS_BUCKET, ENV_INTERNAL_SECRET, EXTENSIONS_LOADLIST,
+    APP_NAME, AUTH_AUTHORIZER_OPA_URI, CERTS_DIR, CREDENTIALS_SECRET_PROPERTY, DB_PASSWORD_ENV,
+    DB_USERNAME_ENV, DRUID_CONFIG_DIRECTORY, DS_BUCKET, ENV_INTERNAL_SECRET, EXTENSIONS_LOADLIST,
     HDFS_CONFIG_DIRECTORY, JVM_CONFIG, JVM_SECURITY_PROPERTIES_FILE, LOG_CONFIG_DIRECTORY, LOG_DIR,
     MAX_DRUID_LOG_FILES_SIZE, RUNTIME_PROPS, RW_CONFIG_DIRECTORY, S3_ENDPOINT_URL,
     S3_PATH_STYLE_ACCESS, S3_SECRET_DIR_NAME, ZOOKEEPER_CONNECTION_STRING,
@@ -916,7 +916,14 @@ fn build_rolegroup_statefulset(
     )
     .context(GracefulShutdownSnafu)?;
 
-    let mut main_container_commands = role.main_container_prepare_commands(s3_conn);
+    let credentials_secret = druid
+        .spec
+        .cluster_config
+        .metadata_storage_database
+        .credentials_secret
+        .as_ref();
+    let mut main_container_commands =
+        role.main_container_prepare_commands(s3_conn, credentials_secret);
     let mut prepare_container_commands = vec![];
     if let Some(ContainerLogConfig {
         choice: Some(ContainerLogConfigChoice::Automatic(log_config)),
@@ -1008,6 +1015,21 @@ fn build_rolegroup_statefulset(
 
     let secret_name = build_shared_internal_secret_name(druid);
     rest_env.push(env_var_from_secret(&secret_name, None, ENV_INTERNAL_SECRET));
+
+    // load database credentials to environment variables: these will be used to replace
+    // the placeholders in runtime.properties so that the operator does not "touch" the secret.
+    if let Some(credentials_secret_name) = credentials_secret {
+        rest_env.push(env_var_from_secret(
+            credentials_secret_name,
+            Some("username"),
+            DB_USERNAME_ENV,
+        ));
+        rest_env.push(env_var_from_secret(
+            credentials_secret_name,
+            Some("password"),
+            DB_PASSWORD_ENV,
+        ));
+    }
 
     main_container_commands.push(role.main_container_start_command());
     cb_druid

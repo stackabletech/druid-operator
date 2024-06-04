@@ -54,6 +54,10 @@ dimensions:
   - name: openshift
     values:
       - "false"
+  - name: oidc-use-tls
+    values:
+      # - "true" # Disabled as pac4j can currently not be configured to trust Keycloak's CA cert (will be fixed by official OIDC support for Druid)
+      - "false"
 tests:
   - name: smoke
     dimensions:
@@ -136,6 +140,7 @@ tests:
       - zookeeper-latest
       - s3-use-tls
       - openshift
+      - oidc-use-tls
 suites:
   - name: nightly
     patch:
