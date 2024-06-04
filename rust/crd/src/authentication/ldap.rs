@@ -98,11 +98,11 @@ impl DruidLdapSettings {
         if self.ldap.bind_credentials_mount_paths().is_some() {
             config.insert(
                 format!("{PREFIX}.credentialsValidator.bindUser"),
-                Some(format!("${{env:{ENV_LDAP_BIND_USER}}}").to_string()), // NOTE: this placeholder will be replaced from a mounted secret operator volume on container startup
+                Some(format!("${{env:{ENV_LDAP_BIND_USER}}}").to_string()),
             );
             config.insert(
                 format!("{PREFIX}.credentialsValidator.bindPassword"),
-                Some(format!("${{env:{ENV_LDAP_BIND_PASSWORD}}}").to_string()), // NOTE: this placeholder will be replaced from a mounted secret operator volume on container startup
+                Some(format!("${{env:{ENV_LDAP_BIND_PASSWORD}}}").to_string()),
             );
         }
 
