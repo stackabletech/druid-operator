@@ -191,7 +191,6 @@ impl DruidLdapSettings {
             commands.push(format!(
                 "export {ENV_LDAP_BIND_PASSWORD}={ldap_bind_password}"
             ));
-            // TODO test if it works - need to run the LDAP test
         }
 
         commands
