@@ -23,11 +23,6 @@ use std::collections::BTreeMap;
 
 #[derive(Snafu, Debug)]
 pub enum Error {
-    #[snafu(display("Failed to retrieve AuthenticationClass"))]
-    AuthenticationClassRetrieval {
-        source: stackable_operator::error::Error,
-    },
-
     #[snafu(display("failed to process authentication class"))]
     InvalidAuthenticationClassConfiguration { source: authentication::Error },
 

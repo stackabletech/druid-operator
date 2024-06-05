@@ -1,10 +1,10 @@
 pub mod ldap;
-pub mod oidc_config;
+pub mod oidc;
 
 use snafu::{ResultExt, Snafu};
 use stackable_operator::{
     client::Client,
-    commons::authentication::{oidc, AuthenticationClass, AuthenticationClassProvider, ClientAuthenticationDetails},
+    commons::authentication::{oidc as stackable_operator_oidc, AuthenticationClass, AuthenticationClassProvider, ClientAuthenticationDetails},
     kube::{runtime::reflector::ObjectRef, ResourceExt},
 };
 
@@ -17,7 +17,6 @@ pub enum Error {
     #[snafu(display("failed to retrieve AuthenticationClass"))]
     AuthenticationClassRetrieval {
         source: stackable_operator::client::Error,
-        authentication_class: ObjectRef<AuthenticationClass>,
     },
     // TODO: Adapt message if multiple authentication classes are supported simultaneously
     #[snafu(display("only one authentication class is currently supported at a time. Possible Authentication class providers are {SUPPORTED_AUTHENTICATION_CLASS_PROVIDERS:?}"))]
@@ -48,14 +47,14 @@ pub enum Error {
     },
     #[snafu(display("Invalid OIDC configuration"))]
     InvalidOidcConfiguration {
-        source: stackable_operator::error::Error,
+        source: stackable_operator::commons::authentication::Error,
     },
 }
 
 pub struct ResolvedAuthenticationClass {
     /// An [AuthenticationClass](DOCS_BASE_URL_PLACEHOLDER/concepts/authentication) to use.
     pub authentication_class: AuthenticationClass,
-    pub oidc: Option<oidc::ClientAuthenticationOptions>,
+    pub oidc: Option<stackable_operator_oidc::ClientAuthenticationOptions>,
 }
 
 pub struct ResolvedAuthenticationClasses {

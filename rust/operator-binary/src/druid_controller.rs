@@ -13,7 +13,7 @@ use product_config::{
 };
 use snafu::{OptionExt, ResultExt, Snafu};
 use stackable_druid_crd::{
-    authentication::{ldap::DruidLdapSettings, ResolvedAuthenticationClasses},
+    authentication::{ldap::DruidLdapSettings, ResolvedAuthenticationClasses, oidc::DruidOidcSettings},
     authorization::DruidAuthorization,
     build_recommended_labels, build_string_list,
     security::DruidTlsSecurity,
