@@ -25,9 +25,6 @@ pub struct DruidLdapSettings {
     pub authentication_class_name: String,
 }
 
-pub const ENV_LDAP_BIND_USER: &str = "LDAP_BIND_USER";
-pub const ENV_LDAP_BIND_PASSWORD: &str = "LDAP_BIND_PASSWORD";
-
 impl DruidLdapSettings {
     pub fn new_from(
         resolved_authentication_config: &ResolvedAuthenticationClasses,
@@ -95,14 +92,16 @@ impl DruidLdapSettings {
             ),
         );
 
-        if self.ldap.bind_credentials_mount_paths().is_some() {
+        if let Some((ldap_bind_user_path, ldap_bind_password_path)) =
+            self.ldap.bind_credentials_mount_paths()
+        {
             config.insert(
                 format!("{PREFIX}.credentialsValidator.bindUser"),
-                Some(format!("${{env:{ENV_LDAP_BIND_USER}}}").to_string()),
+                Some(format!("${{file:UTF-8:{ldap_bind_user_path}}}").to_string()),
             );
             config.insert(
                 format!("{PREFIX}.credentialsValidator.bindPassword"),
-                Some(format!("${{env:{ENV_LDAP_BIND_PASSWORD}}}").to_string()),
+                Some(format!("${{file:UTF-8:{ldap_bind_password_path}}}").to_string()),
             );
         }
 
@@ -176,23 +175,6 @@ impl DruidLdapSettings {
         self.add_authorizer_config(&mut config);
 
         Ok(config)
-    }
-
-    pub fn main_container_commands(&self) -> Vec<String> {
-        let mut commands = Vec::new();
-
-        if let Some((ldap_bind_user_path, ldap_bind_password_path)) =
-            self.ldap.bind_credentials_mount_paths()
-        {
-            commands.push(format!(
-                "export {ENV_LDAP_BIND_USER}=\"$(cat {ldap_bind_user_path})\""
-            ));
-            commands.push(format!(
-                "export {ENV_LDAP_BIND_PASSWORD}=\"$(cat {ldap_bind_password_path})\""
-            ));
-        }
-
-        commands
     }
 
     pub fn prepare_container_commands(&self) -> Vec<String> {

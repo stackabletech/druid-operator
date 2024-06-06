@@ -948,7 +948,6 @@ fn build_rolegroup_statefulset(
             .context(AddLdapVolumesSnafu)?;
 
         prepare_container_commands.extend(ldap_settings.prepare_container_commands());
-        main_container_commands.extend(ldap_settings.main_container_commands());
     }
 
     // volume and volume mounts
