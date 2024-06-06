@@ -7,7 +7,7 @@ commands:
       --namespace $NAMESPACE
       --version 0.26.0
       --repo https://helm.vector.dev
-      --values druid-vector-aggregator-values.yaml
+      --values 01_druid-vector-aggregator-values.yaml
 ---
 apiVersion: v1
 kind: ConfigMap
