@@ -184,12 +184,11 @@ impl DruidLdapSettings {
         if let Some((ldap_bind_user_path, ldap_bind_password_path)) =
             self.ldap.bind_credentials_mount_paths()
         {
-            let ldap_bind_user = format!("$(cat {ldap_bind_user_path})");
-            let ldap_bind_password = format!("$(cat {ldap_bind_password_path})");
-
-            commands.push(format!("export {ENV_LDAP_BIND_USER}={ldap_bind_user}"));
             commands.push(format!(
-                "export {ENV_LDAP_BIND_PASSWORD}={ldap_bind_password}"
+                "export {ENV_LDAP_BIND_USER}=\"$(cat {ldap_bind_user_path})\""
+            ));
+            commands.push(format!(
+                "export {ENV_LDAP_BIND_PASSWORD}=\"$(cat {ldap_bind_password_path})\""
             ));
         }
 
