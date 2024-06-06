@@ -93,6 +93,8 @@ pub const DS_DIRECTORY: &str = "druid.storage.storageDirectory";
 pub const DS_BUCKET: &str = "druid.storage.bucket";
 pub const DS_BASE_KEY: &str = "druid.storage.baseKey";
 pub const S3_ENDPOINT_URL: &str = "druid.s3.endpoint.url";
+pub const S3_ACCESS_KEY: &str = "druid.s3.accessKey";
+pub const S3_SECRET_KEY: &str = "druid.s3.secretKey";
 pub const S3_PATH_STYLE_ACCESS: &str = "druid.s3.enablePathStyleAccess";
 // OPA
 pub const AUTH_AUTHORIZERS: &str = "druid.auth.authorizers";
@@ -125,10 +127,8 @@ pub const PROMETHEUS_PORT: &str = "druid.emitter.prometheus.port";
 pub const METRICS_PORT: u16 = 9090;
 // container locations
 pub const S3_SECRET_DIR_NAME: &str = "/stackable/secrets";
-const ENV_S3_ACCESS_KEY: &str = "AWS_ACCESS_KEY_ID";
-const ENV_S3_SECRET_KEY: &str = "AWS_SECRET_ACCESS_KEY";
-const SECRET_KEY_S3_ACCESS_KEY: &str = "accessKey";
-const SECRET_KEY_S3_SECRET_KEY: &str = "secretKey";
+pub const SECRET_KEY_S3_ACCESS_KEY: &str = "accessKey";
+pub const SECRET_KEY_S3_SECRET_KEY: &str = "secretKey";
 // segment storage
 pub const SC_LOCATIONS: &str = "druid.segmentCache.locations";
 pub const SC_DIRECTORY: &str = "/stackable/var/druid/segment-cache";
@@ -528,11 +528,6 @@ impl DruidRole {
             }) = &s3_connection.tls
             {
                 commands.push(format!("keytool -importcert -file {CERTS_DIR}/{secret_class}-tls-certificate/ca.crt -alias stackable-{secret_class} -keystore {STACKABLE_TRUST_STORE} -storepass {STACKABLE_TRUST_STORE_PASSWORD} -noprompt"));
-            }
-
-            if s3_connection.credentials.is_some() {
-                commands.push(format!("export {ENV_S3_ACCESS_KEY}=$(cat {S3_SECRET_DIR_NAME}/{SECRET_KEY_S3_ACCESS_KEY})"));
-                commands.push(format!("export {ENV_S3_SECRET_KEY}=$(cat {S3_SECRET_DIR_NAME}/{SECRET_KEY_S3_SECRET_KEY})"));
             }
         }
 
