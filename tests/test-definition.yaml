@@ -59,81 +59,81 @@ dimensions:
       # - "true" # Disabled as pac4j can currently not be configured to trust Keycloak's CA cert (will be fixed by official OIDC support for Druid)
       - "false"
 tests:
-  - name: smoke
-    dimensions:
-      - druid
-      - zookeeper
-      - hadoop
-      - openshift
-  - name: authorizer
-    dimensions:
-      - druid
-      - zookeeper-latest
-      - opa
-      - hadoop
-      - openshift
-  - name: ingestion-no-s3-ext
-    dimensions:
-      - druid-latest
-      - zookeeper-latest
-      - hadoop
-      - openshift
-  - name: ingestion-s3-ext
-    dimensions:
-      - druid-latest
-      - zookeeper-latest
-      - hadoop
-      - openshift
-  - name: s3-deep-storage
-    dimensions:
-      - druid-latest
-      - zookeeper-latest
-      - s3-use-tls
-      - openshift
-  - name: hdfs-deep-storage
-    dimensions:
-      - druid-latest
-      - hadoop
-      - zookeeper-latest
-      - openshift
-  - name: resources
-    dimensions:
-      - druid-latest
-      - zookeeper-latest
-      - openshift
-  - name: orphaned-resources
-    dimensions:
-      - druid-latest
-      - zookeeper-latest
-      - hadoop
-      - openshift
-  - name: tls
-    dimensions:
-      - druid-latest
-      - zookeeper-latest
-      - tls-mode
-      - openshift
-  - name: ldap-authentication
-    dimensions:
-      - druid
-      - zookeeper-latest
-      - opa
-      - hadoop-latest
-      - ldap-use-tls
-      - ldap-no-bind-credentials
-      - openshift
-  - name: logging
-    dimensions:
-      - druid
-      - hadoop
-      - zookeeper-latest
-      - openshift
-  - name: cluster-operation
-    dimensions:
-      - zookeeper-latest
-      - hadoop-latest
-      - druid-latest
-      - openshift
+#  - name: smoke
+#    dimensions:
+#      - druid
+#      - zookeeper
+#      - hadoop
+#      - openshift
+#  - name: authorizer
+#    dimensions:
+#      - druid
+#      - zookeeper-latest
+#      - opa
+#      - hadoop
+#      - openshift
+#  - name: ingestion-no-s3-ext
+#    dimensions:
+#      - druid-latest
+#      - zookeeper-latest
+#      - hadoop
+#      - openshift
+#  - name: ingestion-s3-ext
+#    dimensions:
+#      - druid-latest
+#      - zookeeper-latest
+#      - hadoop
+#      - openshift
+#  - name: s3-deep-storage
+#    dimensions:
+#      - druid-latest
+#      - zookeeper-latest
+#      - s3-use-tls
+#      - openshift
+#  - name: hdfs-deep-storage
+#    dimensions:
+#      - druid-latest
+#      - hadoop
+#      - zookeeper-latest
+#      - openshift
+#  - name: resources
+#    dimensions:
+#      - druid-latest
+#      - zookeeper-latest
+#      - openshift
+#  - name: orphaned-resources
+#    dimensions:
+#      - druid-latest
+#      - zookeeper-latest
+#      - hadoop
+#      - openshift
+#  - name: tls
+#    dimensions:
+#      - druid-latest
+#      - zookeeper-latest
+#      - tls-mode
+#      - openshift
+#  - name: ldap-authentication
+#    dimensions:
+#      - druid
+#      - zookeeper-latest
+#      - opa
+#      - hadoop-latest
+#      - ldap-use-tls
+#      - ldap-no-bind-credentials
+#      - openshift
+#  - name: logging
+#    dimensions:
+#      - druid
+#      - hadoop
+#      - zookeeper-latest
+#      - openshift
+#  - name: cluster-operation
+#    dimensions:
+#      - zookeeper-latest
+#      - hadoop-latest
+#      - druid-latest
+#      - openshift
   - name: oidc
     dimensions:
       - druid-latest

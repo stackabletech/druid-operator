@@ -5,10 +5,9 @@ use stackable_operator::commons::authentication::ldap::AuthenticationProvider;
 use stackable_operator::commons::authentication::AuthenticationClassProvider;
 use stackable_operator::kube::ResourceExt;
 
-use crate::authentication::ResolvedAuthenticationClasses;
-use crate::{
+use stackable_druid_crd::authentication::ResolvedAuthenticationClasses;
+use stackable_druid_crd::{
     security::{add_cert_to_trust_store_cmd, STACKABLE_TLS_DIR, TLS_STORE_PASSWORD},
-    ENV_INTERNAL_SECRET, RUNTIME_PROPS, RW_CONFIG_DIRECTORY,
 };
 
 #[derive(Snafu, Debug)]
@@ -37,12 +36,16 @@ impl DruidLdapSettings {
         if let Some(resolved_authentication_class) =
             resolved_authentication_config.get_ldap_authentication_class()
         {
-            if let AuthenticationClassProvider::Ldap(ref provider) =
-                resolved_authentication_class.authentication_class.spec.provider
+            if let AuthenticationClassProvider::Ldap(ref provider) = resolved_authentication_class
+                .authentication_class
+                .spec
+                .provider
             {
                 return Some(DruidLdapSettings {
                     ldap: provider.clone(),
-                    authentication_class_name: resolved_authentication_class.authentication_class.name_any(),
+                    authentication_class_name: resolved_authentication_class
+                        .authentication_class
+                        .name_any(),
                 });
             }
         }

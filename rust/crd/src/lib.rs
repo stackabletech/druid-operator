@@ -22,12 +22,14 @@ use stackable_operator::{
     client::Client,
     commons::{
         affinity::StackableAffinity,
-        authentication::{tls::{CaCert, Tls, TlsServerVerification, TlsVerification}, ClientAuthenticationDetails},
+        authentication::{
+            tls::{CaCert, Tls, TlsServerVerification, TlsVerification},
+            ClientAuthenticationDetails,
+        },
         cluster_operation::ClusterOperation,
         product_image_selection::ProductImage,
         resources::{NoRuntimeLimits, Resources},
         s3::{InlinedS3BucketSpec, S3BucketDef, S3ConnectionDef, S3ConnectionSpec},
-        
     },
     config::{
         fragment::{self, Fragment, FromFragment, ValidationError},

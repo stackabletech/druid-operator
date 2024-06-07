@@ -13,7 +13,9 @@ use product_config::{
 };
 use snafu::{OptionExt, ResultExt, Snafu};
 use stackable_druid_crd::{
-    authentication::{ldap::DruidLdapSettings, ResolvedAuthenticationClasses, oidc::DruidOidcSettings},
+    authentication::{
+        ResolvedAuthenticationClasses
+    },
     authorization::DruidAuthorization,
     build_recommended_labels, build_string_list,
     security::DruidTlsSecurity,
@@ -75,15 +77,15 @@ use stackable_operator::{
 };
 use strum::{EnumDiscriminants, IntoStaticStr};
 
-use crate::operations::graceful_shutdown::add_graceful_shutdown_config;
 use crate::{
+    authentication::{ldap::DruidLdapSettings, oidc::DruidOidcSettings},
     config::get_jvm_config,
     discovery::{self, build_discovery_configmaps},
     extensions::get_extension_list,
     internal_secret::{
         build_shared_internal_secret_name, create_shared_internal_secret, env_var_from_secret,
     },
-    operations::pdb::add_pdbs,
+    operations::{pdb::add_pdbs,graceful_shutdown::add_graceful_shutdown_config},
     product_logging::{extend_role_group_config_map, resolve_vector_aggregator_address},
     OPERATOR_NAME,
 };
@@ -346,9 +348,13 @@ pub enum Error {
         source: stackable_operator::commons::authentication::ldap::Error,
     },
 
-    #[snafu(display("there was an error adding generating the LDAP runtime settings"))]
+    #[snafu(display("there was an error generating the LDAP runtime settings"))]
     GenerateLdapRuntimeSettings {
-        source: stackable_druid_crd::authentication::ldap::Error,
+        source: crate::authentication::ldap::Error,
+    },
+    #[snafu(display("there was an error generating the OIDC runtime settings"))]
+    GeneratOidcRuntimeSettings {
+        source: crate::authentication::oidc::Error,
     },
 }
 
@@ -429,7 +435,11 @@ pub async fn reconcile_druid(druid: Arc<DruidCluster>, ctx: Arc<Ctx>) -> Result<
         _ => None,
     };
 
-    let resolved_authentication_classes = ResolvedAuthenticationClasses::resolve_authentication_classes(client, &druid.spec.cluster_config.authentication)
+    let resolved_authentication_classes =
+        ResolvedAuthenticationClasses::resolve_authentication_classes(
+            client,
+            &druid.spec.cluster_config.authentication,
+        )
         .await
         .context(AuthenticationClassRetrievalSnafu)?;
 
@@ -445,7 +455,6 @@ pub async fn reconcile_druid(druid: Arc<DruidCluster>, ctx: Arc<Ctx>) -> Result<
         &role_config.context(ProductConfigTransformSnafu)?,
         &ctx.product_config,
         false,
-
         false,
     )
     .context(InvalidProductConfigSnafu)?;
@@ -530,6 +539,7 @@ pub async fn reconcile_druid(druid: Arc<DruidCluster>, ctx: Arc<Ctx>) -> Result<
                 deep_storage_bucket_name.as_deref(),
                 &druid_tls_security,
                 &druid_ldap_settings,
+                &druid_oidc_settings,
             )?;
             let rg_statefulset = build_rolegroup_statefulset(
                 &druid,
@@ -673,6 +683,7 @@ fn build_rolegroup_config_map(
     deep_storage_bucket_name: Option<&str>,
     druid_tls_security: &DruidTlsSecurity,
     druid_ldap_settings: &Option<DruidLdapSettings>,
+    druid_oidc_settings: &Option<DruidOidcSettings>,
 ) -> Result<ConfigMap> {
     let role = DruidRole::from_str(&rolegroup.role).unwrap();
     let mut cm_conf_data = BTreeMap::new(); // filename -> filecontent
@@ -741,6 +752,15 @@ fn build_rolegroup_config_map(
                         ldap_settings
                             .generate_runtime_properties_config()
                             .context(GenerateLdapRuntimeSettingsSnafu)?,
+                    );
+                };
+
+                if let Some(oidc_settings) = druid_oidc_settings
+                {
+                    conf.extend(
+                        oidc_settings
+                            .generate_runtime_properties_config()
+                            .context(GenerateOidcRuntimeSettingsSnafu)?,
                     );
                 };
 
@@ -1398,6 +1418,7 @@ mod test {
                         .context(InvalidConfigurationSnafu)?;
 
                     let ldap_settings: Option<DruidLdapSettings> = None;
+                    let oidc_settings: Option<DruidOidcSettings> = None;
 
                     let rg_configmap = build_rolegroup_config_map(
                         &druid,
@@ -1412,6 +1433,7 @@ mod test {
                         None,
                         &druid_tls_security,
                         &ldap_settings,
+                        &oidc_settings,
                     )
                     .context(ControllerSnafu)?;
 

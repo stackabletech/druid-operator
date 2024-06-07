@@ -5,6 +5,7 @@ mod extensions;
 mod internal_secret;
 mod operations;
 mod product_logging;
+mod authentication;
 
 use std::sync::Arc;
 

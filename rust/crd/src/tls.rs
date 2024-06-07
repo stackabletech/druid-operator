@@ -31,10 +31,7 @@ pub fn tls_default() -> Option<String> {
 
 #[cfg(test)]
 mod tests {
-    use crate::{
-        tests::deserialize_yaml_str, tls::DruidTls,
-        DruidClusterConfig,
-    };
+    use crate::{tests::deserialize_yaml_str, tls::DruidTls, DruidClusterConfig};
     use indoc::formatdoc;
 
     const BASE_DRUID_CONFIGURATION: &str = r#"
