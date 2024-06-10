@@ -19,8 +19,9 @@ use stackable_druid_crd::{
     AUTH_AUTHORIZER_OPA_URI, CERTS_DIR, CREDENTIALS_SECRET_PROPERTY, DB_PASSWORD_ENV,
     DB_USERNAME_ENV, DRUID_CONFIG_DIRECTORY, DS_BUCKET, ENV_INTERNAL_SECRET, EXTENSIONS_LOADLIST,
     HDFS_CONFIG_DIRECTORY, JVM_CONFIG, JVM_SECURITY_PROPERTIES_FILE, LOG_CONFIG_DIRECTORY, LOG_DIR,
-    MAX_DRUID_LOG_FILES_SIZE, RUNTIME_PROPS, RW_CONFIG_DIRECTORY, S3_ENDPOINT_URL,
-    S3_PATH_STYLE_ACCESS, S3_SECRET_DIR_NAME, ZOOKEEPER_CONNECTION_STRING,
+    MAX_DRUID_LOG_FILES_SIZE, RUNTIME_PROPS, RW_CONFIG_DIRECTORY, S3_ACCESS_KEY, S3_ENDPOINT_URL,
+    S3_PATH_STYLE_ACCESS, S3_SECRET_DIR_NAME, S3_SECRET_KEY, SECRET_KEY_S3_ACCESS_KEY,
+    SECRET_KEY_S3_SECRET_KEY, ZOOKEEPER_CONNECTION_STRING,
 };
 use stackable_operator::{
     builder::{
@@ -732,6 +733,21 @@ fn build_rolegroup_config_map(
                         conf.insert(S3_ENDPOINT_URL.to_string(), Some(endpoint));
                     }
 
+                    if conn.credentials.is_some() {
+                        conf.insert(
+                            S3_ACCESS_KEY.to_string(),
+                            Some(format!(
+                                "${{file:UTF-8:{S3_SECRET_DIR_NAME}/{SECRET_KEY_S3_ACCESS_KEY}}}"
+                            )),
+                        );
+                        conf.insert(
+                            S3_SECRET_KEY.to_string(),
+                            Some(format!(
+                                "${{file:UTF-8:{S3_SECRET_DIR_NAME}/{SECRET_KEY_S3_SECRET_KEY}]]"
+                            )),
+                        );
+                    }
+
                     // We did choose a match statement here to detect new access styles in the future
                     let path_style_access = match conn.access_style.clone().unwrap_or_default() {
                         S3AccessStyle::Path => true,
@@ -944,8 +960,7 @@ fn build_rolegroup_statefulset(
         .metadata_storage_database
         .credentials_secret
         .as_ref();
-    let mut main_container_commands =
-        role.main_container_prepare_commands(s3_conn, credentials_secret);
+    let mut main_container_commands = role.main_container_prepare_commands(s3_conn);
     let mut prepare_container_commands = vec![];
     if let Some(ContainerLogConfig {
         choice: Some(ContainerLogConfigChoice::Automatic(log_config)),
@@ -978,7 +993,6 @@ fn build_rolegroup_statefulset(
             .context(AddLdapVolumesSnafu)?;
 
         prepare_container_commands.extend(ldap_settings.prepare_container_commands());
-        main_container_commands.extend(ldap_settings.main_container_commands());
     }
 
     // volume and volume mounts

@@ -2,12 +2,10 @@ use std::collections::BTreeMap;
 
 use snafu::{ResultExt, Snafu};
 use stackable_operator::commons::authentication::ldap::AuthenticationProvider;
-use stackable_operator::commons::authentication::AuthenticationClassProvider;
-use stackable_operator::kube::ResourceExt;
 
 use stackable_druid_crd::authentication::ResolvedAuthenticationClass;
-use stackable_druid_crd::security::{
-    add_cert_to_trust_store_cmd, STACKABLE_TLS_DIR, TLS_STORE_PASSWORD,
+use stackable_druid_crd::{security::{
+    add_cert_to_trust_store_cmd, STACKABLE_TLS_DIR, TLS_STORE_PASSWORD}, ENV_INTERNAL_SECRET
 };
 
 #[derive(Snafu, Debug)]
@@ -23,11 +21,6 @@ pub struct DruidLdapSettings {
     pub auth_class_name: String,
     pub provider: AuthenticationProvider,
 }
-
-pub const PLACEHOLDER_INTERNAL_CLIENT_PASSWORD: &str =
-    "xxx_druid_system_internal_client_password_xxx";
-pub const PLACEHOLDER_LDAP_BIND_PASSWORD: &str = "xxx_ldap_bind_password_xxx";
-pub const PLACEHOLDER_LDAP_BIND_USER: &str = "xxx_ldap_bind_user_xxx";
 
 impl DruidLdapSettings {
     pub fn new_from(
@@ -60,7 +53,7 @@ impl DruidLdapSettings {
 
         config.insert(
             format!("{PREFIX}.initialInternalClientPassword"),
-            Some(PLACEHOLDER_INTERNAL_CLIENT_PASSWORD.to_string()),
+            Some(format!("${{env:{ENV_INTERNAL_SECRET}}}").to_string()),
         );
         config.insert(
             format!("{PREFIX}.authorizerName"),
@@ -94,14 +87,16 @@ impl DruidLdapSettings {
             ),
         );
 
-        if self.provider.bind_credentials_mount_paths().is_some() {
+        if let Some((ldap_bind_user_path, ldap_bind_password_path)) =
+            self.provider.bind_credentials_mount_paths()
+        {
             config.insert(
                 format!("{PREFIX}.credentialsValidator.bindUser"),
-                Some(PLACEHOLDER_LDAP_BIND_USER.to_string()), // NOTE: this placeholder will be replaced from a mounted secret operator volume on container startup
+                Some(format!("${{file:UTF-8:{ldap_bind_user_path}}}").to_string()),
             );
             config.insert(
                 format!("{PREFIX}.credentialsValidator.bindPassword"),
-                Some(PLACEHOLDER_LDAP_BIND_PASSWORD.to_string()), // NOTE: this placeholder will be replaced from a mounted secret operator volume on container startup
+                Some(format!("${{file:UTF-8:{ldap_bind_password_path}}}").to_string()),
             );
         }
 
@@ -136,7 +131,7 @@ impl DruidLdapSettings {
         );
         config.insert(
             "druid.escalator.internalClientPassword".to_string(),
-            Some(PLACEHOLDER_INTERNAL_CLIENT_PASSWORD.to_string()),
+            Some(format!("${{env:{ENV_INTERNAL_SECRET}}}").to_string()),
         );
         config.insert(
             "druid.escalator.authorizerName".to_string(),

@@ -19,7 +19,7 @@ use stackable_operator::{
 };
 
 use stackable_operator::builder::pod::volume::SecretFormat;
-use std::{collections::BTreeMap, mem::discriminant};
+use std::collections::BTreeMap;
 
 #[derive(Snafu, Debug)]
 pub enum Error {

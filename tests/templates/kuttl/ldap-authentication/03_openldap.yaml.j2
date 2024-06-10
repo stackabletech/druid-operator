@@ -44,7 +44,7 @@ spec:
             - name: LDAP_ADMIN_USERNAME
               value: admin
             - name: LDAP_ADMIN_PASSWORD
-              value: admin
+              value: "admin-pw withSpace$%\" &&} §"  # use spaces and special characters to make sure it doesn't break anything
             - name: LDAP_ENABLE_TLS
               value: \"yes\"
             - name: LDAP_TLS_CERT_FILE
