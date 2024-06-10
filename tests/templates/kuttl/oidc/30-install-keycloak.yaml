@@ -12,4 +12,4 @@ commands:
       PASSWORD=T8mn72D9 \
       CLIENT_ID=druid \
       CLIENT_SECRET=R1bxHUD569vHeQdw \
-      envsubst < install-keycloak.yaml | kubectl apply -n $NAMESPACE -f -
+      envsubst < 30_keycloak.yaml | kubectl apply -n $NAMESPACE -f -
