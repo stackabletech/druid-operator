@@ -169,7 +169,7 @@ fn validate(
             }
 
             ResolvedAuthenticationClass::Ldap {
-                auth_class_name,
+                auth_class_name: _,
                 provider,
             } => {
                 if server_and_internal_secret_class.is_none() {
@@ -182,9 +182,9 @@ fn validate(
                 }
             }
             ResolvedAuthenticationClass::Oidc {
-                auth_class_name,
-                provider,
-                oidc,
+                auth_class_name: _,
+                provider: _,
+                oidc: _,
             } => {}
         }
         Ok(Some(resolved_auth_class.clone()))

@@ -64,8 +64,6 @@ pub fn get_extension_list(
 mod tests {
     use super::*;
 
-    use stackable_druid_crd::authentication::ResolvedAuthenticationClass;
-
     #[test]
     fn test_additional_extensions() {
         let cluster =
