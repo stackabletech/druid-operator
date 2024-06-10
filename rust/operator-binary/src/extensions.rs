@@ -64,7 +64,7 @@ pub fn get_extension_list(
 mod tests {
     use super::*;
 
-    use stackable_druid_crd::authentication::ResolvedAuthenticationClasses;
+    use stackable_druid_crd::authentication::ResolvedAuthenticationClass;
 
     #[test]
     fn test_additional_extensions() {
@@ -85,7 +85,7 @@ mod tests {
                 &cluster,
                 &DruidTlsSecurity::new_from_druid_cluster(
                     &cluster,
-                    ResolvedAuthenticationClasses::new(Vec::new())
+                    None
                 )
             ),
             [

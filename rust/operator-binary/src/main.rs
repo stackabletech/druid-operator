@@ -1,3 +1,4 @@
+mod authentication;
 mod config;
 mod discovery;
 mod druid_controller;
@@ -5,7 +6,6 @@ mod extensions;
 mod internal_secret;
 mod operations;
 mod product_logging;
-mod authentication;
 
 use std::sync::Arc;
 

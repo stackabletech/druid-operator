@@ -1,5 +1,5 @@
 use crate::{
-    authentication::{self, ResolvedAuthenticationClass, ResolvedAuthenticationClasses},
+    authentication::{self, ResolvedAuthenticationClass},
     DruidCluster, DruidRole, METRICS_PORT,
 };
 use snafu::{ResultExt, Snafu};
@@ -19,7 +19,7 @@ use stackable_operator::{
 };
 
 use stackable_operator::builder::pod::volume::SecretFormat;
-use std::collections::BTreeMap;
+use std::{collections::BTreeMap, mem::discriminant};
 
 #[derive(Snafu, Debug)]
 pub enum Error {
@@ -34,7 +34,7 @@ pub enum Error {
 
 /// Helper struct combining TLS settings for server and internal tls with the resolved AuthenticationClasses
 pub struct DruidTlsSecurity {
-    resolved_authentication_classes: ResolvedAuthenticationClasses,
+    resolved_authentication_class: Option<ResolvedAuthenticationClass>,
     server_and_internal_secret_class: Option<String>,
 }
 
@@ -88,11 +88,11 @@ const TLS_MOUNT_VOLUME_NAME: &str = "tls-mount";
 
 impl DruidTlsSecurity {
     pub fn new(
-        resolved_authentication_classes: ResolvedAuthenticationClasses,
+        resolved_authentication_class: Option<ResolvedAuthenticationClass>,
         server_and_internal_secret_class: Option<String>,
     ) -> Self {
         Self {
-            resolved_authentication_classes,
+            resolved_authentication_class,
             server_and_internal_secret_class,
         }
     }
@@ -101,10 +101,10 @@ impl DruidTlsSecurity {
     /// all provided `AuthenticationClass` references.
     pub fn new_from_druid_cluster(
         druid: &DruidCluster,
-        resolved_authentication_classes: ResolvedAuthenticationClasses,
+        resolved_authentication_class: Option<ResolvedAuthenticationClass>,
     ) -> Self {
         DruidTlsSecurity {
-            resolved_authentication_classes,
+            resolved_authentication_class,
             server_and_internal_secret_class: druid
                 .spec
                 .cluster_config
@@ -121,19 +121,18 @@ impl DruidTlsSecurity {
     /// the Druid client port
     pub fn tls_enabled(&self) -> bool {
         // TODO: This must be adapted if other authentication methods are supported and require TLS
-        self.tls_client_authentication_class().is_some()
-            || self.tls_server_and_internal_secret_class().is_some()
+        match self.resolved_authentication_class.clone() {
+            Some(ResolvedAuthenticationClass::Tls {
+                auth_class_name: _,
+                provider: _,
+            }) => true,
+            _ => self.tls_server_and_internal_secret_class().is_some(),
+        }
     }
 
     /// Retrieve an optional TLS secret class for external client -> server and server <-> server communications.
     pub fn tls_server_and_internal_secret_class(&self) -> Option<&str> {
         self.server_and_internal_secret_class.as_deref()
-    }
-
-    /// Retrieve an optional TLS `AuthenticationClass`.
-    pub fn tls_client_authentication_class(&self) -> Option<&ResolvedAuthenticationClass> {
-        self.resolved_authentication_classes
-            .get_tls_authentication_class()
     }
 
     pub fn container_ports(&self, role: &DruidRole) -> Vec<ContainerPort> {
@@ -248,10 +247,10 @@ impl DruidTlsSecurity {
             Self::add_tls_encryption_config_properties(config, STACKABLE_TLS_DIR, TLS_ALIAS_NAME);
         }
 
-        if self
-            .resolved_authentication_classes
-            .get_tls_authentication_class()
-            .is_some()
+        if let Some(ResolvedAuthenticationClass::Tls {
+            auth_class_name: _,
+            provider: _,
+        }) = self.resolved_authentication_class
         {
             Self::add_tls_auth_config_properties(config, STACKABLE_TLS_DIR, TLS_ALIAS_NAME);
         }

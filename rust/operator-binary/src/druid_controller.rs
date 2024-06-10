@@ -13,14 +13,10 @@ use product_config::{
 };
 use snafu::{OptionExt, ResultExt, Snafu};
 use stackable_druid_crd::{
-    authentication::{
-        ResolvedAuthenticationClasses
-    },
-    authorization::DruidAuthorization,
-    build_recommended_labels, build_string_list,
-    security::DruidTlsSecurity,
-    CommonRoleGroupConfig, Container, DeepStorageSpec, DruidCluster, DruidClusterStatus, DruidRole,
-    APP_NAME, AUTH_AUTHORIZER_OPA_URI, CERTS_DIR, CREDENTIALS_SECRET_PROPERTY, DB_PASSWORD_ENV,
+    authentication::{get_resolved_authentication_class, ResolvedAuthenticationClass}, authorization::DruidAuthorization,
+    build_recommended_labels, build_string_list, security::DruidTlsSecurity, CommonRoleGroupConfig,
+    Container, DeepStorageSpec, DruidCluster, DruidClusterStatus, DruidRole, APP_NAME,
+    AUTH_AUTHORIZER_OPA_URI, CERTS_DIR, CREDENTIALS_SECRET_PROPERTY, DB_PASSWORD_ENV,
     DB_USERNAME_ENV, DRUID_CONFIG_DIRECTORY, DS_BUCKET, ENV_INTERNAL_SECRET, EXTENSIONS_LOADLIST,
     HDFS_CONFIG_DIRECTORY, JVM_CONFIG, JVM_SECURITY_PROPERTIES_FILE, LOG_CONFIG_DIRECTORY, LOG_DIR,
     MAX_DRUID_LOG_FILES_SIZE, RUNTIME_PROPS, RW_CONFIG_DIRECTORY, S3_ENDPOINT_URL,
@@ -85,7 +81,7 @@ use crate::{
     internal_secret::{
         build_shared_internal_secret_name, create_shared_internal_secret, env_var_from_secret,
     },
-    operations::{pdb::add_pdbs,graceful_shutdown::add_graceful_shutdown_config},
+    operations::{graceful_shutdown::add_graceful_shutdown_config, pdb::add_pdbs},
     product_logging::{extend_role_group_config_map, resolve_vector_aggregator_address},
     OPERATOR_NAME,
 };
@@ -353,7 +349,7 @@ pub enum Error {
         source: crate::authentication::ldap::Error,
     },
     #[snafu(display("there was an error generating the OIDC runtime settings"))]
-    GeneratOidcRuntimeSettings {
+    GenerateOidcRuntimeSettings {
         source: crate::authentication::oidc::Error,
     },
 }
@@ -435,19 +431,26 @@ pub async fn reconcile_druid(druid: Arc<DruidCluster>, ctx: Arc<Ctx>) -> Result<
         _ => None,
     };
 
-    let resolved_authentication_classes =
-        ResolvedAuthenticationClasses::resolve_authentication_classes(
-            client,
-            &druid.spec.cluster_config.authentication,
-        )
-        .await
-        .context(AuthenticationClassRetrievalSnafu)?;
-
-    let druid_ldap_settings = DruidLdapSettings::new_from(&resolved_authentication_classes);
-    let druid_oidc_settings = DruidOidcSettings::new_from(&resolved_authentication_classes);
-
+    if let Some(resolved_auth_class) =
+        get_resolved_authentication_class(&druid, client)
+            .await
+            .context(AuthenticationClassRetrievalSnafu)? {
+                match resolved_auth_class {
+                    ResolvedAuthenticationClass::Ldap { auth_class_name, provider } => (),
+                    ResolvedAuthenticationClass::Oidc { auth_class_name, provider, oidc } => (),
+                    ResolvedAuthenticationClass::Tls { auth_class_name, provider } => ()
+                }
+                
+            }
     let druid_tls_security =
-        DruidTlsSecurity::new_from_druid_cluster(&druid, resolved_authentication_classes);
+    DruidTlsSecurity::new_from_druid_cluster(&druid, resolved_auth_class);
+
+    
+            
+    let druid_ldap_settings = DruidLdapSettings::new_from(&resolved_authentication_class);
+    let druid_oidc_settings = DruidOidcSettings::new_from(&resolved_authentication_class);
+
+    
 
     let role_config = transform_all_roles_to_config(druid.as_ref(), druid.build_role_properties());
     let validated_role_config = validate_all_roles_and_groups_config(
@@ -755,8 +758,7 @@ fn build_rolegroup_config_map(
                     );
                 };
 
-                if let Some(oidc_settings) = druid_oidc_settings
-                {
+                if let Some(oidc_settings) = druid_oidc_settings {
                     conf.extend(
                         oidc_settings
                             .generate_runtime_properties_config()
