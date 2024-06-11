@@ -51,7 +51,7 @@ pub enum Error {
     },
 }
 
-#[derive(Clone, PartialEq)]
+#[derive(Clone, PartialEq, Debug)]
 pub enum ResolvedAuthenticationClass {
     /// An [AuthenticationClass](DOCS_BASE_URL_PLACEHOLDER/concepts/authentication) to use.
     Tls {

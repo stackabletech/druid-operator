@@ -34,7 +34,7 @@ pub enum Error {
 
 /// Helper struct combining TLS settings for server and internal tls with the resolved AuthenticationClasses
 pub struct DruidTlsSecurity {
-    resolved_authentication_class: Option<ResolvedAuthenticationClass>,
+    resolved_auth_class: Option<ResolvedAuthenticationClass>,
     server_and_internal_secret_class: Option<String>,
 }
 
@@ -88,11 +88,11 @@ const TLS_MOUNT_VOLUME_NAME: &str = "tls-mount";
 
 impl DruidTlsSecurity {
     pub fn new(
-        resolved_authentication_class: Option<ResolvedAuthenticationClass>,
+        resolved_auth_class: &Option<ResolvedAuthenticationClass>,
         server_and_internal_secret_class: Option<String>,
     ) -> Self {
         Self {
-            resolved_authentication_class,
+            resolved_auth_class: resolved_auth_class.clone(),
             server_and_internal_secret_class,
         }
     }
@@ -101,10 +101,10 @@ impl DruidTlsSecurity {
     /// all provided `AuthenticationClass` references.
     pub fn new_from_druid_cluster(
         druid: &DruidCluster,
-        resolved_authentication_class: Option<ResolvedAuthenticationClass>,
+        resolved_auth_class: &Option<ResolvedAuthenticationClass>,
     ) -> Self {
         DruidTlsSecurity {
-            resolved_authentication_class,
+            resolved_auth_class: resolved_auth_class.clone(),
             server_and_internal_secret_class: druid
                 .spec
                 .cluster_config
@@ -121,7 +121,7 @@ impl DruidTlsSecurity {
     /// the Druid client port
     pub fn tls_enabled(&self) -> bool {
         // TODO: This must be adapted if other authentication methods are supported and require TLS
-        match self.resolved_authentication_class.clone() {
+        match self.resolved_auth_class {
             Some(ResolvedAuthenticationClass::Tls {
                 auth_class_name: _,
                 provider: _,
@@ -250,7 +250,7 @@ impl DruidTlsSecurity {
         if let Some(ResolvedAuthenticationClass::Tls {
             auth_class_name: _,
             provider: _,
-        }) = self.resolved_authentication_class
+        }) = self.resolved_auth_class
         {
             Self::add_tls_auth_config_properties(config, STACKABLE_TLS_DIR, TLS_ALIAS_NAME);
         }

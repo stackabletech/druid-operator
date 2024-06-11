@@ -13,10 +13,12 @@ use product_config::{
 };
 use snafu::{OptionExt, ResultExt, Snafu};
 use stackable_druid_crd::{
-    authentication::{get_resolved_authentication_class, ResolvedAuthenticationClass}, authorization::DruidAuthorization,
-    build_recommended_labels, build_string_list, security::DruidTlsSecurity, CommonRoleGroupConfig,
-    Container, DeepStorageSpec, DruidCluster, DruidClusterStatus, DruidRole, APP_NAME,
-    AUTH_AUTHORIZER_OPA_URI, CERTS_DIR, CREDENTIALS_SECRET_PROPERTY, DB_PASSWORD_ENV,
+    authentication::{get_resolved_authentication_class, ResolvedAuthenticationClass},
+    authorization::DruidAuthorization,
+    build_recommended_labels, build_string_list,
+    security::DruidTlsSecurity,
+    CommonRoleGroupConfig, Container, DeepStorageSpec, DruidCluster, DruidClusterStatus, DruidRole,
+    APP_NAME, AUTH_AUTHORIZER_OPA_URI, CERTS_DIR, CREDENTIALS_SECRET_PROPERTY, DB_PASSWORD_ENV,
     DB_USERNAME_ENV, DRUID_CONFIG_DIRECTORY, DS_BUCKET, ENV_INTERNAL_SECRET, EXTENSIONS_LOADLIST,
     HDFS_CONFIG_DIRECTORY, JVM_CONFIG, JVM_SECURITY_PROPERTIES_FILE, LOG_CONFIG_DIRECTORY, LOG_DIR,
     MAX_DRUID_LOG_FILES_SIZE, RUNTIME_PROPS, RW_CONFIG_DIRECTORY, S3_ACCESS_KEY, S3_ENDPOINT_URL,
@@ -75,7 +77,7 @@ use stackable_operator::{
 use strum::{EnumDiscriminants, IntoStaticStr};
 
 use crate::{
-    authentication::{ldap::DruidLdapSettings, oidc::DruidOidcSettings},
+    authentication::DruidAuthenticationSettings,
     config::get_jvm_config,
     discovery::{self, build_discovery_configmaps},
     extensions::get_extension_list,
@@ -345,13 +347,9 @@ pub enum Error {
         source: stackable_operator::commons::authentication::ldap::Error,
     },
 
-    #[snafu(display("there was an error generating the LDAP runtime settings"))]
-    GenerateLdapRuntimeSettings {
-        source: crate::authentication::ldap::Error,
-    },
-    #[snafu(display("there was an error generating the OIDC runtime settings"))]
-    GenerateOidcRuntimeSettings {
-        source: crate::authentication::oidc::Error,
+    #[snafu(display("there was an error generating the authentication runtime settings"))]
+    GenerateAuthenticationRuntimeSettings {
+        source: crate::authentication::Error,
     },
 }
 
@@ -432,26 +430,13 @@ pub async fn reconcile_druid(druid: Arc<DruidCluster>, ctx: Arc<Ctx>) -> Result<
         _ => None,
     };
 
-    if let Some(resolved_auth_class) =
-        get_resolved_authentication_class(&druid, client)
-            .await
-            .context(AuthenticationClassRetrievalSnafu)? {
-                match resolved_auth_class {
-                    ResolvedAuthenticationClass::Ldap { auth_class_name, provider } => (),
-                    ResolvedAuthenticationClass::Oidc { auth_class_name, provider, oidc } => (),
-                    ResolvedAuthenticationClass::Tls { auth_class_name, provider } => ()
-                }
-                
-            }
-    let druid_tls_security =
-    DruidTlsSecurity::new_from_druid_cluster(&druid, resolved_auth_class);
+    let resolved_auth_class = get_resolved_authentication_class(&druid, client)
+        .await
+        .context(AuthenticationClassRetrievalSnafu)?;
 
-    
-            
-    let druid_ldap_settings = DruidLdapSettings::new_from(&resolved_authentication_class);
-    let druid_oidc_settings = DruidOidcSettings::new_from(&resolved_authentication_class);
+    let druid_tls_security = DruidTlsSecurity::new_from_druid_cluster(&druid, &resolved_auth_class);
 
-    
+    let druid_auth_settings = DruidAuthenticationSettings::new_from(resolved_auth_class);
 
     let role_config = transform_all_roles_to_config(druid.as_ref(), druid.build_role_properties());
     let validated_role_config = validate_all_roles_and_groups_config(
@@ -542,8 +527,7 @@ pub async fn reconcile_druid(druid: Arc<DruidCluster>, ctx: Arc<Ctx>) -> Result<
                 s3_conn.as_ref(),
                 deep_storage_bucket_name.as_deref(),
                 &druid_tls_security,
-                &druid_ldap_settings,
-                &druid_oidc_settings,
+                &druid_auth_settings,
             )?;
             let rg_statefulset = build_rolegroup_statefulset(
                 &druid,
@@ -554,7 +538,7 @@ pub async fn reconcile_druid(druid: Arc<DruidCluster>, ctx: Arc<Ctx>) -> Result<
                 &merged_rolegroup_config,
                 s3_conn.as_ref(),
                 &druid_tls_security,
-                &druid_ldap_settings,
+                &druid_auth_settings,
             )?;
             cluster_resources
                 .add(client, rg_service)
@@ -686,8 +670,7 @@ fn build_rolegroup_config_map(
     s3_conn: Option<&S3ConnectionSpec>,
     deep_storage_bucket_name: Option<&str>,
     druid_tls_security: &DruidTlsSecurity,
-    druid_ldap_settings: &Option<DruidLdapSettings>,
-    druid_oidc_settings: &Option<DruidOidcSettings>,
+    druid_auth_settings: &Option<DruidAuthenticationSettings>,
 ) -> Result<ConfigMap> {
     let role = DruidRole::from_str(&rolegroup.role).unwrap();
     let mut cm_conf_data = BTreeMap::new(); // filename -> filecontent
@@ -766,19 +749,11 @@ fn build_rolegroup_config_map(
                 // add tls encryption / auth properties
                 druid_tls_security.add_tls_config_properties(&mut conf, &role);
 
-                if let Some(ldap_settings) = druid_ldap_settings {
+                if let Some(ldap_settings) = druid_auth_settings {
                     conf.extend(
                         ldap_settings
                             .generate_runtime_properties_config()
-                            .context(GenerateLdapRuntimeSettingsSnafu)?,
-                    );
-                };
-
-                if let Some(oidc_settings) = druid_oidc_settings {
-                    conf.extend(
-                        oidc_settings
-                            .generate_runtime_properties_config()
-                            .context(GenerateOidcRuntimeSettingsSnafu)?,
+                            .context(GenerateAuthenticationRuntimeSettingsSnafu)?,
                     );
                 };
 
@@ -926,7 +901,7 @@ fn build_rolegroup_statefulset(
     merged_rolegroup_config: &CommonRoleGroupConfig,
     s3_conn: Option<&S3ConnectionSpec>,
     druid_tls_security: &DruidTlsSecurity,
-    ldap_settings: &Option<DruidLdapSettings>,
+    authentication_settings: &Option<DruidAuthenticationSettings>,
 ) -> Result<StatefulSet> {
     // prepare container builder
     let prepare_container_name = Container::Prepare.to_string();
@@ -979,20 +954,25 @@ fn build_rolegroup_statefulset(
     }
     prepare_container_commands.extend(druid_tls_security.build_tls_key_stores_cmd());
 
-    if let Some(ldap_settings) = ldap_settings {
-        // TODO: Connecting to an LDAP server without bind credentials does not seem to be configurable in Druid at the moment
-        // see https://github.com/stackabletech/druid-operator/issues/383 for future work.
-        // Expect bind credentials to be provided for now, and throw return a useful error if there are none.
-        if ldap_settings.ldap.bind_credentials_mount_paths().is_none() {
-            return LdapBindCredentialsAreRequiredSnafu.fail();
+    if let Some(auth_settings) = authentication_settings {
+        if let ResolvedAuthenticationClass::Ldap {
+            auth_class_name: _,
+            provider,
+        } = auth_settings.resolved_auth_class.clone()
+        {
+            // TODO: Connecting to an LDAP server without bind credentials does not seem to be configurable in Druid at the moment
+            // see https://github.com/stackabletech/druid-operator/issues/383 for future work.
+            // Expect bind credentials to be provided for now, and throw return a useful error if there are none.
+            if provider.bind_credentials_mount_paths().is_none() {
+                return LdapBindCredentialsAreRequiredSnafu.fail();
+            }
+
+            provider
+                .add_volumes_and_mounts(&mut pb, vec![&mut cb_druid, &mut cb_prepare])
+                .context(AddLdapVolumesSnafu)?;
+
+            prepare_container_commands.extend(auth_settings.prepare_container_commands());
         }
-
-        ldap_settings
-            .ldap
-            .add_volumes_and_mounts(&mut pb, vec![&mut cb_druid, &mut cb_prepare])
-            .context(AddLdapVolumesSnafu)?;
-
-        prepare_container_commands.extend(ldap_settings.prepare_container_commands());
     }
 
     // volume and volume mounts
@@ -1339,9 +1319,7 @@ mod test {
 
     use product_config::{writer, ProductConfigManager};
     use rstest::*;
-    use stackable_druid_crd::{
-        authentication::ResolvedAuthenticationClasses, PROP_SEGMENT_CACHE_LOCATIONS,
-    };
+    use stackable_druid_crd::PROP_SEGMENT_CACHE_LOCATIONS;
 
     #[derive(Snafu, Debug, EnumDiscriminants)]
     #[strum_discriminants(derive(IntoStaticStr))]
@@ -1410,7 +1388,7 @@ mod test {
         .context(OperatorFrameworkSnafu)?;
 
         let druid_tls_security = DruidTlsSecurity::new(
-            ResolvedAuthenticationClasses::new(vec![]),
+            &None,
             Some("tls".to_string()),
         );
 
@@ -1433,8 +1411,7 @@ mod test {
                         .common_config(DruidRole::Historical, rolegroup_name)
                         .context(InvalidConfigurationSnafu)?;
 
-                    let ldap_settings: Option<DruidLdapSettings> = None;
-                    let oidc_settings: Option<DruidOidcSettings> = None;
+                    let auth_settings: Option<DruidAuthenticationSettings> = None;
 
                     let rg_configmap = build_rolegroup_config_map(
                         &druid,
@@ -1448,8 +1425,7 @@ mod test {
                         None,
                         None,
                         &druid_tls_security,
-                        &ldap_settings,
-                        &oidc_settings,
+                        &auth_settings,
                     )
                     .context(ControllerSnafu)?;
 

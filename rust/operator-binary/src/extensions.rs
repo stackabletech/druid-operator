@@ -81,10 +81,7 @@ mod tests {
         assert_eq!(
             get_extension_list(
                 &cluster,
-                &DruidTlsSecurity::new_from_druid_cluster(
-                    &cluster,
-                    None
-                )
+                &DruidTlsSecurity::new_from_druid_cluster(&cluster, &None)
             ),
             [
                 "druid-avro-extensions".to_owned(),
