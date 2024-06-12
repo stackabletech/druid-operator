@@ -1,7 +1,10 @@
 use std::collections::BTreeMap;
 
 use snafu::Snafu;
-use stackable_druid_crd::authentication::ResolvedAuthenticationClass;
+use stackable_druid_crd::{authentication::ResolvedAuthenticationClass, DruidCluster, DruidRole, ENV_INTERNAL_SECRET};
+use stackable_operator::k8s_openapi::api::core::v1::EnvVar;
+
+use crate::internal_secret::{build_shared_internal_secret_name, env_var_from_secret};
 
 pub mod ldap;
 pub mod oidc;
@@ -51,32 +54,46 @@ impl DruidAuthenticationSettings {
                 provider,
             } => ldap::generate_runtime_properties_config(provider, &mut config),
             ResolvedAuthenticationClass::Oidc {
-                auth_class_name: _ ,
+                auth_class_name: _,
                 provider,
-                oidc: _,
-            } => oidc::generate_runtime_properties_config(provider, &mut config),
+                oidc,
+            } => oidc::generate_runtime_properties_config(provider, oidc, &mut config),
             ResolvedAuthenticationClass::Tls {
                 auth_class_name: _,
                 provider: _,
             } => Ok(()),
         } {
-            return Err(err)
+            return Err(err);
         }
         Ok(config)
     }
 
-    pub fn prepare_container_commands(
-&self
-    ) -> Vec<String> {
+    pub fn prepare_container_commands(&self) -> Vec<String> {
         let mut command = vec![];
         match self.resolved_auth_class.clone() {
             ResolvedAuthenticationClass::Ldap {
                 auth_class_name,
                 provider,
             } => ldap::prepare_container_commands(auth_class_name, provider, &mut command),
-            _ => ()
+            _ => (),
         }
         command
+    }
+
+    pub fn get_env_var_mounts(&self, druid: &DruidCluster, role: &DruidRole) -> Vec<EnvVar> {
+        let mut envs = vec![];
+        let internal_secret_name = build_shared_internal_secret_name(druid);
+        envs.push(env_var_from_secret(&internal_secret_name, None, ENV_INTERNAL_SECRET));
+
+        match self.resolved_auth_class.clone() {
+            ResolvedAuthenticationClass::Oidc {
+                auth_class_name: _,
+                provider: _,
+                oidc,
+            } => envs.extend(oidc::get_env_var_mounts(role, oidc, &internal_secret_name)),
+            _ => (),
+        }
+        envs
     }
 
     fn add_druid_system_authenticator_config(&self, config: &mut BTreeMap<String, Option<String>>) {
@@ -93,7 +110,7 @@ impl DruidAuthenticationSettings {
 
         config.insert(
             format!("{PREFIX}.initialInternalClientPassword"),
-            Some(r#"${env:{ENV_INTERNAL_SECRET}}"#.to_string()),
+            Some(r#"${env:INTERNAL_SECRET}"#.to_string()),
         );
         config.insert(
             format!("{PREFIX}.authorizerName"),
@@ -113,7 +130,7 @@ impl DruidAuthenticationSettings {
         );
         config.insert(
             "druid.escalator.internalClientPassword".to_string(),
-            Some(r#"${env:{ENV_INTERNAL_SECRET}}"#.to_string()),
+            Some(r#"${env:INTERNAL_SECRET}"#.to_string()),
         );
         config.insert(
             "druid.escalator.authorizerName".to_string(),

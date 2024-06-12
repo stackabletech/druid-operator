@@ -1,5 +1,5 @@
 use snafu::{OptionExt, ResultExt, Snafu};
-use stackable_druid_crd::{DruidCluster, ENV_INTERNAL_SECRET};
+use stackable_druid_crd::{DruidCluster, ENV_INTERNAL_SECRET, ENV_COOKIE_PASSPHRASE};
 use stackable_operator::k8s_openapi::api::core::v1::{EnvVar, EnvVarSource, SecretKeySelector};
 use stackable_operator::kube::ResourceExt;
 use stackable_operator::{
@@ -58,6 +58,7 @@ pub async fn create_shared_internal_secret(
 pub fn build_shared_internal_secret(druid: &DruidCluster) -> Result<Secret, Error> {
     let mut internal_secret = BTreeMap::new();
     internal_secret.insert(ENV_INTERNAL_SECRET.to_string(), get_random_base64());
+    internal_secret.insert(ENV_COOKIE_PASSPHRASE.to_string(), get_random_base64());
 
     Ok(Secret {
         immutable: Some(true),

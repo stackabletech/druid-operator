@@ -13,8 +13,8 @@
 dimensions:
   - name: druid
     values:
-      - 26.0.0
-      - 27.0.0
+      # - 26.0.0
+      # - 27.0.0
       - 28.0.1
   - name: druid-latest
     values:
@@ -37,7 +37,7 @@ dimensions:
   - name: s3-use-tls
     values:
       - "true"
-      - "false"
+      # - "false"
   - name: tls-mode
     values:
       - "no-tls"
@@ -46,7 +46,7 @@ dimensions:
   - name: ldap-use-tls
     values:
       - "true"
-      - "false"
+      # - "false"
   - name: ldap-no-bind-credentials
     values:
       # - "true" # Disabled, as anonymous ldap usage does not seem to be supported in druid. See https://github.com/stackabletech/druid-operator/issues/383

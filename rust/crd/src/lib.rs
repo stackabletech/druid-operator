@@ -137,6 +137,7 @@ pub const SC_DIRECTORY: &str = "/stackable/var/druid/segment-cache";
 pub const SC_VOLUME_NAME: &str = "segment-cache";
 
 pub const ENV_INTERNAL_SECRET: &str = "INTERNAL_SECRET";
+pub const ENV_COOKIE_PASSPHRASE: &str = "OIDC_COOKIE_PASSPHRASE";
 
 // DB credentials - both of these are read from an env var by Druid with the ${env:...} syntax
 pub const DB_USERNAME_ENV: &str = "DB_USERNAME_ENV";

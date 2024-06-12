@@ -195,13 +195,29 @@ fn validate(
 
 #[cfg(test)]
 mod tests {
-    use crate::DruidCluster;
+    use indoc::formatdoc;
+    use stackable_operator::commons::authentication::Error as AuthError;
+
+    use crate::DruidClusterConfig;
     //use stackable_operator::commons::authentication::tls::Tls;
     use crate::{authentication::Error, tests::deserialize_yaml_str};
     //use stackable_operator::kube::ResourceExt;
     use crate::authentication::{
         resolve_authentication_class, validate, ResolvedAuthenticationClass,
     };
+
+    const BASE_DRUID_CONFIGURATION: &str = r#"
+deepStorage:
+  hdfs:
+    configMapName: druid-hdfs
+    directory: /druid
+metadataStorageDatabase:
+  dbType: derby
+  connString: jdbc:derby://localhost:1527/var/druid/metadata.db;create=true
+  host: localhost
+  port: 1527
+zookeeperConfigMapName: zk-config-map
+    "#;
 
     #[test]
     fn test_authentication_classes_validation() {
@@ -294,82 +310,42 @@ mod tests {
             ),
             "Not supported: Server tls, multiple authentication classes"
         );
+        assert!(
+            matches!(
+                get_oidc_authentication_class_without_oidc_secret_ref_(),
+                Err(Error::InvalidOidcConfiguration {source: AuthError::OidcAuthenticationDetailsNotSpecified {
+                    auth_class_name,
+                }}) if auth_class_name == "oidc"
+            ),
+            "Not supported: OIDC authentication class with no OIDC authentication details"
+        )
     }
-
-    // #[test]
-    // fn test_get_tls_authentication_class() {
-    //     let classes = vec![
-    //         get_ldap_authentication_class(),
-    //         get_tls_authentication_class_without_secret_class(),
-    //         get_tls_authentication_class_with_secret_class_druid_clients(),
-    //     ];
-    //
-    //     let tls_authentication_class = classes.get_tls_authentication_class();
-    //
-    //     // TODO Check deriving PartialEq for AuthenticationClass so that we can compare them directly instead of comparing the names
-    //     assert_eq!(
-    //         tls_authentication_class.map(|class| class.authentication_class.name_any()),
-    //         Some("tls".to_string())
-    //     );
-    // }
-
-    // #[test]
-    // fn test_get_ldap_authentication_class() {
-    //     let classes = ResolvedAuthenticationClasses::new(vec![
-    //         get_ldap_authentication_class(),
-    //         get_tls_authentication_class_without_secret_class(),
-    //         get_tls_authentication_class_with_secret_class_druid_clients(),
-    //     ]);
-    //
-    //     let ldap_authentication_class = classes.get_ldap_authentication_class();
-    //
-    //     // TODO Check deriving PartialEq for AuthenticationClass so that we can compare them directly instead of comparing the names
-    //     assert_eq!(
-    //         ldap_authentication_class.map(|class| class.authentication_class.name_any()),
-    //         Some("ldap".to_string())
-    //     );
-    // }
 
     fn get_tls_authentication_class_without_secret_class() -> ResolvedAuthenticationClass {
         let auth_class_input = r#"
-apiVersion: authentication.stackable.tech/v1alpha1
-kind: AuthenticationClass
 metadata:
   name: tls
 spec:
   provider:
     tls: {}
 "#;
-        let druid_input = r#"
-apiVersion: druid.stackable.tech/v1alpha1
-kind: DruidCluster
-metadata:
-  name: druid
-spec:
-  clusterConfig:
-  authentication:
-  - authenticationClass: tls-druid-clients
-"#;
+        let cluster_config_input = formatdoc! {"\
+        {BASE_DRUID_CONFIGURATION}
+        authentication:
+          - authenticationClass: tls-druid-clients
+        "};
 
-        let auth_class = deserialize_yaml_str(auth_class_input);
-        let druid: DruidCluster = deserialize_yaml_str(druid_input);
+        let auth_class = deserialize_yaml_str(&auth_class_input);
+        let cluster_config: DruidClusterConfig = deserialize_yaml_str(&cluster_config_input);
         resolve_authentication_class(
             auth_class,
-            druid
-                .spec
-                .cluster_config
-                .authentication
-                .first()
-                .unwrap()
-                .to_owned(),
+            cluster_config.authentication.first().unwrap().to_owned(),
         )
         .unwrap()
     }
 
     fn get_tls_authentication_class_with_secret_class_tls() -> ResolvedAuthenticationClass {
         let auth_class_input = r#"
-apiVersion: authentication.stackable.tech/v1alpha1
-kind: AuthenticationClass
 metadata:
   name: tls-tls
 spec:
@@ -378,28 +354,17 @@ spec:
       clientCertSecretClass: tls
 "#;
 
-        let druid_input = r#"
-apiVersion: druid.stackable.tech/v1alpha1
-kind: DruidCluster
-metadata:
-  name: druid
-spec:
-  clusterConfig:
-  authentication:
-  - authenticationClass: tls-druid-clients
-"#;
+        let cluster_config_input = formatdoc! {"\
+        {BASE_DRUID_CONFIGURATION}
+        authentication:
+          - authenticationClass: tls-tls
+        "};
 
-        let auth_class = deserialize_yaml_str(auth_class_input);
-        let druid: DruidCluster = deserialize_yaml_str(druid_input);
+        let auth_class = deserialize_yaml_str(&auth_class_input);
+        let cluster_config: DruidClusterConfig = deserialize_yaml_str(&cluster_config_input);
         resolve_authentication_class(
             auth_class,
-            druid
-                .spec
-                .cluster_config
-                .authentication
-                .first()
-                .unwrap()
-                .to_owned(),
+            cluster_config.authentication.first().unwrap().to_owned(),
         )
         .unwrap()
     }
@@ -407,8 +372,6 @@ spec:
     fn get_tls_authentication_class_with_secret_class_druid_clients() -> ResolvedAuthenticationClass
     {
         let auth_class_input = r#"
-apiVersion: authentication.stackable.tech/v1alpha1
-kind: AuthenticationClass
 metadata:
   name: tls-druid-clients
 spec:
@@ -417,36 +380,23 @@ spec:
       clientCertSecretClass: druid-clients
 "#;
 
-        let druid_input = r#"
-apiVersion: druid.stackable.tech/v1alpha1
-kind: DruidCluster
-metadata:
-  name: druid
-spec:
-  clusterConfig:
-  authentication:
-  - authenticationClass: tls-druid-clients
-"#;
+        let cluster_config_input = formatdoc! {"\
+        {BASE_DRUID_CONFIGURATION}
+        authentication:
+          - authenticationClass: tls-druid-clients
+        "};
 
-        let auth_class = deserialize_yaml_str(auth_class_input);
-        let druid: DruidCluster = deserialize_yaml_str(druid_input);
+        let auth_class = deserialize_yaml_str(&auth_class_input);
+        let cluster_config: DruidClusterConfig = deserialize_yaml_str(&cluster_config_input);
         resolve_authentication_class(
             auth_class,
-            druid
-                .spec
-                .cluster_config
-                .authentication
-                .first()
-                .unwrap()
-                .to_owned(),
+            cluster_config.authentication.first().unwrap().to_owned(),
         )
         .unwrap()
     }
 
     fn get_ldap_authentication_class() -> ResolvedAuthenticationClass {
         let auth_class_input = r#"
-apiVersion: authentication.stackable.tech/v1alpha1
-kind: AuthenticationClass
 metadata:
   name: ldap
 spec:
@@ -459,28 +409,17 @@ spec:
         secretClass: ldap-bind-credentials
 "#;
 
-        let druid_input = r#"
-apiVersion: druid.stackable.tech/v1alpha1
-kind: DruidCluster
-metadata:
-  name: druid
-spec:
-  clusterConfig:
-  authentication:
-  - authenticationClass: tls-druid-clients
-"#;
+        let cluster_config_input = formatdoc! {"\
+        {BASE_DRUID_CONFIGURATION}
+        authentication:
+          - authenticationClass: ldap
+        "};
 
-        let auth_class = deserialize_yaml_str(auth_class_input);
-        let druid: DruidCluster = deserialize_yaml_str(druid_input);
+        let auth_class = deserialize_yaml_str(&auth_class_input);
+        let cluster_config: DruidClusterConfig = deserialize_yaml_str(&cluster_config_input);
         resolve_authentication_class(
             auth_class,
-            druid
-                .spec
-                .cluster_config
-                .authentication
-                .first()
-                .unwrap()
-                .to_owned(),
+            cluster_config.authentication.first().unwrap().to_owned(),
         )
         .unwrap()
     }
@@ -498,29 +437,53 @@ spec:
       port: 389
       searchBase: ou=users,dc=example,dc=org
 "#;
-        let druid_input = r#"
-apiVersion: druid.stackable.tech/v1alpha1
-kind: DruidCluster
-metadata:
-  name: druid
-spec:
-  clusterConfig:
-  authentication:
-  - authenticationClass: tls-druid-clients
-"#;
 
-        let auth_class = deserialize_yaml_str(auth_class_input);
-        let druid: DruidCluster = deserialize_yaml_str(druid_input);
+        let cluster_config_input = formatdoc! {"\
+        {BASE_DRUID_CONFIGURATION}
+        authentication:
+          - authenticationClass: ldap
+        "};
+
+        let auth_class = deserialize_yaml_str(&auth_class_input);
+        let cluster_config: DruidClusterConfig = deserialize_yaml_str(&cluster_config_input);
         resolve_authentication_class(
             auth_class,
-            druid
-                .spec
-                .cluster_config
-                .authentication
-                .first()
-                .unwrap()
-                .to_owned(),
+            cluster_config.authentication.first().unwrap().to_owned(),
         )
         .unwrap()
+    }
+
+    fn get_oidc_authentication_class_without_oidc_secret_ref_(
+    ) -> Result<ResolvedAuthenticationClass, Error> {
+        let auth_class_input = r#"
+apiVersion: authentication.stackable.tech/v1alpha1
+kind: AuthenticationClass
+metadata:
+  name: oidc
+spec:
+  provider:
+    oidc:
+      hostname: keycloak.default.svc.cluster.local
+      rootPath: /realms/test
+      principalClaim: preferred_username
+      scopes:
+        - openid
+        - email
+        - profile
+      providerHint: Keycloak
+"#;
+
+        let cluster_config_input = formatdoc! {"\
+        {BASE_DRUID_CONFIGURATION}
+        authentication:
+          - authenticationClass: oidc
+        "};
+
+        let auth_class = deserialize_yaml_str(&auth_class_input);
+        let cluster_config: DruidClusterConfig = deserialize_yaml_str(&cluster_config_input);
+        resolve_authentication_class(
+            auth_class,
+            cluster_config.authentication.first().unwrap().to_owned(),
+        )
     }
 }

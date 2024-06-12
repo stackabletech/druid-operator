@@ -9,7 +9,7 @@ use stackable_druid_crd::security::{
 
 use crate::authentication::{Error, FailedToCreateLdapEndpointUrlSnafu};
 
-fn add_ldap_authenticator_config(
+fn add_authenticator_config(
     provider: AuthenticationProvider,
     config: &mut BTreeMap<String, Option<String>>,
 ) -> Result<(), Error> {
@@ -67,9 +67,7 @@ fn add_ldap_authenticator_config(
     Ok(())
 }
 
-fn add_authorizer_config(
-    config: &mut BTreeMap<String, Option<String>>,
-) {
+fn add_authorizer_config(config: &mut BTreeMap<String, Option<String>>) {
     config.insert(
         "druid.auth.authorizers".to_string(),
         Some(r#"["LdapAuthorizer", "DruidSystemAuthorizer"]"#.to_string()),
@@ -88,7 +86,7 @@ pub fn generate_runtime_properties_config(
     provider: AuthenticationProvider,
     config: &mut BTreeMap<String, Option<String>>,
 ) -> Result<(), Error> {
-    add_ldap_authenticator_config(provider, config)?;
+    add_authenticator_config(provider, config)?;
     add_authorizer_config(config);
 
     config.insert(
@@ -107,7 +105,7 @@ pub fn generate_runtime_properties_config(
 pub fn prepare_container_commands(
     auth_class_name: String,
     provider: AuthenticationProvider,
-    command: &mut Vec<String>
+    command: &mut Vec<String>,
 ) -> () {
     if let Some(tls_ca_cert_mount_path) = provider.tls.tls_ca_cert_mount_path() {
         command.push(add_cert_to_trust_store_cmd(

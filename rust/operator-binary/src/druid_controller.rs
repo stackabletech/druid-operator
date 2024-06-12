@@ -19,7 +19,7 @@ use stackable_druid_crd::{
     security::DruidTlsSecurity,
     CommonRoleGroupConfig, Container, DeepStorageSpec, DruidCluster, DruidClusterStatus, DruidRole,
     APP_NAME, AUTH_AUTHORIZER_OPA_URI, CERTS_DIR, CREDENTIALS_SECRET_PROPERTY, DB_PASSWORD_ENV,
-    DB_USERNAME_ENV, DRUID_CONFIG_DIRECTORY, DS_BUCKET, ENV_INTERNAL_SECRET, EXTENSIONS_LOADLIST,
+    DB_USERNAME_ENV, DRUID_CONFIG_DIRECTORY, DS_BUCKET, EXTENSIONS_LOADLIST,
     HDFS_CONFIG_DIRECTORY, JVM_CONFIG, JVM_SECURITY_PROPERTIES_FILE, LOG_CONFIG_DIRECTORY, LOG_DIR,
     MAX_DRUID_LOG_FILES_SIZE, RUNTIME_PROPS, RW_CONFIG_DIRECTORY, S3_ACCESS_KEY, S3_ENDPOINT_URL,
     S3_PATH_STYLE_ACCESS, S3_SECRET_DIR_NAME, S3_SECRET_KEY, SECRET_KEY_S3_ACCESS_KEY,
@@ -81,13 +81,12 @@ use crate::{
     config::get_jvm_config,
     discovery::{self, build_discovery_configmaps},
     extensions::get_extension_list,
-    internal_secret::{
-        build_shared_internal_secret_name, create_shared_internal_secret, env_var_from_secret,
+    internal_secret::{ create_shared_internal_secret, env_var_from_secret,
     },
     operations::{graceful_shutdown::add_graceful_shutdown_config, pdb::add_pdbs},
     product_logging::{extend_role_group_config_map, resolve_vector_aggregator_address},
     OPERATOR_NAME,
-};
+}; 
 
 pub const DRUID_CONTROLLER_NAME: &str = "druidcluster";
 
@@ -1029,9 +1028,6 @@ fn build_rolegroup_statefulset(
         })
         .collect::<Vec<_>>();
 
-    let secret_name = build_shared_internal_secret_name(druid);
-    rest_env.push(env_var_from_secret(&secret_name, None, ENV_INTERNAL_SECRET));
-
     // load database credentials to environment variables: these will be used to replace
     // the placeholders in runtime.properties so that the operator does not "touch" the secret.
     if let Some(credentials_secret_name) = credentials_secret {
@@ -1045,6 +1041,10 @@ fn build_rolegroup_statefulset(
             Some("password"),
             DB_PASSWORD_ENV,
         ));
+    }
+
+    if let Some(auth_settings) = authentication_settings {
+        rest_env.extend(auth_settings.get_env_var_mounts(druid, role))
     }
 
     main_container_commands.push(role.main_container_start_command());
@@ -1387,10 +1387,7 @@ mod test {
         )
         .context(OperatorFrameworkSnafu)?;
 
-        let druid_tls_security = DruidTlsSecurity::new(
-            &None,
-            Some("tls".to_string()),
-        );
+        let druid_tls_security = DruidTlsSecurity::new(&None, Some("tls".to_string()));
 
         let mut druid_segment_cache_property = "invalid".to_string();
 
