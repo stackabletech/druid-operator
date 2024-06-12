@@ -30,7 +30,7 @@ fn add_authenticator_config(
     );
     config.insert(
         "druid.auth.authenticator.Oidc.authorizerName".to_string(),
-        Some(r#"LdapAuthorizer"#.to_string()),
+        Some(r#"OidcAuthorizer"#.to_string()),
     );
     config.insert(
         format!("{PREFIX}.cookiePassphrase"),
@@ -38,11 +38,11 @@ fn add_authenticator_config(
     );
     config.insert(
         format!("{PREFIX}.oidc.clientID"),
-        Some(format!("${{{oidc_client_id_env}}}").to_string()),
+        Some(format!("${{env:{oidc_client_id_env}}}").to_string()),
     );
     config.insert(
         format!("{PREFIX}.oidc.clientSecret"),
-        Some(format!("${{{oidc_client_secret_env}}}").to_string()),
+        Some(format!("${{env:{oidc_client_secret_env}}}").to_string()),
     );
 
     config.insert(
