@@ -1,5 +1,5 @@
 use snafu::{OptionExt, ResultExt, Snafu};
-use stackable_druid_crd::{DruidCluster, ENV_INTERNAL_SECRET, ENV_COOKIE_PASSPHRASE};
+use stackable_druid_crd::{DruidCluster, ENV_COOKIE_PASSPHRASE, ENV_INTERNAL_SECRET};
 use stackable_operator::k8s_openapi::api::core::v1::{EnvVar, EnvVarSource, SecretKeySelector};
 use stackable_operator::kube::ResourceExt;
 use stackable_operator::{

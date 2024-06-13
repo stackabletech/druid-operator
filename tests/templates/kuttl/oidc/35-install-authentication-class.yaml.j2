@@ -1,0 +1,7 @@
+---
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+metadata:
+  name: create-authentication-classes
+commands:
+  - script: envsubst < 35_authentication-class.yaml | kubectl apply -n $NAMESPACE -f -

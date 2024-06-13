@@ -25,11 +25,9 @@ metadata:
   name: druid
 spec:
   image:
-    productVersion: 28.0.1
+    productVersion: {{ test_scenario['values']['druid-latest'] }}
     pullPolicy: IfNotPresent
   clusterConfig:
-    additionalExtensions:
-    - druid-pac4j
     authentication:
     - authenticationClass: druid-oidc-auth-class-$NAMESPACE
       oidc:
@@ -77,7 +75,6 @@ spec:
     roleGroups:
       default:
         replicas: 1
-
   routers:
     roleGroups:
       default:

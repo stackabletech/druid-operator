@@ -1,7 +1,9 @@
 use std::collections::BTreeMap;
 
 use snafu::Snafu;
-use stackable_druid_crd::{authentication::ResolvedAuthenticationClass, DruidCluster, DruidRole, ENV_INTERNAL_SECRET};
+use stackable_druid_crd::{
+    authentication::ResolvedAuthenticationClass, DruidCluster, DruidRole, ENV_INTERNAL_SECRET,
+};
 use stackable_operator::k8s_openapi::api::core::v1::EnvVar;
 
 use crate::internal_secret::{build_shared_internal_secret_name, env_var_from_secret};
@@ -42,11 +44,17 @@ impl DruidAuthenticationSettings {
 
     pub fn generate_runtime_properties_config(
         &self,
+        role: &DruidRole,
     ) -> Result<BTreeMap<String, Option<String>>, Error> {
         let mut config: BTreeMap<String, Option<String>> = BTreeMap::new();
 
         self.add_druid_system_authenticator_config(&mut config);
         self.add_escalator_config(&mut config);
+
+        config.insert(
+            "druid.auth.authorizer.DruidSystemAuthorizer.type".to_string(),
+            Some(r#"allowAll"#.to_string()),
+        );
 
         if let Err(err) = match self.resolved_auth_class.clone() {
             ResolvedAuthenticationClass::Ldap {
@@ -57,7 +65,7 @@ impl DruidAuthenticationSettings {
                 auth_class_name: _,
                 provider,
                 oidc,
-            } => oidc::generate_runtime_properties_config(provider, oidc, &mut config),
+            } => oidc::generate_runtime_properties_config(provider, oidc, role, &mut config),
             ResolvedAuthenticationClass::Tls {
                 auth_class_name: _,
                 provider: _,
@@ -83,7 +91,11 @@ impl DruidAuthenticationSettings {
     pub fn get_env_var_mounts(&self, druid: &DruidCluster, role: &DruidRole) -> Vec<EnvVar> {
         let mut envs = vec![];
         let internal_secret_name = build_shared_internal_secret_name(druid);
-        envs.push(env_var_from_secret(&internal_secret_name, None, ENV_INTERNAL_SECRET));
+        envs.push(env_var_from_secret(
+            &internal_secret_name,
+            None,
+            ENV_INTERNAL_SECRET,
+        ));
 
         match self.resolved_auth_class.clone() {
             ResolvedAuthenticationClass::Oidc {
@@ -137,6 +149,18 @@ impl DruidAuthenticationSettings {
             Some("DruidSystemAuthorizer".to_string()),
         );
     }
+
+    pub fn oidc_enabled(&self) -> bool {
+        if let ResolvedAuthenticationClass::Oidc {
+            auth_class_name: _,
+            provider: _,
+            oidc: _,
+        } = self.resolved_auth_class.clone()
+        {
+            return true;
+        }
+        false
+    }
 }
 
 #[cfg(test)]
@@ -161,7 +185,11 @@ mod test {
             },
         };
 
-        let got = auth_settings.generate_runtime_properties_config().unwrap();
+        let role = DruidRole::Coordinator;
+
+        let got = auth_settings
+            .generate_runtime_properties_config(&role)
+            .unwrap();
 
         assert!(got.contains_key("druid.auth.authenticator.Ldap.type"));
     }

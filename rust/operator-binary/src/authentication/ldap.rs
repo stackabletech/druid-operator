@@ -63,6 +63,10 @@ fn add_authenticator_config(
         format!("{PREFIX}.authorizerName"),
         Some("LdapAuthorizer".to_string()),
     );
+    config.insert(
+        "druid.auth.authenticatorChain".to_string(),
+        Some(r#"["DruidSystemAuthenticator", "Ldap"]"#.to_string()),
+    );
 
     Ok(())
 }
@@ -71,10 +75,6 @@ fn add_authorizer_config(config: &mut BTreeMap<String, Option<String>>) {
     config.insert(
         "druid.auth.authorizers".to_string(),
         Some(r#"["LdapAuthorizer", "DruidSystemAuthorizer"]"#.to_string()),
-    );
-    config.insert(
-        "druid.auth.authorizer.DruidSystemAuthorizer.type".to_string(),
-        Some(r#"allowAll"#.to_string()),
     );
     config.insert(
         "druid.auth.authorizer.LdapAuthorizer.type".to_string(),
@@ -88,16 +88,6 @@ pub fn generate_runtime_properties_config(
 ) -> Result<(), Error> {
     add_authenticator_config(provider, config)?;
     add_authorizer_config(config);
-
-    config.insert(
-        "druid.auth.authenticatorChain".to_string(),
-        Some(r#"["DruidSystemAuthenticator", "Ldap"]"#.to_string()),
-    );
-
-    config.insert(
-        "druid.auth.authorizer.LdapAuthorizer.type".to_string(),
-        Some(r#"allowAll"#.to_string()),
-    );
 
     Ok(())
 }

@@ -19,8 +19,8 @@ use stackable_druid_crd::{
     security::DruidTlsSecurity,
     CommonRoleGroupConfig, Container, DeepStorageSpec, DruidCluster, DruidClusterStatus, DruidRole,
     APP_NAME, AUTH_AUTHORIZER_OPA_URI, CERTS_DIR, CREDENTIALS_SECRET_PROPERTY, DB_PASSWORD_ENV,
-    DB_USERNAME_ENV, DRUID_CONFIG_DIRECTORY, DS_BUCKET, EXTENSIONS_LOADLIST,
-    HDFS_CONFIG_DIRECTORY, JVM_CONFIG, JVM_SECURITY_PROPERTIES_FILE, LOG_CONFIG_DIRECTORY, LOG_DIR,
+    DB_USERNAME_ENV, DRUID_CONFIG_DIRECTORY, DS_BUCKET, EXTENSIONS_LOADLIST, HDFS_CONFIG_DIRECTORY,
+    JVM_CONFIG, JVM_SECURITY_PROPERTIES_FILE, LOG_CONFIG_DIRECTORY, LOG_DIR,
     MAX_DRUID_LOG_FILES_SIZE, RUNTIME_PROPS, RW_CONFIG_DIRECTORY, S3_ACCESS_KEY, S3_ENDPOINT_URL,
     S3_PATH_STYLE_ACCESS, S3_SECRET_DIR_NAME, S3_SECRET_KEY, SECRET_KEY_S3_ACCESS_KEY,
     SECRET_KEY_S3_SECRET_KEY, ZOOKEEPER_CONNECTION_STRING,
@@ -81,12 +81,11 @@ use crate::{
     config::get_jvm_config,
     discovery::{self, build_discovery_configmaps},
     extensions::get_extension_list,
-    internal_secret::{ create_shared_internal_secret, env_var_from_secret,
-    },
+    internal_secret::{create_shared_internal_secret, env_var_from_secret},
     operations::{graceful_shutdown::add_graceful_shutdown_config, pdb::add_pdbs},
     product_logging::{extend_role_group_config_map, resolve_vector_aggregator_address},
     OPERATOR_NAME,
-}; 
+};
 
 pub const DRUID_CONTROLLER_NAME: &str = "druidcluster";
 
@@ -700,6 +699,7 @@ fn build_rolegroup_config_map(
                     Some(build_string_list(&get_extension_list(
                         druid,
                         druid_tls_security,
+                        druid_auth_settings,
                     ))),
                 );
 
@@ -725,7 +725,7 @@ fn build_rolegroup_config_map(
                         conf.insert(
                             S3_SECRET_KEY.to_string(),
                             Some(format!(
-                                "${{file:UTF-8:{S3_SECRET_DIR_NAME}/{SECRET_KEY_S3_SECRET_KEY}]]"
+                                "${{file:UTF-8:{S3_SECRET_DIR_NAME}/{SECRET_KEY_S3_SECRET_KEY}}}"
                             )),
                         );
                     }
@@ -748,10 +748,10 @@ fn build_rolegroup_config_map(
                 // add tls encryption / auth properties
                 druid_tls_security.add_tls_config_properties(&mut conf, &role);
 
-                if let Some(ldap_settings) = druid_auth_settings {
+                if let Some(auth_settings) = druid_auth_settings {
                     conf.extend(
-                        ldap_settings
-                            .generate_runtime_properties_config()
+                        auth_settings
+                            .generate_runtime_properties_config(&role)
                             .context(GenerateAuthenticationRuntimeSettingsSnafu)?,
                     );
                 };

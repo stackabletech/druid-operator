@@ -3,6 +3,8 @@ use std::collections::HashSet;
 use stackable_druid_crd::{security::DruidTlsSecurity, DbType, DruidCluster};
 use tracing::debug;
 
+use crate::authentication::DruidAuthenticationSettings;
+
 const EXT_S3: &str = "druid-s3-extensions";
 const EXT_KAFKA_INDEXING: &str = "druid-kafka-indexing-service";
 const EXT_DATASKETCHES: &str = "druid-datasketches";
@@ -13,10 +15,12 @@ const EXT_OPA_AUTHORIZER: &str = "druid-opa-authorizer";
 const EXT_BASIC_SECURITY: &str = "druid-basic-security";
 const EXT_HDFS: &str = "druid-hdfs-storage";
 const EXT_SIMPLE_CLIENT_SSL_CONTEXT: &str = "simple-client-sslcontext";
+const ENV_PAC4J: &str = "druid-pac4j";
 
 pub fn get_extension_list(
     druid: &DruidCluster,
     druid_tls_security: &DruidTlsSecurity,
+    druid_auth_settings: &Option<DruidAuthenticationSettings>,
 ) -> Vec<String> {
     let mut extensions = HashSet::from([
         EXT_KAFKA_INDEXING.to_string(),
@@ -45,6 +49,12 @@ pub fn get_extension_list(
         extensions.insert(EXT_S3.to_string());
     }
 
+    if let Some(auth_settings) = druid_auth_settings {
+        if auth_settings.oidc_enabled() {
+            extensions.insert(ENV_PAC4J.to_string());
+        }
+    }
+
     let additional_extensions = druid.spec.cluster_config.additional_extensions.clone();
     if !additional_extensions.is_empty() {
         debug!(
@@ -62,6 +72,11 @@ pub fn get_extension_list(
 
 #[cfg(test)]
 mod tests {
+    use stackable_operator::commons::authentication::{
+        oidc::{AuthenticationProvider, ClientAuthenticationOptions},
+        tls::TlsClientDetails,
+    };
+
     use super::*;
 
     #[test]
@@ -81,7 +96,27 @@ mod tests {
         assert_eq!(
             get_extension_list(
                 &cluster,
-                &DruidTlsSecurity::new_from_druid_cluster(&cluster, &None)
+                &DruidTlsSecurity::new_from_druid_cluster(&cluster, &None),
+                &Some(DruidAuthenticationSettings {
+                    resolved_auth_class:
+                        stackable_druid_crd::authentication::ResolvedAuthenticationClass::Oidc {
+                            auth_class_name: "oidc".to_string(),
+                            provider: AuthenticationProvider::new(
+                                "".to_string(),
+                                None,
+                                "".to_string(),
+                                TlsClientDetails { tls: None },
+                                "".to_string(),
+                                vec![],
+                                None
+                            ),
+                            oidc: ClientAuthenticationOptions {
+                                client_credentials_secret_ref: "".to_string(),
+                                extra_scopes: vec![],
+                                product_specific_fields: ()
+                            }
+                        }
+                })
             ),
             [
                 "druid-avro-extensions".to_owned(),
@@ -92,6 +127,7 @@ mod tests {
                 "druid-histogram".to_owned(),
                 "druid-kafka-indexing-service".to_owned(),
                 "druid-opa-authorizer".to_owned(),
+                "druid-pac4j".to_owned(),
                 "postgresql-metadata-storage".to_owned(),
                 "prometheus-emitter".to_owned(),
                 "simple-client-sslcontext".to_owned(),
