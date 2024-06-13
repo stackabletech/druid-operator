@@ -969,9 +969,9 @@ fn build_rolegroup_statefulset(
             provider
                 .add_volumes_and_mounts(&mut pb, vec![&mut cb_druid, &mut cb_prepare])
                 .context(AddLdapVolumesSnafu)?;
-
-            prepare_container_commands.extend(auth_settings.prepare_container_commands());
         }
+
+        prepare_container_commands.extend(auth_settings.prepare_container_commands());
     }
 
     // volume and volume mounts

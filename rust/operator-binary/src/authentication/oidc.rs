@@ -1,7 +1,10 @@
 use std::collections::BTreeMap;
 
 use snafu::ResultExt;
-use stackable_druid_crd::{DruidRole, ENV_COOKIE_PASSPHRASE};
+use stackable_druid_crd::{
+    security::{add_cert_to_trust_store_cmd, STACKABLE_TLS_DIR, TLS_STORE_PASSWORD},
+    DruidRole, ENV_COOKIE_PASSPHRASE,
+};
 use stackable_operator::{
     commons::authentication::oidc::{
         AuthenticationProvider, ClientAuthenticationOptions, DEFAULT_OIDC_WELLKNOWN_PATH,
@@ -96,6 +99,21 @@ pub fn generate_runtime_properties_config(
         }
     }
     Ok(())
+}
+
+pub fn prepare_container_commands(
+    auth_class_name: String,
+    provider: AuthenticationProvider,
+    command: &mut Vec<String>,
+) -> () {
+    if let Some(tls_ca_cert_mount_path) = provider.tls.tls_ca_cert_mount_path() {
+        command.push(add_cert_to_trust_store_cmd(
+            &tls_ca_cert_mount_path,
+            STACKABLE_TLS_DIR,
+            &format!("oidc-{}", auth_class_name),
+            TLS_STORE_PASSWORD,
+        ))
+    }
 }
 
 pub fn get_env_var_mounts(

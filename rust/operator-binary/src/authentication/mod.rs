@@ -83,6 +83,11 @@ impl DruidAuthenticationSettings {
                 auth_class_name,
                 provider,
             } => ldap::prepare_container_commands(auth_class_name, provider, &mut command),
+            ResolvedAuthenticationClass::Oidc {
+                auth_class_name,
+                provider,
+                oidc: _,
+            } => oidc::prepare_container_commands(auth_class_name, provider, &mut command),
             _ => (),
         }
         command
