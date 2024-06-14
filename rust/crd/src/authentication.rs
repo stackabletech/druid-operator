@@ -125,7 +125,7 @@ fn resolve_authentication_class(
             provider: auth_provider.clone(),
         }),
         _ => {
-            return Err(Error::AuthenticationProviderNotSupported {
+            Err(Error::AuthenticationProviderNotSupported {
                 auth_class_name: auth_class.name_any(),
                 provider: auth_class.spec.provider.to_string(),
             })
@@ -335,7 +335,7 @@ spec:
           - authenticationClass: tls-druid-clients
         "};
 
-        let auth_class = deserialize_yaml_str(&auth_class_input);
+        let auth_class = deserialize_yaml_str(auth_class_input);
         let cluster_config: DruidClusterConfig = deserialize_yaml_str(&cluster_config_input);
         resolve_authentication_class(
             auth_class,
@@ -360,7 +360,7 @@ spec:
           - authenticationClass: tls-tls
         "};
 
-        let auth_class = deserialize_yaml_str(&auth_class_input);
+        let auth_class = deserialize_yaml_str(auth_class_input);
         let cluster_config: DruidClusterConfig = deserialize_yaml_str(&cluster_config_input);
         resolve_authentication_class(
             auth_class,
@@ -386,7 +386,7 @@ spec:
           - authenticationClass: tls-druid-clients
         "};
 
-        let auth_class = deserialize_yaml_str(&auth_class_input);
+        let auth_class = deserialize_yaml_str(auth_class_input);
         let cluster_config: DruidClusterConfig = deserialize_yaml_str(&cluster_config_input);
         resolve_authentication_class(
             auth_class,
@@ -415,7 +415,7 @@ spec:
           - authenticationClass: ldap
         "};
 
-        let auth_class = deserialize_yaml_str(&auth_class_input);
+        let auth_class = deserialize_yaml_str(auth_class_input);
         let cluster_config: DruidClusterConfig = deserialize_yaml_str(&cluster_config_input);
         resolve_authentication_class(
             auth_class,
@@ -444,7 +444,7 @@ spec:
           - authenticationClass: ldap
         "};
 
-        let auth_class = deserialize_yaml_str(&auth_class_input);
+        let auth_class = deserialize_yaml_str(auth_class_input);
         let cluster_config: DruidClusterConfig = deserialize_yaml_str(&cluster_config_input);
         resolve_authentication_class(
             auth_class,
@@ -479,7 +479,7 @@ spec:
           - authenticationClass: oidc
         "};
 
-        let auth_class = deserialize_yaml_str(&auth_class_input);
+        let auth_class = deserialize_yaml_str(auth_class_input);
         let cluster_config: DruidClusterConfig = deserialize_yaml_str(&cluster_config_input);
         resolve_authentication_class(
             auth_class,
