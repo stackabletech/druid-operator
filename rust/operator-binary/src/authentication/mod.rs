@@ -97,7 +97,7 @@ impl DruidAuthenticationSettings {
             ResolvedAuthenticationClass::Oidc {
                 auth_class_name,
                 provider,
-                oidc: _
+                oidc: _,
             } => oidc::main_container_commands(auth_class_name, provider, &mut command),
             _ => (),
         }
