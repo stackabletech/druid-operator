@@ -94,7 +94,7 @@ impl DruidAuthenticationSettings {
         if let ResolvedAuthenticationClass::Oidc {
             auth_class_name,
             provider,
-            oidc,
+            oidc: _,
         } = self.resolved_auth_class.clone()
         {
             oidc::main_container_commands(auth_class_name, provider, &mut command)
