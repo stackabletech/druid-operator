@@ -71,47 +71,45 @@ impl DruidAuthenticationSettings {
             Some(r#"allowAll"#.to_string()),
         );
 
-        if let Err(err) = match self.resolved_auth_class.clone() {
+        match self.resolved_auth_class.clone() {
             ResolvedAuthenticationClass::Ldap {
                 auth_class_name: _,
                 provider,
-            } => ldap::generate_runtime_properties_config(provider, &mut config),
+            } => ldap::generate_runtime_properties_config(provider, &mut config)?,
             ResolvedAuthenticationClass::Oidc {
                 auth_class_name: _,
                 provider,
                 oidc,
-            } => oidc::generate_runtime_properties_config(provider, oidc, role, &mut config),
+            } => oidc::generate_runtime_properties_config(provider, oidc, role, &mut config)?,
             ResolvedAuthenticationClass::Tls {
                 auth_class_name: _,
                 provider: _,
-            } => Ok(()),
-        } {
-            return Err(err);
+            } => (),
         }
         Ok(config)
     }
 
     pub fn main_container_commands(&self) -> Vec<String> {
         let mut command = vec![];
-        match self.resolved_auth_class.clone() {
-            ResolvedAuthenticationClass::Oidc {
-                auth_class_name,
-                provider,
-                oidc: _,
-            } => oidc::main_container_commands(auth_class_name, provider, &mut command),
-            _ => (),
+        if let ResolvedAuthenticationClass::Oidc {
+            auth_class_name,
+            provider,
+            oidc,
+        } = self.resolved_auth_class.clone()
+        {
+            oidc::main_container_commands(auth_class_name, provider, &mut command)
         }
         command
     }
 
     pub fn prepare_container_commands(&self) -> Vec<String> {
         let mut command = vec![];
-        match self.resolved_auth_class.clone() {
-            ResolvedAuthenticationClass::Ldap {
-                auth_class_name,
-                provider,
-            } => ldap::prepare_container_commands(auth_class_name, provider, &mut command),
-            _ => (),
+        if let ResolvedAuthenticationClass::Ldap {
+            auth_class_name,
+            provider,
+        } = self.resolved_auth_class.clone()
+        {
+            ldap::prepare_container_commands(auth_class_name, provider, &mut command)
         }
         command
     }
@@ -125,13 +123,13 @@ impl DruidAuthenticationSettings {
             ENV_INTERNAL_SECRET,
         ));
 
-        match self.resolved_auth_class.clone() {
-            ResolvedAuthenticationClass::Oidc {
-                auth_class_name: _,
-                provider: _,
-                oidc,
-            } => envs.extend(oidc::get_env_var_mounts(role, oidc, &internal_secret_name)),
-            _ => (),
+        if let ResolvedAuthenticationClass::Oidc {
+            auth_class_name: _,
+            provider: _,
+            oidc,
+        } = self.resolved_auth_class.clone()
+        {
+            envs.extend(oidc::get_env_var_mounts(role, oidc, &internal_secret_name))
         }
         envs
     }

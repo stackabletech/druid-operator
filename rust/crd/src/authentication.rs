@@ -124,12 +124,10 @@ fn resolve_authentication_class(
             auth_class_name: auth_class.name_any(),
             provider: auth_provider.clone(),
         }),
-        _ => {
-            Err(Error::AuthenticationProviderNotSupported {
-                auth_class_name: auth_class.name_any(),
-                provider: auth_class.spec.provider.to_string(),
-            })
-        }
+        _ => Err(Error::AuthenticationProviderNotSupported {
+            auth_class_name: auth_class.name_any(),
+            provider: auth_class.spec.provider.to_string(),
+        }),
     }
 }
 
