@@ -1,13 +1,18 @@
 use std::collections::BTreeMap;
 
 use snafu::ResultExt;
-use stackable_operator::commons::authentication::ldap::AuthenticationProvider;
+use stackable_operator::{
+    builder::pod::{container::ContainerBuilder, PodBuilder},
+    commons::authentication::ldap::AuthenticationProvider,
+};
 
 use stackable_druid_crd::security::{
     add_cert_to_trust_store_cmd, STACKABLE_TLS_DIR, TLS_STORE_PASSWORD,
 };
 
-use crate::authentication::{Error, FailedToCreateLdapEndpointUrlSnafu};
+use crate::authentication::{
+    AddLdapVolumesSnafu, CreateLdapEndpointUrlSnafu, Error, MissingLdapBindCredentialsSnafu,
+};
 
 fn add_authenticator_config(
     provider: AuthenticationProvider,
@@ -29,7 +34,7 @@ fn add_authenticator_config(
         Some(
             provider
                 .endpoint_url()
-                .context(FailedToCreateLdapEndpointUrlSnafu)?
+                .context(CreateLdapEndpointUrlSnafu)?
                 .into(),
         ),
     );
@@ -105,4 +110,22 @@ pub fn prepare_container_commands(
             TLS_STORE_PASSWORD,
         ))
     }
+}
+
+pub fn add_volumes_and_mounts(
+    provider: AuthenticationProvider,
+    pb: &mut PodBuilder,
+    cb_druid: &mut ContainerBuilder,
+    cb_prepare: &mut ContainerBuilder,
+) -> Result<(), Error> {
+    // TODO: Connecting to an LDAP server without bind credentials does not seem to be configurable in Druid at the moment
+    // see https://github.com/stackabletech/druid-operator/issues/383 for future work.
+    // Expect bind credentials to be provided for now, and throw return a useful error if there are none.
+    if provider.bind_credentials_mount_paths().is_none() {
+        return MissingLdapBindCredentialsSnafu.fail();
+    }
+
+    provider
+        .add_volumes_and_mounts(pb, vec![cb_druid, cb_prepare])
+        .context(AddLdapVolumesSnafu)
 }

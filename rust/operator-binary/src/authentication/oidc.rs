@@ -2,10 +2,10 @@ use std::collections::BTreeMap;
 
 use snafu::ResultExt;
 use stackable_druid_crd::{
-    security::{add_cert_to_trust_store_cmd, STACKABLE_TLS_DIR, TLS_STORE_PASSWORD},
-    DruidRole, ENV_COOKIE_PASSPHRASE,
+    security::add_cert_to_jvm_trust_store_cmd, DruidRole, ENV_COOKIE_PASSPHRASE,
 };
 use stackable_operator::{
+    builder::pod::{container::ContainerBuilder, PodBuilder},
     commons::authentication::oidc::{
         AuthenticationProvider, ClientAuthenticationOptions, DEFAULT_OIDC_WELLKNOWN_PATH,
     },
@@ -13,7 +13,7 @@ use stackable_operator::{
 };
 
 use crate::{
-    authentication::{Error, FailedToCreateOidcEndpointUrlSnafu},
+    authentication::{AddOidcVolumesSnafu, CreateOidcEndpointUrlSnafu, Error},
     internal_secret::env_var_from_secret,
 };
 
@@ -24,7 +24,7 @@ fn add_authenticator_config(
 ) -> Result<(), Error> {
     let endpoint_url = &provider
         .endpoint_url()
-        .context(FailedToCreateOidcEndpointUrlSnafu)?;
+        .context(CreateOidcEndpointUrlSnafu)?;
 
     const PREFIX: &str = "druid.auth.pac4j";
 
@@ -101,17 +101,15 @@ pub fn generate_runtime_properties_config(
     Ok(())
 }
 
-pub fn prepare_container_commands(
+pub fn main_container_commands(
     auth_class_name: String,
     provider: AuthenticationProvider,
     command: &mut Vec<String>,
 ) -> () {
     if let Some(tls_ca_cert_mount_path) = provider.tls.tls_ca_cert_mount_path() {
-        command.push(add_cert_to_trust_store_cmd(
+        command.push(add_cert_to_jvm_trust_store_cmd(
             &tls_ca_cert_mount_path,
-            STACKABLE_TLS_DIR,
             &format!("oidc-{}", auth_class_name),
-            TLS_STORE_PASSWORD,
         ))
     }
 }
@@ -136,6 +134,18 @@ pub fn get_env_var_mounts(
         }
     }
     envs
+}
+
+pub fn add_volumes_and_mounts(
+    provider: AuthenticationProvider,
+    pb: &mut PodBuilder,
+    cb_druid: &mut ContainerBuilder,
+    cb_prepare: &mut ContainerBuilder,
+) -> Result<(), Error> {
+    provider
+        .tls
+        .add_volumes_and_mounts(pb, vec![cb_druid, cb_prepare])
+        .context(AddOidcVolumesSnafu)
 }
 
 #[cfg(test)]

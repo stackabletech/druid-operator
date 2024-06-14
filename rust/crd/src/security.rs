@@ -2,13 +2,14 @@ use crate::{
     authentication::{self, ResolvedAuthenticationClass},
     DruidCluster, DruidRole, METRICS_PORT,
 };
+use crate::{STACKABLE_TRUST_STORE, STACKABLE_TRUST_STORE_PASSWORD};
 use snafu::{ResultExt, Snafu};
 use stackable_operator::{
     builder::pod::{
         container::ContainerBuilder,
         volume::{
-            SecretOperatorVolumeSourceBuilder, SecretOperatorVolumeSourceBuilderError,
-            VolumeBuilder,
+            SecretFormat, SecretOperatorVolumeSourceBuilder,
+            SecretOperatorVolumeSourceBuilderError, VolumeBuilder,
         },
         PodBuilder,
     },
@@ -18,7 +19,6 @@ use stackable_operator::{
     },
 };
 
-use stackable_operator::builder::pod::volume::SecretFormat;
 use std::collections::BTreeMap;
 
 #[derive(Snafu, Debug)]
@@ -431,6 +431,10 @@ pub fn add_cert_to_trust_store_cmd(
     store_password: &str,
 ) -> String {
     format!("keytool -importcert -file {cert} -keystore {trust_store_directory}/truststore.p12 -storetype pkcs12 -alias {alias_name} -storepass {store_password} -noprompt")
+}
+
+pub fn add_cert_to_jvm_trust_store_cmd(cert: &str, alias_name: &str) -> String {
+    format!("keytool -importcert -file {cert} -keystore {STACKABLE_TRUST_STORE} -storetype pkcs12 -alias {alias_name} -storepass {STACKABLE_TRUST_STORE_PASSWORD} -noprompt")
 }
 
 /// Import the system truststore to a truststore named `truststore.p12` in `destination_directory`.

@@ -13,12 +13,10 @@ use product_config::{
 };
 use snafu::{OptionExt, ResultExt, Snafu};
 use stackable_druid_crd::{
-    authentication::{get_resolved_authentication_class, ResolvedAuthenticationClass},
-    authorization::DruidAuthorization,
-    build_recommended_labels, build_string_list,
-    security::DruidTlsSecurity,
-    CommonRoleGroupConfig, Container, DeepStorageSpec, DruidCluster, DruidClusterStatus, DruidRole,
-    APP_NAME, AUTH_AUTHORIZER_OPA_URI, CERTS_DIR, CREDENTIALS_SECRET_PROPERTY, DB_PASSWORD_ENV,
+    authentication::get_resolved_authentication_class, authorization::DruidAuthorization,
+    build_recommended_labels, build_string_list, security::DruidTlsSecurity, CommonRoleGroupConfig,
+    Container, DeepStorageSpec, DruidCluster, DruidClusterStatus, DruidRole, APP_NAME,
+    AUTH_AUTHORIZER_OPA_URI, CERTS_DIR, CREDENTIALS_SECRET_PROPERTY, DB_PASSWORD_ENV,
     DB_USERNAME_ENV, DRUID_CONFIG_DIRECTORY, DS_BUCKET, EXTENSIONS_LOADLIST, HDFS_CONFIG_DIRECTORY,
     JVM_CONFIG, JVM_SECURITY_PROPERTIES_FILE, LOG_CONFIG_DIRECTORY, LOG_DIR,
     MAX_DRUID_LOG_FILES_SIZE, RUNTIME_PROPS, RW_CONFIG_DIRECTORY, S3_ACCESS_KEY, S3_ENDPOINT_URL,
@@ -265,11 +263,6 @@ pub enum Error {
         source: crate::internal_secret::Error,
     },
 
-    #[snafu(display(
-        "failed to access bind credentials although they are required for LDAP to work"
-    ))]
-    LdapBindCredentialsAreRequired,
-
     #[snafu(display("failed to resolve the Vector aggregator address"))]
     ResolveVectorAggregatorAddress {
         source: crate::product_logging::Error,
@@ -325,6 +318,11 @@ pub enum Error {
         source: stackable_operator::commons::secret_class::SecretClassVolumeError,
     },
 
+    #[snafu(display("Failed to add OIDC Volumes and VolumeMounts to the Pod and containers"))]
+    AuthVolumesBuild {
+        source: crate::authentication::Error,
+    },
+
     #[snafu(display("failed to build labels"))]
     LabelBuild { source: LabelError },
 
@@ -336,13 +334,6 @@ pub enum Error {
     #[snafu(display("failed to get required labels"))]
     GetRequiredLabels {
         source: KeyValuePairError<LabelValueError>,
-    },
-
-    #[snafu(display(
-        "there was an error adding LDAP Volumes and VolumeMounts to the Pod and containers"
-    ))]
-    AddLdapVolumes {
-        source: stackable_operator::commons::authentication::ldap::Error,
     },
 
     #[snafu(display("there was an error generating the authentication runtime settings"))]
@@ -954,24 +945,11 @@ fn build_rolegroup_statefulset(
     prepare_container_commands.extend(druid_tls_security.build_tls_key_stores_cmd());
 
     if let Some(auth_settings) = authentication_settings {
-        if let ResolvedAuthenticationClass::Ldap {
-            auth_class_name: _,
-            provider,
-        } = auth_settings.resolved_auth_class.clone()
-        {
-            // TODO: Connecting to an LDAP server without bind credentials does not seem to be configurable in Druid at the moment
-            // see https://github.com/stackabletech/druid-operator/issues/383 for future work.
-            // Expect bind credentials to be provided for now, and throw return a useful error if there are none.
-            if provider.bind_credentials_mount_paths().is_none() {
-                return LdapBindCredentialsAreRequiredSnafu.fail();
-            }
-
-            provider
-                .add_volumes_and_mounts(&mut pb, vec![&mut cb_druid, &mut cb_prepare])
-                .context(AddLdapVolumesSnafu)?;
-        }
-
+        auth_settings
+            .add_volumes_and_mounts(&mut pb, &mut cb_druid, &mut cb_prepare)
+            .context(AuthVolumesBuildSnafu)?;
         prepare_container_commands.extend(auth_settings.prepare_container_commands());
+        main_container_commands.extend(auth_settings.main_container_commands())
     }
 
     // volume and volume mounts

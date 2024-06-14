@@ -1,6 +1,6 @@
 #!/bin/sh
 
-cat << 'EOF' | ldapadd -H ldap://localhost:1389 -D cn=admin,dc=example,dc=org -w admin
+cat << 'EOF' | ldapadd -H ldap://localhost:1389 -D cn=admin,dc=example,dc=org -w "admin-pw withSpace$%\" &&} §"
 dn: uid=alice,ou=users,dc=example,dc=org
 uid: alice
 cn: alice

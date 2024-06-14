@@ -4,7 +4,10 @@ use snafu::Snafu;
 use stackable_druid_crd::{
     authentication::ResolvedAuthenticationClass, DruidCluster, DruidRole, ENV_INTERNAL_SECRET,
 };
-use stackable_operator::k8s_openapi::api::core::v1::EnvVar;
+use stackable_operator::{
+    builder::pod::{container::ContainerBuilder, PodBuilder},
+    k8s_openapi::api::core::v1::EnvVar,
+};
 
 use crate::internal_secret::{build_shared_internal_secret_name, env_var_from_secret};
 
@@ -16,13 +19,25 @@ type Result<T, E = Error> = std::result::Result<T, E>;
 #[derive(Snafu, Debug)]
 pub enum Error {
     #[snafu(display("Failed to create LDAP endpoint url."))]
-    FailedToCreateLdapEndpointUrl {
+    CreateLdapEndpointUrl {
         source: stackable_operator::commons::authentication::ldap::Error,
     },
     #[snafu(display("Failed to create LDAP endpoint url."))]
-    FailedToCreateOidcEndpointUrl {
+    CreateOidcEndpointUrl {
         source: stackable_operator::commons::authentication::oidc::Error,
     },
+    #[snafu(display("Failed to add LDAP Volumes and VolumeMounts to the Pod and containers"))]
+    AddLdapVolumes {
+        source: stackable_operator::commons::authentication::ldap::Error,
+    },
+    #[snafu(display("Failed to add OIDC Volumes and VolumeMounts to the Pod and containers"))]
+    AddOidcVolumes {
+        source: stackable_operator::commons::authentication::tls::TlsClientDetailsError,
+    },
+    #[snafu(display(
+        "failed to access bind credentials although they are required for LDAP to work"
+    ))]
+    MissingLdapBindCredentials,
 }
 
 #[derive(Clone, Debug)]
@@ -76,6 +91,19 @@ impl DruidAuthenticationSettings {
         Ok(config)
     }
 
+    pub fn main_container_commands(&self) -> Vec<String> {
+        let mut command = vec![];
+        match self.resolved_auth_class.clone() {
+            ResolvedAuthenticationClass::Oidc {
+                auth_class_name,
+                provider,
+                oidc: _
+            } => oidc::main_container_commands(auth_class_name, provider, &mut command),
+            _ => (),
+        }
+        command
+    }
+
     pub fn prepare_container_commands(&self) -> Vec<String> {
         let mut command = vec![];
         match self.resolved_auth_class.clone() {
@@ -83,11 +111,6 @@ impl DruidAuthenticationSettings {
                 auth_class_name,
                 provider,
             } => ldap::prepare_container_commands(auth_class_name, provider, &mut command),
-            ResolvedAuthenticationClass::Oidc {
-                auth_class_name,
-                provider,
-                oidc: _,
-            } => oidc::prepare_container_commands(auth_class_name, provider, &mut command),
             _ => (),
         }
         command
@@ -111,6 +134,29 @@ impl DruidAuthenticationSettings {
             _ => (),
         }
         envs
+    }
+
+    pub fn add_volumes_and_mounts(
+        &self,
+        pb: &mut PodBuilder,
+        cb_druid: &mut ContainerBuilder,
+        cb_prepare: &mut ContainerBuilder,
+    ) -> Result<(), Error> {
+        match self.resolved_auth_class.clone() {
+            ResolvedAuthenticationClass::Ldap {
+                auth_class_name: _,
+                provider,
+            } => ldap::add_volumes_and_mounts(provider, pb, cb_druid, cb_prepare),
+            ResolvedAuthenticationClass::Oidc {
+                auth_class_name: _,
+                provider,
+                oidc: _obj,
+            } => oidc::add_volumes_and_mounts(provider, pb, cb_druid, cb_prepare),
+            ResolvedAuthenticationClass::Tls {
+                auth_class_name: _,
+                provider: _,
+            } => Ok(()),
+        }
     }
 
     fn add_druid_system_authenticator_config(&self, config: &mut BTreeMap<String, Option<String>>) {
