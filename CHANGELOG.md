@@ -11,10 +11,13 @@ All notable changes to this project will be documented in this file.
 ### Fixed
 
 - [BREAKING] Move the DB credentials `user` and `password` out of the CRD into a secret containing the keys `username` and `password` ([#557]).
+- Processing of corrupted log events fixed; If errors occur, the error
+  messages are added to the log event ([#572]).
 
 [#547]: https://github.com/stackabletech/druid-operator/pull/547
 [#557]: https://github.com/stackabletech/druid-operator/pull/557
 [#563]: https://github.com/stackabletech/druid-operator/pull/563
+[#572]: https://github.com/stackabletech/druid-operator/pull/572
 
 ## [24.3.0] - 2024-03-20
 
