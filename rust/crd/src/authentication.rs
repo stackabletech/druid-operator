@@ -164,7 +164,7 @@ impl AuthenticationClassesResolved {
                     })
                 }
                 AuthenticationClassProvider::Oidc(provider) => resolved_auth_classes.push(
-                    AuthenticationClassesResolved::from_oidc(&auth_class_name, provider, &entry)?,
+                    AuthenticationClassesResolved::from_oidc(&auth_class_name, provider, entry)?,
                 ),
                 _ => AuthenticationClassProviderNotSupportedSnafu {
                     authentication_class_provider: auth_class.spec.provider.to_string(),
@@ -212,7 +212,7 @@ impl AuthenticationClassesResolved {
     }
 
     pub fn tls_authentication_enabled(&self) -> bool {
-        if self.auth_classes.len() > 0 {
+        if self.auth_classes.is_empty() {
             if let Some(AuthenticationClassResolved::Tls { .. }) = self.auth_classes.first() {
                 return true;
             }
@@ -220,17 +220,8 @@ impl AuthenticationClassesResolved {
         false
     }
 
-    pub fn ldap_authentication_enabled(&self) -> bool {
-        if self.auth_classes.len() > 0 {
-            if let Some(AuthenticationClassResolved::Ldap { .. }) = self.auth_classes.first() {
-                return true;
-            }
-        }
-        false
-    }
-
     pub fn oidc_authentication_enabled(&self) -> bool {
-        if self.auth_classes.len() > 0 {
+        if self.auth_classes.is_empty() {
             if let Some(AuthenticationClassResolved::Oidc { .. }) = self.auth_classes.first() {
                 return true;
             }
@@ -648,9 +639,7 @@ zookeeperConfigMapName: zk-config-map
 
         let resolve_auth_class = create_auth_class_resolver(auth_classes);
 
-        let result =
-            AuthenticationClassesResolved::resolve(&cluster_config, resolve_auth_class).await;
-        return result;
+        AuthenticationClassesResolved::resolve(&cluster_config, resolve_auth_class).await
     }
 
     /// Deserialize the given list of
