@@ -94,7 +94,7 @@ pub fn generate_runtime_properties_config(
             );
         }
         _ => {
-            add_authenticator_config(&provider, oidc, config)?;
+            add_authenticator_config(provider, oidc, config)?;
             add_authorizer_config(config)
         }
     }
