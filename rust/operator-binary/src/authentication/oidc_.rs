@@ -19,7 +19,7 @@ use crate::{
 
 fn add_authenticator_config(
     provider: &AuthenticationProvider,
-    oidc: ClientAuthenticationOptions,
+    oidc: &ClientAuthenticationOptions,
     config: &mut BTreeMap<String, Option<String>>,
 ) -> Result<(), Error> {
     let endpoint_url = &provider
@@ -81,8 +81,8 @@ fn add_authorizer_config(config: &mut BTreeMap<String, Option<String>>) {
 }
 
 pub fn generate_runtime_properties_config(
-    provider: AuthenticationProvider,
-    oidc: ClientAuthenticationOptions,
+    provider: &AuthenticationProvider,
+    oidc: &ClientAuthenticationOptions,
     role: &DruidRole,
     config: &mut BTreeMap<String, Option<String>>,
 ) -> Result<(), Error> {
@@ -102,8 +102,8 @@ pub fn generate_runtime_properties_config(
 }
 
 pub fn main_container_commands(
-    auth_class_name: String,
-    provider: AuthenticationProvider,
+    auth_class_name: &String,
+    provider: &AuthenticationProvider,
     command: &mut Vec<String>,
 ) {
     if let Some(tls_ca_cert_mount_path) = provider.tls.tls_ca_cert_mount_path() {
@@ -116,7 +116,7 @@ pub fn main_container_commands(
 
 pub fn get_env_var_mounts(
     role: &DruidRole,
-    oidc: ClientAuthenticationOptions,
+    oidc: &ClientAuthenticationOptions,
     internal_secret_name: &str,
 ) -> Vec<EnvVar> {
     let mut envs = vec![];
@@ -124,7 +124,7 @@ pub fn get_env_var_mounts(
         DruidRole::MiddleManager => (),
         _ => {
             envs.extend(AuthenticationProvider::client_credentials_env_var_mounts(
-                oidc.client_credentials_secret_ref,
+                oidc.client_credentials_secret_ref.to_owned(),
             ));
             envs.push(env_var_from_secret(
                 internal_secret_name,
@@ -137,7 +137,7 @@ pub fn get_env_var_mounts(
 }
 
 pub fn add_volumes_and_mounts(
-    provider: AuthenticationProvider,
+    provider: &AuthenticationProvider,
     pb: &mut PodBuilder,
     cb_druid: &mut ContainerBuilder,
     cb_prepare: &mut ContainerBuilder,

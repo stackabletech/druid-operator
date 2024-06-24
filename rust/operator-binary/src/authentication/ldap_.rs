@@ -15,7 +15,7 @@ use crate::authentication::{
 };
 
 fn add_authenticator_config(
-    provider: AuthenticationProvider,
+    provider: &AuthenticationProvider,
     config: &mut BTreeMap<String, Option<String>>,
 ) -> Result<(), Error> {
     const PREFIX: &str = "druid.auth.authenticator.Ldap";
@@ -88,7 +88,7 @@ fn add_authorizer_config(config: &mut BTreeMap<String, Option<String>>) {
 }
 
 pub fn generate_runtime_properties_config(
-    provider: AuthenticationProvider,
+    provider: &AuthenticationProvider,
     config: &mut BTreeMap<String, Option<String>>,
 ) -> Result<(), Error> {
     add_authenticator_config(provider, config)?;
@@ -98,8 +98,8 @@ pub fn generate_runtime_properties_config(
 }
 
 pub fn prepare_container_commands(
-    auth_class_name: String,
-    provider: AuthenticationProvider,
+    auth_class_name: &String,
+    provider: &AuthenticationProvider,
     command: &mut Vec<String>,
 ) {
     if let Some(tls_ca_cert_mount_path) = provider.tls.tls_ca_cert_mount_path() {
@@ -113,7 +113,7 @@ pub fn prepare_container_commands(
 }
 
 pub fn add_volumes_and_mounts(
-    provider: AuthenticationProvider,
+    provider: &AuthenticationProvider,
     pb: &mut PodBuilder,
     cb_druid: &mut ContainerBuilder,
     cb_prepare: &mut ContainerBuilder,

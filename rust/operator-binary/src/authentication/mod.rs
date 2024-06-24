@@ -1,23 +1,32 @@
 use std::collections::BTreeMap;
 
-use snafu::Snafu;
+use snafu::{OptionExt, Snafu};
 use stackable_druid_crd::{
-    authentication::ResolvedAuthenticationClass, DruidCluster, DruidRole, ENV_INTERNAL_SECRET,
+    authentication::{AuthenticationClassResolved, AuthenticationClassesResolved},
+    DruidCluster, DruidRole, ENV_INTERNAL_SECRET,
 };
 use stackable_operator::{
     builder::pod::{container::ContainerBuilder, PodBuilder},
+    commons::authentication::{
+        ldap,
+        oidc::{self, ClientAuthenticationOptions},
+        tls,
+    },
     k8s_openapi::api::core::v1::EnvVar,
 };
 
-use crate::internal_secret::{build_shared_internal_secret_name, env_var_from_secret};
+pub mod ldap_;
+pub mod oidc_;
 
-pub mod ldap;
-pub mod oidc;
+use crate::internal_secret::{build_shared_internal_secret_name, env_var_from_secret};
 
 type Result<T, E = Error> = std::result::Result<T, E>;
 
 #[derive(Snafu, Debug)]
 pub enum Error {
+    #[snafu(display("Only one authentication mechanism is supported by Druid."))]
+    SingleAuthenticationMechanismSupported,
+
     #[snafu(display("Failed to create LDAP endpoint url."))]
     CreateLdapEndpointUrl {
         source: stackable_operator::commons::authentication::ldap::Error,
@@ -41,20 +50,55 @@ pub enum Error {
 }
 
 #[derive(Clone, Debug)]
-pub struct DruidAuthenticationSettings {
-    pub resolved_auth_class: ResolvedAuthenticationClass,
+pub enum DruidAuthenticationConfig {
+    Tls {
+        provider: tls::AuthenticationProvider,
+    },
+    Ldap {
+        auth_class_name: String,
+        provider: ldap::AuthenticationProvider,
+    },
+    Oidc {
+        auth_class_name: String,
+        provider: oidc::AuthenticationProvider,
+        oidc: ClientAuthenticationOptions,
+    },
 }
 
-impl DruidAuthenticationSettings {
-    pub fn new_from(
-        resolved_auth_class_opt: Option<ResolvedAuthenticationClass>,
-    ) -> Option<DruidAuthenticationSettings> {
-        if let Some(resolved_auth_class) = resolved_auth_class_opt {
-            return Some(DruidAuthenticationSettings {
-                resolved_auth_class,
-            });
+impl DruidAuthenticationConfig {
+    pub fn try_from(
+        auth_classes_resolved: AuthenticationClassesResolved,
+    ) -> Result<Option<Self>, Error> {
+        // Currently only one auth mechanism is supported in Druid. This is checked in
+        // rust/crd/src/authentication.rs and just a fail-safe here. For Future changes,
+        // this is not just a "from" without error handling
+
+        let auth_class_resolved = auth_classes_resolved
+            .auth_classes
+            .first()
+            .context(SingleAuthenticationMechanismSupportedSnafu)?;
+
+        match &auth_class_resolved {
+            AuthenticationClassResolved::Tls { provider } => Ok(Some(Self::Tls {
+                provider: provider.clone(),
+            })),
+            AuthenticationClassResolved::Ldap {
+                auth_class_name,
+                provider,
+            } => Ok(Some(Self::Ldap {
+                auth_class_name: auth_class_name.to_string(),
+                provider: provider.clone(),
+            })),
+            AuthenticationClassResolved::Oidc {
+                auth_class_name,
+                provider,
+                oidc,
+            } => Ok(Some(Self::Oidc {
+                auth_class_name: auth_class_name.to_string(),
+                provider: provider.clone(),
+                oidc: oidc.clone(),
+            })),
         }
-        None
     }
 
     pub fn generate_runtime_properties_config(
@@ -71,45 +115,39 @@ impl DruidAuthenticationSettings {
             Some(r#"allowAll"#.to_string()),
         );
 
-        match self.resolved_auth_class.clone() {
-            ResolvedAuthenticationClass::Ldap {
-                auth_class_name: _,
-                provider,
-            } => ldap::generate_runtime_properties_config(provider, &mut config)?,
-            ResolvedAuthenticationClass::Oidc {
-                auth_class_name: _,
-                provider,
-                oidc,
-            } => oidc::generate_runtime_properties_config(provider, oidc, role, &mut config)?,
-            ResolvedAuthenticationClass::Tls {
-                auth_class_name: _,
-                provider: _,
-            } => (),
+        match self {
+            DruidAuthenticationConfig::Ldap { provider, .. } => {
+                ldap_::generate_runtime_properties_config(provider, &mut config)?
+            }
+            DruidAuthenticationConfig::Oidc { provider, oidc, .. } => {
+                oidc_::generate_runtime_properties_config(provider, oidc, role, &mut config)?
+            }
+            DruidAuthenticationConfig::Tls { .. } => (),
         }
         Ok(config)
     }
 
     pub fn main_container_commands(&self) -> Vec<String> {
         let mut command = vec![];
-        if let ResolvedAuthenticationClass::Oidc {
+        if let DruidAuthenticationConfig::Oidc {
             auth_class_name,
             provider,
-            oidc: _,
-        } = self.resolved_auth_class.clone()
+            ..
+        } = self
         {
-            oidc::main_container_commands(auth_class_name, provider, &mut command)
+            oidc_::main_container_commands(auth_class_name, provider, &mut command)
         }
         command
     }
 
     pub fn prepare_container_commands(&self) -> Vec<String> {
         let mut command = vec![];
-        if let ResolvedAuthenticationClass::Ldap {
+        if let DruidAuthenticationConfig::Ldap {
             auth_class_name,
             provider,
-        } = self.resolved_auth_class.clone()
+        } = self
         {
-            ldap::prepare_container_commands(auth_class_name, provider, &mut command)
+            ldap_::prepare_container_commands(auth_class_name, provider, &mut command)
         }
         command
     }
@@ -123,13 +161,8 @@ impl DruidAuthenticationSettings {
             ENV_INTERNAL_SECRET,
         ));
 
-        if let ResolvedAuthenticationClass::Oidc {
-            auth_class_name: _,
-            provider: _,
-            oidc,
-        } = self.resolved_auth_class.clone()
-        {
-            envs.extend(oidc::get_env_var_mounts(role, oidc, &internal_secret_name))
+        if let DruidAuthenticationConfig::Oidc { oidc, .. } = self {
+            envs.extend(oidc_::get_env_var_mounts(role, oidc, &internal_secret_name))
         }
         envs
     }
@@ -140,20 +173,14 @@ impl DruidAuthenticationSettings {
         cb_druid: &mut ContainerBuilder,
         cb_prepare: &mut ContainerBuilder,
     ) -> Result<(), Error> {
-        match self.resolved_auth_class.clone() {
-            ResolvedAuthenticationClass::Ldap {
-                auth_class_name: _,
-                provider,
-            } => ldap::add_volumes_and_mounts(provider, pb, cb_druid, cb_prepare),
-            ResolvedAuthenticationClass::Oidc {
-                auth_class_name: _,
-                provider,
-                oidc: _obj,
-            } => oidc::add_volumes_and_mounts(provider, pb, cb_druid, cb_prepare),
-            ResolvedAuthenticationClass::Tls {
-                auth_class_name: _,
-                provider: _,
-            } => Ok(()),
+        match self {
+            DruidAuthenticationConfig::Ldap { provider, .. } => {
+                ldap_::add_volumes_and_mounts(provider, pb, cb_druid, cb_prepare)
+            }
+            DruidAuthenticationConfig::Oidc { provider, .. } => {
+                oidc_::add_volumes_and_mounts(provider, pb, cb_druid, cb_prepare)
+            }
+            DruidAuthenticationConfig::Tls { .. } => Ok(()),
         }
     }
 
@@ -198,18 +225,6 @@ impl DruidAuthenticationSettings {
             Some("DruidSystemAuthorizer".to_string()),
         );
     }
-
-    pub fn oidc_enabled(&self) -> bool {
-        if let ResolvedAuthenticationClass::Oidc {
-            auth_class_name: _,
-            provider: _,
-            oidc: _,
-        } = self.resolved_auth_class.clone()
-        {
-            return true;
-        }
-        false
-    }
 }
 
 #[cfg(test)]
@@ -219,9 +234,9 @@ mod test {
     use super::*;
 
     #[test]
-    fn test_ldap_settings_are_added() {
-        let auth_settings = DruidAuthenticationSettings {
-            resolved_auth_class: ResolvedAuthenticationClass::Ldap {
+    fn test_ldap_config_is_added() {
+        let auth_config = DruidAuthenticationConfig::try_from(AuthenticationClassesResolved {
+            auth_classes: vec![AuthenticationClassResolved::Ldap {
                 auth_class_name: "ldap".to_string(),
                 provider: serde_yaml::from_str::<LdapAuthenticationProvider>(
                     "
@@ -231,12 +246,14 @@ mod test {
                 ",
                 )
                 .unwrap(),
-            },
-        };
+            }],
+        })
+        .unwrap()
+        .unwrap();
 
         let role = DruidRole::Coordinator;
 
-        let got = auth_settings
+        let got = auth_config
             .generate_runtime_properties_config(&role)
             .unwrap();
 

@@ -1,5 +1,5 @@
 use crate::{
-    authentication::{self, ResolvedAuthenticationClass},
+    authentication::{self, AuthenticationClassesResolved},
     DruidCluster, DruidRole, METRICS_PORT,
 };
 use crate::{STACKABLE_TRUST_STORE, STACKABLE_TRUST_STORE_PASSWORD};
@@ -34,7 +34,7 @@ pub enum Error {
 
 /// Helper struct combining TLS settings for server and internal tls with the resolved AuthenticationClasses
 pub struct DruidTlsSecurity {
-    resolved_auth_class: Option<ResolvedAuthenticationClass>,
+    auth_classes: AuthenticationClassesResolved,
     server_and_internal_secret_class: Option<String>,
 }
 
@@ -88,11 +88,11 @@ const TLS_MOUNT_VOLUME_NAME: &str = "tls-mount";
 
 impl DruidTlsSecurity {
     pub fn new(
-        resolved_auth_class: &Option<ResolvedAuthenticationClass>,
+        auth_classes: &AuthenticationClassesResolved,
         server_and_internal_secret_class: Option<String>,
     ) -> Self {
         Self {
-            resolved_auth_class: resolved_auth_class.clone(),
+            auth_classes: auth_classes.clone(),
             server_and_internal_secret_class,
         }
     }
@@ -101,10 +101,10 @@ impl DruidTlsSecurity {
     /// all provided `AuthenticationClass` references.
     pub fn new_from_druid_cluster(
         druid: &DruidCluster,
-        resolved_auth_class: &Option<ResolvedAuthenticationClass>,
+        auth_classes: &AuthenticationClassesResolved,
     ) -> Self {
         DruidTlsSecurity {
-            resolved_auth_class: resolved_auth_class.clone(),
+            auth_classes: auth_classes.clone(),
             server_and_internal_secret_class: druid
                 .spec
                 .cluster_config
@@ -121,13 +121,8 @@ impl DruidTlsSecurity {
     /// the Druid client port
     pub fn tls_enabled(&self) -> bool {
         // TODO: This must be adapted if other authentication methods are supported and require TLS
-        match self.resolved_auth_class {
-            Some(ResolvedAuthenticationClass::Tls {
-                auth_class_name: _,
-                provider: _,
-            }) => true,
-            _ => self.tls_server_and_internal_secret_class().is_some(),
-        }
+        self.auth_classes.tls_authentication_enabled()
+            || self.tls_server_and_internal_secret_class().is_some()
     }
 
     /// Retrieve an optional TLS secret class for external client -> server and server <-> server communications.
@@ -247,11 +242,7 @@ impl DruidTlsSecurity {
             Self::add_tls_encryption_config_properties(config, STACKABLE_TLS_DIR, TLS_ALIAS_NAME);
         }
 
-        if let Some(ResolvedAuthenticationClass::Tls {
-            auth_class_name: _,
-            provider: _,
-        }) = self.resolved_auth_class
-        {
+        if self.auth_classes.tls_authentication_enabled() {
             Self::add_tls_auth_config_properties(config, STACKABLE_TLS_DIR, TLS_ALIAS_NAME);
         }
     }
