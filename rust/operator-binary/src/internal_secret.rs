@@ -71,7 +71,7 @@ pub async fn create_shared_internal_secret(
                 // great back than, *but* we now need something more flexible. AFAIK we can not make the Secret mutable,
                 // so there seems to be no other way than to re-create it. We *could* read in the contents and use them
                 // during the re-creation (so we don't change the contents to avoid downtime), but we strive that our
-                // operators don't read Secret contents and it's a one time migration thing.
+                // operators don't handle Secret contents and it's a one time migration thing.
 
                 tracing::warn!(
                     secret_name = secret.name_any(),
