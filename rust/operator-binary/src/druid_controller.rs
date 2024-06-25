@@ -724,7 +724,7 @@ fn build_rolegroup_config_map(
                         conf.insert(
                             S3_SECRET_KEY.to_string(),
                             Some(format!(
-                                "${{file:UTF-8:{S3_SECRET_DIR_NAME}/{SECRET_KEY_S3_SECRET_KEY}]]"
+                                "${{file:UTF-8:{S3_SECRET_DIR_NAME}/{SECRET_KEY_S3_SECRET_KEY}}}"
                             )),
                         );
                     }

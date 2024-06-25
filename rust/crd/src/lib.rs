@@ -555,6 +555,8 @@ impl DruidRole {
             rw_conf = RW_CONFIG_DIRECTORY,
         ));
 
+        // TODO: Run config-utils
+
         commands
     }
 
