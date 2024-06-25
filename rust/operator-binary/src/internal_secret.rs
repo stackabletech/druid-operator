@@ -35,7 +35,7 @@ pub async fn create_shared_internal_secret(
     controller_name: &str,
 ) -> Result<(), Error> {
     let secret = build_shared_internal_secret(druid)?;
-    if client
+    if !client
         .get_opt::<Secret>(
             &secret.name_any(),
             secret
@@ -45,12 +45,25 @@ pub async fn create_shared_internal_secret(
         )
         .await
         .context(FailedToRetrieveInternalSecretSnafu)?
-        .is_none()
+        .and_then(|s| s.data)
+        // It might be the case that the Secret already exists but has the wrong content, so let's check that the
+        // required keys are there
+        .map(|d| d.contains_key(INTERNAL_INITIAL_CLIENT_PASSWORD_ENV))
+        .unwrap_or_default()
     {
+        tracing::info!(
+            secret_name = secret.name_any(),
+            "Did not found a shared internal secret with the necesarry data, creating on"
+        );
         client
             .apply_patch(controller_name, &secret, &secret)
             .await
             .context(ApplyInternalSecretSnafu)?;
+    } else {
+        tracing::debug!(
+            secret_name = secret.name_any(),
+            "Found existing shared internal secret which contains the data I'd expect"
+        );
     }
 
     Ok(())
