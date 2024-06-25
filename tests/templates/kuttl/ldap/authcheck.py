@@ -2,7 +2,7 @@ import requests
 import sys
 import logging
 
-USER_NAME = "cn=integrationtest,ou=my users,dc=example,dc=org"
+USER_NAME = "integrationtest"
 USER_PASSWORD = "bindPasswordWithSpecialCharacter\\@<&>\"'"
 
 def main():

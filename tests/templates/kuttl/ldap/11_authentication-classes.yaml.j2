@@ -8,8 +8,13 @@ spec:
     ldap:
       hostname: openldap.$NAMESPACE.svc.cluster.local
       searchBase: ou=my users,dc=example,dc=org
+      searchFilter: (uid=%s)
+{% if test_scenario['values']['ldap-no-bind-credentials'] == 'true' %}
+      bindCredentials: null
+{% else %}
       bindCredentials:
         secretClass: druid-with-ldap-bind
+{% endif %}
 {% if test_scenario['values']['ldap-use-tls'] == 'false' %}
       port: 1389
 {% else %}
