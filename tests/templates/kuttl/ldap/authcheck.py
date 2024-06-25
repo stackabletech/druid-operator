@@ -2,6 +2,8 @@ import requests
 import sys
 import logging
 
+USER_NAME = "cn=integrationtest,ou=my users,dc=example,dc=org"
+USER_PASSWORD = "bindPasswordWithSpecialCharacter\\@<&>\"'"
 
 def main():
     result = 0
@@ -30,8 +32,8 @@ def main():
         else:
             logging.info("success")
         # make an authorized request -> return 200 expected
-        logging.info(f"making request as LDAP user [alice] to {role}")
-        res = requests.get(url, auth=("alice", "alice"), verify=False)
+        logging.info(f"making request as LDAP user [{USER_NAME}] to {role}")
+        res = requests.get(url, auth=(USER_NAME, USER_PASSWORD), verify=False)
         if res.status_code != 200:
             logging.error(f"expected 200 but got {res.status_code}")
             result = 1
