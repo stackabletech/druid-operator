@@ -555,7 +555,11 @@ impl DruidRole {
             rw_conf = RW_CONFIG_DIRECTORY,
         ));
 
-        // TODO: Run config-utils
+        commands.extend([
+            format!("config-utils template {RW_CONFIG_DIRECTORY}/runtime.properties",),
+            format!("if test -f {RW_CONFIG_DIRECTORY}/core-site.xml; then config-utils template {RW_CONFIG_DIRECTORY}/core-site.xml; fi",),
+            format!("if test -f {RW_CONFIG_DIRECTORY}/hdfs-site.xml; then config-utils template {RW_CONFIG_DIRECTORY}/hdfs-site.xml; fi",),
+        ]);
 
         commands
     }
