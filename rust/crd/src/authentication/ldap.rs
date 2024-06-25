@@ -6,9 +6,9 @@ use stackable_operator::commons::authentication::AuthenticationClassProvider;
 use stackable_operator::kube::ResourceExt;
 
 use crate::authentication::ResolvedAuthenticationClasses;
-use crate::{
-    security::{add_cert_to_trust_store_cmd, STACKABLE_TLS_DIR, TLS_STORE_PASSWORD},
-    ENV_INTERNAL_SECRET,
+use crate::security::{
+    add_cert_to_trust_store_cmd, ESCALATOR_INTERNAL_CLIENT_PASSWORD_ENV,
+    INTERNAL_INITIAL_CLIENT_PASSWORD_ENV, STACKABLE_TLS_DIR, TLS_STORE_PASSWORD,
 };
 
 #[derive(Snafu, Debug)]
@@ -58,7 +58,7 @@ impl DruidLdapSettings {
 
         config.insert(
             format!("{PREFIX}.initialInternalClientPassword"),
-            Some(format!("${{env:{ENV_INTERNAL_SECRET}}}").to_string()),
+            Some(format!("${{env:{INTERNAL_INITIAL_CLIENT_PASSWORD_ENV}}}").to_string()),
         );
         config.insert(
             format!("{PREFIX}.authorizerName"),
@@ -136,7 +136,7 @@ impl DruidLdapSettings {
         );
         config.insert(
             "druid.escalator.internalClientPassword".to_string(),
-            Some(format!("${{env:{ENV_INTERNAL_SECRET}}}").to_string()),
+            Some(format!("${{env:{ESCALATOR_INTERNAL_CLIENT_PASSWORD_ENV}}}").to_string()),
         );
         config.insert(
             "druid.escalator.authorizerName".to_string(),

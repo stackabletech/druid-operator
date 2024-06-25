@@ -134,8 +134,6 @@ pub const SC_LOCATIONS: &str = "druid.segmentCache.locations";
 pub const SC_DIRECTORY: &str = "/stackable/var/druid/segment-cache";
 pub const SC_VOLUME_NAME: &str = "segment-cache";
 
-pub const ENV_INTERNAL_SECRET: &str = "INTERNAL_SECRET";
-
 // DB credentials - both of these are read from an env var by Druid with the ${env:...} syntax
 pub const DB_USERNAME_ENV: &str = "DB_USERNAME_ENV";
 pub const DB_PASSWORD_ENV: &str = "DB_PASSWORD_ENV";
@@ -156,16 +154,21 @@ pub enum Error {
     ResolveS3Connection {
         source: stackable_operator::commons::s3::Error,
     },
+
     #[snafu(display("failed to resolve S3 bucket"))]
     ResolveS3Bucket {
         source: stackable_operator::commons::s3::Error,
     },
+
     #[snafu(display("2 differing s3 connections were given, this is unsupported by Druid"))]
     IncompatibleS3Connections,
+
     #[snafu(display("the role group {rolegroup_name} is not defined"))]
     CannotRetrieveRoleGroup { rolegroup_name: String },
+
     #[snafu(display("missing namespace for resource {name}"))]
     MissingNamespace { name: String },
+
     #[snafu(display("fragment validation failure"))]
     FragmentValidationFailure { source: ValidationError },
 }

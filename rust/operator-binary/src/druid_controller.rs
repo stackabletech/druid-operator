@@ -16,11 +16,13 @@ use stackable_druid_crd::{
     authentication::ldap::DruidLdapSettings,
     authorization::DruidAuthorization,
     build_recommended_labels, build_string_list,
-    security::{resolve_authentication_classes, DruidTlsSecurity},
+    security::{
+        resolve_authentication_classes, DruidTlsSecurity, INTERNAL_INITIAL_CLIENT_PASSWORD_ENV,
+    },
     CommonRoleGroupConfig, Container, DeepStorageSpec, DruidCluster, DruidClusterStatus, DruidRole,
     APP_NAME, AUTH_AUTHORIZER_OPA_URI, CERTS_DIR, CREDENTIALS_SECRET_PROPERTY, DB_PASSWORD_ENV,
-    DB_USERNAME_ENV, DRUID_CONFIG_DIRECTORY, DS_BUCKET, ENV_INTERNAL_SECRET, EXTENSIONS_LOADLIST,
-    HDFS_CONFIG_DIRECTORY, JVM_CONFIG, JVM_SECURITY_PROPERTIES_FILE, LOG_CONFIG_DIRECTORY, LOG_DIR,
+    DB_USERNAME_ENV, DRUID_CONFIG_DIRECTORY, DS_BUCKET, EXTENSIONS_LOADLIST, HDFS_CONFIG_DIRECTORY,
+    JVM_CONFIG, JVM_SECURITY_PROPERTIES_FILE, LOG_CONFIG_DIRECTORY, LOG_DIR,
     MAX_DRUID_LOG_FILES_SIZE, RUNTIME_PROPS, RW_CONFIG_DIRECTORY, S3_ACCESS_KEY, S3_ENDPOINT_URL,
     S3_PATH_STYLE_ACCESS, S3_SECRET_DIR_NAME, S3_SECRET_KEY, SECRET_KEY_S3_ACCESS_KEY,
     SECRET_KEY_S3_SECRET_KEY, ZOOKEEPER_CONNECTION_STRING,
@@ -1021,7 +1023,11 @@ fn build_rolegroup_statefulset(
         .collect::<Vec<_>>();
 
     let secret_name = build_shared_internal_secret_name(druid);
-    rest_env.push(env_var_from_secret(&secret_name, None, ENV_INTERNAL_SECRET));
+    rest_env.push(env_var_from_secret(
+        &secret_name,
+        None,
+        INTERNAL_INITIAL_CLIENT_PASSWORD_ENV,
+    ));
 
     // load database credentials to environment variables: these will be used to replace
     // the placeholders in runtime.properties so that the operator does not "touch" the secret.
