@@ -102,7 +102,7 @@ const TLS_VOLUME_NAME: &str = "tls";
 const TLS_MOUNT_VOLUME_NAME: &str = "tls-mount";
 
 pub const INTERNAL_INITIAL_CLIENT_PASSWORD_ENV: &str = "INTERNAL_INITIAL_CLIENT_PASSWORD";
-// Let's just re-use the secret we generated above.
+// It seems this needs to be the same password for Druid to work, so we re-use the existing env variable from above.
 pub const ESCALATOR_INTERNAL_CLIENT_PASSWORD_ENV: &str = INTERNAL_INITIAL_CLIENT_PASSWORD_ENV;
 
 impl DruidTlsSecurity {
