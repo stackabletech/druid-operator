@@ -58,7 +58,7 @@ pub async fn create_shared_internal_secret(
         None => {
             tracing::info!(
                 secret_name = secret.name_any(),
-                "Did not found a shared internal secret with the necesarry data, creating one"
+                "Did not found a shared internal secret with the necessary data, creating one"
             );
             client
                 .apply_patch(controller_name, &secret, &secret)
@@ -67,7 +67,7 @@ pub async fn create_shared_internal_secret(
         }
         Some(existing_secret) => {
             if existing_secret.immutable == Some(true) {
-                // Before 2024-06-25 we did set `spec.immutable` to avoid accidentially chaning the contents. Which was
+                // Before 2024-06-25 we did set `spec.immutable` to avoid accidentally changing the contents. Which was
                 // great back than, *but* we now need something more flexible. AFAIK we can not make the Secret mutable,
                 // so there seems to be no other way than to re-create it. We *could* read in the contents and use them
                 // during the re-creation (so we don't change the contents to avoid downtime), but we strive that our
