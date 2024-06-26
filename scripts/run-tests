@@ -85,12 +85,6 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     )
 
     parser.add_argument(
-        "--skip-tests",
-        help="Do not actually run the tests.",
-        action="store_true",
-    )
-
-    parser.add_argument(
         "--parallel",
         help="How many tests to run in parallel. Default 2.",
         type=int,
