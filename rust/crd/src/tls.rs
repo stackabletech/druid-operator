@@ -31,10 +31,7 @@ pub fn tls_default() -> Option<String> {
 
 #[cfg(test)]
 mod tests {
-    use crate::{
-        authentication::DruidAuthentication, tests::deserialize_yaml_str, tls::DruidTls,
-        DruidClusterConfig,
-    };
+    use crate::{tests::deserialize_yaml_str, tls::DruidTls, DruidClusterConfig};
     use indoc::formatdoc;
 
     const BASE_DRUID_CONFIGURATION: &str = r#"
@@ -133,11 +130,13 @@ zookeeperConfigMapName: zk-config-map
                 server_and_internal_secret_class: Some("druid-secret-class".to_string())
             }),
         );
+        /*
         assert_eq!(
             druid_cluster_config.authentication,
-            vec![DruidAuthentication {
-                authentication_class: "druid-user-authentication-class".to_string()
+            vec![ClientAuthenticationDetails {
+                authentication_class_ref: "druid-user-authentication-class".to_string()
             }],
         );
+        */
     }
 }

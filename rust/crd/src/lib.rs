@@ -9,7 +9,6 @@ pub mod tls;
 
 use crate::{
     affinity::get_affinity,
-    authentication::DruidAuthentication,
     authorization::DruidAuthorization,
     resource::RoleResource,
     tls::{default_druid_tls, DruidTls},
@@ -23,7 +22,10 @@ use stackable_operator::{
     client::Client,
     commons::{
         affinity::StackableAffinity,
-        authentication::tls::{CaCert, Tls, TlsServerVerification, TlsVerification},
+        authentication::{
+            tls::{CaCert, Tls, TlsServerVerification, TlsVerification},
+            ClientAuthenticationDetails,
+        },
         cluster_operation::ClusterOperation,
         product_image_selection::ProductImage,
         resources::{NoRuntimeLimits, Resources},
@@ -93,6 +95,8 @@ pub const DS_DIRECTORY: &str = "druid.storage.storageDirectory";
 pub const DS_BUCKET: &str = "druid.storage.bucket";
 pub const DS_BASE_KEY: &str = "druid.storage.baseKey";
 pub const S3_ENDPOINT_URL: &str = "druid.s3.endpoint.url";
+pub const S3_ACCESS_KEY: &str = "druid.s3.accessKey";
+pub const S3_SECRET_KEY: &str = "druid.s3.secretKey";
 pub const S3_PATH_STYLE_ACCESS: &str = "druid.s3.enablePathStyleAccess";
 // OPA
 pub const AUTH_AUTHORIZERS: &str = "druid.auth.authorizers";
@@ -125,20 +129,17 @@ pub const PROMETHEUS_PORT: &str = "druid.emitter.prometheus.port";
 pub const METRICS_PORT: u16 = 9090;
 // container locations
 pub const S3_SECRET_DIR_NAME: &str = "/stackable/secrets";
-const ENV_S3_ACCESS_KEY: &str = "AWS_ACCESS_KEY_ID";
-const ENV_S3_SECRET_KEY: &str = "AWS_SECRET_ACCESS_KEY";
-const SECRET_KEY_S3_ACCESS_KEY: &str = "accessKey";
-const SECRET_KEY_S3_SECRET_KEY: &str = "secretKey";
+pub const SECRET_KEY_S3_ACCESS_KEY: &str = "accessKey";
+pub const SECRET_KEY_S3_SECRET_KEY: &str = "secretKey";
 // segment storage
 pub const SC_LOCATIONS: &str = "druid.segmentCache.locations";
 pub const SC_DIRECTORY: &str = "/stackable/var/druid/segment-cache";
 pub const SC_VOLUME_NAME: &str = "segment-cache";
 
 pub const ENV_INTERNAL_SECRET: &str = "INTERNAL_SECRET";
+pub const ENV_COOKIE_PASSPHRASE: &str = "OIDC_COOKIE_PASSPHRASE";
 
-// DB credentials
-pub const DB_USERNAME_PLACEHOLDER: &str = "xxx_db_username_xxx";
-pub const DB_PASSWORD_PLACEHOLDER: &str = "xxx_db_password_xxx";
+// DB credentials - both of these are read from an env var by Druid with the ${env:...} syntax
 pub const DB_USERNAME_ENV: &str = "DB_USERNAME_ENV";
 pub const DB_PASSWORD_ENV: &str = "DB_PASSWORD_ENV";
 
@@ -251,13 +252,13 @@ pub struct DruidClusterConfig {
     pub additional_extensions: HashSet<String>,
 
     /// List of [AuthenticationClasses](DOCS_BASE_URL_PLACEHOLDER/concepts/authentication)
-    /// to use for authenticating users. TLS and LDAP authentication are supported. More information in
+    /// to use for authenticating users. TLS, LDAP and OIDC authentication are supported. More information in
     /// the [Druid operator security documentation](DOCS_BASE_URL_PLACEHOLDER/druid/usage-guide/security#_authentication).
     ///
     /// For TLS: Please note that the SecretClass used to authenticate users needs to be the same
     /// as the SecretClass used for internal communication.
     #[serde(default)]
-    pub authentication: Vec<DruidAuthentication>,
+    pub authentication: Vec<ClientAuthenticationDetails>,
 
     /// Authorization settings for Druid like OPA
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -518,7 +519,6 @@ impl DruidRole {
     pub fn main_container_prepare_commands(
         &self,
         s3_connection: Option<&S3ConnectionSpec>,
-        credentials_secret: Option<&String>,
     ) -> Vec<String> {
         let mut commands = vec![];
 
@@ -531,11 +531,6 @@ impl DruidRole {
             }) = &s3_connection.tls
             {
                 commands.push(format!("keytool -importcert -file {CERTS_DIR}/{secret_class}-tls-certificate/ca.crt -alias stackable-{secret_class} -keystore {STACKABLE_TRUST_STORE} -storepass {STACKABLE_TRUST_STORE_PASSWORD} -noprompt"));
-            }
-
-            if s3_connection.credentials.is_some() {
-                commands.push(format!("export {ENV_S3_ACCESS_KEY}=$(cat {S3_SECRET_DIR_NAME}/{SECRET_KEY_S3_ACCESS_KEY})"));
-                commands.push(format!("export {ENV_S3_SECRET_KEY}=$(cat {S3_SECRET_DIR_NAME}/{SECRET_KEY_S3_SECRET_KEY})"));
             }
         }
 
@@ -559,15 +554,6 @@ impl DruidRole {
             hdfs_conf = HDFS_CONFIG_DIRECTORY,
             rw_conf = RW_CONFIG_DIRECTORY,
         ));
-
-        // db credentials
-        if credentials_secret.is_some() {
-            commands.extend([
-                format!("echo replacing {DB_USERNAME_PLACEHOLDER} and {DB_PASSWORD_PLACEHOLDER} with secret values."),
-                format!("sed -i \"s|{DB_USERNAME_PLACEHOLDER}|${DB_USERNAME_ENV}|g\" {RW_CONFIG_DIRECTORY}/{RUNTIME_PROPS}"),
-                format!("sed -i \"s|{DB_PASSWORD_PLACEHOLDER}|${DB_PASSWORD_ENV}|g\" {RW_CONFIG_DIRECTORY}/{RUNTIME_PROPS}"),
-            ]);
-        }
 
         commands
     }
@@ -631,11 +617,11 @@ impl DruidCluster {
                 if mds.credentials_secret.is_some() {
                     result.insert(
                         METADATA_STORAGE_USER.to_string(),
-                        Some(DB_USERNAME_PLACEHOLDER.into()),
+                        Some(format!("${{env:{DB_USERNAME_ENV}}}")),
                     );
                     result.insert(
                         METADATA_STORAGE_PASSWORD.to_string(),
-                        Some(DB_PASSWORD_PLACEHOLDER.into()),
+                        Some(format!("${{env:{DB_PASSWORD_ENV}}}")),
                     );
                 }
 

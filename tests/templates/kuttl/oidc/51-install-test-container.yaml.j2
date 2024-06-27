@@ -80,8 +80,8 @@ spec:
             - name: DRUID_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: druid-internal-password
-                  key: DRUID_INTERNAL_PASSWORD
+                  name: druid-internal-secret
+                  key: INTERNAL_SECRET
             - name: OIDC_USE_TLS
               value: "{{ test_scenario['values']['oidc-use-tls'] }}"
       volumes:

@@ -1,0 +1,23 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug executable 'stackable-druid-operator'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=stackable-druid-operator",
+                    "--package=stackable-druid-operator"
+                ],
+                "filter": {
+                    "name": "stackable-druid-operator",
+                    "kind": "bin"
+                }
+            },
+            "args": ["run"],
+            "cwd": "${workspaceFolder}"
+        }
+    ]
+}

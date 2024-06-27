@@ -1,3 +1,4 @@
+mod authentication;
 mod config;
 mod discovery;
 mod druid_controller;

@@ -1,0 +1,37 @@
+# yamllint disable-file
+
+# tag::authclass[]
+apiVersion: authentication.stackable.tech/v1alpha1
+kind: AuthenticationClass
+metadata:
+  name: oidc-auth
+spec:
+  provider:
+    oidc:
+  [...]
+#end::authclass[]
+
+# tag::druid[]
+apiVersion: druid.stackable.tech/v1alpha1
+kind: DruidCluster
+metadata:
+  name: druid
+spec:
+  clusterConfig:
+    authentication:
+      - authenticationClass: oidc-auth
+        oidc:
+          clientCredentialsSecret: druid-oidc-client
+  [...]
+# end::druid[]
+
+# tag::secret[]
+apiVersion: v1
+kind: Secret
+metadata:
+  name: druid-oidc-client
+stringData:
+  clientId: <client-id>
+  clientSecret: <client-secret>
+
+# end::secret[]

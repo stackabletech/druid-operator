@@ -7203,14 +7203,33 @@ spec:
                     authentication:
                       default: []
                       description: |-
-                        List of [AuthenticationClasses](https://docs.stackable.tech/home/nightly/concepts/authentication) to use for authenticating users. TLS and LDAP authentication are supported. More information in the [Druid operator security documentation](https://docs.stackable.tech/home/nightly/druid/usage-guide/security#_authentication).
+                        List of [AuthenticationClasses](https://docs.stackable.tech/home/nightly/concepts/authentication) to use for authenticating users. TLS, LDAP and OIDC authentication are supported. More information in the [Druid operator security documentation](https://docs.stackable.tech/home/nightly/druid/usage-guide/security#_authentication).
 
                         For TLS: Please note that the SecretClass used to authenticate users needs to be the same as the SecretClass used for internal communication.
                       items:
                         properties:
                           authenticationClass:
-                            description: 'The name of an [AuthenticationClass](https://docs.stackable.tech/home/nightly/concepts/authentication) object. When using TLS authentication, the `clientCertSecretClass` must be identical to the `serverAndInternalSecretClass` in the `clusterConfig.tls` settings of Druid. This is a limitation of Druid: Only one CA certificate can be used for both internal authentication between processes as well as authentication of users.'
+                            description: A name/key which references an authentication class. To get the concrete [`AuthenticationClass`], we must resolve it. This resolution can be achieved by using [`ClientAuthenticationDetails::resolve_class`].
                             type: string
+                          oidc:
+                            description: |-
+                              This field contains authentication provider specific configuration.
+
+                              Use [`ClientAuthenticationDetails::oidc_or_error`] to get the value or report an error to the user.
+                            nullable: true
+                            properties:
+                              clientCredentialsSecret:
+                                description: A reference to the OIDC client credentials secret. The secret contains the client id and secret.
+                                type: string
+                              extraScopes:
+                                default: []
+                                description: An optional list of extra scopes which get merged with the scopes defined in the [`AuthenticationClass`].
+                                items:
+                                  type: string
+                                type: array
+                            required:
+                              - clientCredentialsSecret
+                            type: object
                         required:
                           - authenticationClass
                         type: object
