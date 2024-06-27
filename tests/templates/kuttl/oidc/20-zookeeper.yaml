@@ -6,7 +6,6 @@ metadata:
 spec:
   image:
     productVersion: 3.8.1
-    stackableVersion: 23.7.0
     pullPolicy: IfNotPresent
   servers:
     roleGroups:
