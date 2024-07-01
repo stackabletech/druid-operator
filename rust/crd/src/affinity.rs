@@ -106,7 +106,7 @@ mod tests {
           name: simple-druid
         spec:
           image:
-            productVersion: 28.0.1
+            productVersion: 30.0.0
           clusterConfig:
             deepStorage:
               hdfs:

@@ -14,11 +14,11 @@ dimensions:
   - name: druid
     values:
       - 26.0.0
-      - 27.0.0
       - 28.0.1
+      - 30.0.0
   - name: druid-latest
     values:
-      - 28.0.1
+      - 30.0.0
   - name: zookeeper
     values:
       - 3.8.3
