@@ -78,7 +78,7 @@ metadata:
   name: derby-druid
 spec:
   image:
-    productVersion: 28.0.1
+    productVersion: 30.0.0
   clusterConfig:
     authentication:
       - authenticationClass: druid-mtls-authentication-class

@@ -7,6 +7,7 @@ All notable changes to this project will be documented in this file.
 ### Added
 
 - Add support for specifying additional extensions to load ([#547], [#563])
+- Support Druid `30.0.0` ([#XXX])
 
 ### Fixed
 
@@ -18,6 +19,7 @@ All notable changes to this project will be documented in this file.
 [#557]: https://github.com/stackabletech/druid-operator/pull/557
 [#563]: https://github.com/stackabletech/druid-operator/pull/563
 [#572]: https://github.com/stackabletech/druid-operator/pull/572
+[#XXX]: https://github.com/stackabletech/druid-operator/pull/XXX
 
 ## [24.3.0] - 2024-03-20
 
