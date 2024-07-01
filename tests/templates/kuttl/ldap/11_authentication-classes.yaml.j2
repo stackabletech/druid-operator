@@ -7,43 +7,31 @@ spec:
   provider:
     ldap:
       hostname: openldap.$NAMESPACE.svc.cluster.local
-      searchBase: ou=users,dc=example,dc=org
+      searchBase: ou=my users,dc=example,dc=org
       searchFilter: (uid=%s)
+{% if test_scenario['values']['ldap-no-bind-credentials'] == 'true' %}
+      bindCredentials: null
+{% else %}
+      bindCredentials:
+        secretClass: druid-with-ldap-bind
+{% endif %}
 {% if test_scenario['values']['ldap-use-tls'] == 'false' %}
       port: 1389
-      tls: null
 {% else %}
       port: 1636
       tls:
         verification:
           server:
             caCert:
-              secretClass: openldap-tls-$NAMESPACE
-{% endif %}
-{% if test_scenario['values']['ldap-no-bind-credentials'] == 'true' %}
-      bindCredentials: null
-{% else %}
-      bindCredentials:
-        secretClass: druid-ldap-secret
+              secretClass: openldap-tls
 {% endif %}
 ---
 apiVersion: secrets.stackable.tech/v1alpha1
 kind: SecretClass
 metadata:
-  name: druid-ldap-secret
+  name: druid-with-ldap-bind
 spec:
   backend:
     k8sSearch:
       searchNamespace:
         pod: {}
----
-apiVersion: v1
-kind: Secret
-metadata:
-  name: druid-ldap-secret
-  namespace: $NAMESPACE
-  labels:
-    secrets.stackable.tech/class: druid-ldap-secret
-stringData:
-  user: cn=admin,dc=example,dc=org
-  password: admin

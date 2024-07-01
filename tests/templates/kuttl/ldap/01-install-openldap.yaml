@@ -3,4 +3,4 @@ apiVersion: kuttl.dev/v1beta1
 kind: TestStep
 commands:
   # We need to replace $NAMESPACE (by KUTTL) in the install-openldap.yaml
-  - script: eval "echo \"$(cat 03_openldap.yaml)\"" | kubectl apply -f -
+  - script: envsubst < 01_openldap.yaml | kubectl apply -n $NAMESPACE -f -

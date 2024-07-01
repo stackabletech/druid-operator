@@ -26,3 +26,4 @@ spec:
             limits:
               memory: "128Mi"
               cpu: "1"
+      terminationGracePeriodSeconds: 1
