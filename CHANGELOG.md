@@ -8,6 +8,10 @@ All notable changes to this project will be documented in this file.
 
 - Add support for specifying additional extensions to load ([#547], [#563])
 
+### Changed
+
+- Convert `extraVolumes` field to take any arbitrary YAML input, rather than using the underlying schema ([#XXX]).
+
 ### Fixed
 
 - [BREAKING] Move the DB credentials `user` and `password` out of the CRD into a secret containing the keys `username` and `password` ([#557]).
