@@ -643,7 +643,7 @@ spec:
                           type: object
                       type: object
                     extraVolumes:
-                      description: Extra volumes similar to `.spec.volumes` on a Pod to mount into every container, this can be useful to for example make client certificates, keytabs or similar things available to processors. These volumes will be
+                      description: Extra volumes similar to `.spec.volumes` on a Pod to mount into every container, this can be useful to for example make client certificates, keytabs or similar things available to processors. These volumes will be mounted into all pods at `/stackable/userdata/{volumename}`.
                       items:
                         type: object
                         x-kubernetes-preserve-unknown-fields: true
