@@ -53,7 +53,12 @@ metadata:
   name: derby-druid
 spec:
   image:
+{% if test_scenario['values']['druid-latest'].find(",") > 0 %}
+    custom: "{{ test_scenario['values']['druid-latest'].split(',')[1] }}"
+    productVersion: "{{ test_scenario['values']['druid-latest'].split(',')[0] }}"
+{% else %}
     productVersion: "{{ test_scenario['values']['druid-latest'] }}"
+{% endif %}
     pullPolicy: IfNotPresent
   clusterConfig:
 {% if test_scenario['values']['tls-mode'] == 'internal-and-server-tls-and-tls-client-auth' %}
