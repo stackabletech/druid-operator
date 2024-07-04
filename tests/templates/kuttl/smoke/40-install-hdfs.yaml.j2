@@ -21,6 +21,12 @@ spec:
     zookeeperConfigMapName: hdfs-znode
   nameNodes:
     config:
+      resources:
+        cpu:
+          min: 50m
+          max: 500m
+        memory:
+          limit: 256Mi
       logging:
         enableVectorAgent: {{ lookup('env', 'VECTOR_AGGREGATOR') | length > 0 }}
     roleGroups:
@@ -28,6 +34,12 @@ spec:
         replicas: 2
   dataNodes:
     config:
+      resources:
+        cpu:
+          min: 50m
+          max: 500m
+        memory:
+          limit: 256Mi
       logging:
         enableVectorAgent: {{ lookup('env', 'VECTOR_AGGREGATOR') | length > 0 }}
     roleGroups:
@@ -35,6 +47,12 @@ spec:
         replicas: 1
   journalNodes:
     config:
+      resources:
+        cpu:
+          min: 50m
+          max: 500m
+        memory:
+          limit: 192Mi
       logging:
         enableVectorAgent: {{ lookup('env', 'VECTOR_AGGREGATOR') | length > 0 }}
     roleGroups:

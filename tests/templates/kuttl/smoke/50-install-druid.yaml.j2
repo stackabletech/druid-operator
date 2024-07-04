@@ -30,6 +30,12 @@ spec:
     zookeeperConfigMapName: druid-znode
   brokers:
     config:
+      resources:
+        cpu:
+          min: 50m
+          max: 500m
+        memory:
+          limit: 1024Mi
       logging:
         enableVectorAgent: {{ lookup('env', 'VECTOR_AGGREGATOR') | length > 0 }}
     roleGroups:
@@ -37,6 +43,12 @@ spec:
         replicas: 1
   coordinators:
     config:
+      resources:
+        cpu:
+          min: 50m
+          max: 500m
+        memory:
+          limit: 384Mi
       logging:
         enableVectorAgent: {{ lookup('env', 'VECTOR_AGGREGATOR') | length > 0 }}
     roleGroups:
@@ -44,6 +56,12 @@ spec:
         replicas: 1
   historicals:
     config:
+      resources:
+        cpu:
+          min: 50m
+          max: 500m
+        memory:
+          limit: 512Mi
       logging:
         enableVectorAgent: {{ lookup('env', 'VECTOR_AGGREGATOR') | length > 0 }}
     roleGroups:
@@ -51,6 +69,12 @@ spec:
         replicas: 1
   middleManagers:
     config:
+      resources:
+        cpu:
+          min: 50m
+          max: 500m
+        memory:
+          limit: 512Mi
       logging:
         enableVectorAgent: {{ lookup('env', 'VECTOR_AGGREGATOR') | length > 0 }}
     roleGroups:
@@ -58,6 +82,12 @@ spec:
         replicas: 1
   routers:
     config:
+      resources:
+        cpu:
+          min: 50m
+          max: 500m
+        memory:
+          limit: 512Mi
       logging:
         enableVectorAgent: {{ lookup('env', 'VECTOR_AGGREGATOR') | length > 0 }}
     roleGroups:

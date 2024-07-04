@@ -13,6 +13,12 @@ spec:
 {% endif %}
   servers:
     config:
+      resources:
+        cpu:
+          min: 200m
+          max: 800m
+        memory:
+          limit: 128Mi
       logging:
         enableVectorAgent: {{ lookup('env', 'VECTOR_AGGREGATOR') | length > 0 }}
     roleGroups:
