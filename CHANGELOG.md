@@ -6,7 +6,14 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
-- Add support for specifying additional extensions to load ([#547], [#563])
+- Add support for specifying additional extensions to load ([#547], [#563]).
+
+### Changed
+
+- Bump `stackable-operator` from `0.64.0` to `0.70.0` ([#xxx]).
+- Bump `product-config` from `0.6.0` to `0.7.0` ([#xxx]).
+
+[#xxx]: https://github.com/stackabletech/airflow-operator/pull/xxx
 
 ### Fixed
 
