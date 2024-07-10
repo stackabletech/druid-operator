@@ -25,7 +25,7 @@ metadata:
   name: druid
 spec:
   image:
-    productVersion: 28.0.1
+    productVersion: "{{ test_scenario['values']['druid'] }}"
     pullPolicy: IfNotPresent
   clusterConfig:
     additionalExtensions:
@@ -56,8 +56,14 @@ spec:
       connString: jdbc:derby://localhost:1527/var/druid/metadata.db;create=true
       host: localhost
       port: 1527
+{% if lookup('env', 'VECTOR_AGGREGATOR') %}
+    vectorAggregatorConfigMapName: vector-aggregator-discovery
+{% endif %}
     zookeeperConfigMapName: druid-znode
   brokers:
+    config:
+      logging:
+        enableVectorAgent: {{ lookup('env', 'VECTOR_AGGREGATOR') | length > 0 }}
     roleGroups:
       default:
         replicas: 1
@@ -115,6 +121,9 @@ spec:
                     name: druid-internal-password
                     key: DRUID_INTERNAL_PASSWORD
   coordinators:
+    config:
+      logging:
+        enableVectorAgent: {{ lookup('env', 'VECTOR_AGGREGATOR') | length > 0 }}
     roleGroups:
       default:
         replicas: 1
@@ -122,6 +131,9 @@ spec:
       runtime.properties: *runtime-properties
     podOverrides: *pod-overrides
   historicals:
+    config:
+      logging:
+        enableVectorAgent: {{ lookup('env', 'VECTOR_AGGREGATOR') | length > 0 }}
     roleGroups:
       default:
         replicas: 1
@@ -129,6 +141,9 @@ spec:
       runtime.properties: *runtime-properties
     podOverrides: *pod-overrides
   middleManagers:
+    config:
+      logging:
+        enableVectorAgent: {{ lookup('env', 'VECTOR_AGGREGATOR') | length > 0 }}
     roleGroups:
       default:
         replicas: 1
@@ -152,6 +167,9 @@ spec:
                     name: druid-internal-password
                     key: DRUID_INTERNAL_PASSWORD
   routers:
+    config:
+      logging:
+        enableVectorAgent: {{ lookup('env', 'VECTOR_AGGREGATOR') | length > 0 }}
     roleGroups:
       default:
         replicas: 1

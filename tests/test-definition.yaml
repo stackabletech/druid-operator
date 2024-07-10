@@ -136,7 +136,7 @@ tests:
       - openshift
   - name: oidc
     dimensions:
-      - druid-latest
+      - druid
       - zookeeper-latest
       - s3-use-tls
       - openshift
