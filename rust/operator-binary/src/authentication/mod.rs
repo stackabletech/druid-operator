@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use snafu::{OptionExt, Snafu};
+use snafu::Snafu;
 use stackable_druid_crd::{
     authentication::{AuthenticationClassResolved, AuthenticationClassesResolved},
     DruidCluster, DruidRole, ENV_INTERNAL_SECRET,
@@ -24,9 +24,6 @@ type Result<T, E = Error> = std::result::Result<T, E>;
 
 #[derive(Snafu, Debug)]
 pub enum Error {
-    #[snafu(display("Only one authentication mechanism is supported by Druid."))]
-    SingleAuthenticationMechanismSupported,
-
     #[snafu(display("Failed to create LDAP endpoint url."))]
     CreateLdapEndpointUrl {
         source: stackable_operator::commons::authentication::ldap::Error,
@@ -72,33 +69,36 @@ impl DruidAuthenticationConfig {
         // Currently only one auth mechanism is supported in Druid. This is checked in
         // rust/crd/src/authentication.rs and just a fail-safe here. For Future changes,
         // this is not just a "from" without error handling
-
-        let auth_class_resolved = auth_classes_resolved
-            .auth_classes
-            .first()
-            .context(SingleAuthenticationMechanismSupportedSnafu)?;
-
-        match &auth_class_resolved {
-            AuthenticationClassResolved::Tls { provider } => Ok(Some(Self::Tls {
-                provider: provider.clone(),
-            })),
-            AuthenticationClassResolved::Ldap {
-                auth_class_name,
-                provider,
-            } => Ok(Some(Self::Ldap {
-                auth_class_name: auth_class_name.to_string(),
-                provider: provider.clone(),
-            })),
-            AuthenticationClassResolved::Oidc {
-                auth_class_name,
-                provider,
-                oidc,
-            } => Ok(Some(Self::Oidc {
-                auth_class_name: auth_class_name.to_string(),
-                provider: provider.clone(),
-                oidc: oidc.clone(),
-            })),
-        }
+        match auth_classes_resolved.auth_classes.first() {
+            None => return Ok(None),
+            Some(auth_class_resolved) => match &auth_class_resolved {
+                AuthenticationClassResolved::Tls { provider } => {
+                    return Ok(Some(Self::Tls {
+                        provider: provider.clone(),
+                    }))
+                }
+                AuthenticationClassResolved::Ldap {
+                    auth_class_name,
+                    provider,
+                } => {
+                    return Ok(Some(Self::Ldap {
+                        auth_class_name: auth_class_name.to_string(),
+                        provider: provider.clone(),
+                    }))
+                }
+                AuthenticationClassResolved::Oidc {
+                    auth_class_name,
+                    provider,
+                    oidc,
+                } => {
+                    return Ok(Some(Self::Oidc {
+                        auth_class_name: auth_class_name.to_string(),
+                        provider: provider.clone(),
+                        oidc: oidc.clone(),
+                    }))
+                }
+            },
+        };
     }
 
     pub fn generate_runtime_properties_config(
