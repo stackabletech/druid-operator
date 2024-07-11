@@ -6,8 +6,14 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+- Add support for specifying additional extensions to load ([#547], [#563]).
 - Add support for specifying additional extensions to load ([#547], [#563])
 - Support Apache Druid `30.0.0` as new LTS version ([#583])
+
+### Changed
+
+- Bump `stackable-operator` from `0.64.0` to `0.70.0` ([#585]).
+- Bump `product-config` from `0.6.0` to `0.7.0` ([#585]).
 
 ### Fixed
 
@@ -28,6 +34,7 @@ All notable changes to this project will be documented in this file.
 [#563]: https://github.com/stackabletech/druid-operator/pull/563
 [#572]: https://github.com/stackabletech/druid-operator/pull/572
 [#583]: https://github.com/stackabletech/druid-operator/pull/583
+[#585]: https://github.com/stackabletech/druid-operator/pull/585
 
 ## [24.3.0] - 2024-03-20
 
