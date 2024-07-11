@@ -78,7 +78,7 @@ https://github.com/stackabletech/druid-operator/tree/main/tests/templates/kuttl/
 === OIDC
 
 Druid supports xref:concepts:authentication.adoc[authentication] of users of the web console against a OIDC provider.
-This requires setting up an xref:concepts:authentication.adoc#authenticationclass[AuthenticationClass] for the OIDC provider:
+This requires setting up a xref:concepts:authentication.adoc#authenticationclass[AuthenticationClass] for the OIDC provider:
 
 [source,yaml]
 ----

@@ -9,7 +9,7 @@ use stackable_operator::{
     builder::pod::{container::ContainerBuilder, PodBuilder},
     commons::authentication::{
         ldap,
-        oidc::{self, ClientAuthenticationOptions}
+        oidc::{self, ClientAuthenticationOptions},
     },
     k8s_openapi::api::core::v1::EnvVar,
 };
@@ -47,8 +47,7 @@ pub enum Error {
 
 #[derive(Clone, Debug)]
 pub enum DruidAuthenticationConfig {
-    Tls {
-    },
+    Tls {},
     Ldap {
         auth_class_name: String,
         provider: ldap::AuthenticationProvider,
@@ -70,30 +69,23 @@ impl DruidAuthenticationConfig {
         match auth_classes_resolved.auth_classes.first() {
             None => Ok(None),
             Some(auth_class_resolved) => match &auth_class_resolved {
-                AuthenticationClassResolved::Tls { .. } => {
-                    Ok(Some(Self::Tls {
-                    }))
-                }
+                AuthenticationClassResolved::Tls { .. } => Ok(Some(Self::Tls {})),
                 AuthenticationClassResolved::Ldap {
                     auth_class_name,
                     provider,
-                } => {
-                    Ok(Some(Self::Ldap {
-                        auth_class_name: auth_class_name.to_string(),
-                        provider: provider.clone(),
-                    }))
-                }
+                } => Ok(Some(Self::Ldap {
+                    auth_class_name: auth_class_name.to_string(),
+                    provider: provider.clone(),
+                })),
                 AuthenticationClassResolved::Oidc {
                     auth_class_name,
                     provider,
                     oidc,
-                } => {
-                    Ok(Some(Self::Oidc {
-                        auth_class_name: auth_class_name.to_string(),
-                        provider: provider.clone(),
-                        oidc: oidc.clone(),
-                    }))
-                }
+                } => Ok(Some(Self::Oidc {
+                    auth_class_name: auth_class_name.to_string(),
+                    provider: provider.clone(),
+                    oidc: oidc.clone(),
+                })),
             },
         }
     }
