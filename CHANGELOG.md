@@ -7,13 +7,21 @@ All notable changes to this project will be documented in this file.
 ### Added
 
 - Add support for specifying additional extensions to load ([#547], [#563])
-- Support Druid `30.0.0` ([#583])
+- Support Apache Druid `30.0.0` as new LTS version ([#583])
 
 ### Fixed
 
 - [BREAKING] Move the DB credentials `user` and `password` out of the CRD into a secret containing the keys `username` and `password` ([#557]).
 - Processing of corrupted log events fixed; If errors occur, the error
   messages are added to the log event ([#572]).
+
+### Changed
+
+- Deprecate support for Apache Druid 26.0.0 and 28.0.1 ([#518]).
+
+### Removed
+
+- Remove support for Apache Druid version 27.0.0 ([#518]).
 
 [#547]: https://github.com/stackabletech/druid-operator/pull/547
 [#557]: https://github.com/stackabletech/druid-operator/pull/557
@@ -31,7 +39,7 @@ All notable changes to this project will be documented in this file.
 
 ### Updated
 
-- `operator-rs` `0.56.1` -> `0.57.0` ([#494]).
+- `operator-rs` `0.56.1` -> `0.57.0` ([#494]).z
 
 [#494]: https://github.com/stackabletech/druid-operator/pull/494
 [#509]: https://github.com/stackabletech/druid-operator/pull/509
