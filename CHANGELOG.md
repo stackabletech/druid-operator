@@ -39,7 +39,7 @@ All notable changes to this project will be documented in this file.
 
 ### Updated
 
-- `operator-rs` `0.56.1` -> `0.57.0` ([#494]).z
+- `operator-rs` `0.56.1` -> `0.57.0` ([#494]).
 
 [#494]: https://github.com/stackabletech/druid-operator/pull/494
 [#509]: https://github.com/stackabletech/druid-operator/pull/509
