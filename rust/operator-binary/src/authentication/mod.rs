@@ -68,17 +68,17 @@ impl DruidAuthenticationConfig {
         // rust/crd/src/authentication.rs and just a fail-safe here. For Future changes,
         // this is not just a "from" without error handling
         match auth_classes_resolved.auth_classes.first() {
-            None => return Ok(None),
+            None => Ok(None),
             Some(auth_class_resolved) => match &auth_class_resolved {
                 AuthenticationClassResolved::Tls { .. } => {
-                    return Ok(Some(Self::Tls {
+                    Ok(Some(Self::Tls {
                     }))
                 }
                 AuthenticationClassResolved::Ldap {
                     auth_class_name,
                     provider,
                 } => {
-                    return Ok(Some(Self::Ldap {
+                    Ok(Some(Self::Ldap {
                         auth_class_name: auth_class_name.to_string(),
                         provider: provider.clone(),
                     }))
@@ -88,14 +88,14 @@ impl DruidAuthenticationConfig {
                     provider,
                     oidc,
                 } => {
-                    return Ok(Some(Self::Oidc {
+                    Ok(Some(Self::Oidc {
                         auth_class_name: auth_class_name.to_string(),
                         provider: provider.clone(),
                         oidc: oidc.clone(),
                     }))
                 }
             },
-        };
+        }
     }
 
     pub fn generate_runtime_properties_config(
