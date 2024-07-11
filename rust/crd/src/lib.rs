@@ -159,16 +159,21 @@ pub enum Error {
     ResolveS3Connection {
         source: stackable_operator::commons::s3::Error,
     },
+
     #[snafu(display("failed to resolve S3 bucket"))]
     ResolveS3Bucket {
         source: stackable_operator::commons::s3::Error,
     },
+
     #[snafu(display("2 differing s3 connections were given, this is unsupported by Druid"))]
     IncompatibleS3Connections,
+
     #[snafu(display("the role group {rolegroup_name} is not defined"))]
     CannotRetrieveRoleGroup { rolegroup_name: String },
+
     #[snafu(display("missing namespace for resource {name}"))]
     MissingNamespace { name: String },
+
     #[snafu(display("fragment validation failure"))]
     FragmentValidationFailure { source: ValidationError },
 }
@@ -554,6 +559,12 @@ impl DruidRole {
             hdfs_conf = HDFS_CONFIG_DIRECTORY,
             rw_conf = RW_CONFIG_DIRECTORY,
         ));
+
+        commands.extend([
+            format!("config-utils template {RW_CONFIG_DIRECTORY}/runtime.properties",),
+            format!("if test -f {RW_CONFIG_DIRECTORY}/core-site.xml; then config-utils template {RW_CONFIG_DIRECTORY}/core-site.xml; fi",),
+            format!("if test -f {RW_CONFIG_DIRECTORY}/hdfs-site.xml; then config-utils template {RW_CONFIG_DIRECTORY}/hdfs-site.xml; fi",),
+        ]);
 
         commands
     }

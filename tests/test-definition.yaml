@@ -113,7 +113,7 @@ tests:
       - zookeeper-latest
       - tls-mode
       - openshift
-  - name: ldap-authentication
+  - name: ldap
     dimensions:
       - druid
       - zookeeper-latest
@@ -136,7 +136,7 @@ tests:
       - openshift
   - name: oidc
     dimensions:
-      - druid-latest
+      - druid
       - zookeeper-latest
       - s3-use-tls
       - openshift
