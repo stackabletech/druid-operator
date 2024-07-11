@@ -14,10 +14,10 @@ commands:
       spec:
         image:
 {% if test_scenario['values']['druid'].find(",") > 0 %}
-    custom: "{{ test_scenario['values']['druid'].split(',')[1] }}"
-    productVersion: "{{ test_scenario['values']['druid'].split(',')[0] }}"
+          custom: "{{ test_scenario['values']['druid'].split(',')[1] }}"
+          productVersion: "{{ test_scenario['values']['druid'].split(',')[0] }}"
 {% else %}
-    productVersion: "{{ test_scenario['values']['druid-latest'] }}"
+          productVersion: "{{ test_scenario['values']['druid-latest'] }}"
 {% endif %}
           pullPolicy: IfNotPresent
         clusterConfig:
