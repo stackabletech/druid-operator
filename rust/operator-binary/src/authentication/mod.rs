@@ -9,8 +9,7 @@ use stackable_operator::{
     builder::pod::{container::ContainerBuilder, PodBuilder},
     commons::authentication::{
         ldap,
-        oidc::{self, ClientAuthenticationOptions},
-        tls,
+        oidc::{self, ClientAuthenticationOptions}
     },
     k8s_openapi::api::core::v1::EnvVar,
 };
@@ -49,7 +48,6 @@ pub enum Error {
 #[derive(Clone, Debug)]
 pub enum DruidAuthenticationConfig {
     Tls {
-        provider: tls::AuthenticationProvider,
     },
     Ldap {
         auth_class_name: String,
@@ -72,9 +70,8 @@ impl DruidAuthenticationConfig {
         match auth_classes_resolved.auth_classes.first() {
             None => return Ok(None),
             Some(auth_class_resolved) => match &auth_class_resolved {
-                AuthenticationClassResolved::Tls { provider } => {
+                AuthenticationClassResolved::Tls { .. } => {
                     return Ok(Some(Self::Tls {
-                        provider: provider.clone(),
                     }))
                 }
                 AuthenticationClassResolved::Ldap {
