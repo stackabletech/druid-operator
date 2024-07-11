@@ -2,7 +2,7 @@
 apiVersion: secrets.stackable.tech/v1alpha1
 kind: SecretClass
 metadata:
-  name: openldap-tls-$NAMESPACE
+  name: openldap-tls
 spec:
   backend:
     autoTls:
@@ -30,7 +30,7 @@ spec:
       labels:
         app.kubernetes.io/name: openldap
     spec:
-      serviceAccountName: "druid-ldap-sa"
+      serviceAccountName: "ldap-sa"
       #
       # The security context below is necessary to avoid the following error on OpenShift:
       #    /opt/bitnami/scripts/openldap/setup.sh: line 102: /opt/bitnami/openldap/sbin/slappasswd: Operation not permitted
@@ -46,17 +46,13 @@ spec:
             - name: LDAP_ADMIN_PASSWORD
               value: admin
             - name: LDAP_ENABLE_TLS
-              value: \"yes\"
+              value: "yes"
             - name: LDAP_TLS_CERT_FILE
               value: /tls/tls.crt
             - name: LDAP_TLS_KEY_FILE
               value: /tls/tls.key
             - name: LDAP_TLS_CA_FILE
               value: /tls/ca.crt
-{% if test_scenario['values']['ldap-no-bind-credentials'] == 'true' %}
-            - name: LDAP_ALLOW_ANON_BINDING
-              value: \"yes\"
-{% endif %}
           ports:
             - name: ldap
               containerPort: 1389
@@ -76,7 +72,7 @@ spec:
           csi:
             driver: secrets.stackable.tech
             volumeAttributes:
-              secrets.stackable.tech/class: openldap-tls-$NAMESPACE
+              secrets.stackable.tech/class: openldap-tls
               secrets.stackable.tech/scope: pod
 ---
 apiVersion: v1
@@ -101,15 +97,14 @@ spec:
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: druid-ldap-sa
+  name: ldap-sa
   namespace: $NAMESPACE
-
 {% if test_scenario['values']['openshift'] == 'true' %}
 ---
 kind: Role
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
-  name: druid-ldap-tests-role
+  name: use-integration-tests-scc
   namespace: $NAMESPACE
 rules:
 - apiGroups: ["security.openshift.io"]
@@ -120,13 +115,13 @@ rules:
 kind: RoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
-  name: druid-ldap-tests-rolebinding
+  name: use-integration-tests-scc
   namespace: $NAMESPACE
 subjects:
   - kind: ServiceAccount
-    name: druid-ldap-sa
+    name: ldap-sa
 roleRef:
   kind: Role
-  name: druid-ldap-tests-role
+  name: use-integration-tests-scc
   apiGroup: rbac.authorization.k8s.io
 {% endif %}

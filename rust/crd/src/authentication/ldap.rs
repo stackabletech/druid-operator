@@ -6,9 +6,9 @@ use stackable_operator::commons::authentication::AuthenticationClassProvider;
 use stackable_operator::kube::ResourceExt;
 
 use crate::authentication::ResolvedAuthenticationClasses;
-use crate::{
-    security::{add_cert_to_trust_store_cmd, STACKABLE_TLS_DIR, TLS_STORE_PASSWORD},
-    ENV_INTERNAL_SECRET, RUNTIME_PROPS, RW_CONFIG_DIRECTORY,
+use crate::security::{
+    add_cert_to_trust_store_cmd, ESCALATOR_INTERNAL_CLIENT_PASSWORD_ENV,
+    INTERNAL_INITIAL_CLIENT_PASSWORD_ENV, STACKABLE_TLS_DIR, TLS_STORE_PASSWORD,
 };
 
 #[derive(Snafu, Debug)]
@@ -24,11 +24,6 @@ pub struct DruidLdapSettings {
     pub ldap: AuthenticationProvider,
     pub authentication_class_name: String,
 }
-
-pub const PLACEHOLDER_INTERNAL_CLIENT_PASSWORD: &str =
-    "xxx_druid_system_internal_client_password_xxx";
-pub const PLACEHOLDER_LDAP_BIND_PASSWORD: &str = "xxx_ldap_bind_password_xxx";
-pub const PLACEHOLDER_LDAP_BIND_USER: &str = "xxx_ldap_bind_user_xxx";
 
 impl DruidLdapSettings {
     pub fn new_from(
@@ -63,7 +58,7 @@ impl DruidLdapSettings {
 
         config.insert(
             format!("{PREFIX}.initialInternalClientPassword"),
-            Some(PLACEHOLDER_INTERNAL_CLIENT_PASSWORD.to_string()),
+            Some(format!("${{env:{INTERNAL_INITIAL_CLIENT_PASSWORD_ENV}}}").to_string()),
         );
         config.insert(
             format!("{PREFIX}.authorizerName"),
@@ -97,14 +92,16 @@ impl DruidLdapSettings {
             ),
         );
 
-        if self.ldap.bind_credentials_mount_paths().is_some() {
+        if let Some((ldap_bind_user_path, ldap_bind_password_path)) =
+            self.ldap.bind_credentials_mount_paths()
+        {
             config.insert(
                 format!("{PREFIX}.credentialsValidator.bindUser"),
-                Some(PLACEHOLDER_LDAP_BIND_USER.to_string()), // NOTE: this placeholder will be replaced from a mounted secret operator volume on container startup
+                Some(format!("${{file:UTF-8:{ldap_bind_user_path}}}").to_string()),
             );
             config.insert(
                 format!("{PREFIX}.credentialsValidator.bindPassword"),
-                Some(PLACEHOLDER_LDAP_BIND_PASSWORD.to_string()), // NOTE: this placeholder will be replaced from a mounted secret operator volume on container startup
+                Some(format!("${{file:UTF-8:{ldap_bind_password_path}}}").to_string()),
             );
         }
 
@@ -139,7 +136,7 @@ impl DruidLdapSettings {
         );
         config.insert(
             "druid.escalator.internalClientPassword".to_string(),
-            Some(PLACEHOLDER_INTERNAL_CLIENT_PASSWORD.to_string()),
+            Some(format!("${{env:{ESCALATOR_INTERNAL_CLIENT_PASSWORD_ENV}}}").to_string()),
         );
         config.insert(
             "druid.escalator.authorizerName".to_string(),
@@ -178,35 +175,6 @@ impl DruidLdapSettings {
         self.add_authorizer_config(&mut config);
 
         Ok(config)
-    }
-
-    pub fn main_container_commands(&self) -> Vec<String> {
-        let mut commands = Vec::new();
-
-        let runtime_properties_file: String = format!("{RW_CONFIG_DIRECTORY}/{RUNTIME_PROPS}");
-        let internal_client_password = format!("$(echo ${ENV_INTERNAL_SECRET})");
-
-        commands
-                .push(format!("echo \"Replacing LDAP placeholders with their proper values in {runtime_properties_file}\""));
-        commands.push(format!(
-            r#"sed "s|{PLACEHOLDER_INTERNAL_CLIENT_PASSWORD}|{internal_client_password}|g" -i {runtime_properties_file}"# // using another delimiter (|) here because of base64 string
-        ));
-
-        if let Some((ldap_bind_user_path, ldap_bind_password_path)) =
-            self.ldap.bind_credentials_mount_paths()
-        {
-            let ldap_bind_user = format!("$(cat {ldap_bind_user_path})");
-            let ldap_bind_password = format!("$(cat {ldap_bind_password_path})");
-
-            commands.push(format!(
-                    r#"sed "s/{PLACEHOLDER_LDAP_BIND_USER}/{ldap_bind_user}/g" -i {runtime_properties_file}"#
-                ));
-            commands.push(format!(
-                    r#"sed "s/{PLACEHOLDER_LDAP_BIND_PASSWORD}/{ldap_bind_password}/g" -i {runtime_properties_file}"#
-                ));
-        }
-
-        commands
     }
 
     pub fn prepare_container_commands(&self) -> Vec<String> {
