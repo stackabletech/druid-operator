@@ -8,6 +8,14 @@ All notable changes to this project will be documented in this file.
 
 - Add support for specifying additional extensions to load ([#547], [#563])
 - Add support for OIDC as authentication method ([#573])
+- Add support for specifying additional extensions to load ([#547], [#563]).
+
+### Changed
+
+- Bump `stackable-operator` from `0.64.0` to `0.70.0` ([#585]).
+- Bump `product-config` from `0.6.0` to `0.7.0` ([#585]).
+
+[#585]: https://github.com/stackabletech/druid-operator/pull/585
 
 ### Fixed
 
