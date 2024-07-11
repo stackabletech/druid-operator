@@ -14,16 +14,13 @@ All notable changes to this project will be documented in this file.
 
 - Bump `stackable-operator` from `0.64.0` to `0.70.0` ([#585]).
 - Bump `product-config` from `0.6.0` to `0.7.0` ([#585]).
+- Deprecate support for Apache Druid 26.0.0 and 28.0.1 ([#518]).
 
 ### Fixed
 
 - [BREAKING] Move the DB credentials `user` and `password` out of the CRD into a secret containing the keys `username` and `password` ([#557]).
 - Processing of corrupted log events fixed; If errors occur, the error
   messages are added to the log event ([#572]).
-
-### Changed
-
-- Deprecate support for Apache Druid 26.0.0 and 28.0.1 ([#518]).
 
 ### Removed
 
