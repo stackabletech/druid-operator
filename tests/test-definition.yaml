@@ -117,7 +117,7 @@ tests:
       - zookeeper-latest
       - tls-mode
       - openshift
-  - name: ldap-authentication
+  - name: ldap
     dimensions:
       - druid
       - zookeeper-latest

@@ -2,7 +2,7 @@
 apiVersion: zookeeper.stackable.tech/v1alpha1
 kind: ZookeeperCluster
 metadata:
-  name: druid-zk
+  name: zk
 spec:
   image:
     productVersion: "{{ test_scenario['values']['zookeeper-latest'] }}"
@@ -25,7 +25,7 @@ metadata:
   name: druid-znode
 spec:
   clusterRef:
-    name: druid-zk
+    name: zk
 ---
 apiVersion: zookeeper.stackable.tech/v1alpha1
 kind: ZookeeperZnode
@@ -33,4 +33,4 @@ metadata:
   name: hdfs-znode
 spec:
   clusterRef:
-    name: druid-zk
+    name: zk
