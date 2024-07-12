@@ -110,7 +110,10 @@ impl DruidAuthenticationConfig {
         Ok(config)
     }
 
-    fn generate_general_runtime_properties_config(&self, config: &mut BTreeMap<String, Option<String>>) {
+    fn generate_general_runtime_properties_config(
+        &self,
+        config: &mut BTreeMap<String, Option<String>>,
+    ) {
         self.add_druid_system_authenticator_config(config);
         self.add_escalator_config(config);
 
