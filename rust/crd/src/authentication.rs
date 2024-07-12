@@ -212,7 +212,7 @@ impl AuthenticationClassesResolved {
     }
 
     pub fn tls_authentication_enabled(&self) -> bool {
-        if self.auth_classes.is_empty() {
+        if !self.auth_classes.is_empty() {
             if let Some(AuthenticationClassResolved::Tls { .. }) = self.auth_classes.first() {
                 return true;
             }
@@ -221,7 +221,7 @@ impl AuthenticationClassesResolved {
     }
 
     pub fn oidc_authentication_enabled(&self) -> bool {
-        if self.auth_classes.is_empty() {
+        if !self.auth_classes.is_empty() {
             if let Some(AuthenticationClassResolved::Oidc { .. }) = self.auth_classes.first() {
                 return true;
             }

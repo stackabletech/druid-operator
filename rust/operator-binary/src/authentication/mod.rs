@@ -96,24 +96,28 @@ impl DruidAuthenticationConfig {
     ) -> Result<BTreeMap<String, Option<String>>, Error> {
         let mut config: BTreeMap<String, Option<String>> = BTreeMap::new();
 
-        self.add_druid_system_authenticator_config(&mut config);
-        self.add_escalator_config(&mut config);
-
-        config.insert(
-            "druid.auth.authorizer.DruidSystemAuthorizer.type".to_string(),
-            Some(r#"allowAll"#.to_string()),
-        );
-
         match self {
             DruidAuthenticationConfig::Ldap { provider, .. } => {
+                self.generate_general_runtime_properties_config(&mut config);
                 ldap_::generate_runtime_properties_config(provider, &mut config)?
             }
             DruidAuthenticationConfig::Oidc { provider, oidc, .. } => {
+                self.generate_general_runtime_properties_config(&mut config);
                 oidc_::generate_runtime_properties_config(provider, oidc, role, &mut config)?
             }
             DruidAuthenticationConfig::Tls { .. } => (),
         }
         Ok(config)
+    }
+
+    fn generate_general_runtime_properties_config(&self, config: &mut BTreeMap<String, Option<String>>) {
+        self.add_druid_system_authenticator_config(config);
+        self.add_escalator_config(config);
+
+        config.insert(
+            "druid.auth.authorizer.DruidSystemAuthorizer.type".to_string(),
+            Some(r#"allowAll"#.to_string()),
+        );
     }
 
     pub fn main_container_commands(&self) -> Vec<String> {
