@@ -16,7 +16,7 @@ clap = "4.5"
 fnv = "1.0"
 futures = { version = "0.3", features = ["compat"] }
 indoc = "2.0"
-lazy_static = "1.4"
+lazy_static = "1.5"
 openssl = "0.10"
 product-config = { git = "https://github.com/stackabletech/product-config.git", tag = "0.7.0" }
 pin-project = "1.1"
@@ -28,7 +28,7 @@ serde_yaml = "0.9"
 snafu = "0.8"
 stackable-operator = { git = "https://github.com/stackabletech/operator-rs.git", tag = "stackable-operator-0.70.0" }
 strum = { version = "0.26", features = ["derive"] }
-tokio = { version = "1.37", features = ["full"] }
+tokio = { version = "1.38", features = ["full"] }
 tracing = "0.1"
 
 # [patch."https://github.com/stackabletech/operator-rs.git"]
