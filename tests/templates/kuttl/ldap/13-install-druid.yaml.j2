@@ -17,7 +17,7 @@ commands:
           custom: "{{ test_scenario['values']['druid'].split(',')[1] }}"
           productVersion: "{{ test_scenario['values']['druid'].split(',')[0] }}"
 {% else %}
-          productVersion: "{{ test_scenario['values']['druid-latest'] }}"
+          productVersion: "{{ test_scenario['values']['druid'] }}"
 {% endif %}
           pullPolicy: IfNotPresent
         clusterConfig:
