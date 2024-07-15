@@ -3,7 +3,8 @@ use std::collections::BTreeMap;
 use snafu::Snafu;
 use stackable_druid_crd::{
     authentication::{AuthenticationClassResolved, AuthenticationClassesResolved},
-    DruidCluster, DruidRole, ENV_INTERNAL_SECRET,
+    security::{ESCALATOR_INTERNAL_CLIENT_PASSWORD_ENV, INTERNAL_INITIAL_CLIENT_PASSWORD_ENV},
+    DruidCluster, DruidRole,
 };
 use stackable_operator::{
     builder::pod::{container::ContainerBuilder, PodBuilder},
@@ -154,7 +155,7 @@ impl DruidAuthenticationConfig {
         envs.push(env_var_from_secret(
             &internal_secret_name,
             None,
-            ENV_INTERNAL_SECRET,
+            INTERNAL_INITIAL_CLIENT_PASSWORD_ENV,
         ));
 
         if let DruidAuthenticationConfig::Oidc { oidc, .. } = self {
@@ -194,7 +195,7 @@ impl DruidAuthenticationConfig {
 
         config.insert(
             format!("{PREFIX}.initialInternalClientPassword"),
-            Some(r#"${env:INTERNAL_SECRET}"#.to_string()),
+            Some(format!("${{env:{INTERNAL_INITIAL_CLIENT_PASSWORD_ENV}}}").to_string()),
         );
         config.insert(
             format!("{PREFIX}.authorizerName"),
@@ -214,7 +215,7 @@ impl DruidAuthenticationConfig {
         );
         config.insert(
             "druid.escalator.internalClientPassword".to_string(),
-            Some(r#"${env:INTERNAL_SECRET}"#.to_string()),
+            Some(format!("${{env:{ESCALATOR_INTERNAL_CLIENT_PASSWORD_ENV}}}").to_string()),
         );
         config.insert(
             "druid.escalator.authorizerName".to_string(),

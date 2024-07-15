@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 
 use snafu::ResultExt;
 use stackable_druid_crd::{
-    security::add_cert_to_jvm_trust_store_cmd, DruidRole, ENV_COOKIE_PASSPHRASE,
+    security::add_cert_to_jvm_trust_store_cmd, DruidRole, COOKIE_PASSPHRASE_ENV,
 };
 use stackable_operator::{
     builder::pod::{container::ContainerBuilder, PodBuilder},
@@ -129,7 +129,7 @@ pub fn get_env_var_mounts(
             envs.push(env_var_from_secret(
                 internal_secret_name,
                 None,
-                ENV_COOKIE_PASSPHRASE,
+                COOKIE_PASSPHRASE_ENV,
             ))
         }
     }
