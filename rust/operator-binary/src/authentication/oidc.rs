@@ -51,7 +51,7 @@ fn add_authenticator_config(
         Some(format!("${{env:{oidc_client_secret_env}}}").to_string()),
     );
     config.insert(
-        format!("druid.auth.pac4j.oidc.discoveryURI"),
+        "druid.auth.pac4j.oidc.discoveryURI".to_string(),
         Some(format!("{endpoint_url}/{DEFAULT_OIDC_WELLKNOWN_PATH}").to_string()),
     );
     config.insert(
