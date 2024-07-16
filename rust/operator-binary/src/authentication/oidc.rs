@@ -77,6 +77,9 @@ fn add_authorizer_config(config: &mut BTreeMap<String, Option<String>>) {
     );
 }
 
+/// Creates the OIDC parts of the runtime.properties config file.
+/// OIDC authentication is not configured on middlemanagers, because end users don't interact with them directly using the web console and
+/// turning on OIDC will lead to problems with the communication with coordinators during data ingest.
 pub fn generate_runtime_properties_config(
     provider: &AuthenticationProvider,
     oidc: &ClientAuthenticationOptions,
@@ -111,6 +114,8 @@ pub fn main_container_commands(
     }
 }
 
+/// Mounts the OIDC credentials secret and the auto-generated internal secret containing the cookie passphrase.
+/// Not necessary on middlemanagers, because OIDC is not configured on them.
 pub fn get_env_var_mounts(
     role: &DruidRole,
     oidc: &ClientAuthenticationOptions,
