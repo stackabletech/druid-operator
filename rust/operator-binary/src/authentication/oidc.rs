@@ -55,7 +55,7 @@ fn add_authenticator_config(
         Some(format!("{endpoint_url}/{DEFAULT_OIDC_WELLKNOWN_PATH}").to_string()),
     );
     config.insert(
-        format!("druid.auth.pac4j.oidc.oidcClaim"),
+        "druid.auth.pac4j.oidc.oidcClaim".to_string(),
         Some(provider.principal_claim.to_string()),
     );
     config.insert(

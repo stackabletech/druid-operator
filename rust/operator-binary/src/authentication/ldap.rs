@@ -41,16 +41,16 @@ fn add_authenticator_config(
 
     if let Some((ldap_bind_user_path, ldap_bind_password_path)) =
         provider.bind_credentials_mount_paths()
-        {
-            config.insert(
-                format!("{PREFIX}.credentialsValidator.bindUser"),
-                Some(format!("${{file:UTF-8:{ldap_bind_user_path}}}").to_string()),
-            );
-            config.insert(
-                format!("{PREFIX}.credentialsValidator.bindPassword"),
-                Some(format!("${{file:UTF-8:{ldap_bind_password_path}}}").to_string()),
-            );
-        }
+    {
+        config.insert(
+            format!("{PREFIX}.credentialsValidator.bindUser"),
+            Some(format!("${{file:UTF-8:{ldap_bind_user_path}}}").to_string()),
+        );
+        config.insert(
+            format!("{PREFIX}.credentialsValidator.bindPassword"),
+            Some(format!("${{file:UTF-8:{ldap_bind_password_path}}}").to_string()),
+        );
+    }
 
     config.insert(
         format!("{PREFIX}.credentialsValidator.baseDn"),
