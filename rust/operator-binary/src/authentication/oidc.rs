@@ -17,7 +17,7 @@ use crate::{
     internal_secret::env_var_from_secret,
 };
 
-/// Creates OIDC authenticator config using the pac4j extension for Druid: https://druid.apache.org/docs/latest/development/extensions-core/druid-pac4j.
+/// Creates OIDC authenticator config using the pac4j extension for Druid: <https://druid.apache.org/docs/latest/development/extensions-core/druid-pac4j>.
 fn add_authenticator_config(
     provider: &AuthenticationProvider,
     oidc: &ClientAuthenticationOptions,

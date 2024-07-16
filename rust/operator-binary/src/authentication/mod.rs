@@ -65,8 +65,8 @@ impl DruidAuthenticationConfig {
         auth_classes_resolved: AuthenticationClassesResolved,
     ) -> Result<Option<Self>, Error> {
         // Currently only one auth mechanism is supported in Druid. This is checked in
-        // rust/crd/src/authentication.rs and just a fail-safe here. For Future changes,
-        // this is not just a "from" without error handling
+        // `rust/crd/src/authentication.rs` and just a fail-safe here. For Future changes,
+        // this is not just a "from" without error handling.
         match auth_classes_resolved.auth_classes.first() {
             None => Ok(None),
             Some(auth_class_resolved) => match &auth_class_resolved {
@@ -92,7 +92,7 @@ impl DruidAuthenticationConfig {
     }
 
     /// Creates the authentication and authorization parts of the runtime.properties config file.
-    /// Configuration related to TLS authentication is added in `crd/security.rs`
+    /// Configuration related to TLS authentication is added in `rust/crd/src/security.rs`.
     pub fn generate_runtime_properties_config(
         &self,
         role: &DruidRole,
@@ -208,7 +208,7 @@ impl DruidAuthenticationConfig {
         config.insert(format!("{PREFIX}.skipOnFailure"), Some("true".to_string()));
     }
 
-    /// Creates the escalator config: https://druid.apache.org/docs/latest/operations/auth/#escalator.
+    /// Creates the escalator config: <https://druid.apache.org/docs/latest/operations/auth/#escalator>.
     /// This configures Druid processes to use the basic auth authentication added in `add_druid_system_authenticator_config` for internal communication.
     fn add_escalator_config(&self, config: &mut BTreeMap<String, Option<String>>) {
         config.insert(
