@@ -9,14 +9,14 @@ use stackable_druid_crd::{
 use stackable_operator::{
     builder::pod::{container::ContainerBuilder, PodBuilder},
     commons::authentication::{
-        ldap,
-        oidc::{self, ClientAuthenticationOptions},
+        ldap::AuthenticationProvider as LdapAuthenticationProvider,
+        oidc::{AuthenticationProvider as OidcAuthenticationProvider, ClientAuthenticationOptions},
     },
     k8s_openapi::api::core::v1::EnvVar,
 };
 
-pub mod ldap_;
-pub mod oidc_;
+pub mod ldap;
+pub mod oidc;
 
 use crate::internal_secret::{build_shared_internal_secret_name, env_var_from_secret};
 
@@ -24,19 +24,19 @@ type Result<T, E = Error> = std::result::Result<T, E>;
 
 #[derive(Snafu, Debug)]
 pub enum Error {
-    #[snafu(display("Failed to create LDAP endpoint url."))]
+    #[snafu(display("failed to create LDAP endpoint url."))]
     CreateLdapEndpointUrl {
         source: stackable_operator::commons::authentication::ldap::Error,
     },
-    #[snafu(display("Failed to create LDAP endpoint url."))]
+    #[snafu(display("failed to create LDAP endpoint url."))]
     CreateOidcEndpointUrl {
         source: stackable_operator::commons::authentication::oidc::Error,
     },
-    #[snafu(display("Failed to add LDAP Volumes and VolumeMounts to the Pod and containers"))]
+    #[snafu(display("failed to add LDAP Volumes and VolumeMounts to the Pod and containers"))]
     AddLdapVolumes {
         source: stackable_operator::commons::authentication::ldap::Error,
     },
-    #[snafu(display("Failed to add OIDC Volumes and VolumeMounts to the Pod and containers"))]
+    #[snafu(display("failed to add OIDC Volumes and VolumeMounts to the Pod and containers"))]
     AddOidcVolumes {
         source: stackable_operator::commons::authentication::tls::TlsClientDetailsError,
     },
@@ -51,11 +51,11 @@ pub enum DruidAuthenticationConfig {
     Tls {},
     Ldap {
         auth_class_name: String,
-        provider: ldap::AuthenticationProvider,
+        provider: LdapAuthenticationProvider,
     },
     Oidc {
         auth_class_name: String,
-        provider: oidc::AuthenticationProvider,
+        provider: OidcAuthenticationProvider,
         oidc: ClientAuthenticationOptions,
     },
 }
@@ -99,19 +99,19 @@ impl DruidAuthenticationConfig {
 
         match self {
             DruidAuthenticationConfig::Ldap { provider, .. } => {
-                self.generate_general_runtime_properties_config(&mut config);
-                ldap_::generate_runtime_properties_config(provider, &mut config)?
+                self.generate_common_runtime_properties_config(&mut config);
+                ldap::generate_runtime_properties_config(provider, &mut config)?
             }
             DruidAuthenticationConfig::Oidc { provider, oidc, .. } => {
-                self.generate_general_runtime_properties_config(&mut config);
-                oidc_::generate_runtime_properties_config(provider, oidc, role, &mut config)?
+                self.generate_common_runtime_properties_config(&mut config);
+                oidc::generate_runtime_properties_config(provider, oidc, role, &mut config)?
             }
             DruidAuthenticationConfig::Tls { .. } => (),
         }
         Ok(config)
     }
 
-    fn generate_general_runtime_properties_config(
+    fn generate_common_runtime_properties_config(
         &self,
         config: &mut BTreeMap<String, Option<String>>,
     ) {
@@ -132,7 +132,7 @@ impl DruidAuthenticationConfig {
             ..
         } = self
         {
-            oidc_::main_container_commands(auth_class_name, provider, &mut command)
+            oidc::main_container_commands(auth_class_name, provider, &mut command)
         }
         command
     }
@@ -144,7 +144,7 @@ impl DruidAuthenticationConfig {
             provider,
         } = self
         {
-            ldap_::prepare_container_commands(auth_class_name, provider, &mut command)
+            ldap::prepare_container_commands(auth_class_name, provider, &mut command)
         }
         command
     }
@@ -159,7 +159,7 @@ impl DruidAuthenticationConfig {
         ));
 
         if let DruidAuthenticationConfig::Oidc { oidc, .. } = self {
-            envs.extend(oidc_::get_env_var_mounts(role, oidc, &internal_secret_name))
+            envs.extend(oidc::get_env_var_mounts(role, oidc, &internal_secret_name))
         }
         envs
     }
@@ -172,15 +172,17 @@ impl DruidAuthenticationConfig {
     ) -> Result<(), Error> {
         match self {
             DruidAuthenticationConfig::Ldap { provider, .. } => {
-                ldap_::add_volumes_and_mounts(provider, pb, cb_druid, cb_prepare)
+                ldap::add_volumes_and_mounts(provider, pb, cb_druid, cb_prepare)
             }
             DruidAuthenticationConfig::Oidc { provider, .. } => {
-                oidc_::add_volumes_and_mounts(provider, pb, cb_druid, cb_prepare)
+                oidc::add_volumes_and_mounts(provider, pb, cb_druid, cb_prepare)
             }
             DruidAuthenticationConfig::Tls { .. } => Ok(()),
         }
     }
 
+    /// We don't want to create an admin user, so this line is not added to the config:
+    /// # druid.auth.authenticator.DruidSystemAuthenticator.initialAdminPassword: XXX
     fn add_druid_system_authenticator_config(&self, config: &mut BTreeMap<String, Option<String>>) {
         const PREFIX: &str = "druid.auth.authenticator.DruidSystemAuthenticator";
 
@@ -189,9 +191,6 @@ impl DruidAuthenticationConfig {
             format!("{PREFIX}.credentialsValidator.type"),
             Some("metadata".to_string()),
         );
-
-        // this line is left out, as we don't want to create an admin user
-        // # druid.auth.authenticator.DruidSystemAuthenticator.initialAdminPassword: XXX
 
         config.insert(
             format!("{PREFIX}.initialInternalClientPassword"),

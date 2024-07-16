@@ -141,7 +141,7 @@ pub enum Error {
         source: stackable_operator::product_config_utils::Error,
     },
 
-    #[snafu(display("Invalid authentication configuration"))]
+    #[snafu(display("invalid authentication configuration"))]
     InvalidDruidAuthenticationConfig {
         source: crate::authentication::Error,
     },
@@ -323,7 +323,7 @@ pub enum Error {
         source: stackable_operator::commons::secret_class::SecretClassVolumeError,
     },
 
-    #[snafu(display("Failed to add OIDC Volumes and VolumeMounts to the Pod and containers"))]
+    #[snafu(display("failed to add OIDC Volumes and VolumeMounts to the Pod and containers"))]
     AuthVolumesBuild {
         source: crate::authentication::Error,
     },

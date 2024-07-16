@@ -1,8 +1,6 @@
 ---
 apiVersion: kuttl.dev/v1beta1
 kind: TestStep
-metadata:
-  name: login
 commands:
   - script: >
       envsubst '$NAMESPACE' < login.py |

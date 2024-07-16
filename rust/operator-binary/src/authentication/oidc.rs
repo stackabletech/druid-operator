@@ -26,8 +26,6 @@ fn add_authenticator_config(
         .endpoint_url()
         .context(CreateOidcEndpointUrlSnafu)?;
 
-    const PREFIX: &str = "druid.auth.pac4j";
-
     let (oidc_client_id_env, oidc_client_secret_env) =
         AuthenticationProvider::client_credentials_env_names(&oidc.client_credentials_secret_ref);
 
@@ -40,25 +38,25 @@ fn add_authenticator_config(
         Some(r#"OidcAuthorizer"#.to_string()),
     );
     config.insert(
-        format!("{PREFIX}.cookiePassphrase"),
-        Some(r#"${env:OIDC_COOKIE_PASSPHRASE}"#.to_string()),
+        format!("druid.auth.pac4j.cookiePassphrase"),
+        Some(format!("${{env:{COOKIE_PASSPHRASE_ENV}}}").to_string()),
     );
     config.insert(
-        format!("{PREFIX}.oidc.clientID"),
+        format!("druid.auth.pac4j.oidc.clientID"),
         Some(format!("${{env:{oidc_client_id_env}}}").to_string()),
     );
     config.insert(
-        format!("{PREFIX}.oidc.clientSecret"),
+        format!("druid.auth.pac4j.oidc.clientSecret"),
         Some(format!("${{env:{oidc_client_secret_env}}}").to_string()),
     );
 
     config.insert(
-        format!("{PREFIX}.oidc.discoveryURI"),
+        format!("druid.auth.pac4j.oidc.discoveryURI"),
         Some(format!("{endpoint_url}/{DEFAULT_OIDC_WELLKNOWN_PATH}").to_string()),
     );
 
     config.insert(
-        format!("{PREFIX}.oidc.oidcClaim"),
+        format!("druid.auth.pac4j.oidc.oidcClaim"),
         Some(provider.principal_claim.to_string()),
     );
     config.insert(
