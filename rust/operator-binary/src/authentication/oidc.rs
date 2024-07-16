@@ -17,6 +17,7 @@ use crate::{
     internal_secret::env_var_from_secret,
 };
 
+/// Creates OIDC authenticator config using the pac4j extension for Druid: https://druid.apache.org/docs/latest/development/extensions-core/druid-pac4j.
 fn add_authenticator_config(
     provider: &AuthenticationProvider,
     oidc: &ClientAuthenticationOptions,
@@ -38,23 +39,21 @@ fn add_authenticator_config(
         Some(r#"OidcAuthorizer"#.to_string()),
     );
     config.insert(
-        format!("druid.auth.pac4j.cookiePassphrase"),
+        "druid.auth.pac4j.cookiePassphrase".to_string(),
         Some(format!("${{env:{COOKIE_PASSPHRASE_ENV}}}").to_string()),
     );
     config.insert(
-        format!("druid.auth.pac4j.oidc.clientID"),
+        "druid.auth.pac4j.oidc.clientID".to_string(),
         Some(format!("${{env:{oidc_client_id_env}}}").to_string()),
     );
     config.insert(
-        format!("druid.auth.pac4j.oidc.clientSecret"),
+        "druid.auth.pac4j.oidc.clientSecret".to_string(),
         Some(format!("${{env:{oidc_client_secret_env}}}").to_string()),
     );
-
     config.insert(
         format!("druid.auth.pac4j.oidc.discoveryURI"),
         Some(format!("{endpoint_url}/{DEFAULT_OIDC_WELLKNOWN_PATH}").to_string()),
     );
-
     config.insert(
         format!("druid.auth.pac4j.oidc.oidcClaim"),
         Some(provider.principal_claim.to_string()),

@@ -91,6 +91,8 @@ impl DruidAuthenticationConfig {
         }
     }
 
+    /// Creates the authentication and authorization parts of the runtime.properties config file.
+    /// Configuration related to TLS authentication is added in `crd/security.rs`
     pub fn generate_runtime_properties_config(
         &self,
         role: &DruidRole,
@@ -111,6 +113,7 @@ impl DruidAuthenticationConfig {
         Ok(config)
     }
 
+    /// Creates authentication config that is required by LDAP and OIDC and doesn't depend on user input.
     fn generate_common_runtime_properties_config(
         &self,
         config: &mut BTreeMap<String, Option<String>>,
@@ -181,7 +184,9 @@ impl DruidAuthenticationConfig {
         }
     }
 
-    /// We don't want to create an admin user, so this line is not added to the config:
+    /// Creates the authenticatior config for the internal communication by Druid processes using basic auth.
+    /// When using LDAP or OIDC the DruidSystemAuthenticator is always tried first and skipped if no basic auth credentials were supplied.
+    /// We don't want to create an admin user for the internal authentication, so this line is left out of the config:
     /// # druid.auth.authenticator.DruidSystemAuthenticator.initialAdminPassword: XXX
     fn add_druid_system_authenticator_config(&self, config: &mut BTreeMap<String, Option<String>>) {
         const PREFIX: &str = "druid.auth.authenticator.DruidSystemAuthenticator";
@@ -203,6 +208,8 @@ impl DruidAuthenticationConfig {
         config.insert(format!("{PREFIX}.skipOnFailure"), Some("true".to_string()));
     }
 
+    /// Creates the escalator config: https://druid.apache.org/docs/latest/operations/auth/#escalator.
+    /// This configures Druid processes to use the basic auth authentication added in `add_druid_system_authenticator_config` for internal communication.
     fn add_escalator_config(&self, config: &mut BTreeMap<String, Option<String>>) {
         config.insert(
             "druid.escalator.type".to_string(),

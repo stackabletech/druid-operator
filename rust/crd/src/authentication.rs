@@ -98,7 +98,7 @@ impl AuthenticationClassesResolved {
         AuthenticationClassesResolved::resolve(cluster_config, resolve_auth_class).await
     }
 
-    /// Retrieve all provided `AuthenticationClass` references.
+    /// Retrieves all provided `AuthenticationClass` references and checks if the configuration (TLS settings, secret class, OIDC config, etc.) is valid.
     pub async fn resolve<R>(
         cluster_config: &DruidClusterConfig,
         resolve_auth_class: impl Fn(ClientAuthenticationDetails) -> R,
