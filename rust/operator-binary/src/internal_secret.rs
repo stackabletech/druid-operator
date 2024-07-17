@@ -18,8 +18,8 @@ pub enum Error {
         source: stackable_operator::client::Error,
     },
 
-    #[snafu(display("failed to delete internal secret"))]
-    DeleteInternalSecret {
+    #[snafu(display("failed to delete the immutable internal secret"))]
+    DeleteImmutableInternalSecret {
         source: stackable_operator::client::Error,
     },
 
@@ -53,45 +53,60 @@ pub async fn create_shared_internal_secret(
         )
         .await
         .context(FailedToRetrieveInternalSecretSnafu)?;
+    let existing_immutable_secret = client
+        .get_opt::<Secret>(
+            &build_immutable_shared_internal_secret_name(druid),
+            secret
+                .namespace()
+                .as_deref()
+                .context(ObjectHasNoNamespaceSnafu)?,
+        )
+        .await
+        .context(FailedToRetrieveInternalSecretSnafu)?;
 
     match existing_secret {
         None => {
-            tracing::info!(
-                secret_name = secret.name_any(),
-                "Did not found a shared internal secret with the necessary data, creating one"
-            );
-            client
-                .apply_patch(controller_name, &secret, &secret)
-                .await
-                .context(ApplyInternalSecretSnafu)?;
-        }
-        Some(existing_secret) => {
-            if existing_secret.immutable == Some(true) {
-                // Before 2024-06-25 we did set `spec.immutable` to avoid accidentally changing the contents. Which was
-                // great back than, *but* we now need something more flexible. AFAIK we can not make the Secret mutable,
-                // so there seems to be no other way than to re-create it. We *could* read in the contents and use them
-                // during the re-creation (so we don't change the contents to avoid downtime), but we strive that our
-                // operators don't handle Secret contents and it's a one time migration thing.
-
-                tracing::warn!(
+            match existing_immutable_secret {
+                None => {
+                    tracing::info!(
                     secret_name = secret.name_any(),
-                    "Shared internal secret found, which is immutable. Re-creating it, as we can not modify it. This \
-                    should only happen once and will change the contents of the Secret. This might cause a short \
-                    downtime of Druid, as the changed internal Secrets need to propagate through all Druid nodes"
+                    "Did not found a shared internal secret with the necessary data, creating one"
                 );
+                    client
+                        .apply_patch(controller_name, &secret, &secret)
+                        .await
+                        .context(ApplyInternalSecretSnafu)?;
+                }
+                Some(existing_immutable_secret) => {
+                    // Before 2024-06-25 we did set `spec.immutable` to avoid accidentally changing the contents. Which was
+                    // great back than, *but* we now need something more flexible. We can not make the Secret mutable,
+                    // and re-creation with the same name is very error-prone so we create a mutable secret with a new name
+                    // (see <https://github.com/kubernetes/website/issues/42359#issuecomment-2136192995>).
+                    // We *could* read in the contents and use them during the re-creation (so we don't change the contents to avoid downtime),
+                    // but we strive that our operators don't handle Secret contents and it's a one time migration.
 
-                client
-                    .delete(&secret)
-                    .await
-                    .context(DeleteInternalSecretSnafu)?;
+                    tracing::warn!(
+                        secret_name = secret.name_any(),
+                        "Shared internal secret found, which is immutable. Re-creating it with a new name, as we can not modify it or re-create it \
+                        with the same name. This should only happen once and will change the contents of the Secret. This might cause a short \
+                        downtime of Druid, as the changed internal secrets need to propagate through all Druid nodes"
+                    );
 
-                client
-                    .apply_patch(controller_name, &secret, &secret)
-                    .await
-                    .context(ApplyInternalSecretSnafu)?;
-                return Ok(());
+                    client
+                        .delete(&existing_immutable_secret)
+                        .await
+                        .context(DeleteImmutableInternalSecretSnafu)?;
+
+                    client
+                        .apply_patch(controller_name, &secret, &secret)
+                        .await
+                        .context(ApplyInternalSecretSnafu)?;
+                    return Ok(());
+                }
             }
+        }
 
+        Some(existing_secret) => {
             let current_secret_keys = existing_secret
                 .data
                 .unwrap_or_default()
@@ -147,8 +162,12 @@ pub fn build_shared_internal_secret(druid: &DruidCluster) -> Result<Secret, Erro
     })
 }
 
-pub fn build_shared_internal_secret_name(druid: &DruidCluster) -> String {
+pub fn build_immutable_shared_internal_secret_name(druid: &DruidCluster) -> String {
     format!("{}-internal-secret", druid.name_any())
+}
+
+pub fn build_shared_internal_secret_name(druid: &DruidCluster) -> String {
+    format!("{}-shared-internal-secret", druid.name_any())
 }
 
 fn get_random_base64() -> String {
