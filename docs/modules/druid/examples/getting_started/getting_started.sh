@@ -137,10 +137,12 @@ kubectl rollout status --watch statefulset/simple-druid-router-default --timeout
 # end::watch-druid-rollout[]
 
 echo "Starting port-forwarding of port 8888"
+# shellcheck disable=2069 # we want all output to be blackholed
 # tag::port-forwarding[]
 kubectl port-forward svc/simple-druid-router 8888 > /dev/null 2>&1 &
 # end::port-forwarding[]
 PORT_FORWARD_PID=$!
+# shellcheck disable=2064 # we want the PID evaluated now, not at the time the trap is
 trap "kill $PORT_FORWARD_PID" EXIT
 sleep 5
 
