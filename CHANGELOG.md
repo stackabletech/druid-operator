@@ -8,7 +8,7 @@ All notable changes to this project will be documented in this file.
 
 - Add support for specifying additional extensions to load ([#547], [#563]).
 - Add support for OIDC as authentication method ([#573]).
-- Support Apache Druid `30.0.0` as new LTS version ([#583])
+- Support Apache Druid `30.0.0` as new LTS version ([#583]).
 
 ### Changed
 
@@ -20,12 +20,11 @@ All notable changes to this project will be documented in this file.
 ### Fixed
 
 - [BREAKING] Move the DB credentials `user` and `password` out of the CRD into a secret containing the keys `username` and `password` ([#557]).
-- Processing of corrupted log events fixed; If errors occur, the error
-  messages are added to the log event ([#572]).
+- Processing of corrupted log events fixed; If errors occur, the error messages are added to the log event ([#572]).
 
 ### Removed
 
-- Remove support for Apache Druid version 27.0.0 ([#518]).
+- Remove support for Apache Druid version 27.0.0 ([#583]).
 
 [#547]: https://github.com/stackabletech/druid-operator/pull/547
 [#557]: https://github.com/stackabletech/druid-operator/pull/557
