@@ -23,7 +23,7 @@ fn add_authenticator_config(
         Some("basic".to_string()),
     );
     config.insert(
-        format!("druid.auth.authenticator.Ldap.enableCacheNotifications"),
+        "druid.auth.authenticator.Ldap.enableCacheNotifications".to_string(),
         Some("true".to_string()),
     );
     config.insert(
