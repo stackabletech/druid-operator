@@ -72,12 +72,35 @@ include::example$druid-ldap-authentication.yaml[tag=druid]
 ----
 
 Check out the xref:tutorials:authentication_with_openldap.adoc[] tutorial to see a complete example of how to set LDAP authentication for another Stackable operator.
-You can also consult the home:reference:authenticationclass.adoc[] reference, or
+You can also consult the xref:home:reference:authenticationclass.adoc[] reference, or
 https://github.com/stackabletech/druid-operator/tree/main/tests/templates/kuttl/ldap-authentication[the LDAP test] suite.
+
+=== OIDC
+
+Druid supports xref:concepts:authentication.adoc[authentication] of users of the web console against a OIDC provider.
+This requires setting up a xref:concepts:authentication.adoc#authenticationclass[AuthenticationClass] for the OIDC provider:
+
+[source,yaml]
+----
+include::example$druid-oidc-authentication.yaml[tag=authclass]
+----
+
+Reference the AuthenticationClass and a secret containing OIDC client credentials in your DruidCluster resource:
+
+[source,yaml]
+----
+include::example$druid-oidc-authentication.yaml[tag=druid]
+----
+
+The secret containing the OIDC client credentials should be structured like this:
+[source,yaml]
+----
+include::example$druid-oidc-authentication.yaml[tag=secret]
+----
 
 === Current Limitations and Upcoming Work
 
-At the moment you can either use TLS authentication or LDAP authentication. Both methods together are not supported.
+At the moment you can either use TLS, LDAP or OIDC authentication but not a combination of authentication methods.
 
 Using an LDAP server **without** bind credentials is not supported. This limitation is due to Druid not supporting this scenario. See https://github.com/stackabletech/druid-operator/issues/383[our issue] for details.
 
