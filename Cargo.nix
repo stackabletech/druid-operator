@@ -6637,6 +6637,11 @@ rec {
             name = "serde_yaml";
             packageId = "serde_yaml";
           }
+          {
+            name = "tokio";
+            packageId = "tokio";
+            features = [ "full" ];
+          }
         ];
 
       };
