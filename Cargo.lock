@@ -2148,6 +2148,7 @@ dependencies = [
  "snafu 0.8.4",
  "stackable-operator",
  "strum",
+ "tokio",
  "tracing",
 ]
 

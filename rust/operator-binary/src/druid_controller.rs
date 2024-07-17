@@ -13,14 +13,10 @@ use product_config::{
 };
 use snafu::{OptionExt, ResultExt, Snafu};
 use stackable_druid_crd::{
-    authentication::ldap::DruidLdapSettings,
-    authorization::DruidAuthorization,
-    build_recommended_labels, build_string_list,
-    security::{
-        resolve_authentication_classes, DruidTlsSecurity, INTERNAL_INITIAL_CLIENT_PASSWORD_ENV,
-    },
-    CommonRoleGroupConfig, Container, DeepStorageSpec, DruidCluster, DruidClusterStatus, DruidRole,
-    APP_NAME, AUTH_AUTHORIZER_OPA_URI, CERTS_DIR, CREDENTIALS_SECRET_PROPERTY, DB_PASSWORD_ENV,
+    authentication::AuthenticationClassesResolved, authorization::DruidAuthorization,
+    build_recommended_labels, build_string_list, security::DruidTlsSecurity, CommonRoleGroupConfig,
+    Container, DeepStorageSpec, DruidCluster, DruidClusterStatus, DruidRole, APP_NAME,
+    AUTH_AUTHORIZER_OPA_URI, CERTS_DIR, CREDENTIALS_SECRET_PROPERTY, DB_PASSWORD_ENV,
     DB_USERNAME_ENV, DRUID_CONFIG_DIRECTORY, DS_BUCKET, EXTENSIONS_LOADLIST, HDFS_CONFIG_DIRECTORY,
     JVM_CONFIG, JVM_SECURITY_PROPERTIES_FILE, LOG_CONFIG_DIRECTORY, LOG_DIR,
     MAX_DRUID_LOG_FILES_SIZE, RUNTIME_PROPS, RW_CONFIG_DIRECTORY, S3_ACCESS_KEY, S3_ENDPOINT_URL,
@@ -78,15 +74,13 @@ use stackable_operator::{
 };
 use strum::{EnumDiscriminants, IntoStaticStr};
 
-use crate::operations::graceful_shutdown::add_graceful_shutdown_config;
 use crate::{
+    authentication::DruidAuthenticationConfig,
     config::get_jvm_config,
     discovery::{self, build_discovery_configmaps},
     extensions::get_extension_list,
-    internal_secret::{
-        build_shared_internal_secret_name, create_shared_internal_secret, env_var_from_secret,
-    },
-    operations::pdb::add_pdbs,
+    internal_secret::{create_shared_internal_secret, env_var_from_secret},
+    operations::{graceful_shutdown::add_graceful_shutdown_config, pdb::add_pdbs},
     product_logging::{extend_role_group_config_map, resolve_vector_aggregator_address},
     OPERATOR_NAME,
 };
@@ -142,9 +136,14 @@ pub enum Error {
         rolegroup: RoleGroupRef<DruidCluster>,
     },
 
-    #[snafu(display("invalid product config"))]
+    #[snafu(display("invalid product configuration"))]
     InvalidProductConfig {
         source: stackable_operator::product_config_utils::Error,
+    },
+
+    #[snafu(display("invalid authentication configuration"))]
+    InvalidDruidAuthenticationConfig {
+        source: crate::authentication::Error,
     },
 
     #[snafu(display("object is missing metadata to build owner reference"))]
@@ -246,6 +245,11 @@ pub enum Error {
         source: stackable_druid_crd::security::Error,
     },
 
+    #[snafu(display("failed to retrieve AuthenticationClass"))]
+    AuthenticationClassRetrieval {
+        source: stackable_druid_crd::authentication::Error,
+    },
+
     #[snafu(display("failed to get JVM config"))]
     GetJvmConfig { source: crate::config::Error },
 
@@ -263,11 +267,6 @@ pub enum Error {
     FailedInternalSecretCreation {
         source: crate::internal_secret::Error,
     },
-
-    #[snafu(display(
-        "failed to access bind credentials although they are required for LDAP to work"
-    ))]
-    LdapBindCredentialsAreRequired,
 
     #[snafu(display("failed to resolve the Vector aggregator address"))]
     ResolveVectorAggregatorAddress {
@@ -324,6 +323,11 @@ pub enum Error {
         source: stackable_operator::commons::secret_class::SecretClassVolumeError,
     },
 
+    #[snafu(display("failed to add OIDC Volumes and VolumeMounts to the Pod and containers"))]
+    AuthVolumesBuild {
+        source: crate::authentication::Error,
+    },
+
     #[snafu(display("failed to build labels"))]
     LabelBuild { source: LabelError },
 
@@ -337,16 +341,9 @@ pub enum Error {
         source: KeyValuePairError<LabelValueError>,
     },
 
-    #[snafu(display(
-        "there was an error adding LDAP Volumes and VolumeMounts to the Pod and containers"
-    ))]
-    AddLdapVolumes {
-        source: stackable_operator::commons::authentication::ldap::Error,
-    },
-
-    #[snafu(display("there was an error adding generating the LDAP runtime settings"))]
-    GenerateLdapRuntimeSettings {
-        source: stackable_druid_crd::authentication::ldap::Error,
+    #[snafu(display("there was an error generating the authentication runtime settings"))]
+    GenerateAuthenticationRuntimeSettings {
+        source: crate::authentication::Error,
     },
 }
 
@@ -427,14 +424,16 @@ pub async fn reconcile_druid(druid: Arc<DruidCluster>, ctx: Arc<Ctx>) -> Result<
         _ => None,
     };
 
-    let resolved_authentication_classes = resolve_authentication_classes(client, &druid)
-        .await
-        .context(FailedToInitializeSecurityContextSnafu)?;
-
-    let druid_ldap_settings = DruidLdapSettings::new_from(&resolved_authentication_classes);
+    let resolved_auth_classes =
+        AuthenticationClassesResolved::from(&druid.spec.cluster_config, client)
+            .await
+            .context(AuthenticationClassRetrievalSnafu)?;
 
     let druid_tls_security =
-        DruidTlsSecurity::new_from_druid_cluster(&druid, resolved_authentication_classes);
+        DruidTlsSecurity::new_from_druid_cluster(&druid, &resolved_auth_classes);
+
+    let druid_auth_config = DruidAuthenticationConfig::try_from(resolved_auth_classes)
+        .context(InvalidDruidAuthenticationConfigSnafu)?;
 
     let role_config = transform_all_roles_to_config(druid.as_ref(), druid.build_role_properties());
     let validated_role_config = validate_all_roles_and_groups_config(
@@ -525,7 +524,7 @@ pub async fn reconcile_druid(druid: Arc<DruidCluster>, ctx: Arc<Ctx>) -> Result<
                 s3_conn.as_ref(),
                 deep_storage_bucket_name.as_deref(),
                 &druid_tls_security,
-                &druid_ldap_settings,
+                &druid_auth_config,
             )?;
             let rg_statefulset = build_rolegroup_statefulset(
                 &druid,
@@ -536,7 +535,7 @@ pub async fn reconcile_druid(druid: Arc<DruidCluster>, ctx: Arc<Ctx>) -> Result<
                 &merged_rolegroup_config,
                 s3_conn.as_ref(),
                 &druid_tls_security,
-                &druid_ldap_settings,
+                &druid_auth_config,
             )?;
             cluster_resources
                 .add(client, rg_service)
@@ -668,7 +667,7 @@ fn build_rolegroup_config_map(
     s3_conn: Option<&S3ConnectionSpec>,
     deep_storage_bucket_name: Option<&str>,
     druid_tls_security: &DruidTlsSecurity,
-    druid_ldap_settings: &Option<DruidLdapSettings>,
+    druid_auth_config: &Option<DruidAuthenticationConfig>,
 ) -> Result<ConfigMap> {
     let role = DruidRole::from_str(&rolegroup.role).unwrap();
     let mut cm_conf_data = BTreeMap::new(); // filename -> filecontent
@@ -699,6 +698,7 @@ fn build_rolegroup_config_map(
                     Some(build_string_list(&get_extension_list(
                         druid,
                         druid_tls_security,
+                        druid_auth_config,
                     ))),
                 );
 
@@ -747,11 +747,11 @@ fn build_rolegroup_config_map(
                 // add tls encryption / auth properties
                 druid_tls_security.add_tls_config_properties(&mut conf, &role);
 
-                if let Some(ldap_settings) = druid_ldap_settings {
+                if let Some(auth_config) = druid_auth_config {
                     conf.extend(
-                        ldap_settings
-                            .generate_runtime_properties_config()
-                            .context(GenerateLdapRuntimeSettingsSnafu)?,
+                        auth_config
+                            .generate_runtime_properties_config(&role)
+                            .context(GenerateAuthenticationRuntimeSettingsSnafu)?,
                     );
                 };
 
@@ -899,7 +899,7 @@ fn build_rolegroup_statefulset(
     merged_rolegroup_config: &CommonRoleGroupConfig,
     s3_conn: Option<&S3ConnectionSpec>,
     druid_tls_security: &DruidTlsSecurity,
-    ldap_settings: &Option<DruidLdapSettings>,
+    druid_auth_config: &Option<DruidAuthenticationConfig>,
 ) -> Result<StatefulSet> {
     // prepare container builder
     let prepare_container_name = Container::Prepare.to_string();
@@ -952,20 +952,12 @@ fn build_rolegroup_statefulset(
     }
     prepare_container_commands.extend(druid_tls_security.build_tls_key_stores_cmd());
 
-    if let Some(ldap_settings) = ldap_settings {
-        // TODO: Connecting to an LDAP server without bind credentials does not seem to be configurable in Druid at the moment
-        // see https://github.com/stackabletech/druid-operator/issues/383 for future work.
-        // Expect bind credentials to be provided for now, and throw return a useful error if there are none.
-        if ldap_settings.ldap.bind_credentials_mount_paths().is_none() {
-            return LdapBindCredentialsAreRequiredSnafu.fail();
-        }
-
-        ldap_settings
-            .ldap
-            .add_volumes_and_mounts(&mut pb, vec![&mut cb_druid, &mut cb_prepare])
-            .context(AddLdapVolumesSnafu)?;
-
-        prepare_container_commands.extend(ldap_settings.prepare_container_commands());
+    if let Some(auth_config) = druid_auth_config {
+        auth_config
+            .add_volumes_and_mounts(&mut pb, &mut cb_druid, &mut cb_prepare)
+            .context(AuthVolumesBuildSnafu)?;
+        prepare_container_commands.extend(auth_config.prepare_container_commands());
+        main_container_commands.extend(auth_config.main_container_commands())
     }
 
     // volume and volume mounts
@@ -1022,13 +1014,6 @@ fn build_rolegroup_statefulset(
         })
         .collect::<Vec<_>>();
 
-    let secret_name = build_shared_internal_secret_name(druid);
-    rest_env.push(env_var_from_secret(
-        &secret_name,
-        None,
-        INTERNAL_INITIAL_CLIENT_PASSWORD_ENV,
-    ));
-
     // load database credentials to environment variables: these will be used to replace
     // the placeholders in runtime.properties so that the operator does not "touch" the secret.
     if let Some(credentials_secret_name) = credentials_secret {
@@ -1042,6 +1027,10 @@ fn build_rolegroup_statefulset(
             Some("password"),
             DB_PASSWORD_ENV,
         ));
+    }
+
+    if let Some(auth_config) = druid_auth_config {
+        rest_env.extend(auth_config.get_env_var_mounts(druid, role))
     }
 
     main_container_commands.push(role.main_container_start_command());
@@ -1316,9 +1305,7 @@ mod test {
 
     use product_config::{writer, ProductConfigManager};
     use rstest::*;
-    use stackable_druid_crd::{
-        authentication::ResolvedAuthenticationClasses, PROP_SEGMENT_CACHE_LOCATIONS,
-    };
+    use stackable_druid_crd::PROP_SEGMENT_CACHE_LOCATIONS;
 
     #[derive(Snafu, Debug, EnumDiscriminants)]
     #[strum_discriminants(derive(IntoStaticStr))]
@@ -1387,7 +1374,9 @@ mod test {
         .context(OperatorFrameworkSnafu)?;
 
         let druid_tls_security = DruidTlsSecurity::new(
-            ResolvedAuthenticationClasses::new(vec![]),
+            &AuthenticationClassesResolved {
+                auth_classes: vec![],
+            },
             Some("tls".to_string()),
         );
 
@@ -1410,7 +1399,7 @@ mod test {
                         .common_config(DruidRole::Historical, rolegroup_name)
                         .context(InvalidConfigurationSnafu)?;
 
-                    let ldap_settings: Option<DruidLdapSettings> = None;
+                    let auth_settings: Option<DruidAuthenticationConfig> = None;
 
                     let rg_configmap = build_rolegroup_config_map(
                         &druid,
@@ -1424,7 +1413,7 @@ mod test {
                         None,
                         None,
                         &druid_tls_security,
-                        &ldap_settings,
+                        &auth_settings,
                     )
                     .context(ControllerSnafu)?;
 

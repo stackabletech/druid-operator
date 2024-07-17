@@ -9,7 +9,6 @@ pub mod tls;
 
 use crate::{
     affinity::get_affinity,
-    authentication::DruidAuthentication,
     authorization::DruidAuthorization,
     resource::RoleResource,
     tls::{default_druid_tls, DruidTls},
@@ -23,7 +22,10 @@ use stackable_operator::{
     client::Client,
     commons::{
         affinity::StackableAffinity,
-        authentication::tls::{CaCert, Tls, TlsServerVerification, TlsVerification},
+        authentication::{
+            tls::{CaCert, Tls, TlsServerVerification, TlsVerification},
+            ClientAuthenticationDetails,
+        },
         cluster_operation::ClusterOperation,
         product_image_selection::ProductImage,
         resources::{NoRuntimeLimits, Resources},
@@ -133,6 +135,8 @@ pub const SECRET_KEY_S3_SECRET_KEY: &str = "secretKey";
 pub const SC_LOCATIONS: &str = "druid.segmentCache.locations";
 pub const SC_DIRECTORY: &str = "/stackable/var/druid/segment-cache";
 pub const SC_VOLUME_NAME: &str = "segment-cache";
+
+pub const COOKIE_PASSPHRASE_ENV: &str = "OIDC_COOKIE_PASSPHRASE";
 
 // DB credentials - both of these are read from an env var by Druid with the ${env:...} syntax
 pub const DB_USERNAME_ENV: &str = "DB_USERNAME_ENV";
@@ -252,13 +256,13 @@ pub struct DruidClusterConfig {
     pub additional_extensions: HashSet<String>,
 
     /// List of [AuthenticationClasses](DOCS_BASE_URL_PLACEHOLDER/concepts/authentication)
-    /// to use for authenticating users. TLS and LDAP authentication are supported. More information in
+    /// to use for authenticating users. TLS, LDAP and OIDC authentication are supported. More information in
     /// the [Druid operator security documentation](DOCS_BASE_URL_PLACEHOLDER/druid/usage-guide/security#_authentication).
     ///
     /// For TLS: Please note that the SecretClass used to authenticate users needs to be the same
     /// as the SecretClass used for internal communication.
     #[serde(default)]
-    pub authentication: Vec<DruidAuthentication>,
+    pub authentication: Vec<ClientAuthenticationDetails>,
 
     /// Authorization settings for Druid like OPA
     #[serde(skip_serializing_if = "Option::is_none")]

@@ -26,12 +26,12 @@ include::example$getting_started/getting_started.sh[tag=stackablectl-install-ope
 The tool will show
 
 ----
-[INFO ] Installing commons operator
-[INFO ] Installing secret operator
-[INFO ] Installing listener operator
-[INFO ] Installing zookeeper operator
-[INFO ] Installing hdfs operator
-[INFO ] Installing druid operator
+Installed commons operator
+Installed secret operator
+Installed listener operator
+Installed zookeeper operator
+Installed hdfs operator
+Installed druid operator
 ----
 
 TIP: Consult the xref:management:stackablectl:quickstart.adoc[] to learn more about how to use `stackablectl`.

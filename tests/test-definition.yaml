@@ -60,7 +60,7 @@ dimensions:
       - "false"
   - name: oidc-use-tls
     values:
-      # - "true" # Disabled as pac4j can currently not be configured to trust Keycloak's CA cert (will be fixed by official OIDC support for Druid)
+      - "true"
       - "false"
 tests:
   - name: smoke
@@ -158,6 +158,8 @@ suites:
           - name: s3-use-tls
             expr: "true"
           - name: ldap-use-tls
+            expr: "true"
+          - name: oidc-use-tls
             expr: "true"
   - name: smoke-latest
     select:
