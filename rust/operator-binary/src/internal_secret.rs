@@ -1,6 +1,6 @@
 use snafu::{OptionExt, ResultExt, Snafu};
 use stackable_druid_crd::security::INTERNAL_INITIAL_CLIENT_PASSWORD_ENV;
-use stackable_druid_crd::DruidCluster;
+use stackable_druid_crd::{DruidCluster, COOKIE_PASSPHRASE_ENV};
 use stackable_operator::k8s_openapi::api::core::v1::{EnvVar, EnvVarSource, SecretKeySelector};
 use stackable_operator::kube::ResourceExt;
 use stackable_operator::{
@@ -148,6 +148,7 @@ pub fn build_shared_internal_secret(druid: &DruidCluster) -> Result<Secret, Erro
         INTERNAL_INITIAL_CLIENT_PASSWORD_ENV.to_string(),
         get_random_base64(),
     );
+    internal_secret.insert(COOKIE_PASSPHRASE_ENV.to_string(), get_random_base64());
 
     Ok(Secret {
         metadata: ObjectMetaBuilder::new()

@@ -1,26 +1,24 @@
 use crate::{
-    authentication::{self, ResolvedAuthenticationClasses},
+    authentication::{self, AuthenticationClassesResolved},
     DruidCluster, DruidRole, METRICS_PORT,
 };
+use crate::{STACKABLE_TRUST_STORE, STACKABLE_TRUST_STORE_PASSWORD};
 use snafu::{ResultExt, Snafu};
 use stackable_operator::{
     builder::pod::{
         container::ContainerBuilder,
         volume::{
-            SecretOperatorVolumeSourceBuilder, SecretOperatorVolumeSourceBuilderError,
-            VolumeBuilder,
+            SecretFormat, SecretOperatorVolumeSourceBuilder,
+            SecretOperatorVolumeSourceBuilderError, VolumeBuilder,
         },
         PodBuilder,
     },
-    client::Client,
-    commons::authentication::AuthenticationClass,
     k8s_openapi::{
         api::core::v1::{ContainerPort, Probe, ServicePort, TCPSocketAction},
         apimachinery::pkg::util::intstr::IntOrString,
     },
 };
 
-use stackable_operator::builder::pod::volume::SecretFormat;
 use std::collections::BTreeMap;
 
 #[derive(Snafu, Debug)]
@@ -36,21 +34,8 @@ pub enum Error {
 
 /// Helper struct combining TLS settings for server and internal tls with the resolved AuthenticationClasses
 pub struct DruidTlsSecurity {
-    resolved_authentication_classes: ResolvedAuthenticationClasses,
+    auth_classes: AuthenticationClassesResolved,
     server_and_internal_secret_class: Option<String>,
-}
-
-pub async fn resolve_authentication_classes(
-    client: &Client,
-    druid: &DruidCluster,
-) -> Result<ResolvedAuthenticationClasses, Error> {
-    authentication::ResolvedAuthenticationClasses::from_references(
-        client,
-        druid,
-        &druid.spec.cluster_config.authentication,
-    )
-    .await
-    .context(InvalidAuthenticationClassConfigurationSnafu)
 }
 
 // Ports
@@ -107,11 +92,11 @@ pub const ESCALATOR_INTERNAL_CLIENT_PASSWORD_ENV: &str = INTERNAL_INITIAL_CLIENT
 
 impl DruidTlsSecurity {
     pub fn new(
-        resolved_authentication_classes: ResolvedAuthenticationClasses,
+        auth_classes: &AuthenticationClassesResolved,
         server_and_internal_secret_class: Option<String>,
     ) -> Self {
         Self {
-            resolved_authentication_classes,
+            auth_classes: auth_classes.clone(),
             server_and_internal_secret_class,
         }
     }
@@ -120,10 +105,10 @@ impl DruidTlsSecurity {
     /// all provided `AuthenticationClass` references.
     pub fn new_from_druid_cluster(
         druid: &DruidCluster,
-        resolved_authentication_classes: ResolvedAuthenticationClasses,
+        auth_classes: &AuthenticationClassesResolved,
     ) -> Self {
         DruidTlsSecurity {
-            resolved_authentication_classes,
+            auth_classes: auth_classes.clone(),
             server_and_internal_secret_class: druid
                 .spec
                 .cluster_config
@@ -140,19 +125,13 @@ impl DruidTlsSecurity {
     /// the Druid client port
     pub fn tls_enabled(&self) -> bool {
         // TODO: This must be adapted if other authentication methods are supported and require TLS
-        self.tls_client_authentication_class().is_some()
+        self.auth_classes.tls_authentication_enabled()
             || self.tls_server_and_internal_secret_class().is_some()
     }
 
     /// Retrieve an optional TLS secret class for external client -> server and server <-> server communications.
     pub fn tls_server_and_internal_secret_class(&self) -> Option<&str> {
         self.server_and_internal_secret_class.as_deref()
-    }
-
-    /// Retrieve an optional TLS `AuthenticationClass`.
-    pub fn tls_client_authentication_class(&self) -> Option<&AuthenticationClass> {
-        self.resolved_authentication_classes
-            .get_tls_authentication_class()
     }
 
     pub fn container_ports(&self, role: &DruidRole) -> Vec<ContainerPort> {
@@ -267,11 +246,7 @@ impl DruidTlsSecurity {
             Self::add_tls_encryption_config_properties(config, STACKABLE_TLS_DIR, TLS_ALIAS_NAME);
         }
 
-        if self
-            .resolved_authentication_classes
-            .get_tls_authentication_class()
-            .is_some()
-        {
+        if self.auth_classes.tls_authentication_enabled() {
             Self::add_tls_auth_config_properties(config, STACKABLE_TLS_DIR, TLS_ALIAS_NAME);
         }
     }
@@ -451,6 +426,10 @@ pub fn add_cert_to_trust_store_cmd(
     store_password: &str,
 ) -> String {
     format!("keytool -importcert -file {cert} -keystore {trust_store_directory}/truststore.p12 -storetype pkcs12 -alias {alias_name} -storepass {store_password} -noprompt")
+}
+
+pub fn add_cert_to_jvm_trust_store_cmd(cert: &str, alias_name: &str) -> String {
+    format!("keytool -importcert -file {cert} -keystore {STACKABLE_TRUST_STORE} -storetype pkcs12 -alias {alias_name} -storepass {STACKABLE_TRUST_STORE_PASSWORD} -noprompt")
 }
 
 /// Import the system truststore to a truststore named `truststore.p12` in `destination_directory`.
