@@ -30,6 +30,9 @@ fn add_authenticator_config(
     let (oidc_client_id_env, oidc_client_secret_env) =
         AuthenticationProvider::client_credentials_env_names(&oidc.client_credentials_secret_ref);
 
+    let mut scopes = provider.scopes.clone();
+    scopes.extend_from_slice(&oidc.extra_scopes);
+
     config.insert(
         "druid.auth.authenticator.Oidc.type".to_string(),
         Some(r#"pac4j"#.to_string()),
@@ -57,6 +60,10 @@ fn add_authenticator_config(
     config.insert(
         "druid.auth.pac4j.oidc.oidcClaim".to_string(),
         Some(provider.principal_claim.to_string()),
+    );
+    config.insert(
+        "druid.auth.pac4j.oidc.scope".to_string(),
+        Some(scopes.join(" ")),
     );
     config.insert(
         "druid.auth.authenticatorChain".to_string(),

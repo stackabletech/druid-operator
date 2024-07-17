@@ -189,23 +189,29 @@ impl DruidAuthenticationConfig {
     /// We don't want to create an admin user for the internal authentication, so this line is left out of the config:
     /// # druid.auth.authenticator.DruidSystemAuthenticator.initialAdminPassword: XXX
     fn add_druid_system_authenticator_config(&self, config: &mut BTreeMap<String, Option<String>>) {
-        const PREFIX: &str = "druid.auth.authenticator.DruidSystemAuthenticator";
-
-        config.insert(format!("{PREFIX}.type"), Some("basic".to_string()));
         config.insert(
-            format!("{PREFIX}.credentialsValidator.type"),
+            "druid.auth.authenticator.DruidSystemAuthenticator.type".to_string(),
+            Some("basic".to_string()),
+        );
+        config.insert(
+            "druid.auth.authenticator.DruidSystemAuthenticator.credentialsValidator.type"
+                .to_string(),
             Some("metadata".to_string()),
         );
 
         config.insert(
-            format!("{PREFIX}.initialInternalClientPassword"),
+            "druid.auth.authenticator.DruidSystemAuthenticator.initialInternalClientPassword"
+                .to_string(),
             Some(format!("${{env:{INTERNAL_INITIAL_CLIENT_PASSWORD_ENV}}}").to_string()),
         );
         config.insert(
-            format!("{PREFIX}.authorizerName"),
+            "druid.auth.authenticator.DruidSystemAuthenticator.authorizerName".to_string(),
             Some("DruidSystemAuthorizer".to_string()),
         );
-        config.insert(format!("{PREFIX}.skipOnFailure"), Some("true".to_string()));
+        config.insert(
+            "druid.auth.authenticator.DruidSystemAuthenticator.skipOnFailure".to_string(),
+            Some("true".to_string()),
+        );
     }
 
     /// Creates the escalator config: <https://druid.apache.org/docs/latest/operations/auth/#escalator>.

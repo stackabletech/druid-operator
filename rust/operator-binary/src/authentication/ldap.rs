@@ -18,19 +18,20 @@ fn add_authenticator_config(
     provider: &AuthenticationProvider,
     config: &mut BTreeMap<String, Option<String>>,
 ) -> Result<(), Error> {
-    const PREFIX: &str = "druid.auth.authenticator.Ldap";
-
-    config.insert(format!("{PREFIX}.type"), Some("basic".to_string()));
     config.insert(
-        format!("{PREFIX}.enableCacheNotifications"),
+        "druid.auth.authenticator.Ldap.type".to_string(),
+        Some("basic".to_string()),
+    );
+    config.insert(
+        format!("druid.auth.authenticator.Ldap.enableCacheNotifications"),
         Some("true".to_string()),
     );
     config.insert(
-        format!("{PREFIX}.credentialsValidator.type"),
+        "druid.auth.authenticator.Ldap.credentialsValidator.type".to_string(),
         Some("ldap".to_string()),
     );
     config.insert(
-        format!("{PREFIX}.credentialsValidator.url"),
+        "druid.auth.authenticator.Ldap.credentialsValidator.url".to_string(),
         Some(
             provider
                 .endpoint_url()
@@ -43,29 +44,29 @@ fn add_authenticator_config(
         provider.bind_credentials_mount_paths()
     {
         config.insert(
-            format!("{PREFIX}.credentialsValidator.bindUser"),
+            "druid.auth.authenticator.Ldap.credentialsValidator.bindUser".to_string(),
             Some(format!("${{file:UTF-8:{ldap_bind_user_path}}}").to_string()),
         );
         config.insert(
-            format!("{PREFIX}.credentialsValidator.bindPassword"),
+            "druid.auth.authenticator.Ldap.credentialsValidator.bindPassword".to_string(),
             Some(format!("${{file:UTF-8:{ldap_bind_password_path}}}").to_string()),
         );
     }
 
     config.insert(
-        format!("{PREFIX}.credentialsValidator.baseDn"),
+        "druid.auth.authenticator.Ldap.credentialsValidator.baseDn".to_string(),
         Some(provider.search_base.to_string()),
     );
     config.insert(
-        format!("{PREFIX}.credentialsValidator.userAttribute"),
+        "druid.auth.authenticator.Ldap.credentialsValidator.userAttribute".to_string(),
         Some(provider.ldap_field_names.uid.to_string()),
     );
     config.insert(
-        format!("{PREFIX}.credentialsValidator.userSearch"),
+        "druid.auth.authenticator.Ldap.credentialsValidator.userSearch".to_string(),
         Some(provider.search_filter.to_string()),
     );
     config.insert(
-        format!("{PREFIX}.authorizerName"),
+        "druid.auth.authenticator.Ldap.authorizerName".to_string(),
         Some("LdapAuthorizer".to_string()),
     );
     config.insert(
