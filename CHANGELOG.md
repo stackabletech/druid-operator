@@ -8,7 +8,7 @@ All notable changes to this project will be documented in this file.
 
 - Add support for specifying additional extensions to load ([#547], [#563]).
 - Add support for OIDC as authentication method ([#573]).
-- Support Apache Druid `30.0.0` as new LTS version ([#583]).
+- Support Apache Druid `30.0.0` as experimental version ([#583]).
 
 ### Changed
 

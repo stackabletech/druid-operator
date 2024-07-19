@@ -45,6 +45,7 @@ pub fn get_jvm_config(
         -Djavax.net.ssl.trustStore={STACKABLE_TRUST_STORE}
         -Djavax.net.ssl.trustStorePassword={STACKABLE_TRUST_STORE_PASSWORD}
         -Djavax.net.ssl.trustStoreType=pkcs12
+        -agentlib:jdwp=transport=dt_socket,address=*:5005,server=y,suspend=y
         -Xms{heap_str}
         -Xmx{heap_str}
         -Djava.security.properties={RW_CONFIG_DIRECTORY}/{JVM_SECURITY_PROPERTIES_FILE}"};

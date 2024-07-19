@@ -15,14 +15,13 @@ dimensions:
     values:
       - 26.0.0
       - 28.0.1
-      - 30.0.0
       # To use a custom image, add a comma and the full name after the product version
-      # - 30.0.0,docker.stackable.tech/sandbox/druid:30.0.0-stackable0.0.0-dev
+      # - 28.0.1,docker.stackable.tech/sandbox/druid:28.0.1-stackable0.0.0-dev
   - name: druid-latest
     values:
-      - 30.0.0
+      - 28.0.1
       # To use a custom image, add a comma and the full name after the product version
-      # - 30.0.0,docker.stackable.tech/sandbox/druid:30.0.0-stackable0.0.0-dev
+      # - 28.0.1,docker.stackable.tech/sandbox/druid:28.0.1-stackable0.0.0-dev
   - name: zookeeper
     values:
       - 3.8.3
@@ -53,7 +52,7 @@ dimensions:
       - "false"
   - name: ldap-no-bind-credentials
     values:
-      # - "true" # Disabled, as anonymous ldap usage does not seem to be supported in druid. See https://github.com/stackabletech/druid-operator/issues/383
+       - "true" # Disabled, as anonymous ldap usage does not seem to be supported in druid. See https://github.com/stackabletech/druid-operator/issues/383
       - "false"
   - name: openshift
     values:
