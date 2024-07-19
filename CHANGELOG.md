@@ -15,7 +15,7 @@ All notable changes to this project will be documented in this file.
 - Bump `stackable-operator` from `0.64.0` to `0.70.0` ([#585]).
 - Bump `product-config` from `0.6.0` to `0.7.0` ([#585]).
 - Bump other dependencies ([#587]).
-- Deprecate support for Apache Druid 26.0.0 and 28.0.1 ([#583]).
+- Deprecate support for Apache Druid `28.0.1` ([#583]).
 
 ### Fixed
 
