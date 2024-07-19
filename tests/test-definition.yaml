@@ -52,7 +52,7 @@ dimensions:
       - "false"
   - name: ldap-no-bind-credentials
     values:
-       - "true" # Disabled, as anonymous ldap usage does not seem to be supported in druid. See https://github.com/stackabletech/druid-operator/issues/383
+      # - "true" # Disabled, as anonymous ldap usage does not seem to be supported in druid. See https://github.com/stackabletech/druid-operator/issues/383
       - "false"
   - name: openshift
     values:
