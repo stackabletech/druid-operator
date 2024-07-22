@@ -5,6 +5,7 @@ import logging
 USER_NAME = "integrationtest"
 USER_PASSWORD = "bindPasswordWithSpecialCharacter\\@<&>\"'"
 
+
 def main():
     result = 0
 
@@ -17,8 +18,12 @@ def main():
         "historical": 8283,
         "router": 9088,
     }
-    log_level = 'INFO'
-    logging.basicConfig(level=log_level, format='%(asctime)s %(levelname)s: %(message)s', stream=sys.stdout)
+    log_level = "INFO"
+    logging.basicConfig(
+        level=log_level,
+        format="%(asctime)s %(levelname)s: %(message)s",
+        stream=sys.stdout,
+    )
 
     for role, port in druid_role_ports.items():
         url = f"https://{druid_cluster_name}-{role}-default:{port}/status"
