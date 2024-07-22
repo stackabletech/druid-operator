@@ -6,8 +6,12 @@ import time
 if __name__ == "__main__":
     result = 0
 
-    log_level = 'DEBUG'  # if args.debug else 'INFO'
-    logging.basicConfig(level=log_level, format='%(asctime)s %(levelname)s: %(message)s', stream=sys.stdout)
+    log_level = "DEBUG"  # if args.debug else 'INFO'
+    logging.basicConfig(
+        level=log_level,
+        format="%(asctime)s %(levelname)s: %(message)s",
+        stream=sys.stdout,
+    )
 
     druid_cluster_name = sys.argv[1]
 
@@ -42,7 +46,9 @@ if __name__ == "__main__":
                 if res.status_code == 200 and res.text.lower() == "true":
                     break
                 else:
-                    print(f"Got non 200 status code [{res.status_code}] or non-true response [{res.text.lower()}], retrying attempt no [{count}] ....")
+                    print(
+                        f"Got non 200 status code [{res.status_code}] or non-true response [{res.text.lower()}], retrying attempt no [{count}] ...."
+                    )
             except requests.exceptions.Timeout:
                 print(f"Connection timed out, retrying attempt no [{count}] ....")
             except requests.ConnectionError as e:

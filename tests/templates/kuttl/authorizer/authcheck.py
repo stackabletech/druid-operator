@@ -13,15 +13,15 @@ def create_user(user_name):
         auth=("admin", "password1"),
         verify=False,
     )
-    data = f"{{\"password\": \"{user_name}\"}}"
+    data = f'{{"password": "{user_name}"}}'
     headers = {
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
     }
     requests.post(
         f"https://{coordinator_host}:{coordinator_port}/druid-ext/basic-security/authentication/db/{authenticator_name}/users/{user_name}/credentials",
         headers=headers,
         data=data,
-        auth=('admin', 'password1'),
+        auth=("admin", "password1"),
         verify=False,
     )
 
@@ -29,8 +29,12 @@ def create_user(user_name):
 if __name__ == "__main__":
     result = 0
 
-    log_level = 'DEBUG'
-    logging.basicConfig(level=log_level, format='%(asctime)s %(levelname)s: %(message)s', stream=sys.stdout)
+    log_level = "DEBUG"
+    logging.basicConfig(
+        level=log_level,
+        format="%(asctime)s %(levelname)s: %(message)s",
+        stream=sys.stdout,
+    )
 
     print("CREATING USERS")
     create_user("alice")

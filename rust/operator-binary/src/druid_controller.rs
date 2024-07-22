@@ -1420,7 +1420,7 @@ mod test {
                     druid_segment_cache_property = rg_configmap
                         .data
                         .unwrap()
-                        .get(&RUNTIME_PROPS.to_string())
+                        .get(RUNTIME_PROPS)
                         .unwrap()
                         .to_string();
 
