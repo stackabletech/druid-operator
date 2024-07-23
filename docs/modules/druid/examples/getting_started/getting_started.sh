@@ -13,7 +13,7 @@ set -euo pipefail
 #   hdfs: 0.0.0-dev
 #   listener: 0.0.0-dev
 #   secret: 0.0.0-dev
-#   zk: 0.0.0-dev
+#   zookeeper: 0.0.0-dev
 # EOF
 
 # The getting started guide script
