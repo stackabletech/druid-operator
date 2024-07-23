@@ -14,26 +14,29 @@ dimensions:
   - name: druid
     values:
       - 26.0.0
-      - 27.0.0
       - 28.0.1
+      # To use a custom image, add a comma and the full name after the product version
+      # - 28.0.1,docker.stackable.tech/sandbox/druid:28.0.1-stackable0.0.0-dev
   - name: druid-latest
     values:
       - 28.0.1
+      # To use a custom image, add a comma and the full name after the product version
+      # - 28.0.1,docker.stackable.tech/sandbox/druid:28.0.1-stackable0.0.0-dev
   - name: zookeeper
     values:
-      - 3.8.3
+      - 3.8.4
   - name: zookeeper-latest
     values:
       - 3.9.2
   - name: opa
     values:
-      - 0.61.0
+      - 0.66.0
   - name: hadoop
     values:
       - 3.3.6
   - name: hadoop-latest
     values:
-      - 3.3.6
+      - 3.4.0
   - name: s3-use-tls
     values:
       - "true"

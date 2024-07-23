@@ -8,27 +8,31 @@ All notable changes to this project will be documented in this file.
 
 - Add support for specifying additional extensions to load ([#547], [#563]).
 - Add support for OIDC as authentication method ([#573]).
+- Support Apache Druid `30.0.0` as experimental version ([#583]).
 
 ### Changed
 
 - Bump `stackable-operator` from `0.64.0` to `0.70.0` ([#585]).
 - Bump `product-config` from `0.6.0` to `0.7.0` ([#585]).
 - Bump other dependencies ([#587]).
-
-[#585]: https://github.com/stackabletech/druid-operator/pull/585
-[#587]: https://github.com/stackabletech/druid-operator/pull/587
+- Deprecate support for Apache Druid `28.0.1` ([#583]).
 
 ### Fixed
 
 - [BREAKING] Move the DB credentials `user` and `password` out of the CRD into a secret containing the keys `username` and `password` ([#557]).
-- Processing of corrupted log events fixed; If errors occur, the error
-  messages are added to the log event ([#572]).
+- Processing of corrupted log events fixed; If errors occur, the error messages are added to the log event ([#572]).
+
+### Removed
+
+- Remove support for Apache Druid version 27.0.0 ([#583]).
 
 [#547]: https://github.com/stackabletech/druid-operator/pull/547
 [#557]: https://github.com/stackabletech/druid-operator/pull/557
 [#563]: https://github.com/stackabletech/druid-operator/pull/563
 [#572]: https://github.com/stackabletech/druid-operator/pull/572
-[#573]: https://github.com/stackabletech/druid-operator/pull/573
+[#583]: https://github.com/stackabletech/druid-operator/pull/583
+[#585]: https://github.com/stackabletech/druid-operator/pull/585
+[#587]: https://github.com/stackabletech/druid-operator/pull/587
 
 ## [24.3.0] - 2024-03-20
 
