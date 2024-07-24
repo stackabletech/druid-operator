@@ -6573,7 +6573,7 @@ rec {
       };
       "stackable-druid-crd" = rec {
         crateName = "stackable-druid-crd";
-        version = "0.0.0-dev";
+        version = "24.7.0";
         edition = "2021";
         # We can't filter paths with references in Nix 2.4
         # See https://github.com/NixOS/nix/issues/5410
@@ -6647,7 +6647,7 @@ rec {
       };
       "stackable-druid-operator" = rec {
         crateName = "stackable-druid-operator";
-        version = "0.0.0-dev";
+        version = "24.7.0";
         edition = "2021";
         crateBin = [
           {
