@@ -31,9 +31,9 @@ Examples:
 
     ./scripts/run-tests --parallel 4
 
-2. Install operators but for Airflow use version "0.0.0-pr123" instead of "0.0.0-dev" and run all tests as above:
+2. Install operators but for Airflow use version "0.0.0-dev-pr123" instead of "0.0.0-dev" and run all tests as above:
 
-    ./scripts/run-tests --operator airflow=0.0.0-pr123 --parallel 4
+    ./scripts/run-tests --operator airflow=0.0.0-dev-pr123 --parallel 4
 
 3. Do not install any operators, run the smoke test suite and keep namespace:
 
