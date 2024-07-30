@@ -2138,7 +2138,6 @@ name = "stackable-druid-crd"
 version = "0.0.0-dev"
 dependencies = [
  "indoc",
- "lazy_static",
  "product-config",
  "rstest",
  "semver",
@@ -2162,7 +2161,6 @@ dependencies = [
  "fnv",
  "futures 0.3.30",
  "indoc",
- "lazy_static",
  "openssl",
  "pin-project",
  "product-config",
