@@ -18,7 +18,7 @@ pub static RESERVED_OS_MEMORY: LazyLock<MemoryQuantity> =
     LazyLock::new(|| MemoryQuantity::from_mebi(300.));
 
 /// Max size for direct access buffers. This is defined in Druid to be 2GB:
-/// https://druid.apache.org/docs/latest/configuration/index.html#processing-1
+/// <https://druid.apache.org/docs/latest/configuration/index.html#processing-1>
 pub static MAX_DIRECT_BUFFER_SIZE: LazyLock<MemoryQuantity> =
     LazyLock::new(|| MemoryQuantity::from_gibi(2.));
 
@@ -43,7 +43,7 @@ pub enum Error {
 /// [Druid Configuration Reference](https://druid.apache.org/docs/latest/configuration/index.html)
 /// for additional information.
 /// Also have a look at the documentation for
-/// [Basic Cluster Tuning](<https://druid.apache.org/docs/latest/operations/basic-cluster-tuning.html>).
+/// [Basic Cluster Tuning](https://druid.apache.org/docs/latest/operations/basic-cluster-tuning.html).
 pub struct HistoricalDerivedSettings {
     total_memory: MemoryQuantity,
     cpu_millis: CpuQuantity,
