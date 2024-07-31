@@ -16,7 +16,6 @@ clap = "4.5"
 fnv = "1.0"
 futures = { version = "0.3", features = ["compat"] }
 indoc = "2.0"
-lazy_static = "1.5"
 openssl = "0.10"
 product-config = { git = "https://github.com/stackabletech/product-config.git", tag = "0.7.0" }
 pin-project = "1.1"

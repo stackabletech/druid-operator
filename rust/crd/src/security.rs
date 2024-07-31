@@ -119,10 +119,12 @@ impl DruidTlsSecurity {
     }
 
     /// Check if TLS encryption is enabled. This could be due to:
+    ///
     /// - A provided server `SecretClass`
     /// - A provided client `AuthenticationClass` using tls
-    /// This affects init container commands, Druid configuration, volume mounts and
-    /// the Druid client port
+    ///
+    /// This affects init container commands, Druid configuration, volume mounts
+    /// and the Druid client port
     pub fn tls_enabled(&self) -> bool {
         // TODO: This must be adapted if other authentication methods are supported and require TLS
         self.auth_classes.tls_authentication_enabled()

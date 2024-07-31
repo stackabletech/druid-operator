@@ -1,11 +1,11 @@
-use lazy_static::lazy_static;
+use std::{collections::BTreeMap, sync::LazyLock};
+
 use snafu::{OptionExt, ResultExt, Snafu};
 use stackable_operator::{
     commons::resources::{NoRuntimeLimits, Resources},
     cpu::CpuQuantity,
     memory::{BinaryMultiple, MemoryQuantity},
 };
-use std::collections::BTreeMap;
 
 use crate::{
     storage::HistoricalStorage, PROCESSING_BUFFER_SIZE_BYTES, PROCESSING_NUM_MERGE_BUFFERS,
@@ -13,12 +13,14 @@ use crate::{
 };
 
 static MIN_HEAP_RATIO: f32 = 0.75;
-lazy_static! {
-    pub static ref RESERVED_OS_MEMORY: MemoryQuantity = MemoryQuantity::from_mebi(300.);
-    /// Max size for direct access buffers. This is defined in Druid to be 2GB:
-    /// https://druid.apache.org/docs/latest/configuration/index.html#processing-1
-    static ref MAX_DIRECT_BUFFER_SIZE: MemoryQuantity = MemoryQuantity::from_gibi(2.);
-}
+
+pub static RESERVED_OS_MEMORY: LazyLock<MemoryQuantity> =
+    LazyLock::new(|| MemoryQuantity::from_mebi(300.));
+
+/// Max size for direct access buffers. This is defined in Druid to be 2GB:
+/// <https://druid.apache.org/docs/latest/configuration/index.html#processing-1>
+pub static MAX_DIRECT_BUFFER_SIZE: LazyLock<MemoryQuantity> =
+    LazyLock::new(|| MemoryQuantity::from_gibi(2.));
 
 #[derive(Snafu, Debug)]
 pub enum Error {
@@ -41,7 +43,7 @@ pub enum Error {
 /// [Druid Configuration Reference](https://druid.apache.org/docs/latest/configuration/index.html)
 /// for additional information.
 /// Also have a look at the documentation for
-/// [Basic Cluster Tuning](<https://druid.apache.org/docs/latest/operations/basic-cluster-tuning.html>).
+/// [Basic Cluster Tuning](https://druid.apache.org/docs/latest/operations/basic-cluster-tuning.html).
 pub struct HistoricalDerivedSettings {
     total_memory: MemoryQuantity,
     cpu_millis: CpuQuantity,
