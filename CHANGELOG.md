@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Changed
+
+- Replace `lazy_static` with `std::cell::LazyCell` ([#604]).
+
+[#604]: https://github.com/stackabletech/druid-operator/pull/604
+
 ## [24.7.0] - 2024-07-24
 
 ### Added
@@ -94,7 +100,7 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
-- Operator-rs: `0.42.2` -> `0.44.0` ([#452]).
+- Operator-rs: `0.42.2` -> `0.44.0` ([#434], [#452]).
 - Use 0.0.0-dev product images for tests and examples ([#435])
 - Use testing-tools 0.2.0 ([#435])
 - Tls tests now run on OpenShift ([#445])
