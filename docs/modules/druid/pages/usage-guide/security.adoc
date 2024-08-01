@@ -70,7 +70,7 @@ Reference the AuthenticationClass in your DruidCluster resource:
 include::example$druid-ldap-authentication.yaml[tag=druid]
 ----
 
-Check out the xref:tutorials:authentication_with_openldap.adoc[] tutorial to see a complete example of how to set LDAP authentication for another Stackable operator. You can also consult the home:reference:authenticationclass.adoc[] reference, or
+Check out the xref:tutorials:authentication_with_openldap.adoc[] tutorial to see a complete example of how to set LDAP authentication for another Stackable operator. You can also consult the reference:authenticationclass.adoc[] reference, or
 https://github.com/stackabletech/druid-operator/tree/main/tests/templates/kuttl/ldap-authentication[the LDAP test] suite.
 
 === Current Limitations and Upcoming Work
