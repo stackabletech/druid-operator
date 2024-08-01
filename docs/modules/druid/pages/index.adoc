@@ -17,7 +17,7 @@ its dependencies (ZooKeeper, HDFS, an SQL database) and the steps to query your 
 == Resources
 
 The Operator is installed along with the _DruidCluster_ CustomResourceDefinition, which supports five
-xref:home:concepts:roles-and-role-groups.adoc[roles]: **Router**, **Coordinator**, **Broker**, **MiddleManager** and
+xref:concepts:roles-and-role-groups.adoc[roles]: **Router**, **Coordinator**, **Broker**, **MiddleManager** and
 **Historical**. These roles correspond to https://druid.apache.org/docs/latest/design/processes.html[Druid processes].
 
 The Operator watches DruidCluster objects and creates multiple Kubernetes resources for each DruidCluster based on its configuration.
