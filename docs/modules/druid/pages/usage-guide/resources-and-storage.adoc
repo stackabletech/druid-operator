@@ -6,7 +6,7 @@ Druid uses S3 or HDFS for deep storage, so no extra https://kubernetes.io/docs/c
 
 == Resource Requests
 
-include::home:concepts:stackable_resource_requests.adoc[]
+include::concepts:stackable_resource_requests.adoc[]
 
 A minimal HA setup consisting of 2 Pods of each role has the following https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/[resource requirements]:
 
