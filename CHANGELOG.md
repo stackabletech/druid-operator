@@ -6,8 +6,10 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- Convert `extraVolumes` field to take any arbitrary YAML input, rather than using the underlying schema ([#584]).
 - Replace `lazy_static` with `std::cell::LazyCell` ([#604]).
 
+[#584]: https://github.com/stackabletech/druid-operator/pull/584
 [#604]: https://github.com/stackabletech/druid-operator/pull/604
 
 ## [24.7.0] - 2024-07-24

@@ -49,7 +49,7 @@ use stackable_operator::{
     schemars::{self, JsonSchema},
     status::condition::{ClusterCondition, HasStatusCondition},
     time::Duration,
-    utils::COMMON_BASH_TRAP_FUNCTIONS,
+    utils::{crds::raw_object_list_schema, COMMON_BASH_TRAP_FUNCTIONS},
 };
 use std::collections::{BTreeMap, HashMap, HashSet};
 use strum::{Display, EnumDiscriminants, EnumIter, EnumString, IntoStaticStr};
@@ -299,10 +299,11 @@ pub struct DruidClusterConfig {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub vector_aggregator_config_map_name: Option<String>,
 
-    /// Extra volumes to mount into every container, this can be useful to for example make client
-    /// certificates, keytabs or similar things available to processors
-    /// These volumes will be mounted into all pods below `/stackable/userdata/{volumename}`
+    /// Extra volumes similar to `.spec.volumes` on a Pod to mount into every container, this can be useful to for
+    /// example make client certificates, keytabs or similar things available to processors. These volumes will be
+    /// mounted into all pods at `/stackable/userdata/{volumename}`.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[schemars(schema_with = "raw_object_list_schema")]
     pub extra_volumes: Vec<Volume>,
 
     /// This field controls which type of Service the Operator creates for this DruidCluster:
