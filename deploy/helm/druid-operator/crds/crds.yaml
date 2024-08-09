@@ -46,6 +46,7 @@ spec:
                           properties:
                             nodeAffinity:
                               description: Same as the `spec.affinity.nodeAffinity` field on the Pod, see the [Kubernetes docs](https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node)
+                              nullable: true
                               type: object
                               x-kubernetes-preserve-unknown-fields: true
                             nodeSelector:
@@ -56,10 +57,12 @@ spec:
                               type: object
                             podAffinity:
                               description: Same as the `spec.affinity.podAffinity` field on the Pod, see the [Kubernetes docs](https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node)
+                              nullable: true
                               type: object
                               x-kubernetes-preserve-unknown-fields: true
                             podAntiAffinity:
                               description: Same as the `spec.affinity.podAntiAffinity` field on the Pod, see the [Kubernetes docs](https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node)
+                              nullable: true
                               type: object
                               x-kubernetes-preserve-unknown-fields: true
                           required:
@@ -265,6 +268,7 @@ spec:
                                 properties:
                                   nodeAffinity:
                                     description: Same as the `spec.affinity.nodeAffinity` field on the Pod, see the [Kubernetes docs](https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node)
+                                    nullable: true
                                     type: object
                                     x-kubernetes-preserve-unknown-fields: true
                                   nodeSelector:
@@ -275,10 +279,12 @@ spec:
                                     type: object
                                   podAffinity:
                                     description: Same as the `spec.affinity.podAffinity` field on the Pod, see the [Kubernetes docs](https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node)
+                                    nullable: true
                                     type: object
                                     x-kubernetes-preserve-unknown-fields: true
                                   podAntiAffinity:
                                     description: Same as the `spec.affinity.podAntiAffinity` field on the Pod, see the [Kubernetes docs](https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node)
+                                    nullable: true
                                     type: object
                                     x-kubernetes-preserve-unknown-fields: true
                                 required:
@@ -879,6 +885,7 @@ spec:
                           properties:
                             nodeAffinity:
                               description: Same as the `spec.affinity.nodeAffinity` field on the Pod, see the [Kubernetes docs](https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node)
+                              nullable: true
                               type: object
                               x-kubernetes-preserve-unknown-fields: true
                             nodeSelector:
@@ -889,10 +896,12 @@ spec:
                               type: object
                             podAffinity:
                               description: Same as the `spec.affinity.podAffinity` field on the Pod, see the [Kubernetes docs](https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node)
+                              nullable: true
                               type: object
                               x-kubernetes-preserve-unknown-fields: true
                             podAntiAffinity:
                               description: Same as the `spec.affinity.podAntiAffinity` field on the Pod, see the [Kubernetes docs](https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node)
+                              nullable: true
                               type: object
                               x-kubernetes-preserve-unknown-fields: true
                           required:
@@ -1098,6 +1107,7 @@ spec:
                                 properties:
                                   nodeAffinity:
                                     description: Same as the `spec.affinity.nodeAffinity` field on the Pod, see the [Kubernetes docs](https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node)
+                                    nullable: true
                                     type: object
                                     x-kubernetes-preserve-unknown-fields: true
                                   nodeSelector:
@@ -1108,10 +1118,12 @@ spec:
                                     type: object
                                   podAffinity:
                                     description: Same as the `spec.affinity.podAffinity` field on the Pod, see the [Kubernetes docs](https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node)
+                                    nullable: true
                                     type: object
                                     x-kubernetes-preserve-unknown-fields: true
                                   podAntiAffinity:
                                     description: Same as the `spec.affinity.podAntiAffinity` field on the Pod, see the [Kubernetes docs](https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node)
+                                    nullable: true
                                     type: object
                                     x-kubernetes-preserve-unknown-fields: true
                                 required:
@@ -1297,6 +1309,7 @@ spec:
                           properties:
                             nodeAffinity:
                               description: Same as the `spec.affinity.nodeAffinity` field on the Pod, see the [Kubernetes docs](https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node)
+                              nullable: true
                               type: object
                               x-kubernetes-preserve-unknown-fields: true
                             nodeSelector:
@@ -1307,10 +1320,12 @@ spec:
                               type: object
                             podAffinity:
                               description: Same as the `spec.affinity.podAffinity` field on the Pod, see the [Kubernetes docs](https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node)
+                              nullable: true
                               type: object
                               x-kubernetes-preserve-unknown-fields: true
                             podAntiAffinity:
                               description: Same as the `spec.affinity.podAntiAffinity` field on the Pod, see the [Kubernetes docs](https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node)
+                              nullable: true
                               type: object
                               x-kubernetes-preserve-unknown-fields: true
                           required:
@@ -1547,6 +1562,7 @@ spec:
                                 properties:
                                   nodeAffinity:
                                     description: Same as the `spec.affinity.nodeAffinity` field on the Pod, see the [Kubernetes docs](https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node)
+                                    nullable: true
                                     type: object
                                     x-kubernetes-preserve-unknown-fields: true
                                   nodeSelector:
@@ -1557,10 +1573,12 @@ spec:
                                     type: object
                                   podAffinity:
                                     description: Same as the `spec.affinity.podAffinity` field on the Pod, see the [Kubernetes docs](https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node)
+                                    nullable: true
                                     type: object
                                     x-kubernetes-preserve-unknown-fields: true
                                   podAntiAffinity:
                                     description: Same as the `spec.affinity.podAntiAffinity` field on the Pod, see the [Kubernetes docs](https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node)
+                                    nullable: true
                                     type: object
                                     x-kubernetes-preserve-unknown-fields: true
                                 required:
@@ -1823,6 +1841,7 @@ spec:
                           properties:
                             nodeAffinity:
                               description: Same as the `spec.affinity.nodeAffinity` field on the Pod, see the [Kubernetes docs](https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node)
+                              nullable: true
                               type: object
                               x-kubernetes-preserve-unknown-fields: true
                             nodeSelector:
@@ -1833,10 +1852,12 @@ spec:
                               type: object
                             podAffinity:
                               description: Same as the `spec.affinity.podAffinity` field on the Pod, see the [Kubernetes docs](https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node)
+                              nullable: true
                               type: object
                               x-kubernetes-preserve-unknown-fields: true
                             podAntiAffinity:
                               description: Same as the `spec.affinity.podAntiAffinity` field on the Pod, see the [Kubernetes docs](https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node)
+                              nullable: true
                               type: object
                               x-kubernetes-preserve-unknown-fields: true
                           required:
@@ -2042,6 +2063,7 @@ spec:
                                 properties:
                                   nodeAffinity:
                                     description: Same as the `spec.affinity.nodeAffinity` field on the Pod, see the [Kubernetes docs](https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node)
+                                    nullable: true
                                     type: object
                                     x-kubernetes-preserve-unknown-fields: true
                                   nodeSelector:
@@ -2052,10 +2074,12 @@ spec:
                                     type: object
                                   podAffinity:
                                     description: Same as the `spec.affinity.podAffinity` field on the Pod, see the [Kubernetes docs](https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node)
+                                    nullable: true
                                     type: object
                                     x-kubernetes-preserve-unknown-fields: true
                                   podAntiAffinity:
                                     description: Same as the `spec.affinity.podAntiAffinity` field on the Pod, see the [Kubernetes docs](https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node)
+                                    nullable: true
                                     type: object
                                     x-kubernetes-preserve-unknown-fields: true
                                 required:
@@ -2241,6 +2265,7 @@ spec:
                           properties:
                             nodeAffinity:
                               description: Same as the `spec.affinity.nodeAffinity` field on the Pod, see the [Kubernetes docs](https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node)
+                              nullable: true
                               type: object
                               x-kubernetes-preserve-unknown-fields: true
                             nodeSelector:
@@ -2251,10 +2276,12 @@ spec:
                               type: object
                             podAffinity:
                               description: Same as the `spec.affinity.podAffinity` field on the Pod, see the [Kubernetes docs](https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node)
+                              nullable: true
                               type: object
                               x-kubernetes-preserve-unknown-fields: true
                             podAntiAffinity:
                               description: Same as the `spec.affinity.podAntiAffinity` field on the Pod, see the [Kubernetes docs](https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node)
+                              nullable: true
                               type: object
                               x-kubernetes-preserve-unknown-fields: true
                           required:
@@ -2460,6 +2487,7 @@ spec:
                                 properties:
                                   nodeAffinity:
                                     description: Same as the `spec.affinity.nodeAffinity` field on the Pod, see the [Kubernetes docs](https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node)
+                                    nullable: true
                                     type: object
                                     x-kubernetes-preserve-unknown-fields: true
                                   nodeSelector:
@@ -2470,10 +2498,12 @@ spec:
                                     type: object
                                   podAffinity:
                                     description: Same as the `spec.affinity.podAffinity` field on the Pod, see the [Kubernetes docs](https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node)
+                                    nullable: true
                                     type: object
                                     x-kubernetes-preserve-unknown-fields: true
                                   podAntiAffinity:
                                     description: Same as the `spec.affinity.podAntiAffinity` field on the Pod, see the [Kubernetes docs](https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node)
+                                    nullable: true
                                     type: object
                                     x-kubernetes-preserve-unknown-fields: true
                                 required:
