@@ -774,9 +774,9 @@ rec {
       };
       "cc" = rec {
         crateName = "cc";
-        version = "1.1.7";
+        version = "1.1.8";
         edition = "2018";
-        sha256 = "1g2w088mkhlyji5cpsw34mzppn5jcb9h2d9sga4y677sggyw7996";
+        sha256 = "0jbmjhn4y94l2cjcpmbsnrkcqix1v0gl1nbynp417k7j8z0xwjsh";
         authors = [
           "Alex Crichton <alex@alexcrichton.com>"
         ];
@@ -878,10 +878,10 @@ rec {
       };
       "clap" = rec {
         crateName = "clap";
-        version = "4.5.13";
+        version = "4.5.14";
         edition = "2021";
         crateBin = [];
-        sha256 = "1z5773cyvhb47rxflng7mi7vrkc4zw2f6xg47l7pja1l0l52dfqg";
+        sha256 = "0dkyhcy0szfgm49r5hdivxv2kz3jl6c4z6jbvb4d19ii203d8dy9";
         dependencies = [
           {
             name = "clap_builder";
@@ -909,6 +909,7 @@ rec {
           "suggestions" = [ "clap_builder/suggestions" ];
           "unicode" = [ "clap_builder/unicode" ];
           "unstable-doc" = [ "clap_builder/unstable-doc" "derive" ];
+          "unstable-ext" = [ "clap_builder/unstable-ext" ];
           "unstable-styles" = [ "clap_builder/unstable-styles" ];
           "unstable-v5" = [ "clap_builder/unstable-v5" "clap_derive?/unstable-v5" "deprecated" ];
           "usage" = [ "clap_builder/usage" ];
@@ -918,9 +919,9 @@ rec {
       };
       "clap_builder" = rec {
         crateName = "clap_builder";
-        version = "4.5.13";
+        version = "4.5.14";
         edition = "2021";
-        sha256 = "16adkdf8jbxpfn4jly54xn1ngwign57vwb5zgly877sflxz7vcb4";
+        sha256 = "1vgz0ssjdz2gvxvz0ghzndpfj4idfkvqazl8vy5346mj2ajrndw5";
         dependencies = [
           {
             name = "anstream";
@@ -948,7 +949,7 @@ rec {
           "std" = [ "anstyle/std" ];
           "suggestions" = [ "dep:strsim" "error-context" ];
           "unicode" = [ "dep:unicode-width" "dep:unicase" ];
-          "unstable-doc" = [ "cargo" "wrap_help" "env" "unicode" "string" ];
+          "unstable-doc" = [ "cargo" "wrap_help" "env" "unicode" "string" "unstable-ext" ];
           "unstable-styles" = [ "color" ];
           "unstable-v5" = [ "deprecated" ];
           "wrap_help" = [ "help" "dep:terminal_size" ];
@@ -2767,9 +2768,9 @@ rec {
       };
       "hyper-util" = rec {
         crateName = "hyper-util";
-        version = "0.1.6";
+        version = "0.1.7";
         edition = "2021";
-        sha256 = "0mm9biwckhwqz23s5dp02410aw7sw2ibg167jzwv8kzf957jzf9s";
+        sha256 = "1fg9h591skksq5zxnffyisj7487jhdcgj6c7bvlkckn535bhbryd";
         libName = "hyper_util";
         authors = [
           "Sean McArthur <sean@seanmonstar.com>"
@@ -4210,9 +4211,9 @@ rec {
       };
       "object" = rec {
         crateName = "object";
-        version = "0.36.2";
+        version = "0.36.3";
         edition = "2018";
-        sha256 = "03hpcgwcsm5cfpvcmk8x0hbkvxlpw3c2pq8afrgiifx7val3y81z";
+        sha256 = "1nggchwvjgilrxarwcmfcisa9fq1phg382y672aa6lb86ir4kdi7";
         dependencies = [
           {
             name = "memchr";
@@ -5810,9 +5811,9 @@ rec {
       };
       "rustls-pki-types" = rec {
         crateName = "rustls-pki-types";
-        version = "1.7.0";
+        version = "1.8.0";
         edition = "2021";
-        sha256 = "0banlc9xzwqrx8n0h4bd0igmq3z5hc72rn941lf22cp3gkkraqlp";
+        sha256 = "1w6a1x8h61p5ddlnijfvj5fvs516h5xr5rw1pc0m8rgq8vk2q2pw";
         libName = "rustls_pki_types";
         features = {
           "default" = [ "alloc" ];
@@ -6134,9 +6135,9 @@ rec {
       };
       "serde" = rec {
         crateName = "serde";
-        version = "1.0.204";
+        version = "1.0.205";
         edition = "2018";
-        sha256 = "04kwpwqz559xlhxkggmm8rjxqgywy5swam3kscwsicnbw1cgaxmw";
+        sha256 = "0l5ivyrj2b5lcmhzdw6h8g6bpb1zarai8y91ghmsap8klyqysfp3";
         authors = [
           "Erick Tryzelaar <erick.tryzelaar@gmail.com>"
           "David Tolnay <dtolnay@gmail.com>"
@@ -6189,9 +6190,9 @@ rec {
       };
       "serde_derive" = rec {
         crateName = "serde_derive";
-        version = "1.0.204";
+        version = "1.0.205";
         edition = "2015";
-        sha256 = "08p25262mbmhsr2cg0508d5b1wvljj956rvpg0v3qgg6gc8pxkg0";
+        sha256 = "1h902hk53x4lqg95i47d9bk229r0cb331nvlcwfic802r5d6ybb9";
         procMacro = true;
         authors = [
           "Erick Tryzelaar <erick.tryzelaar@gmail.com>"
@@ -6840,13 +6841,13 @@ rec {
       };
       "stackable-operator" = rec {
         crateName = "stackable-operator";
-        version = "0.72.0";
+        version = "0.73.0";
         edition = "2021";
         workspace_member = null;
         src = pkgs.fetchgit {
           url = "https://github.com/stackabletech/operator-rs.git";
-          rev = "fb6f66fb0ffaf6a3bcc7fdf7f937f130f6f7cfea";
-          sha256 = "08cdndjxjavks2ynj9kf0r6174wr2z3fqrj71hmjji4r81f9hz9g";
+          rev = "4d98a29b08a7d959e5e287f774cf064c02ffbd62";
+          sha256 = "0cmfbc3v9kklsfkqbnhwig45106gfizhmlmg9p1qgdjp8az43l9m";
         };
         libName = "stackable_operator";
         authors = [
@@ -6902,6 +6903,10 @@ rec {
             packageId = "kube";
             usesDefaultFeatures = false;
             features = [ "client" "jsonpatch" "runtime" "derive" "rustls-tls" ];
+          }
+          {
+            name = "lazy_static";
+            packageId = "lazy_static";
           }
           {
             name = "opentelemetry-jaeger";
@@ -6995,8 +7000,8 @@ rec {
         workspace_member = null;
         src = pkgs.fetchgit {
           url = "https://github.com/stackabletech/operator-rs.git";
-          rev = "fb6f66fb0ffaf6a3bcc7fdf7f937f130f6f7cfea";
-          sha256 = "08cdndjxjavks2ynj9kf0r6174wr2z3fqrj71hmjji4r81f9hz9g";
+          rev = "4d98a29b08a7d959e5e287f774cf064c02ffbd62";
+          sha256 = "0cmfbc3v9kklsfkqbnhwig45106gfizhmlmg9p1qgdjp8az43l9m";
         };
         procMacro = true;
         libName = "stackable_operator_derive";
