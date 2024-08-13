@@ -5,7 +5,7 @@ use stackable_operator::{
 
 use crate::{DeepStorageSpec, DruidRole, HdfsDeepStorageSpec, APP_NAME};
 
-/// Please have a look at the architecture diagram in <https://druid.apache.org/docs/latest/assets/druid-architecture.png>
+/// Please have a look at the architecture diagram in <https://druid.apache.org/assets/images/druid-architecture-7db1cd79d2d70b2e5ccc73b6bebfcaa4.svg>
 /// to understand which roles do communicate with each other.
 pub fn get_affinity(
     cluster_name: &str,
