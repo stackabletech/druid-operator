@@ -6,8 +6,13 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- Reduce CRD size from `2.4MB` to `183KB` by accepting arbitrary YAML input instead of the underlying schema for the following fields ([#584]):
+  - `podOverrides`
+  - `affinity`
+  - `extraVolumes`
 - Replace `lazy_static` with `std::cell::LazyCell` ([#604]).
 
+[#584]: https://github.com/stackabletech/druid-operator/pull/584
 [#604]: https://github.com/stackabletech/druid-operator/pull/604
 
 ## [24.7.0] - 2024-07-24
