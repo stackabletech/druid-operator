@@ -1,0 +1,20 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: druid-broker-default
+spec:
+  template:
+    metadata:
+      labels:
+        level: role
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: druid-coordinator-default
+spec:
+  template:
+    metadata:
+      labels:
+        level: role-group
+---

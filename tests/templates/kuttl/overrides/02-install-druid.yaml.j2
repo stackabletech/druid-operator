@@ -1,0 +1,52 @@
+---
+apiVersion: druid.stackable.tech/v1alpha1
+kind: DruidCluster
+metadata:
+  name: druid
+spec:
+  image:
+    productVersion: "{{ test_scenario['values']['druid-latest'] }}"
+  clusterConfig:
+    deepStorage:
+      hdfs:
+        configMapName: hdfs
+        directory: /data
+    metadataStorageDatabase:
+      dbType: derby
+      connString: jdbc:derby://localhost:1527/var/druid/metadata.db;create=true
+      host: localhost
+      port: 1527
+    tls: null
+    zookeeperConfigMapName: druid-znode
+  brokers:
+    podOverrides:
+      metadata:
+        labels:
+          level: role
+    roleGroups:
+      default:
+        replicas: 1
+  coordinators:
+    podOverrides:
+      metadata:
+        labels:
+          level: role
+    roleGroups:
+      default:
+        replicas: 1
+        podOverrides:
+          metadata:
+            labels:
+              level: role-group
+  historicals:
+    roleGroups:
+      default:
+        replicas: 1
+  middleManagers:
+    roleGroups:
+      default:
+        replicas: 1
+  routers:
+    roleGroups:
+      default:
+        replicas: 1
