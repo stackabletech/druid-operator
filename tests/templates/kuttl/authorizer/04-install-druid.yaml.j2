@@ -38,6 +38,7 @@ spec:
     zookeeperConfigMapName: druid-znode
   brokers:
     config:
+      gracefulShutdownTimeout: 1s # Let the test run faster
       logging:
         enableVectorAgent: {{ lookup('env', 'VECTOR_AGGREGATOR') | length > 0 }}
     configOverrides:
@@ -68,6 +69,7 @@ spec:
         replicas: 1
   coordinators:
     config:
+      gracefulShutdownTimeout: 1s # Let the test run faster
       logging:
         enableVectorAgent: {{ lookup('env', 'VECTOR_AGGREGATOR') | length > 0 }}
     configOverrides:
@@ -77,6 +79,7 @@ spec:
         replicas: 1
   historicals:
     config:
+      gracefulShutdownTimeout: 1s # Let the test run faster
       logging:
         enableVectorAgent: {{ lookup('env', 'VECTOR_AGGREGATOR') | length > 0 }}
     configOverrides:
@@ -86,6 +89,7 @@ spec:
         replicas: 1
   middleManagers:
     config:
+      gracefulShutdownTimeout: 1s # Let the test run faster
       logging:
         enableVectorAgent: {{ lookup('env', 'VECTOR_AGGREGATOR') | length > 0 }}
     configOverrides:
@@ -95,6 +99,7 @@ spec:
         replicas: 1
   routers:
     config:
+      gracefulShutdownTimeout: 1s # Let the test run faster
       logging:
         enableVectorAgent: {{ lookup('env', 'VECTOR_AGGREGATOR') | length > 0 }}
     configOverrides:
