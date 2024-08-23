@@ -780,19 +780,22 @@ fn build_rolegroup_config_map(
 
             PropertyNameKind::File(file_name) if file_name == JVM_SECURITY_PROPERTIES_FILE => {
                 let jvm_sec_props: BTreeMap<String, Option<String>> = rolegroup_config
-                .get(&PropertyNameKind::File(
+                    .get(&PropertyNameKind::File(
+                        JVM_SECURITY_PROPERTIES_FILE.to_string(),
+                    ))
+                    .cloned()
+                    .unwrap_or_default()
+                    .into_iter()
+                    .map(|(k, v)| (k, Some(v)))
+                    .collect();
+                cm_conf_data.insert(
                     JVM_SECURITY_PROPERTIES_FILE.to_string(),
-                ))
-                .cloned()
-                .unwrap_or_default()
-                .into_iter()
-                .map(|(k, v)| (k, Some(v)))
-                .collect();
-                cm_conf_data.insert(JVM_SECURITY_PROPERTIES_FILE.to_string(), to_java_properties_string(jvm_sec_props.iter()).with_context(|_| {
-                    JvmSecurityPropertiesSnafu {
-                        rolegroup: rolegroup.role_group.clone(),
-                    }
-                })?);
+                    to_java_properties_string(jvm_sec_props.iter()).with_context(|_| {
+                        JvmSecurityPropertiesSnafu {
+                            rolegroup: rolegroup.role_group.clone(),
+                        }
+                    })?,
+                );
             }
             _ => {}
         }
