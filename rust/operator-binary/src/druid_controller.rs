@@ -1128,8 +1128,6 @@ fn build_rolegroup_statefulset(
     {
         pod_template.merge_from(pod_overrides.clone());
     }
-    // Recapturing `pod_template` to immutable, since no changes to `pod_template` should be made after applying overrides
-    let pod_template = pod_template;
 
     Ok(StatefulSet {
         metadata: ObjectMetaBuilder::new()
