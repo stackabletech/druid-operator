@@ -22,6 +22,10 @@ spec:
     envOverrides:
       ROLE_VAR: role-value
       COMMON_VAR: role-value
+    configOverrides:
+      runtime.properties:
+        prop.common: role-value
+        prop.role: role-value
     podOverrides:
       metadata:
         labels:
@@ -32,10 +36,18 @@ spec:
         envOverrides:
           GROUP_VAR: group-value
           COMMON_VAR: group-value
+        configOverrides:
+          runtime.properties:
+            prop.common: group-value
+            prop.group: group-value
   coordinators:
     envOverrides:
       ROLE_VAR: role-value
       COMMON_VAR: role-value
+    configOverrides:
+      runtime.properties:
+        prop.common: role-value
+        prop.role: role-value
     podOverrides:
       metadata:
         labels:
@@ -50,33 +62,62 @@ spec:
         envOverrides:
           GROUP_VAR: group-value
           COMMON_VAR: group-value
+        configOverrides:
+          runtime.properties:
+            prop.common: group-value
+            prop.group: group-value
+
   historicals:
     envOverrides:
       ROLE_VAR: role-value
       COMMON_VAR: role-value
+    configOverrides:
+      runtime.properties:
+        prop.common: role-value
+        prop.role: role-value
     roleGroups:
       default:
         replicas: 1
         envOverrides:
           GROUP_VAR: group-value
           COMMON_VAR: group-value
+        configOverrides:
+          runtime.properties:
+            prop.common: group-value
+            prop.group: group-value
   middleManagers:
     envOverrides:
       ROLE_VAR: role-value
       COMMON_VAR: role-value
+    configOverrides:
+      runtime.properties:
+        prop.common: role-value
+        prop.role: role-value
     roleGroups:
       default:
         replicas: 1
         envOverrides:
           GROUP_VAR: group-value
           COMMON_VAR: group-value
+        configOverrides:
+          runtime.properties:
+            prop.common: group-value
+            prop.group: group-value
   routers:
     envOverrides:
       ROLE_VAR: role-value
       COMMON_VAR: role-value
+    configOverrides:
+      runtime.properties:
+        prop.common: role-value
+        prop.role: role-value
     roleGroups:
       default:
         replicas: 1
         envOverrides:
           GROUP_VAR: group-value
           COMMON_VAR: group-value
+        configOverrides:
+          runtime.properties:
+            prop.common: group-value
+            prop.group: group-value
