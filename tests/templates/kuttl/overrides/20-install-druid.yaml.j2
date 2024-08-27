@@ -19,6 +19,9 @@ spec:
     tls: null
     zookeeperConfigMapName: druid-znode
   brokers:
+    envOverrides:
+      ROLE_VAR: role-value
+      COMMON_VAR: role-value
     podOverrides:
       metadata:
         labels:
@@ -26,7 +29,13 @@ spec:
     roleGroups:
       default:
         replicas: 1
+        envOverrides:
+          GROUP_VAR: group-value
+          COMMON_VAR: group-value
   coordinators:
+    envOverrides:
+      ROLE_VAR: role-value
+      COMMON_VAR: role-value
     podOverrides:
       metadata:
         labels:
@@ -38,15 +47,36 @@ spec:
           metadata:
             labels:
               level: role-group
+        envOverrides:
+          GROUP_VAR: group-value
+          COMMON_VAR: group-value
   historicals:
+    envOverrides:
+      ROLE_VAR: role-value
+      COMMON_VAR: role-value
     roleGroups:
       default:
         replicas: 1
+        envOverrides:
+          GROUP_VAR: group-value
+          COMMON_VAR: group-value
   middleManagers:
+    envOverrides:
+      ROLE_VAR: role-value
+      COMMON_VAR: role-value
     roleGroups:
       default:
         replicas: 1
+        envOverrides:
+          GROUP_VAR: group-value
+          COMMON_VAR: group-value
   routers:
+    envOverrides:
+      ROLE_VAR: role-value
+      COMMON_VAR: role-value
     roleGroups:
       default:
         replicas: 1
+        envOverrides:
+          GROUP_VAR: group-value
+          COMMON_VAR: group-value

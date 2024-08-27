@@ -1,3 +1,4 @@
+---
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
@@ -7,6 +8,8 @@ spec:
     metadata:
       labels:
         level: role
+status:
+  readyReplicas: 1
 ---
 apiVersion: apps/v1
 kind: StatefulSet
@@ -17,4 +20,26 @@ spec:
     metadata:
       labels:
         level: role-group
+status:
+  readyReplicas: 1
 ---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: druid-historical-default
+status:
+  readyReplicas: 1
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: druid-middlemanager-default
+status:
+  readyReplicas: 1
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: druid-router-default
+status:
+  readyReplicas: 1

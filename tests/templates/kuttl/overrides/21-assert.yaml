@@ -1,0 +1,28 @@
+---
+apiVersion: kuttl.dev/v1beta1
+kind: TestAssert
+timeout: 600
+commands:
+  #
+  # Test envOverrides
+  #
+  - script: |
+      kubectl -n $NAMESPACE get sts druid-broker-default -o yaml | yq -e '.spec.template.spec.containers[] | select (.name == "druid") | .env[] | select (.name == "COMMON_VAR" and .value == "group-value")'
+      kubectl -n $NAMESPACE get sts druid-broker-default -o yaml | yq -e '.spec.template.spec.containers[] | select (.name == "druid") | .env[] | select (.name == "GROUP_VAR" and .value == "group-value")'
+      kubectl -n $NAMESPACE get sts druid-broker-default -o yaml | yq -e '.spec.template.spec.containers[] | select (.name == "druid") | .env[] | select (.name == "ROLE_VAR" and .value == "role-value")'
+  - script: |
+      kubectl -n $NAMESPACE get sts druid-coordinator-default -o yaml | yq -e '.spec.template.spec.containers[] | select (.name == "druid") | .env[] | select (.name == "COMMON_VAR" and .value == "group-value")'
+      kubectl -n $NAMESPACE get sts druid-coordinator-default -o yaml | yq -e '.spec.template.spec.containers[] | select (.name == "druid") | .env[] | select (.name == "GROUP_VAR" and .value == "group-value")'
+      kubectl -n $NAMESPACE get sts druid-coordinator-default -o yaml | yq -e '.spec.template.spec.containers[] | select (.name == "druid") | .env[] | select (.name == "ROLE_VAR" and .value == "role-value")'
+  - script: |
+      kubectl -n $NAMESPACE get sts druid-historical-default -o yaml | yq -e '.spec.template.spec.containers[] | select (.name == "druid") | .env[] | select (.name == "COMMON_VAR" and .value == "group-value")'
+      kubectl -n $NAMESPACE get sts druid-historical-default -o yaml | yq -e '.spec.template.spec.containers[] | select (.name == "druid") | .env[] | select (.name == "GROUP_VAR" and .value == "group-value")'
+      kubectl -n $NAMESPACE get sts druid-historical-default -o yaml | yq -e '.spec.template.spec.containers[] | select (.name == "druid") | .env[] | select (.name == "ROLE_VAR" and .value == "role-value")'
+  - script: |
+      kubectl -n $NAMESPACE get sts druid-middlemanager-default -o yaml | yq -e '.spec.template.spec.containers[] | select (.name == "druid") | .env[] | select (.name == "COMMON_VAR" and .value == "group-value")'
+      kubectl -n $NAMESPACE get sts druid-middlemanager-default -o yaml | yq -e '.spec.template.spec.containers[] | select (.name == "druid") | .env[] | select (.name == "GROUP_VAR" and .value == "group-value")'
+      kubectl -n $NAMESPACE get sts druid-middlemanager-default -o yaml | yq -e '.spec.template.spec.containers[] | select (.name == "druid") | .env[] | select (.name == "ROLE_VAR" and .value == "role-value")'
+  - script: |
+      kubectl -n $NAMESPACE get sts druid-router-default -o yaml | yq -e '.spec.template.spec.containers[] | select (.name == "druid") | .env[] | select (.name == "COMMON_VAR" and .value == "group-value")'
+      kubectl -n $NAMESPACE get sts druid-router-default -o yaml | yq -e '.spec.template.spec.containers[] | select (.name == "druid") | .env[] | select (.name == "GROUP_VAR" and .value == "group-value")'
+      kubectl -n $NAMESPACE get sts druid-router-default -o yaml | yq -e '.spec.template.spec.containers[] | select (.name == "druid") | .env[] | select (.name == "ROLE_VAR" and .value == "role-value")'
