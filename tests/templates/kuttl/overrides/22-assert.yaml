@@ -1,0 +1,28 @@
+---
+apiVersion: kuttl.dev/v1beta1
+kind: TestAssert
+timeout: 600
+commands:
+  #
+  # Test configOverrides
+  #
+  - script: |
+      kubectl -n $NAMESPACE get cm druid-broker-default -o yaml | yq -e '.data."runtime.properties"' | grep "prop.common=group-value"
+      kubectl -n $NAMESPACE get cm druid-broker-default -o yaml | yq -e '.data."runtime.properties"' | grep "prop.group=group-value"
+      kubectl -n $NAMESPACE get cm druid-broker-default -o yaml | yq -e '.data."runtime.properties"' | grep "prop.role=role-value"
+  - script: |
+      kubectl -n $NAMESPACE get cm druid-coordinator-default -o yaml | yq -e '.data."runtime.properties"' | grep "prop.common=group-value"
+      kubectl -n $NAMESPACE get cm druid-coordinator-default -o yaml | yq -e '.data."runtime.properties"' | grep "prop.group=group-value"
+      kubectl -n $NAMESPACE get cm druid-coordinator-default -o yaml | yq -e '.data."runtime.properties"' | grep "prop.role=role-value"
+  - script: |
+      kubectl -n $NAMESPACE get cm druid-historical-default -o yaml | yq -e '.data."runtime.properties"' | grep "prop.common=group-value"
+      kubectl -n $NAMESPACE get cm druid-historical-default -o yaml | yq -e '.data."runtime.properties"' | grep "prop.group=group-value"
+      kubectl -n $NAMESPACE get cm druid-historical-default -o yaml | yq -e '.data."runtime.properties"' | grep "prop.role=role-value"
+  - script: |
+      kubectl -n $NAMESPACE get cm druid-middlemanager-default -o yaml | yq -e '.data."runtime.properties"' | grep "prop.common=group-value"
+      kubectl -n $NAMESPACE get cm druid-middlemanager-default -o yaml | yq -e '.data."runtime.properties"' | grep "prop.group=group-value"
+      kubectl -n $NAMESPACE get cm druid-middlemanager-default -o yaml | yq -e '.data."runtime.properties"' | grep "prop.role=role-value"
+  - script: |
+      kubectl -n $NAMESPACE get cm druid-router-default -o yaml | yq -e '.data."runtime.properties"' | grep "prop.common=group-value"
+      kubectl -n $NAMESPACE get cm druid-router-default -o yaml | yq -e '.data."runtime.properties"' | grep "prop.group=group-value"
+      kubectl -n $NAMESPACE get cm druid-router-default -o yaml | yq -e '.data."runtime.properties"' | grep "prop.role=role-value"

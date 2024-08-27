@@ -766,15 +766,36 @@ fn build_rolegroup_config_map(
                     to_java_properties_string(conf.iter()).context(PropertiesWriteSnafu)?;
                 cm_conf_data.insert(RUNTIME_PROPS.to_string(), runtime_properties);
             }
+
             PropertyNameKind::File(file_name) if file_name == JVM_CONFIG => {
                 let (heap, direct) = merged_rolegroup_config
                     .resources
                     .get_memory_sizes(&role)
                     .context(DeriveMemorySettingsSnafu)?;
                 let jvm_config = get_jvm_config(&role, heap, direct).context(GetJvmConfigSnafu)?;
-                // the user can set overrides in the config, but currently they have no effect
+                // TODO the user can set overrides in the config, but currently they have no effect
                 // if this is changed in the future, make sure to respect overrides!
                 cm_conf_data.insert(JVM_CONFIG.to_string(), jvm_config);
+            }
+
+            PropertyNameKind::File(file_name) if file_name == JVM_SECURITY_PROPERTIES_FILE => {
+                let jvm_sec_props: BTreeMap<String, Option<String>> = rolegroup_config
+                    .get(&PropertyNameKind::File(
+                        JVM_SECURITY_PROPERTIES_FILE.to_string(),
+                    ))
+                    .cloned()
+                    .unwrap_or_default()
+                    .into_iter()
+                    .map(|(k, v)| (k, Some(v)))
+                    .collect();
+                cm_conf_data.insert(
+                    JVM_SECURITY_PROPERTIES_FILE.to_string(),
+                    to_java_properties_string(jvm_sec_props.iter()).with_context(|_| {
+                        JvmSecurityPropertiesSnafu {
+                            rolegroup: rolegroup.role_group.clone(),
+                        }
+                    })?,
+                );
             }
             _ => {}
         }
@@ -801,24 +822,6 @@ fn build_rolegroup_config_map(
     for (filename, file_content) in cm_conf_data.iter() {
         config_map_builder.add_data(filename, file_content);
     }
-
-    let jvm_sec_props: BTreeMap<String, Option<String>> = rolegroup_config
-        .get(&PropertyNameKind::File(
-            JVM_SECURITY_PROPERTIES_FILE.to_string(),
-        ))
-        .cloned()
-        .unwrap_or_default()
-        .into_iter()
-        .map(|(k, v)| (k, Some(v)))
-        .collect();
-    config_map_builder.add_data(
-        JVM_SECURITY_PROPERTIES_FILE,
-        to_java_properties_string(jvm_sec_props.iter()).with_context(|_| {
-            JvmSecurityPropertiesSnafu {
-                rolegroup: rolegroup.role_group.clone(),
-            }
-        })?,
-    );
 
     extend_role_group_config_map(
         rolegroup,

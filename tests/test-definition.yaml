@@ -144,6 +144,12 @@ tests:
       - s3-use-tls
       - openshift
       - oidc-use-tls
+  - name: overrides
+    dimensions:
+      - zookeeper-latest
+      - hadoop-latest
+      - druid-latest
+      - openshift
 suites:
   - name: nightly
     patch:

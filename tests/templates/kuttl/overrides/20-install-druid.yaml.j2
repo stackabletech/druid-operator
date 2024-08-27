@@ -1,0 +1,123 @@
+---
+apiVersion: druid.stackable.tech/v1alpha1
+kind: DruidCluster
+metadata:
+  name: druid
+spec:
+  image:
+    productVersion: "{{ test_scenario['values']['druid-latest'] }}"
+  clusterConfig:
+    deepStorage:
+      hdfs:
+        configMapName: hdfs
+        directory: /data
+    metadataStorageDatabase:
+      dbType: derby
+      connString: jdbc:derby://localhost:1527/var/druid/metadata.db;create=true
+      host: localhost
+      port: 1527
+    tls: null
+    zookeeperConfigMapName: druid-znode
+  brokers:
+    envOverrides:
+      ROLE_VAR: role-value
+      COMMON_VAR: role-value
+    configOverrides:
+      runtime.properties:
+        prop.common: role-value
+        prop.role: role-value
+    podOverrides:
+      metadata:
+        labels:
+          level: role
+    roleGroups:
+      default:
+        replicas: 1
+        envOverrides:
+          GROUP_VAR: group-value
+          COMMON_VAR: group-value
+        configOverrides:
+          runtime.properties:
+            prop.common: group-value
+            prop.group: group-value
+  coordinators:
+    envOverrides:
+      ROLE_VAR: role-value
+      COMMON_VAR: role-value
+    configOverrides:
+      runtime.properties:
+        prop.common: role-value
+        prop.role: role-value
+    podOverrides:
+      metadata:
+        labels:
+          level: role
+    roleGroups:
+      default:
+        replicas: 1
+        podOverrides:
+          metadata:
+            labels:
+              level: role-group
+        envOverrides:
+          GROUP_VAR: group-value
+          COMMON_VAR: group-value
+        configOverrides:
+          runtime.properties:
+            prop.common: group-value
+            prop.group: group-value
+
+  historicals:
+    envOverrides:
+      ROLE_VAR: role-value
+      COMMON_VAR: role-value
+    configOverrides:
+      runtime.properties:
+        prop.common: role-value
+        prop.role: role-value
+    roleGroups:
+      default:
+        replicas: 1
+        envOverrides:
+          GROUP_VAR: group-value
+          COMMON_VAR: group-value
+        configOverrides:
+          runtime.properties:
+            prop.common: group-value
+            prop.group: group-value
+  middleManagers:
+    envOverrides:
+      ROLE_VAR: role-value
+      COMMON_VAR: role-value
+    configOverrides:
+      runtime.properties:
+        prop.common: role-value
+        prop.role: role-value
+    roleGroups:
+      default:
+        replicas: 1
+        envOverrides:
+          GROUP_VAR: group-value
+          COMMON_VAR: group-value
+        configOverrides:
+          runtime.properties:
+            prop.common: group-value
+            prop.group: group-value
+  routers:
+    envOverrides:
+      ROLE_VAR: role-value
+      COMMON_VAR: role-value
+    configOverrides:
+      runtime.properties:
+        prop.common: role-value
+        prop.role: role-value
+    roleGroups:
+      default:
+        replicas: 1
+        envOverrides:
+          GROUP_VAR: group-value
+          COMMON_VAR: group-value
+        configOverrides:
+          runtime.properties:
+            prop.common: group-value
+            prop.group: group-value
