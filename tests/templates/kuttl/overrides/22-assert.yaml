@@ -7,22 +7,52 @@ commands:
   # Test configOverrides
   #
   - script: |
-      kubectl -n $NAMESPACE get cm druid-broker-default -o yaml | yq -e '.data."runtime.properties"' | grep "prop.common=group-value"
-      kubectl -n $NAMESPACE get cm druid-broker-default -o yaml | yq -e '.data."runtime.properties"' | grep "prop.group=group-value"
-      kubectl -n $NAMESPACE get cm druid-broker-default -o yaml | yq -e '.data."runtime.properties"' | grep "prop.role=role-value"
-  - script: |
-      kubectl -n $NAMESPACE get cm druid-coordinator-default -o yaml | yq -e '.data."runtime.properties"' | grep "prop.common=group-value"
-      kubectl -n $NAMESPACE get cm druid-coordinator-default -o yaml | yq -e '.data."runtime.properties"' | grep "prop.group=group-value"
-      kubectl -n $NAMESPACE get cm druid-coordinator-default -o yaml | yq -e '.data."runtime.properties"' | grep "prop.role=role-value"
-  - script: |
-      kubectl -n $NAMESPACE get cm druid-historical-default -o yaml | yq -e '.data."runtime.properties"' | grep "prop.common=group-value"
-      kubectl -n $NAMESPACE get cm druid-historical-default -o yaml | yq -e '.data."runtime.properties"' | grep "prop.group=group-value"
-      kubectl -n $NAMESPACE get cm druid-historical-default -o yaml | yq -e '.data."runtime.properties"' | grep "prop.role=role-value"
-  - script: |
-      kubectl -n $NAMESPACE get cm druid-middlemanager-default -o yaml | yq -e '.data."runtime.properties"' | grep "prop.common=group-value"
-      kubectl -n $NAMESPACE get cm druid-middlemanager-default -o yaml | yq -e '.data."runtime.properties"' | grep "prop.group=group-value"
-      kubectl -n $NAMESPACE get cm druid-middlemanager-default -o yaml | yq -e '.data."runtime.properties"' | grep "prop.role=role-value"
-  - script: |
-      kubectl -n $NAMESPACE get cm druid-router-default -o yaml | yq -e '.data."runtime.properties"' | grep "prop.common=group-value"
-      kubectl -n $NAMESPACE get cm druid-router-default -o yaml | yq -e '.data."runtime.properties"' | grep "prop.group=group-value"
-      kubectl -n $NAMESPACE get cm druid-router-default -o yaml | yq -e '.data."runtime.properties"' | grep "prop.role=role-value"
+      #!/usr/bin/env bash
+      set -euo pipefail
+
+      # Config Test Data
+      DRUID_BROKER_CONFIG=$(
+          kubectl -n "$NAMESPACE" get cm druid-broker-default -o yaml \
+          | yq -e '.data."runtime.properties"'
+      )
+      DRUID_COORDINATOR_CONFIG=$(
+          kubectl -n "$NAMESPACE" get cm druid-coordinator-default -o yaml \
+          | yq -e '.data."runtime.properties"'
+      )
+      DRUID_HISTORICAL_CONFIG=$(
+          kubectl -n "$NAMESPACE" get cm druid-historical-default -o yaml \
+          | yq -e '.data."runtime.properties"'
+      )
+      DRUID_MIDDLEMANAGER_CONFIG=$(
+          kubectl -n "$NAMESPACE" get cm druid-middlemanager-default -o yaml \
+          | yq -e '.data."runtime.properties"'
+      )
+      DRUID_ROUTER_CONFIG=$(
+          kubectl -n "$NAMESPACE" get cm druid-router-default -o yaml \
+          | yq -e '.data."runtime.properties"'
+      )
+
+      # DRUID_BROKER_CONFIG Test Assertions
+      echo "$DRUID_BROKER_CONFIG" | grep "prop.common=group-value"
+      echo "$DRUID_BROKER_CONFIG" | grep "prop.group=group-value"
+      echo "$DRUID_BROKER_CONFIG" | grep "prop.role=role-value"
+
+      # DRUID_COORDINATOR_CONFIG Test Assertions
+      echo "$DRUID_COORDINATOR_CONFIG" | grep "prop.common=group-value"
+      echo "$DRUID_COORDINATOR_CONFIG" | grep "prop.group=group-value"
+      echo "$DRUID_COORDINATOR_CONFIG" | grep "prop.role=role-value"
+
+      # DRUID_HISTORICAL_CONFIG Test Assertions
+      echo "$DRUID_HISTORICAL_CONFIG" | grep "prop.common=group-value"
+      echo "$DRUID_HISTORICAL_CONFIG" | grep "prop.group=group-value"
+      echo "$DRUID_HISTORICAL_CONFIG" | grep "prop.role=role-value"
+
+      # DRUID_MIDDLEMANAGER_CONFIG Test Assertions
+      echo "$DRUID_MIDDLEMANAGER_CONFIG" | grep "prop.common=group-value"
+      echo "$DRUID_MIDDLEMANAGER_CONFIG" | grep "prop.group=group-value"
+      echo "$DRUID_MIDDLEMANAGER_CONFIG" | grep "prop.role=role-value"
+
+      # DRUID_ROUTER_CONFIG Test Assertions
+      echo "$DRUID_ROUTER_CONFIG" | grep "prop.common=group-value"
+      echo "$DRUID_ROUTER_CONFIG" | grep "prop.group=group-value"
+      echo "$DRUID_ROUTER_CONFIG" | grep "prop.role=role-value"

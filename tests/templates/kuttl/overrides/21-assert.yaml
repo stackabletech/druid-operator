@@ -7,22 +7,43 @@ commands:
   # Test envOverrides
   #
   - script: |
-      kubectl -n $NAMESPACE get sts druid-broker-default -o yaml | yq -e '.spec.template.spec.containers[] | select (.name == "druid") | .env[] | select (.name == "COMMON_VAR" and .value == "group-value")'
-      kubectl -n $NAMESPACE get sts druid-broker-default -o yaml | yq -e '.spec.template.spec.containers[] | select (.name == "druid") | .env[] | select (.name == "GROUP_VAR" and .value == "group-value")'
-      kubectl -n $NAMESPACE get sts druid-broker-default -o yaml | yq -e '.spec.template.spec.containers[] | select (.name == "druid") | .env[] | select (.name == "ROLE_VAR" and .value == "role-value")'
-  - script: |
-      kubectl -n $NAMESPACE get sts druid-coordinator-default -o yaml | yq -e '.spec.template.spec.containers[] | select (.name == "druid") | .env[] | select (.name == "COMMON_VAR" and .value == "group-value")'
-      kubectl -n $NAMESPACE get sts druid-coordinator-default -o yaml | yq -e '.spec.template.spec.containers[] | select (.name == "druid") | .env[] | select (.name == "GROUP_VAR" and .value == "group-value")'
-      kubectl -n $NAMESPACE get sts druid-coordinator-default -o yaml | yq -e '.spec.template.spec.containers[] | select (.name == "druid") | .env[] | select (.name == "ROLE_VAR" and .value == "role-value")'
-  - script: |
-      kubectl -n $NAMESPACE get sts druid-historical-default -o yaml | yq -e '.spec.template.spec.containers[] | select (.name == "druid") | .env[] | select (.name == "COMMON_VAR" and .value == "group-value")'
-      kubectl -n $NAMESPACE get sts druid-historical-default -o yaml | yq -e '.spec.template.spec.containers[] | select (.name == "druid") | .env[] | select (.name == "GROUP_VAR" and .value == "group-value")'
-      kubectl -n $NAMESPACE get sts druid-historical-default -o yaml | yq -e '.spec.template.spec.containers[] | select (.name == "druid") | .env[] | select (.name == "ROLE_VAR" and .value == "role-value")'
-  - script: |
-      kubectl -n $NAMESPACE get sts druid-middlemanager-default -o yaml | yq -e '.spec.template.spec.containers[] | select (.name == "druid") | .env[] | select (.name == "COMMON_VAR" and .value == "group-value")'
-      kubectl -n $NAMESPACE get sts druid-middlemanager-default -o yaml | yq -e '.spec.template.spec.containers[] | select (.name == "druid") | .env[] | select (.name == "GROUP_VAR" and .value == "group-value")'
-      kubectl -n $NAMESPACE get sts druid-middlemanager-default -o yaml | yq -e '.spec.template.spec.containers[] | select (.name == "druid") | .env[] | select (.name == "ROLE_VAR" and .value == "role-value")'
-  - script: |
-      kubectl -n $NAMESPACE get sts druid-router-default -o yaml | yq -e '.spec.template.spec.containers[] | select (.name == "druid") | .env[] | select (.name == "COMMON_VAR" and .value == "group-value")'
-      kubectl -n $NAMESPACE get sts druid-router-default -o yaml | yq -e '.spec.template.spec.containers[] | select (.name == "druid") | .env[] | select (.name == "GROUP_VAR" and .value == "group-value")'
-      kubectl -n $NAMESPACE get sts druid-router-default -o yaml | yq -e '.spec.template.spec.containers[] | select (.name == "druid") | .env[] | select (.name == "ROLE_VAR" and .value == "role-value")'
+      #!/usr/bin/env bash
+      set -euo pipefail
+
+      # STS Spec Test Data
+      DRUID_BROKER_STS=$( kubectl -n "$NAMESPACE" get sts druid-broker-default -o yaml )
+      DRUID_COORDINATOR_STS=$( kubectl -n "$NAMESPACE" get sts druid-coordinator-default -o yaml )
+      DRUID_HISTORICAL_STS=$( kubectl -n "$NAMESPACE" get sts druid-historical-default -o yaml )
+      DRUID_MIDDLEMANAGER_STS=$( kubectl -n "$NAMESPACE" get sts druid-middlemanager-default -o yaml )
+      DRUID_ROUTER_STS=$( kubectl -n "$NAMESPACE" get sts druid-router-default -o yaml )
+      YQ_FILTER='
+        .spec.template.spec.containers[]
+        | select (.name == "druid")
+        | .env[]
+        | select (.name == strenv(KEY) and .value == strenv(VALUE))
+      '
+
+      # DRUID_BROKER_STS Spec Test Assertions
+      echo "$DRUID_BROKER_STS" | KEY="COMMON_VAR" VALUE="group-value" yq -e "$YQ_FILTER"
+      echo "$DRUID_BROKER_STS" | KEY="GROUP_VAR" VALUE="group-value" yq -e "$YQ_FILTER"
+      echo "$DRUID_BROKER_STS" | KEY="ROLE_VAR" VALUE="role-value" yq -e "$YQ_FILTER"
+
+      # DRUID_COORDINATOR_STS Spec Test Assertions
+      echo "$DRUID_COORDINATOR_STS" | KEY="COMMON_VAR" VALUE="group-value" yq -e "$YQ_FILTER"
+      echo "$DRUID_COORDINATOR_STS" | KEY="GROUP_VAR" VALUE="group-value" yq -e "$YQ_FILTER"
+      echo "$DRUID_COORDINATOR_STS" | KEY="ROLE_VAR" VALUE="role-value" yq -e "$YQ_FILTER"
+
+      # DRUID_HISTORICAL_STS Spec Test Assertions
+      echo "$DRUID_HISTORICAL_STS" | KEY="COMMON_VAR" VALUE="group-value" yq -e "$YQ_FILTER"
+      echo "$DRUID_HISTORICAL_STS" | KEY="GROUP_VAR" VALUE="group-value" yq -e "$YQ_FILTER"
+      echo "$DRUID_HISTORICAL_STS" | KEY="ROLE_VAR" VALUE="role-value" yq -e "$YQ_FILTER"
+
+      # DRUID_MIDDLEMANAGER_STS Spec Test Assertions
+      echo "$DRUID_MIDDLEMANAGER_STS" | KEY="COMMON_VAR" VALUE="group-value" yq -e "$YQ_FILTER"
+      echo "$DRUID_MIDDLEMANAGER_STS" | KEY="GROUP_VAR" VALUE="group-value" yq -e "$YQ_FILTER"
+      echo "$DRUID_MIDDLEMANAGER_STS" | KEY="ROLE_VAR" VALUE="role-value" yq -e "$YQ_FILTER"
+
+      # DRUID_ROUTER_STS Spec Test Assertions
+      echo "$DRUID_ROUTER_STS" | KEY="COMMON_VAR" VALUE="group-value" yq -e "$YQ_FILTER"
+      echo "$DRUID_ROUTER_STS" | KEY="GROUP_VAR" VALUE="group-value" yq -e "$YQ_FILTER"
+      echo "$DRUID_ROUTER_STS" | KEY="ROLE_VAR" VALUE="role-value" yq -e "$YQ_FILTER"
