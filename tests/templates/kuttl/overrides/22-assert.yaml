@@ -7,8 +7,7 @@ commands:
   # Test configOverrides
   #
   - script: |
-      #!/usr/bin/env bash
-      set -euo pipefail
+      set -eu
 
       # Config Test Data
       DRUID_BROKER_CONFIG=$(

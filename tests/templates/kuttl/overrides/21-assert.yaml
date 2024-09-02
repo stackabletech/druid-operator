@@ -7,8 +7,7 @@ commands:
   # Test envOverrides
   #
   - script: |
-      #!/usr/bin/env bash
-      set -euo pipefail
+      set -eu
 
       # STS Spec Test Data
       DRUID_BROKER_STS=$( kubectl -n "$NAMESPACE" get sts druid-broker-default -o yaml )
