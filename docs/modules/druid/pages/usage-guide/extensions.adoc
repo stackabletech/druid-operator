@@ -1,6 +1,7 @@
 = Druid extensions
 :druid-extensions: https://druid.apache.org/docs/latest/configuration/extensions/
 :druid-community-extensions: https://druid.apache.org/docs/latest/configuration/extensions/#loading-community-extensions
+:description: Add functionality to Druid with default or custom extensions. Default extensions include Kafka and HDFS support; community extensions require extra setup.
 
 {druid-extensions}[Druid extensions] are used to provide additional functionality at runtime, e.g. for data formats or different types of deep storage.
 

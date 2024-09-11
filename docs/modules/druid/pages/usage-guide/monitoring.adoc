@@ -1,4 +1,5 @@
 = Monitoring
+:description: Managed Druid instances export Prometheus metrics by default for easy monitoring.
 
 The managed Druid instances are automatically configured to export Prometheus metrics.
 See xref:operators:monitoring.adoc[] for more details.

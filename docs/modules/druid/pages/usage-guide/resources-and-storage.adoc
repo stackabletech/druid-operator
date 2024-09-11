@@ -1,4 +1,5 @@
 = Storage and resource configuration
+:description: Configure storage and resource requests for Druid with default settings for CPU, memory, and additional settings for historical segment caches.
 
 == Storage for data volumes
 

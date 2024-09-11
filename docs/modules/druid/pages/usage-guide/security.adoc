@@ -1,4 +1,5 @@
 = Security
+:description: Secure your Druid cluster with TLS encryption, LDAP, or OIDC authentication. Connect with OPA for policy-based authorization.
 
 The Druid cluster can be secured and protected in multiple ways.
 
