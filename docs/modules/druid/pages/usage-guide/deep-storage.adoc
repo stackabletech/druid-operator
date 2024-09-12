@@ -1,4 +1,5 @@
 = Deep storage configuration
+:description: Configure Apache Druid deep storage with HDFS or S3. Set up HDFS via a ConfigMap, or use S3 with inline or referenced bucket details.
 
 https://druid.apache.org/docs/latest/design/deep-storage/[Deep Storage] is where Druid stores data segments.
 For a Kubernetes environment, either the HDFS or S3 backend is recommended.
@@ -19,7 +20,7 @@ spec:
         directory: /druid # <2>
 ...
 ----
-<1> Name of the HDFS cluster discovery config map. Can be supplied manually for a cluster not provided by Stackable. Needs to contain the `core-site.xml` and `hdfs-site.xml`.
+<1> Name of the HDFS cluster discovery ConfigMap. Can be supplied manually for a cluster not provided by Stackable. Needs to contain the `core-site.xml` and `hdfs-site.xml`.
 <2> The directory where to store the druid data.
 
 == [[s3]]S3

@@ -1,4 +1,5 @@
 = Ingestion
+:description: Ingest data from S3 by specifying the host and optional credentials. Add external files to Druid pods using extra volumes for client certificates or keytabs.
 
 == [[s3]]From S3
 

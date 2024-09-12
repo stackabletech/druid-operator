@@ -1,4 +1,5 @@
 = Log aggregation
+:description: Forward logs to a Vector aggregator by enabling the log agent and specifying a discovery ConfigMap.
 
 The logs can be forwarded to a Vector log aggregator by providing a discovery ConfigMap for the aggregator and by enabling the log agent:
 

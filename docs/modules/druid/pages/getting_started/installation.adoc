@@ -1,4 +1,5 @@
 = Installation
+:description: Install the Stackable Druid Operator and its dependencies on Kubernetes using stackablectl or Helm.
 
 On this page you will install the Stackable Druid Operator and Operators for its dependencies - ZooKeeper and HDFS - as
 well as the commons, secret and listener operator which are required by all Stackable Operators.

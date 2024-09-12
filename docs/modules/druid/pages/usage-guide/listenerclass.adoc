@@ -1,4 +1,5 @@
 = Service exposition with ListenerClasses
+:description: Configure Apache Druid service exposure using ListenerClass to control service types: cluster-internal, external-unstable, or external-stable.
 
 Apache Druid offers a web UI and an API, both are exposed by the `router` role.
 Other roles also expose API endpoints such as the `broker` and `coordinator`.
