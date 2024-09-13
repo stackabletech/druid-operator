@@ -24,7 +24,7 @@ dimensions:
       # - 28.0.1,docker.stackable.tech/sandbox/druid:28.0.1-stackable0.0.0-dev
   - name: zookeeper
     values:
-      - 3.8.4
+      - 3.9.2
   - name: zookeeper-latest
     values:
       - 3.9.2
