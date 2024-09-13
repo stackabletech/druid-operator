@@ -33,7 +33,7 @@ dimensions:
       - 0.66.0
   - name: hadoop
     values:
-      - 3.3.6
+      - 3.4.0
   - name: hadoop-latest
     values:
       - 3.4.0
