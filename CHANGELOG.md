@@ -12,8 +12,13 @@ All notable changes to this project will be documented in this file.
   - `extraVolumes`
 - Replace `lazy_static` with `std::cell::LazyCell` ([#604]).
 
+### Removed
+
+- test: Remove ZooKeeper 3.8.4 ([#621]).
+
 [#584]: https://github.com/stackabletech/druid-operator/pull/584
 [#604]: https://github.com/stackabletech/druid-operator/pull/604
+[#621]: https://github.com/stackabletech/druid-operator/pull/621
 
 ## [24.7.0] - 2024-07-24
 
