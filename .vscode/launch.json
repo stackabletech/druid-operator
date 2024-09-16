@@ -4,15 +4,11 @@
         {
             "type": "lldb",
             "request": "launch",
-            "name": "Debug executable 'stackable-druid-operator'",
+            "name": "Debug operator binary",
             "cargo": {
-                "args": [
-                    "build",
-                    "--bin=stackable-druid-operator",
-                    "--package=stackable-druid-operator"
-                ],
+                "args": ["build"],
                 "filter": {
-                    "name": "stackable-druid-operator",
+                    "name": "stackable-{[ operator.name }]",
                     "kind": "bin"
                 }
             },
