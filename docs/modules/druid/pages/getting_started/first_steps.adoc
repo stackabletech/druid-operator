@@ -2,7 +2,7 @@
 :description: Set up a Druid cluster using the Stackable Operator by installing ZooKeeper, HDFS, and Druid. Ingest and query example data via the web UI or API.
 
 With the operators installed, deploy a Druid cluster and its dependencies.
-Afterwards you can <<_verify_that_it_works, verify that it works>> by ingesting example data and subsequently query it.
+Afterward you can <<_verify_that_it_works, verify that it works>> by ingesting example data and subsequently query it.
 
 == Setup
 
