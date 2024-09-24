@@ -1,13 +1,16 @@
-# Required external components
+= Required external components
 :description: Druid requires an SQL database for metadata and supports various deep storage options like S3, HDFS, and cloud storage
+:druid-available-metadata-stores: https://druid.apache.org/docs/latest/design/metadata-storage/#available-metadata-stores
+:druid-deep-storage: https://druid.apache.org/docs/latest/design/deep-storage
 
 Druid uses an SQL database to store metadata.
-Consult the https://druid.apache.org/docs/latest/dependencies/metadata-storage.html#available-metadata-stores[Druid documentation] for a list of supported databases and setup instructions.
+Consult the {druid-available-metadata-stores}[Druid documentation] for a list of supported databases and setup instructions.
 
-## Feature specific: S3 and cloud deep storage
+== Feature specific: S3 and cloud deep storage
 
-https://druid.apache.org/docs/latest/dependencies/deep-storage.html[Deep storage] is where segments are stored.
-Druid offers multiple storage backends. For the local storage there are no prerequisites.
+{druid-deep-storage}[Deep storage] is where segments are stored.
+Druid offers multiple storage backends.
+For the local storage there are no prerequisites.
 HDFS deep storage can be set up with the xref:hdfs:index.adoc[Stackable Operator for Apache HDFS].
 For S3 deep storage or the Google Cloud and Azure storage backends, you need to set up the storage.
 
