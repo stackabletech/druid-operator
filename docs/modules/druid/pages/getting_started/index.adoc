@@ -6,7 +6,7 @@ It covers installing the operator and its dependencies, setting up your first Dr
 
 == Prerequisites
 
-You will need:
+You need:
 
 * a Kubernetes cluster
 * kubectl

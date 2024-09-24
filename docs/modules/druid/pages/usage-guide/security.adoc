@@ -18,7 +18,7 @@ spec:
 ----
 <1> Name of the SecretClass that is used to encrypt internal and external communication.
 
-IMPORTANT: A Stackable Druid cluster is always encrypted per default i.e. `spec.clusterConfig.tls.serverAndInternalSecretClass: tls` in the above example does not need to be specified as it will be applied by default: in order to disable this default behavior you can set `spec.clusterConfig.tls.serverAndInternalSecretClass: null`.
+IMPORTANT: A Druid Stacklet is always encrypted per default i.e. `spec.clusterConfig.tls.serverAndInternalSecretClass: tls` in the above example does not need to be specified as it is applied by default: in order to disable this default behavior you can set `spec.clusterConfig.tls.serverAndInternalSecretClass: null`.
 
 == [[authentication]]Authentication
 
@@ -52,8 +52,8 @@ spec:
     # Option 2
     tls: {} # <2>
 ----
-<1> If a client SecretClass is provided in the AuthenticationClass (here `druid-mtls`), these certificates will be used for encryption and authentication.
-<2> If no client SecretClass is provided in the AuthenticationClass, the `spec.clusterConfig.tls.serverAndInternalSecretClass` will be used for encryption and authentication.
+<1> If a client SecretClass is provided in the AuthenticationClass (here `druid-mtls`), these certificates are used for encryption and authentication.
+<2> If no client SecretClass is provided in the AuthenticationClass, the `spec.clusterConfig.tls.serverAndInternalSecretClass` is used for encryption and authentication.
 It cannot be explicitly set to null in this case.
 
 === LDAP
@@ -159,6 +159,6 @@ Druid provides this data to you to base your policy decisions on:
 <1> The authenticated identity of the user that wants to perform the action
 <2> The action type, can be either `READ` or `WRITE`.
 <3> The resource type, one of `STATE`, `CONFIG` and `DATASOURCE`.
-<4> In case of a datasource this is the table name, for `STATE` this will simply be `STATE`, the same for `CONFIG`.
+<4> In case of a datasource this is the table name, for `STATE` this is simply `STATE`, the same for `CONFIG`.
 
 For more details consult the {druid-auth-authz-model}[Druid Authentication and Authorization Model].

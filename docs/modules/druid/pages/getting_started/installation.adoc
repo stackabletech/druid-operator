@@ -11,7 +11,7 @@ OpenShift users may prefer installing the operator from the RedHat Certified Ope
 stackablectl::
 +
 --
-stackablectl is the command line tool to interact with Stackable operators and our recommended way to install operators.
+stackablectl is the command line tool to interact with Stackable operators and the recommended way to install operators.
 Follow the xref:management:stackablectl:installation.adoc[installation steps] for your platform.
 
 After you have installed stackablectl run the following command to install all Operators necessary for Druid:
@@ -21,7 +21,7 @@ After you have installed stackablectl run the following command to install all O
 include::example$getting_started/getting_started.sh[tag=stackablectl-install-operators]
 ----
 
-The tool will show
+The tool prints
 
 [source]
 include::example$getting_started/install_output.txt[]

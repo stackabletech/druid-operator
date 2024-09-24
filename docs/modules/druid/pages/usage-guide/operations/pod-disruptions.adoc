@@ -2,7 +2,7 @@
 
 You can configure the permitted Pod disruptions for Druid nodes as described in xref:concepts:operations/pod_disruptions.adoc[].
 
-Unless you configure something else or disable our PodDisruptionBudgets (PDBs), the following PDBs apply:
+Unless you configure something else or disable the default PodDisruptionBudgets (PDBs), the following PDBs apply:
 
 == Brokers
 Only one broker may be offline at any time, regardless of the number of replicas or role groups.
