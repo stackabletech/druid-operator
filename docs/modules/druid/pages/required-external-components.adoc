@@ -12,6 +12,6 @@ Consult the {druid-available-metadata-stores}[Druid documentation] for a list of
 Druid offers multiple storage backends.
 For the local storage there are no prerequisites.
 HDFS deep storage can be set up with the xref:hdfs:index.adoc[Stackable Operator for Apache HDFS].
-For S3 deep storage or the Google Cloud and Azure storage backends, you need to set up the storage.
+For S3 deep storage or the Google Cloud and Azure storage backends, you need to set up the respective storage backend.
 
 Read the xref:usage-guide/deep-storage.adoc[deep storage usage guide] to learn more about configuring Druid deep storage.
