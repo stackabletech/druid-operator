@@ -24,4 +24,4 @@ To address this, some affinities will be created to attract these roles:
 
 *For coordinators:*
 
-- No affinities
+No affinities

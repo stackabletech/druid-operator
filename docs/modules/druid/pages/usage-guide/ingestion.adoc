@@ -19,7 +19,9 @@ spec:
 
 <1> The S3 host, not optional
 <2> Port, optional, defaults to 80
-<3> Credentials to use. Since these might be bucket-dependent, they can instead be given in the ingestion job. Specifying the credentials here is explained <<S3 Credentials, below>>.
+<3> Credentials to use.
+    Since these might be bucket-dependent, they can instead be given in the ingestion job.
+    Specifying the credentials here is explained <<S3 Credentials, below>>.
 
 include::partial$s3-note.adoc[]
 
@@ -45,4 +47,4 @@ spec:
           secretName: google-service-account
 ----
 
-All `Volumes` specified in this section will be made available under `/stackable/userdata/\{volumename\}`.
+All Volumes specified in this section will be made available under `/stackable/userdata/\{volumename\}`.
