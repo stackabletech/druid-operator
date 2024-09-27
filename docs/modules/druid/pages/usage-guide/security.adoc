@@ -158,7 +158,7 @@ Druid provides this data to you to base your policy decisions on:
 ----
 <1> The authenticated identity of the user that wants to perform the action
 <2> The action type, can be either `READ` or `WRITE`.
-<3> The resource type, one of `STATE`, `CONFIG` and `DATASOURCE`.
-<4> In case of a datasource this is the table name, for `STATE` this is simply `STATE`, the same for `CONFIG`.
+<3> In case of a datasource this is the table name, for `STATE` this is simply `STATE`, the same for `CONFIG`.
+<4> The resource type, one of `STATE`, `CONFIG` and `DATASOURCE`.
 
 For more details consult the {druid-auth-authz-model}[Druid Authentication and Authorization Model].
