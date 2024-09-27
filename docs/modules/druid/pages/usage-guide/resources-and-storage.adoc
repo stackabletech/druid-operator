@@ -76,7 +76,11 @@ You can configure your own resource requests and limits by following the example
 
 In addition to the cpu and memory resources described above, historical Pods also accept a `storage` resource with the following properties:
 
-* `segmentCache` - used to set the maximum size allowed for the historical segment cache locations. See the Druid documentation regarding https://druid.apache.org/docs/latest/configuration/index.html#historical[druid.segmentCache.locations]. The operator creates an `emptyDir` and sets the `max_size` of the volume to be the value of the `capacity` property. In addition Druid is configured to keep 7% volume size free. By default, if no `segmentCache` is configured, the operator will create an `emptyDir` with a size of `1G` and `freePercentage` of `5`.
+* `segmentCache` - used to set the maximum size allowed for the historical segment cache locations.
+   See the Druid documentation regarding https://druid.apache.org/docs/latest/configuration/index.html#historical[druid.segmentCache.locations].
+   The operator creates an `emptyDir` and sets the `max_size` of the volume to be the value of the `capacity` property.
+   In addition Druid is configured to keep 7% volume size free.
+   By default, if no `segmentCache` is configured, the operator creates an `emptyDir` with a size of `1G` and `freePercentage` of `5`.
 
 Example historical configuration with storage resources:
 

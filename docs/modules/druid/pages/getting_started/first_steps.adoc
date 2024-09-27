@@ -1,8 +1,8 @@
 = First steps
 :description: Set up a Druid cluster using the Stackable Operator by installing ZooKeeper, HDFS, and Druid. Ingest and query example data via the web UI or API.
 
-After going through the xref:getting_started/installation.adoc[] section and having installed all the Operators, you will now deploy a Druid cluster and its dependencies.
-Afterwards you can <<_verify_that_it_works, verify that it works>> by ingesting example data and subsequently query it.
+With the operators installed, deploy a Druid cluster and its dependencies.
+Afterward you can <<_verify_that_it_works, verify that it works>> by ingesting example data and subsequently query it.
 
 == Setup
 
@@ -12,8 +12,8 @@ Three things need to be installed to have a Druid cluster:
 * An HDFS instance to be used as a backend for deep storage
 * The Druid cluster itself
 
-We will create them in this order, each one is created by applying a manifest file.
-The Operators you just installed will then create the resources according to the manifest.
+Create them in this order, each one is created by applying a manifest file.
+The operators you just installed then create the resources according to the manifests.
 
 === ZooKeeper
 
@@ -25,7 +25,7 @@ Create a file named `zookeeper.yaml` with the following content:
 include::example$getting_started/zookeeper.yaml[]
 ----
 
-Then create the resources by applying the manifest file
+Then create the resources by applying the manifest file:
 
 [source,bash]
 ----
@@ -62,7 +62,7 @@ And apply it:
 include::example$getting_started/getting_started.sh[tag=install-druid]
 ----
 
-This will create the actual druid instance.
+This creates the actual Druid Stacklet.
 
 WARNING: This Druid instance uses Derby (`dbType: derby`) as a metadata store, which is an interal SQL database.
 It is not persisted and not suitable for production use!
@@ -70,7 +70,7 @@ Consult the https://druid.apache.org/docs/latest/dependencies/metadata-storage.h
 
 == Verify that it works
 
-Next you will submit an ingestion job and then query the ingested data - either through the web interface or the API.
+Submit an ingestion job and then query the ingested data -- either through the web interface or the API.
 
 First, make sure that all the Pods in the StatefulSets are ready:
 
@@ -102,7 +102,7 @@ include::example$getting_started/getting_started.sh[tag=port-forwarding]
 
 === Ingest example data
 
-Next, we will ingest some example data using the web interface.
+Next, ingest some example data using the web interface.
 If you prefer to use the command line instead, follow the instructions in the collapsed section below.
 
 
@@ -137,7 +137,7 @@ image::getting_started/load_example.png[]
 Click through all pages of the load process.
 You can also follow the https://druid.apache.org/docs/latest/tutorials/index.html#step-4-load-data[Druid Quickstart Guide].
 
-Once you finished the ingestion dialog you should see the ingestion overview with the job, which will eventually show SUCCESS:
+Once you finished the ingestion dialog you should see the ingestion overview with the job, which eventually shows SUCCESS:
 
 image::getting_started/load_success.png[]
 
@@ -173,4 +173,4 @@ Great! You've set up your first Druid cluster, ingested some data and queried it
 
 == What's next
 
-Have a look at the xref:usage-guide/index.adoc[] page to find out more about the features of the Operator, such as S3-backed deep storage (as opposed to the HDFS backend used in this guide) or OPA-based authorization.
+Have a look at the xref:usage-guide/index.adoc[] page to find out more about the features of the operator, such as S3-backed deep storage (as opposed to the HDFS backend used in this guide) or OPA-based authorization.

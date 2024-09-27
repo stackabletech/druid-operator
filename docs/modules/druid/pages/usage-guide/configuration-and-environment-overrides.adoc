@@ -1,5 +1,6 @@
 = Configuration & Environment Overrides
 :description: Override Druid configuration properties and environment variables per role or role group. Customize runtime.properties, jvm.config, and security.properties as needed.
+:druid-config-reference: https://druid.apache.org/docs/latest/configuration/index.html
 
 The cluster definition also supports overriding configuration properties and environment variables, either per role or per role group, where the more specific override (role group) has precedence over the less specific one (role).
 
@@ -9,9 +10,9 @@ IMPORTANT: Overriding certain properties which are set by the operator (such as 
 
 For a role or role group, at the same level of `config`, you can specify: `configOverrides` for the following files:
 
-- `runtime.properties`
-- `jvm.config`
-- `security.properties`
+* `runtime.properties`
+* `jvm.config`
+* `security.properties`
 
 For example, if you want to set the `druid.server.http.numThreads` for the router to 100 adapt the `routers` section of the cluster resource like so:
 
@@ -43,13 +44,16 @@ routers:
 
 All override property values must be strings.
 
-For a full list of configuration options please refer to the Druid https://druid.apache.org/docs/latest/configuration/index.html[Configuration Reference].
+For a full list of configuration options please refer to the Druid {druid-config-reference}[Configuration Reference].
 
 === The security.properties file
 
-The `security.properties` file is used to configure JVM security properties. It is very seldom that users need to tweak any of these, but there is one use-case that stands out, and that users need to be aware of: the JVM DNS cache.
+The `security.properties` file is used to configure JVM security properties.
+It is very seldom that users need to tweak any of these, but there is one use-case that stands out, and that users need to be aware of: the JVM DNS cache.
 
-The JVM manages it's own cache of successfully resolved host names as well as a cache of host names that cannot be resolved. Some products of the Stackable platform are very sensible to the contents of these caches and their performance is heavily affected by them. As of version 26.0.0 Apache Druid performs poorly if the positive cache is disabled. To cache resolved host names, and thus speeding up Druid queries you can configure the TTL of entries in the positive cache like this:
+The JVM manages it's own cache of successfully resolved host names as well as a cache of host names that cannot be resolved.
+Some products of the Stackable platform are very sensible to the contents of these caches and their performance is heavily affected by them.
+As of version 26.0.0 Apache Druid performs poorly if the positive cache is disabled. To cache resolved host names, and thus speeding up Druid queries you can configure the TTL of entries in the positive cache like this:
 
 [source,yaml]
 ----
@@ -84,9 +88,10 @@ NOTE: The operator configures DNS caching by default as shown in the example abo
 
 For details on the JVM security see https://docs.oracle.com/en/java/javase/11/security/java-security-overview1.html
 
-== Environment Variables
+== Environment variables
 
-In a similar fashion, environment variables can be (over)written. For example per role group:
+In a similar fashion, environment variables can be (over)written.
+For example per role group:
 
 [source,yaml]
 ----
@@ -113,3 +118,8 @@ routers:
 ----
 
 // cliOverrides don't make sense for this operator, so the feature is omitted for now
+
+== Pod overrides
+
+The Druid operator also supports Pod overrides, allowing you to override any property that you can set on a Kubernetes Pod.
+Read the xref:concepts:overrides.adoc#pod-overrides[Pod overrides documentation] to learn more about this feature.

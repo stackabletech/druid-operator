@@ -15,7 +15,7 @@
 * {feature-tracker}[Feature Tracker {external-link-icon}^]
 * {crd}[CRD documentation {external-link-icon}^]
 
-The Stackable operator for Apache Druid is an operator that can deploy and manage {druid}[Apache Druid] clusters on Kubernetes.
+The Stackable operator for Apache Druid deploys and manages {druid}[Apache Druid] clusters on Kubernetes.
 Apache Druid is an open-source, distributed data store designed to quickly process large amounts of data in real-time.
 It enables users to ingest, store, and query massive amounts of data in real-time, a great tool for handling high-volume data processing and analysis.
 This operator provides several resources and features to manage Druid clusters efficiently.
@@ -89,7 +89,7 @@ The xref:demos:nifi-kafka-druid-earthquake-data.adoc[] demo ingests {earthquake}
 == Supported versions
 
 The Stackable operator for Apache Druid currently supports the Druid versions listed below.
-To use a specific Druid version in your DruidCluster, you have to specify an image - this is explained in the xref:concepts:product-image-selection.adoc[] documentation.
+To use a specific Druid version in your Druid Stacklet, you have to specify an image -- this is explained in the xref:concepts:product-image-selection.adoc[] documentation.
 The operator also supports running images from a custom registry or running entirely customized images; both of these cases are explained under xref:concepts:product-image-selection.adoc[] as well.
 
 include::partial$supported-versions.adoc[]

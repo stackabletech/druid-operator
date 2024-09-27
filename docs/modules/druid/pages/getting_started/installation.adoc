@@ -1,20 +1,17 @@
 = Installation
 :description: Install the Stackable Druid Operator and its dependencies on Kubernetes using stackablectl or Helm.
 
-On this page you will install the Stackable Druid Operator and Operators for its dependencies - ZooKeeper and HDFS - as
-well as the commons, secret and listener operator which are required by all Stackable Operators.
+Install the Stackable Operator for Apache Druid and operators for its dependencies -- ZooKeeper and HDFS -- as well as the commons, secret and listener operator which are required by all Stackable operators.
 
-== Stackable Operators
+There are multiple ways to install the operators, xref:management:stackablectl:index.adoc[] is the preferred way but Helm is also supported.
+OpenShift users may prefer installing the operator from the RedHat Certified Operator catalog using the OpenShift web console.
 
-There are 2 ways to run Stackable Operators
-
-1. Using xref:management:stackablectl:index.adoc[]
-
-2. Using Helm
-
-=== stackablectl
-
-stackablectl is the command line tool to interact with Stackable operators and our recommended way to install Operators.
+[tabs]
+====
+stackablectl::
++
+--
+stackablectl is the command line tool to interact with Stackable operators and the recommended way to install operators.
 Follow the xref:management:stackablectl:installation.adoc[installation steps] for your platform.
 
 After you have installed stackablectl run the following command to install all Operators necessary for Druid:
@@ -24,29 +21,34 @@ After you have installed stackablectl run the following command to install all O
 include::example$getting_started/getting_started.sh[tag=stackablectl-install-operators]
 ----
 
-The tool will show
+The tool prints
 
 [source]
 include::example$getting_started/install_output.txt[]
 
 TIP: Consult the xref:management:stackablectl:quickstart.adoc[] to learn more about how to use `stackablectl`.
+--
 
-=== Helm
+Helm::
++
+--
+You can also use Helm to install the operators.
 
-You can also use Helm to install the Operators. Add the Stackable Helm repository:
+.Add the Stackable Helm repository
 [source,bash]
 ----
 include::example$getting_started/getting_started.sh[tag=helm-add-repo]
 ----
 
-Then install the Stackable Operators:
+.Install the Stackable operators
 [source,bash]
 ----
 include::example$getting_started/getting_started.sh[tag=helm-install-operators]
 ----
 
-Helm will deploy the Operators in a Kubernetes Deployment and apply the CRDs for the Apache Druid service (as well as
-the CRDs for the required operators). You are now ready to deploy Apache Druid in Kubernetes.
+Helm deploys the operators in a Kubernetes Deployment and applies the CRDs for the Apache Druid service (as well as the CRDs for the required operators).
+--
+====
 
 == What's next
 

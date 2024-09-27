@@ -1,11 +1,13 @@
 = Security
 :description: Secure your Druid cluster with TLS encryption, LDAP, or OIDC authentication. Connect with OPA for policy-based authorization.
+:druid-auth-authz-model: https://druid.apache.org/docs/latest/operations/security-user-auth/#authentication-and-authorization-model
+:opa-rego-docs: https://www.openpolicyagent.org/docs/latest/#rego
 
-The Druid cluster can be secured and protected in multiple ways.
+Secure your Apache Druid Stacklet by enabling TLS encryption, user authentication and authorization.
 
 == Encryption
 
-TLS encryption is supported for internal cluster communication (e.g. between Broker and Coordinator) as well as for external communication (e.g. between the Browser and the Router Web UI).
+TLS encryption is supported for internal cluster communication (e.g. between Broker and Coordinator) as well as for external communication (e.g. between the browser and the Router web UI).
 
 [source,yaml]
 ----
@@ -14,9 +16,9 @@ spec:
     tls:
       serverAndInternalSecretClass: tls # <1>
 ----
-<1> Name of the `SecretClass` that is used to encrypt internal and external communication.
+<1> Name of the SecretClass that is used to encrypt internal and external communication.
 
-IMPORTANT: A Stackable Druid cluster is always encrypted per default i.e. `spec.clusterConfig.tls.serverAndInternalSecretClass: tls` in the above example does not need to be specified as it will be applied by default: in order to disable this default behavior you can set `spec.clusterConfig.tls.serverAndInternalSecretClass: null`.
+IMPORTANT: A Druid Stacklet is always encrypted per default i.e. `spec.clusterConfig.tls.serverAndInternalSecretClass: tls` in the above example does not need to be specified as it is applied by default: in order to disable this default behavior you can set `spec.clusterConfig.tls.serverAndInternalSecretClass: null`.
 
 == [[authentication]]Authentication
 
@@ -32,9 +34,9 @@ spec:
     authentication:
       - authenticationClass: druid-tls-auth # <1>
 ----
-<1> Name of the `AuthenticationClass` that is used to encrypt and authenticate communication.
+<1> Name of the AuthenticationClass that is used to encrypt and authenticate communication.
 
-The `AuthenticationClass` may or may not have a `SecretClass` configured:
+The AuthenticationClass may or may not have a SecretClass configured:
 [source,yaml]
 ----
 ---
@@ -50,12 +52,13 @@ spec:
     # Option 2
     tls: {} # <2>
 ----
-<1> If a client `SecretClass` is provided in the `AuthenticationClass` (here `druid-mtls`), these certificates will be used for encryption and authentication.
-<2> If no client `SecretClass` is provided in the `AuthenticationClass`, the `spec.clusterConfig.tls.serverAndInternalSecretClass` will be used for encryption and authentication. It cannot be explicitly set to null in this case.
+<1> If a client SecretClass is provided in the AuthenticationClass (here `druid-mtls`), these certificates are used for encryption and authentication.
+<2> If no client SecretClass is provided in the AuthenticationClass, the `spec.clusterConfig.tls.serverAndInternalSecretClass` is used for encryption and authentication.
+It cannot be explicitly set to null in this case.
 
 === LDAP
 
-Druid supports xref:concepts:authentication.adoc[authentication] of users against an LDAP server.
+Druid supports xref:concepts:authentication.adoc[authentication] of users via an LDAP server.
 This requires setting up an xref:concepts:authentication.adoc#authenticationclass[AuthenticationClass] for the LDAP server:
 
 [source,yaml]
@@ -63,7 +66,7 @@ This requires setting up an xref:concepts:authentication.adoc#authenticationclas
 include::example$druid-ldap-authentication.yaml[tag=authclass]
 ----
 
-NOTE: You can follow the xref:tutorials:authentication_with_openldap.adoc[] tutorial to learn how to create an AuthenticationClass for an LDAP server.
+TIP: You can follow the xref:tutorials:authentication_with_openldap.adoc[] tutorial to learn how to create an AuthenticationClass for an LDAP server.
 
 Reference the AuthenticationClass in your DruidCluster resource:
 
@@ -103,15 +106,19 @@ include::example$druid-oidc-authentication.yaml[tag=secret]
 
 At the moment you can either use TLS, LDAP or OIDC authentication but not a combination of authentication methods.
 
-Using an LDAP server **without** bind credentials is not supported. This limitation is due to Druid not supporting this scenario. See https://github.com/stackabletech/druid-operator/issues/383[our issue] for details.
+Druid doesn't support  LDAP authentication  **without** bind credentials.
+See https://github.com/stackabletech/druid-operator/issues/383[our issue] for details.
 
-Authorization is done using the `allowAll` authorizer. Support for `memberOf` and OPA authorization is planned.
+Authorization is done using the `allowAll` authorizer or OPA (see below).
 
 == [[authorization]]Authorization with Open Policy Agent (OPA)
 
-Druid can connect to an Open Policy Agent (OPA) instance for authorization policy decisions. You need to run an OPA instance to connect to: for this, please refer to the https://docs.stackable.tech/opa/index.html[OPA Operator docs]. A short explanation of how to write RegoRules for Druid is given <<_defining_regorules, below>>.
+Druid can connect to an Open Policy Agent (OPA) instance for authorization policy decisions.
+You need to run an OPA instance to connect to: for this, please refer to the xref:opa:index.adoc[OPA Operator docs].
+A short explanation of how to write RegoRules for Druid is given <<_defining_regorules, below>>.
 
-Once you have defined your rules, you need to configure the OPA cluster name and endpoint to use for Druid authorization requests. Add a section to the `spec` for OPA:
+Once you have defined your rules, you need to configure the OPA cluster name and endpoint to use for Druid authorization requests.
+Add a section to the `spec` for OPA:
 
 [source,yaml]
 ----
@@ -122,27 +129,36 @@ spec:
         configMapName: simple-opa <1>
         package: my-druid-rules <2>
 ----
-<1> The name of your OPA cluster (`simple-opa` in this case)
-<2> The RegoRule package to use for policy decisions. The package should contain an `allow` rule. This is optional and will default to the name of the Druid cluster.
+<1> The name of your OPA Stacklet (`simple-opa` in this case)
+<2> The RegoRule package to use for policy decisions.
+The package needs to contain an `allow` rule.
+This is optional and defaults to the name of the Druid Stacklet.
 
 === Defining RegoRules
 
-For a general explanation of how rules are written, please refer to the https://www.openpolicyagent.org/docs/latest/#rego[OPA documentation]. Inside your rule you will have access to input from Druid. Druid provides this data to you to base your policy decisions on:
+For a general explanation of how rules are written, please refer to the {opa-rego-docs}[OPA documentation].
+Inside your rule you have access to input from Druid.
+Druid provides this data to you to base your policy decisions on:
 
 [source,json]
 ----
 {
-  "user": "someUsername", <1>
-  "action": "READ", <2>
+  "authenticationResult": {
+    "identity": <String>, <1>
+    "authorizerName": <String>,
+    "authenticatedBy": <String>,
+    "context": Map<String, Object>,
+  }
+  "action": <String: READ|WRITE> <2>
   "resource": {
-    "type": "DATASOURCE", <3>
-    "name": "myTable" <4>
+    "name": <String>, <3>
+    "type": <String> <4>
   }
 }
 ----
 <1> The authenticated identity of the user that wants to perform the action
 <2> The action type, can be either `READ` or `WRITE`.
-<3> The resource type, one of `STATE`, `CONFIG` and `DATASOURCE`.
-<4> In case of a datasource this is the table name, for `STATE` this will simply be `STATE`, the same for `CONFIG`.
+<3> In case of a datasource this is the table name, for `STATE` this is simply `STATE`, the same for `CONFIG`.
+<4> The resource type, one of `STATE`, `CONFIG` and `DATASOURCE`.
 
-For more details consult the https://druid.apache.org/docs/latest/operations/security-user-auth.html#authentication-and-authorization-model[Druid Authentication and Authorization Model].
+For more details consult the {druid-auth-authz-model}[Druid Authentication and Authorization Model].

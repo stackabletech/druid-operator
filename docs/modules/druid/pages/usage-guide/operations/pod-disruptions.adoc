@@ -2,19 +2,19 @@
 
 You can configure the permitted Pod disruptions for Druid nodes as described in xref:concepts:operations/pod_disruptions.adoc[].
 
-Unless you configure something else or disable our PodDisruptionBudgets (PDBs), we write the following PDBs:
+Unless you configure something else or disable the default PodDisruptionBudgets (PDBs), the following PDBs apply:
 
 == Brokers
-We only allow a single broker to be offline at any given time, regardless of the number of replicas or `roleGroups`.
+Only one broker may be offline at any time, regardless of the number of replicas or role groups.
 
 == Coordinators
-We only allow a single coordinator to be offline at any given time, regardless of the number of replicas or `roleGroups`.
+Only one coordinator may be offline at any time, regardless of the number of replicas or role groups.
 
 == Historicals
-We only allow a single historical to be offline at any given time, regardless of the number of replicas or `roleGroups`.
+Only one historical may be offline at any time, regardless of the number of replicas or role groups.
 
 == MiddleManagers
-We only allow a single middleManager to be offline at any given time, regardless of the number of replicas or `roleGroups`.
+Only one middle manager may be offline at any time, regardless of the number of replicas or role groups.
 
 == Routers
-We only allow a single Router to be offline at any given time, regardless of the number of replicas or `roleGroups`.
+Only one router may be offline at any time, regardless of the number of replicas or role groups.

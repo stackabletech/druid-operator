@@ -7,7 +7,7 @@ The default affinities created by the operator are:
 1. Distribute all Pods within the same role (brokers, coordinators, historicals, middle-managers, routers) (weight 70)
 
 Some of the Druid roles do frequently communicate with each other.
-To address this, some affinities will be created to attract these roles:
+To address this, some affinities are created to attract these roles:
 
 *For brokers:*
 
@@ -24,4 +24,4 @@ To address this, some affinities will be created to attract these roles:
 
 *For coordinators:*
 
-- No affinities
+No affinities
