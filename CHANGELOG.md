@@ -11,14 +11,17 @@ All notable changes to this project will be documented in this file.
   - `affinity`
   - `extraVolumes`
 - Replace `lazy_static` with `std::cell::LazyCell` ([#604]).
+- Promote Druid `30.0.0` to LTS, deprecate `28.0.1` ([#631]).
 
 ### Removed
 
 - test: Remove ZooKeeper 3.8.4 ([#621]).
+- Remove Druid `28.0.1` ([#631]).
 
 [#584]: https://github.com/stackabletech/druid-operator/pull/584
 [#604]: https://github.com/stackabletech/druid-operator/pull/604
 [#621]: https://github.com/stackabletech/druid-operator/pull/621
+[#631]: https://github.com/stackabletech/druid-operator/pull/631
 
 ## [24.7.0] - 2024-07-24
 
