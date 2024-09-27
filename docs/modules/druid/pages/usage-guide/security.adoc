@@ -106,7 +106,7 @@ include::example$druid-oidc-authentication.yaml[tag=secret]
 
 At the moment you can either use TLS, LDAP or OIDC authentication but not a combination of authentication methods.
 
-Using an LDAP server **without** bind credentials is not supported due to Druid not supporting this scenario.
+Druid doesn't support  LDAP authentication  **without** bind credentials.
 See https://github.com/stackabletech/druid-operator/issues/383[our issue] for details.
 
 Authorization is done using the `allowAll` authorizer or OPA (see below).
