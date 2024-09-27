@@ -14,12 +14,12 @@ dimensions:
   - name: druid
     values:
       - 26.0.0
-      - 28.0.1
+      - 30.0.0
       # To use a custom image, add a comma and the full name after the product version
       # - 28.0.1,docker.stackable.tech/sandbox/druid:28.0.1-stackable0.0.0-dev
   - name: druid-latest
     values:
-      - 28.0.1
+      - 30.0.0
       # To use a custom image, add a comma and the full name after the product version
       # - 28.0.1,docker.stackable.tech/sandbox/druid:28.0.1-stackable0.0.0-dev
   - name: zookeeper
