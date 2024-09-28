@@ -11,7 +11,7 @@ All notable changes to this project will be documented in this file.
   - `affinity`
   - `extraVolumes`
 - Replace `lazy_static` with `std::cell::LazyCell` ([#604]).
-- Promote Druid `30.0.0` to LTS, deprecate `28.0.1` ([#631]).
+- Promote Druid `30.0.0` to LTS, deprecate `26.0.0` ([#631]).
 
 ### Removed
 
