@@ -5,6 +5,7 @@ use crate::memory::{HistoricalDerivedSettings, RESERVED_OS_MEMORY};
 use crate::storage::{self, default_free_percentage_empty_dir_fragment};
 use crate::{DruidRole, PATH_SEGMENT_CACHE, PROP_SEGMENT_CACHE_LOCATIONS};
 use snafu::{OptionExt, ResultExt, Snafu};
+use stackable_operator::builder;
 use stackable_operator::memory::MemoryQuantity;
 use stackable_operator::{
     builder::pod::{container::ContainerBuilder, volume::VolumeBuilder, PodBuilder},
@@ -29,14 +30,25 @@ const SEGMENT_CACHE_VOLUME_NAME: &str = "segment-cache";
 pub enum Error {
     #[snafu(display("failed to derive Druid settings from resources"))]
     DeriveMemorySettings { source: crate::memory::Error },
+
     #[snafu(display("failed to get memory limits"))]
     GetMemoryLimit,
+
     #[snafu(display("failed to parse memory quantity"))]
     ParseMemoryQuantity {
         source: stackable_operator::memory::Error,
     },
+
     #[snafu(display("the operator produced an internally inconsistent state"))]
     InconsistentConfiguration,
+
+    #[snafu(display("failed to add needed volume"))]
+    AddVolume { source: builder::pod::Error },
+
+    #[snafu(display("failed to add needed volumeMount"))]
+    AddVolumeMount {
+        source: builder::pod::container::Error,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -88,9 +100,14 @@ impl RoleResource {
         Ok(())
     }
 
-    pub fn update_volumes_and_volume_mounts(&self, cb: &mut ContainerBuilder, pb: &mut PodBuilder) {
+    pub fn update_volumes_and_volume_mounts(
+        &self,
+        cb: &mut ContainerBuilder,
+        pb: &mut PodBuilder,
+    ) -> Result<(), Error> {
         if let Self::Historical(r) = self {
-            cb.add_volume_mount(SEGMENT_CACHE_VOLUME_NAME, PATH_SEGMENT_CACHE);
+            cb.add_volume_mount(SEGMENT_CACHE_VOLUME_NAME, PATH_SEGMENT_CACHE)
+                .context(AddVolumeMountSnafu)?;
             pb.add_volume(
                 VolumeBuilder::new(SEGMENT_CACHE_VOLUME_NAME)
                     .empty_dir(EmptyDirVolumeSource {
@@ -98,8 +115,11 @@ impl RoleResource {
                         size_limit: Some(r.storage.segment_cache.empty_dir.capacity.clone()),
                     })
                     .build(),
-            );
+            )
+            .context(AddVolumeSnafu)?;
         }
+
+        Ok(())
     }
 
     /// Computes the heap and direct access memory sizes per role. The settings can be used to configure

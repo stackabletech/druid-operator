@@ -73,9 +73,9 @@ mod tests {
     use stackable_druid_crd::authentication::{
         AuthenticationClassResolved, AuthenticationClassesResolved,
     };
-    use stackable_operator::commons::authentication::{
-        oidc::{AuthenticationProvider, ClientAuthenticationOptions},
-        tls::TlsClientDetails,
+    use stackable_operator::commons::{
+        authentication::oidc::{AuthenticationProvider, ClientAuthenticationOptions},
+        tls_verification::TlsClientDetails,
     };
 
     use super::*;
@@ -108,7 +108,7 @@ mod tests {
                         auth_classes: vec![AuthenticationClassResolved::Oidc {
                             auth_class_name: "oidc".to_string(),
                             provider: AuthenticationProvider::new(
-                                "".to_string(),
+                                "my-oidc-provider".to_string().try_into().unwrap(),
                                 None,
                                 "".to_string(),
                                 TlsClientDetails { tls: None },

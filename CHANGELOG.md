@@ -13,6 +13,10 @@ All notable changes to this project will be documented in this file.
 - Replace `lazy_static` with `std::cell::LazyCell` ([#604]).
 - Promote Druid `30.0.0` to LTS, deprecate `26.0.0` ([#631]).
 
+### Fixed
+
+- BREAKING: The fields `connection` and `host` on `S3Connection` as well as `bucketName` on `S3Bucket`are now mandatory ([#XXX]).
+
 ### Removed
 
 - test: Remove ZooKeeper 3.8.4 ([#621]).

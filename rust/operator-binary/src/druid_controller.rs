@@ -16,32 +16,29 @@ use stackable_druid_crd::{
     authentication::AuthenticationClassesResolved, authorization::DruidAuthorization,
     build_recommended_labels, build_string_list, security::DruidTlsSecurity, CommonRoleGroupConfig,
     Container, DeepStorageSpec, DruidCluster, DruidClusterStatus, DruidRole, APP_NAME,
-    AUTH_AUTHORIZER_OPA_URI, CERTS_DIR, CREDENTIALS_SECRET_PROPERTY, DB_PASSWORD_ENV,
-    DB_USERNAME_ENV, DRUID_CONFIG_DIRECTORY, DS_BUCKET, EXTENSIONS_LOADLIST, HDFS_CONFIG_DIRECTORY,
-    JVM_CONFIG, JVM_SECURITY_PROPERTIES_FILE, LOG_CONFIG_DIRECTORY, LOG_DIR,
-    MAX_DRUID_LOG_FILES_SIZE, RUNTIME_PROPS, RW_CONFIG_DIRECTORY, S3_ACCESS_KEY, S3_ENDPOINT_URL,
-    S3_PATH_STYLE_ACCESS, S3_SECRET_DIR_NAME, S3_SECRET_KEY, SECRET_KEY_S3_ACCESS_KEY,
-    SECRET_KEY_S3_SECRET_KEY, ZOOKEEPER_CONNECTION_STRING,
+    AUTH_AUTHORIZER_OPA_URI, CREDENTIALS_SECRET_PROPERTY, DB_PASSWORD_ENV, DB_USERNAME_ENV,
+    DRUID_CONFIG_DIRECTORY, DS_BUCKET, EXTENSIONS_LOADLIST, HDFS_CONFIG_DIRECTORY, JVM_CONFIG,
+    JVM_SECURITY_PROPERTIES_FILE, LOG_CONFIG_DIRECTORY, LOG_DIR, MAX_DRUID_LOG_FILES_SIZE,
+    RUNTIME_PROPS, RW_CONFIG_DIRECTORY, S3_ACCESS_KEY, S3_ENDPOINT_URL, S3_PATH_STYLE_ACCESS,
+    S3_SECRET_KEY, ZOOKEEPER_CONNECTION_STRING,
 };
 use stackable_operator::{
     builder::{
+        self,
         configmap::ConfigMapBuilder,
         meta::ObjectMetaBuilder,
         pod::{
-            container::ContainerBuilder,
-            resources::ResourceRequirementsBuilder,
-            security::PodSecurityContextBuilder,
-            volume::{SecretOperatorVolumeSourceBuilder, VolumeBuilder},
-            PodBuilder,
+            container::ContainerBuilder, resources::ResourceRequirementsBuilder,
+            security::PodSecurityContextBuilder, volume::VolumeBuilder, PodBuilder,
         },
     },
     cluster_resources::{ClusterResourceApplyStrategy, ClusterResources},
     commons::{
-        authentication::tls::{CaCert, TlsVerification},
         opa::OpaApiVersion,
         product_image_selection::ResolvedProductImage,
         rbac::{build_rbac_resources, service_account_name},
-        s3::{S3AccessStyle, S3ConnectionSpec},
+        s3::{S3AccessStyle, S3ConnectionSpec, S3Error},
+        tls_verification::TlsClientDetailsError,
     },
     k8s_openapi::{
         api::{
@@ -60,6 +57,7 @@ use stackable_operator::{
     product_config_utils::{transform_all_roles_to_config, validate_all_roles_and_groups_config},
     product_logging::{
         self,
+        framework::LoggingError,
         spec::{
             ConfigMapLogConfig, ContainerLogConfig, ContainerLogConfigChoice,
             CustomContainerLogConfig,
@@ -172,10 +170,14 @@ pub enum Error {
     #[snafu(display("failed to get valid S3 connection"))]
     GetS3Connection { source: stackable_druid_crd::Error },
 
+    #[snafu(display("failed to configure S3 connection"))]
+    ConfigureS3 { source: S3Error },
+
+    #[snafu(display("failed to configure S3 TLS client details"))]
+    ConfigureS3TlsClientDetails { source: TlsClientDetailsError },
+
     #[snafu(display("failed to get deep storage bucket"))]
-    GetDeepStorageBucket {
-        source: stackable_operator::commons::s3::Error,
-    },
+    GetDeepStorageBucket { source: S3Error },
 
     #[snafu(display(
         "failed to get ZooKeeper connection string from config map {}",
@@ -345,6 +347,17 @@ pub enum Error {
     GenerateAuthenticationRuntimeSettings {
         source: crate::authentication::Error,
     },
+
+    #[snafu(display("failed to build vector container"))]
+    BuildVectorContainer { source: LoggingError },
+
+    #[snafu(display("failed to add needed volume"))]
+    AddVolume { source: builder::pod::Error },
+
+    #[snafu(display("failed to add needed volumeMount"))]
+    AddVolumeMount {
+        source: builder::pod::container::Error,
+    },
 }
 
 type Result<T, E = Error> = std::result::Result<T, E>;
@@ -413,14 +426,15 @@ pub async fn reconcile_druid(druid: Arc<DruidCluster>, ctx: Arc<Ctx>) -> Result<
         .context(GetS3ConnectionSnafu)?;
 
     let deep_storage_bucket_name = match &druid.spec.cluster_config.deep_storage {
-        DeepStorageSpec::S3(s3_spec) => {
+        DeepStorageSpec::S3(s3_spec) => Some(
             s3_spec
                 .bucket
+                .clone()
                 .resolve(client, namespace)
                 .await
                 .context(GetDeepStorageBucketSnafu)?
-                .bucket_name
-        }
+                .bucket_name,
+        ),
         _ => None,
     };
 
@@ -709,34 +723,26 @@ fn build_rolegroup_config_map(
                     );
                 };
 
-                if let Some(conn) = s3_conn {
-                    if let Some(endpoint) = conn.endpoint() {
-                        conf.insert(S3_ENDPOINT_URL.to_string(), Some(endpoint));
-                    }
+                if let Some(s3) = s3_conn {
+                    conf.insert(
+                        S3_ENDPOINT_URL.to_string(),
+                        Some(s3.endpoint().context(ConfigureS3Snafu)?.to_string()),
+                    );
 
-                    if conn.credentials.is_some() {
+                    if let Some((access_key_file, secret_key_file)) = s3.credentials_mount_paths() {
                         conf.insert(
                             S3_ACCESS_KEY.to_string(),
-                            Some(format!(
-                                "${{file:UTF-8:{S3_SECRET_DIR_NAME}/{SECRET_KEY_S3_ACCESS_KEY}}}"
-                            )),
+                            Some(format!("${{file:UTF-8:{access_key_file}}}")),
                         );
                         conf.insert(
                             S3_SECRET_KEY.to_string(),
-                            Some(format!(
-                                "${{file:UTF-8:{S3_SECRET_DIR_NAME}/{SECRET_KEY_S3_SECRET_KEY}}}"
-                            )),
+                            Some(format!("${{file:UTF-8:{secret_key_file}}}")),
                         );
                     }
 
-                    // We did choose a match statement here to detect new access styles in the future
-                    let path_style_access = match conn.access_style.clone().unwrap_or_default() {
-                        S3AccessStyle::Path => true,
-                        S3AccessStyle::VirtualHosted => false,
-                    };
                     conf.insert(
                         S3_PATH_STYLE_ACCESS.to_string(),
-                        Some(path_style_access.to_string()),
+                        Some((s3.access_style == S3AccessStyle::Path).to_string()),
                     );
                 }
                 conf.insert(
@@ -967,23 +973,32 @@ fn build_rolegroup_statefulset(
     druid_tls_security
         .add_tls_volume_and_volume_mounts(&mut cb_prepare, &mut cb_druid, &mut pb)
         .context(FailedToInitializeSecurityContextSnafu)?;
-    add_s3_volume_and_volume_mounts(s3_conn, &mut cb_druid, &mut pb)?;
-    add_config_volume_and_volume_mounts(rolegroup_ref, &mut cb_druid, &mut pb);
+
+    if let Some(s3) = s3_conn {
+        if s3.tls.uses_tls() && !s3.tls.uses_tls_verification() {
+            S3TlsNoVerificationNotSupportedSnafu.fail()?;
+        }
+        s3.add_volumes_and_mounts(&mut pb, vec![&mut cb_druid])
+            .context(ConfigureS3Snafu)?;
+    }
+
+    add_config_volume_and_volume_mounts(rolegroup_ref, &mut cb_druid, &mut pb)?;
     add_log_config_volume_and_volume_mounts(
         rolegroup_ref,
         merged_rolegroup_config,
         &mut cb_druid,
         &mut pb,
-    );
-    add_log_volume_and_volume_mounts(&mut cb_druid, &mut cb_prepare, &mut pb);
+    )?;
+    add_log_volume_and_volume_mounts(&mut cb_druid, &mut cb_prepare, &mut pb)?;
     add_hdfs_cm_volume_and_volume_mounts(
         &druid.spec.cluster_config.deep_storage,
         &mut cb_druid,
         &mut pb,
-    );
+    )?;
     merged_rolegroup_config
         .resources
-        .update_volumes_and_volume_mounts(&mut cb_druid, &mut pb);
+        .update_volumes_and_volume_mounts(&mut cb_druid, &mut pb)
+        .context(UpdateDruidConfigFromResourcesSnafu)?;
 
     cb_prepare
         .image_from_product_image(resolved_product_image)
@@ -1076,8 +1091,10 @@ fn build_rolegroup_statefulset(
             ?role,
             "Adding user specified extra volume",
         );
-        pb.add_volume(volume.clone());
-        cb_druid.add_volume_mount(volume_name, mount_point);
+        pb.add_volume(volume.clone()).context(AddVolumeSnafu)?;
+        cb_druid
+            .add_volume_mount(volume_name, mount_point)
+            .context(AddVolumeMountSnafu)?;
     }
 
     let metadata = ObjectMetaBuilder::new()
@@ -1105,21 +1122,24 @@ fn build_rolegroup_statefulset(
         );
 
     if merged_rolegroup_config.logging.enable_vector_agent {
-        pb.add_container(product_logging::framework::vector_container(
-            resolved_product_image,
-            DRUID_CONFIG_VOLUME_NAME,
-            LOG_VOLUME_NAME,
-            merged_rolegroup_config
-                .logging
-                .containers
-                .get(&Container::Vector),
-            ResourceRequirementsBuilder::new()
-                .with_cpu_request("250m")
-                .with_cpu_limit("500m")
-                .with_memory_request("128Mi")
-                .with_memory_limit("128Mi")
-                .build(),
-        ));
+        pb.add_container(
+            product_logging::framework::vector_container(
+                resolved_product_image,
+                DRUID_CONFIG_VOLUME_NAME,
+                LOG_VOLUME_NAME,
+                merged_rolegroup_config
+                    .logging
+                    .containers
+                    .get(&Container::Vector),
+                ResourceRequirementsBuilder::new()
+                    .with_cpu_request("250m")
+                    .with_cpu_limit("500m")
+                    .with_memory_request("128Mi")
+                    .with_memory_limit("128Mi")
+                    .build(),
+            )
+            .context(BuildVectorContainerSnafu)?,
+        );
     }
 
     let mut pod_template = pb.build_template();
@@ -1172,35 +1192,48 @@ fn add_hdfs_cm_volume_and_volume_mounts(
     deep_storage_spec: &DeepStorageSpec,
     cb_druid: &mut ContainerBuilder,
     pb: &mut PodBuilder,
-) {
+) -> Result<()> {
     // hdfs deep storage mount
     if let DeepStorageSpec::HDFS(hdfs) = deep_storage_spec {
-        cb_druid.add_volume_mount(HDFS_CONFIG_VOLUME_NAME, HDFS_CONFIG_DIRECTORY);
+        cb_druid
+            .add_volume_mount(HDFS_CONFIG_VOLUME_NAME, HDFS_CONFIG_DIRECTORY)
+            .context(AddVolumeMountSnafu)?;
         pb.add_volume(
             VolumeBuilder::new(HDFS_CONFIG_VOLUME_NAME)
                 .with_config_map(&hdfs.config_map_name)
                 .build(),
-        );
+        )
+        .context(AddVolumeSnafu)?;
     }
+
+    Ok(())
 }
 
 fn add_config_volume_and_volume_mounts(
     rolegroup_ref: &RoleGroupRef<DruidCluster>,
     cb_druid: &mut ContainerBuilder,
     pb: &mut PodBuilder,
-) {
-    cb_druid.add_volume_mount(DRUID_CONFIG_VOLUME_NAME, DRUID_CONFIG_DIRECTORY);
+) -> Result<()> {
+    cb_druid
+        .add_volume_mount(DRUID_CONFIG_VOLUME_NAME, DRUID_CONFIG_DIRECTORY)
+        .context(AddVolumeMountSnafu)?;
     pb.add_volume(
         VolumeBuilder::new(DRUID_CONFIG_VOLUME_NAME)
             .with_config_map(rolegroup_ref.object_name())
             .build(),
-    );
-    cb_druid.add_volume_mount(RW_CONFIG_VOLUME_NAME, RW_CONFIG_DIRECTORY);
+    )
+    .context(AddVolumeSnafu)?;
+    cb_druid
+        .add_volume_mount(RW_CONFIG_VOLUME_NAME, RW_CONFIG_DIRECTORY)
+        .context(AddVolumeMountSnafu)?;
     pb.add_volume(
         VolumeBuilder::new(RW_CONFIG_VOLUME_NAME)
             .with_empty_dir(Some(""), None)
             .build(),
-    );
+    )
+    .context(AddVolumeSnafu)?;
+
+    Ok(())
 }
 
 fn add_log_config_volume_and_volume_mounts(
@@ -1208,8 +1241,10 @@ fn add_log_config_volume_and_volume_mounts(
     merged_rolegroup_config: &CommonRoleGroupConfig,
     cb_druid: &mut ContainerBuilder,
     pb: &mut PodBuilder,
-) {
-    cb_druid.add_volume_mount(LOG_CONFIG_VOLUME_NAME, LOG_CONFIG_DIRECTORY);
+) -> Result<()> {
+    cb_druid
+        .add_volume_mount(LOG_CONFIG_VOLUME_NAME, LOG_CONFIG_DIRECTORY)
+        .context(AddVolumeMountSnafu)?;
 
     let config_map = if let Some(ContainerLogConfig {
         choice:
@@ -1230,16 +1265,23 @@ fn add_log_config_volume_and_volume_mounts(
         VolumeBuilder::new(LOG_CONFIG_VOLUME_NAME)
             .with_config_map(config_map)
             .build(),
-    );
+    )
+    .context(AddVolumeSnafu)?;
+
+    Ok(())
 }
 
 fn add_log_volume_and_volume_mounts(
     cb_druid: &mut ContainerBuilder,
     cb_prepare: &mut ContainerBuilder,
     pb: &mut PodBuilder,
-) {
-    cb_druid.add_volume_mount(LOG_VOLUME_NAME, LOG_DIR);
-    cb_prepare.add_volume_mount(LOG_VOLUME_NAME, LOG_DIR);
+) -> Result<()> {
+    cb_druid
+        .add_volume_mount(LOG_VOLUME_NAME, LOG_DIR)
+        .context(AddVolumeMountSnafu)?;
+    cb_prepare
+        .add_volume_mount(LOG_VOLUME_NAME, LOG_DIR)
+        .context(AddVolumeMountSnafu)?;
     pb.add_volume(
         VolumeBuilder::new(LOG_VOLUME_NAME)
             .with_empty_dir(
@@ -1249,51 +1291,8 @@ fn add_log_volume_and_volume_mounts(
                 )),
             )
             .build(),
-    );
-}
-
-fn add_s3_volume_and_volume_mounts(
-    s3_conn: Option<&S3ConnectionSpec>,
-    cb_druid: &mut ContainerBuilder,
-    pb: &mut PodBuilder,
-) -> Result<()> {
-    if let Some(s3_conn) = s3_conn {
-        if let Some(credentials) = &s3_conn.credentials {
-            pb.add_volume(
-                credentials
-                    .to_volume("s3-credentials")
-                    .context(S3CredentialsSecretClassVolumeBuildSnafu)?,
-            );
-            cb_druid.add_volume_mount("s3-credentials", S3_SECRET_DIR_NAME);
-        }
-
-        if let Some(tls) = &s3_conn.tls {
-            match &tls.verification {
-                TlsVerification::None {} => return S3TlsNoVerificationNotSupportedSnafu.fail(),
-                TlsVerification::Server(server_verification) => {
-                    match &server_verification.ca_cert {
-                        CaCert::WebPki {} => {}
-                        CaCert::SecretClass(secret_class) => {
-                            let volume_name = format!("{secret_class}-tls-certificate");
-
-                            let volume = VolumeBuilder::new(&volume_name)
-                                .ephemeral(
-                                    SecretOperatorVolumeSourceBuilder::new(secret_class)
-                                        .build()
-                                        .context(TlsCertSecretClassVolumeBuildSnafu)?,
-                                )
-                                .build();
-                            pb.add_volume(volume);
-                            cb_druid.add_volume_mount(
-                                &volume_name,
-                                format!("{CERTS_DIR}/{volume_name}"),
-                            );
-                        }
-                    }
-                }
-            }
-        }
-    }
+    )
+    .context(AddVolumeSnafu)?;
 
     Ok(())
 }
