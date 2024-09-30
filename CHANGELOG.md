@@ -15,7 +15,7 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 
-- BREAKING: The fields `connection` and `host` on `S3Connection` as well as `bucketName` on `S3Bucket`are now mandatory ([#XXX]).
+- BREAKING: The fields `connection` and `host` on `S3Connection` as well as `bucketName` on `S3Bucket`are now mandatory ([#632]).
 
 ### Removed
 
@@ -26,6 +26,7 @@ All notable changes to this project will be documented in this file.
 [#604]: https://github.com/stackabletech/druid-operator/pull/604
 [#621]: https://github.com/stackabletech/druid-operator/pull/621
 [#631]: https://github.com/stackabletech/druid-operator/pull/631
+[#632]: https://github.com/stackabletech/druid-operator/pull/632
 
 ## [24.7.0] - 2024-07-24
 
