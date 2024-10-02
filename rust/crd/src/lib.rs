@@ -22,14 +22,13 @@ use stackable_operator::{
     client::Client,
     commons::{
         affinity::StackableAffinity,
-        authentication::{
-            tls::{CaCert, Tls, TlsServerVerification, TlsVerification},
-            ClientAuthenticationDetails,
-        },
+        authentication::ClientAuthenticationDetails,
         cluster_operation::ClusterOperation,
         product_image_selection::ProductImage,
         resources::{NoRuntimeLimits, Resources},
-        s3::{InlinedS3BucketSpec, S3BucketDef, S3ConnectionDef, S3ConnectionSpec},
+        s3::{
+            ResolvedS3Connection, S3BucketInlineOrReference, S3ConnectionInlineOrReference, S3Error,
+        },
     },
     config::{
         fragment::{self, Fragment, FromFragment, ValidationError},
@@ -155,14 +154,10 @@ const DEFAULT_HISTORICAL_GRACEFUL_SHUTDOWN_TIMEOUT: Duration = Duration::from_mi
 #[allow(clippy::enum_variant_names)]
 pub enum Error {
     #[snafu(display("failed to resolve S3 connection"))]
-    ResolveS3Connection {
-        source: stackable_operator::commons::s3::Error,
-    },
+    ResolveS3Connection { source: S3Error },
 
     #[snafu(display("failed to resolve S3 bucket"))]
-    ResolveS3Bucket {
-        source: stackable_operator::commons::s3::Error,
-    },
+    ResolveS3Bucket { source: S3Error },
 
     #[snafu(display("2 differing s3 connections were given, this is unsupported by Druid"))]
     IncompatibleS3Connections,
@@ -523,19 +518,14 @@ impl DruidRole {
 
     pub fn main_container_prepare_commands(
         &self,
-        s3_connection: Option<&S3ConnectionSpec>,
+        s3: Option<&ResolvedS3Connection>,
     ) -> Vec<String> {
         let mut commands = vec![];
 
-        if let Some(s3_connection) = s3_connection {
-            if let Some(Tls {
-                verification:
-                    TlsVerification::Server(TlsServerVerification {
-                        ca_cert: CaCert::SecretClass(secret_class),
-                    }),
-            }) = &s3_connection.tls
-            {
-                commands.push(format!("keytool -importcert -file {CERTS_DIR}/{secret_class}-tls-certificate/ca.crt -alias stackable-{secret_class} -keystore {STACKABLE_TRUST_STORE} -storepass {STACKABLE_TRUST_STORE_PASSWORD} -noprompt"));
+        if let Some(s3) = s3 {
+            if let Some(ca_cert_file) = s3.tls.tls_ca_cert_mount_path() {
+                // The alias can not clash, as we only support a single S3Connection
+                commands.push(format!("keytool -importcert -file {ca_cert_file} -alias stackable-s3-ca-cert -keystore {STACKABLE_TRUST_STORE} -storepass {STACKABLE_TRUST_STORE_PASSWORD} -noprompt"));
             }
         }
 
@@ -740,7 +730,7 @@ impl DruidCluster {
     pub async fn get_s3_connection(
         &self,
         client: &Client,
-    ) -> Result<Option<S3ConnectionSpec>, Error> {
+    ) -> Result<Option<ResolvedS3Connection>, Error> {
         // retrieve connection for ingestion (can be None)
         let ingestion_conn = if let Some(ic) = self
             .spec
@@ -750,16 +740,17 @@ impl DruidCluster {
             .and_then(|is| is.s3connection.as_ref())
         {
             Some(
-                ic.resolve(
-                    client,
-                    self.namespace()
-                        .context(MissingNamespaceSnafu {
-                            name: &self.name_unchecked(),
-                        })?
-                        .as_ref(),
-                )
-                .await
-                .context(ResolveS3ConnectionSnafu)?,
+                ic.clone()
+                    .resolve(
+                        client,
+                        self.namespace()
+                            .context(MissingNamespaceSnafu {
+                                name: &self.name_unchecked(),
+                            })?
+                            .as_ref(),
+                    )
+                    .await
+                    .context(ResolveS3ConnectionSnafu)?,
             )
         } else {
             None
@@ -768,8 +759,9 @@ impl DruidCluster {
         // retrieve connection for deep storage (can be None)
         let storage_conn = match &self.spec.cluster_config.deep_storage {
             DeepStorageSpec::S3(s3_spec) => {
-                let inlined_bucket: InlinedS3BucketSpec = s3_spec
+                let inlined_bucket = s3_spec
                     .bucket
+                    .clone()
                     .resolve(
                         client,
                         self.namespace()
@@ -780,7 +772,7 @@ impl DruidCluster {
                     )
                     .await
                     .context(ResolveS3BucketSnafu)?;
-                inlined_bucket.connection
+                Some(inlined_bucket.connection)
             }
             _ => None,
         };
@@ -1061,7 +1053,8 @@ pub struct HdfsDeepStorageSpec {
 pub struct S3DeepStorageSpec {
     /// The S3 bucket to use for deep storage. Can either be defined inline or as a reference,
     /// read the [S3 bucket docs](DOCS_BASE_URL_PLACEHOLDER/concepts/s3) to learn more.
-    pub bucket: S3BucketDef,
+    pub bucket: S3BucketInlineOrReference,
+
     /// The `baseKey` is similar to the `directory` in HDFS; it is the root key at which
     /// Druid will create its deep storage. If no `baseKey` is given, the bucket root
     /// will be used.
@@ -1075,7 +1068,7 @@ pub struct IngestionSpec {
     /// However, the S3 connection has to be specified in advance and only a single S3 connection is supported.
     /// S3 connections can either be specified `inline` or as a `reference`.
     /// Read the [S3 resource concept docs](DOCS_BASE_URL_PLACEHOLDER/concepts/s3) to learn more.
-    pub s3connection: Option<S3ConnectionDef>,
+    pub s3connection: Option<S3ConnectionInlineOrReference>,
 }
 
 #[derive(Clone, Debug, Default, Fragment, JsonSchema, PartialEq)]

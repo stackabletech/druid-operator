@@ -185,7 +185,7 @@ pub fn env_var_from_secret(secret_name: &str, secret_key: Option<&str>, env_var:
         value_from: Some(EnvVarSource {
             secret_key_ref: Some(SecretKeySelector {
                 optional: Some(false),
-                name: Some(secret_name.to_string()),
+                name: secret_name.to_string(),
                 key: secret_key.unwrap_or(env_var).to_string(),
             }),
             ..EnvVarSource::default()

@@ -8,9 +8,14 @@ use stackable_druid_crd::{
 };
 use stackable_operator::{
     builder::pod::{container::ContainerBuilder, PodBuilder},
-    commons::authentication::{
-        ldap::AuthenticationProvider as LdapAuthenticationProvider,
-        oidc::{AuthenticationProvider as OidcAuthenticationProvider, ClientAuthenticationOptions},
+    commons::{
+        authentication::{
+            ldap::AuthenticationProvider as LdapAuthenticationProvider,
+            oidc::{
+                AuthenticationProvider as OidcAuthenticationProvider, ClientAuthenticationOptions,
+            },
+        },
+        tls_verification::TlsClientDetailsError,
     },
     k8s_openapi::api::core::v1::EnvVar,
 };
@@ -28,18 +33,20 @@ pub enum Error {
     CreateLdapEndpointUrl {
         source: stackable_operator::commons::authentication::ldap::Error,
     },
+
     #[snafu(display("failed to create LDAP endpoint url."))]
     CreateOidcEndpointUrl {
         source: stackable_operator::commons::authentication::oidc::Error,
     },
+
     #[snafu(display("failed to add LDAP Volumes and VolumeMounts to the Pod and containers"))]
     AddLdapVolumes {
         source: stackable_operator::commons::authentication::ldap::Error,
     },
+
     #[snafu(display("failed to add OIDC Volumes and VolumeMounts to the Pod and containers"))]
-    AddOidcVolumes {
-        source: stackable_operator::commons::authentication::tls::TlsClientDetailsError,
-    },
+    AddOidcVolumes { source: TlsClientDetailsError },
+
     #[snafu(display(
         "failed to access bind credentials although they are required for LDAP to work"
     ))]

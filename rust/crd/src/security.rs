@@ -5,13 +5,16 @@ use crate::{
 use crate::{STACKABLE_TRUST_STORE, STACKABLE_TRUST_STORE_PASSWORD};
 use snafu::{ResultExt, Snafu};
 use stackable_operator::{
-    builder::pod::{
-        container::ContainerBuilder,
-        volume::{
-            SecretFormat, SecretOperatorVolumeSourceBuilder,
-            SecretOperatorVolumeSourceBuilderError, VolumeBuilder,
+    builder::{
+        self,
+        pod::{
+            container::ContainerBuilder,
+            volume::{
+                SecretFormat, SecretOperatorVolumeSourceBuilder,
+                SecretOperatorVolumeSourceBuilderError, VolumeBuilder,
+            },
+            PodBuilder,
         },
-        PodBuilder,
     },
     k8s_openapi::{
         api::core::v1::{ContainerPort, Probe, ServicePort, TCPSocketAction},
@@ -29,6 +32,14 @@ pub enum Error {
     #[snafu(display("failed to build the Secret operator Volume"))]
     SecretVolumeBuild {
         source: SecretOperatorVolumeSourceBuilderError,
+    },
+
+    #[snafu(display("failed to add needed volume"))]
+    AddVolume { source: builder::pod::Error },
+
+    #[snafu(display("failed to add needed volumeMount"))]
+    AddVolumeMount {
+        source: builder::pod::container::Error,
     },
 }
 
@@ -195,18 +206,28 @@ impl DruidTlsSecurity {
                             .context(SecretVolumeBuildSnafu)?,
                     )
                     .build(),
-            );
-            prepare.add_volume_mount(TLS_MOUNT_VOLUME_NAME, STACKABLE_MOUNT_TLS_DIR);
-            druid.add_volume_mount(TLS_MOUNT_VOLUME_NAME, STACKABLE_MOUNT_TLS_DIR);
+            )
+            .context(AddVolumeSnafu)?;
+            prepare
+                .add_volume_mount(TLS_MOUNT_VOLUME_NAME, STACKABLE_MOUNT_TLS_DIR)
+                .context(AddVolumeMountSnafu)?;
+            druid
+                .add_volume_mount(TLS_MOUNT_VOLUME_NAME, STACKABLE_MOUNT_TLS_DIR)
+                .context(AddVolumeMountSnafu)?;
 
             pod.add_volume(
                 VolumeBuilder::new(TLS_VOLUME_NAME)
                     .with_empty_dir(Option::<&str>::None, None)
                     .build(),
-            );
+            )
+            .context(AddVolumeSnafu)?;
 
-            prepare.add_volume_mount(TLS_VOLUME_NAME, STACKABLE_TLS_DIR);
-            druid.add_volume_mount(TLS_VOLUME_NAME, STACKABLE_TLS_DIR);
+            prepare
+                .add_volume_mount(TLS_VOLUME_NAME, STACKABLE_TLS_DIR)
+                .context(AddVolumeMountSnafu)?;
+            druid
+                .add_volume_mount(TLS_VOLUME_NAME, STACKABLE_TLS_DIR)
+                .context(AddVolumeMountSnafu)?;
         }
         Ok(())
     }
