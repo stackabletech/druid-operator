@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+
+- The operator can now run on Kubernetes clusters using a non-default cluster domain. It should automatically detect the
+  correct domain to use, but you can also use the env var `KUBERNETES_CLUSTER_DOMAIN` to set the domain explicitly ([#XXX]).
+
 ### Changed
 
 - Reduce CRD size from `2.4MB` to `183KB` by accepting arbitrary YAML input instead of the underlying schema for the following fields ([#584]):
