@@ -7,7 +7,7 @@ All notable changes to this project will be documented in this file.
 ### Added
 
 - The operator can now run on Kubernetes clusters using a non-default cluster domain. It should automatically detect the
-  correct domain to use, but you can also use the env var `KUBERNETES_CLUSTER_DOMAIN` to set the domain explicitly ([#XXX]).
+  correct domain to use, but you can also use the env var `KUBERNETES_CLUSTER_DOMAIN` to set the domain explicitly ([#637]).
 
 ### Changed
 
@@ -32,6 +32,7 @@ All notable changes to this project will be documented in this file.
 [#621]: https://github.com/stackabletech/druid-operator/pull/621
 [#631]: https://github.com/stackabletech/druid-operator/pull/631
 [#632]: https://github.com/stackabletech/druid-operator/pull/632
+[#637]: https://github.com/stackabletech/druid-operator/pull/637
 
 ## [24.7.0] - 2024-07-24
 
