@@ -48,7 +48,10 @@ use stackable_operator::{
     schemars::{self, JsonSchema},
     status::condition::{ClusterCondition, HasStatusCondition},
     time::Duration,
-    utils::{crds::raw_object_list_schema, COMMON_BASH_TRAP_FUNCTIONS},
+    utils::{
+        cluster_domain::KUBERNETES_CLUSTER_DOMAIN, crds::raw_object_list_schema,
+        COMMON_BASH_TRAP_FUNCTIONS,
+    },
 };
 use std::collections::{BTreeMap, HashMap, HashSet};
 use strum::{Display, EnumDiscriminants, EnumIter, EnumString, IntoStaticStr};
@@ -719,9 +722,12 @@ impl DruidCluster {
     /// The fully-qualified domain name of the role-level load-balanced Kubernetes `Service`
     pub fn role_service_fqdn(&self, role: &DruidRole) -> Option<String> {
         Some(format!(
-            "{}.{}.svc.cluster.local",
+            "{}.{}.svc.{}",
             self.role_service_name(role)?,
-            self.metadata.namespace.as_ref()?
+            self.metadata.namespace.as_ref()?,
+            KUBERNETES_CLUSTER_DOMAIN.get().expect(
+                "KUBERNETES_CLUSTER_DOMAIN must first be set by calling initialize_operator"
+            ),
         ))
     }
 
@@ -1487,6 +1493,17 @@ mod tests {
     fn test_service_name_generation() {
         let cluster =
             deserialize_yaml_file::<DruidCluster>("test/resources/role_service/druid_cluster.yaml");
+
+        // As we are not calling stackable_operator::client::initialize_operator, we need to set the
+        // Kubernetes cluster domain ourselves.
+        KUBERNETES_CLUSTER_DOMAIN
+            .set(
+                "cluster.local"
+                    .to_owned()
+                    .try_into()
+                    .expect("must always be a valid domain"),
+            )
+            .expect("failed to set Kubernetes cluster domain");
 
         assert_eq!(cluster.metadata.name, Some("testcluster".to_string()));
 
