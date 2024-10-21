@@ -721,13 +721,13 @@ impl DruidCluster {
 
     /// The fully-qualified domain name of the role-level load-balanced Kubernetes `Service`
     pub fn role_service_fqdn(&self, role: &DruidRole) -> Option<String> {
+        let cluster_domain = KUBERNETES_CLUSTER_DOMAIN
+            .get()
+            .expect("KUBERNETES_CLUSTER_DOMAIN must first be set by calling initialize_operator");
         Some(format!(
-            "{}.{}.svc.{}",
+            "{}.{}.svc.{cluster_domain}",
             self.role_service_name(role)?,
             self.metadata.namespace.as_ref()?,
-            KUBERNETES_CLUSTER_DOMAIN.get().expect(
-                "KUBERNETES_CLUSTER_DOMAIN must first be set by calling initialize_operator"
-            ),
         ))
     }
 
