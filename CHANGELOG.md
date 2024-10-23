@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+
+- The operator can now run on Kubernetes clusters using a non-default cluster domain.
+  Use the env var `KUBERNETES_CLUSTER_DOMAIN` or the operator Helm chart property `kubernetesClusterDomain` to set a non-default cluster domain ([#637]).
+
 ### Changed
 
 - Reduce CRD size from `2.4MB` to `183KB` by accepting arbitrary YAML input instead of the underlying schema for the following fields ([#584]):
@@ -28,6 +33,7 @@ All notable changes to this project will be documented in this file.
 [#621]: https://github.com/stackabletech/druid-operator/pull/621
 [#631]: https://github.com/stackabletech/druid-operator/pull/631
 [#632]: https://github.com/stackabletech/druid-operator/pull/632
+[#637]: https://github.com/stackabletech/druid-operator/pull/637
 [#638]: https://github.com/stackabletech/druid-operator/pull/638
 
 ## [24.7.0] - 2024-07-24

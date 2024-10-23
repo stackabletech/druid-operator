@@ -596,10 +596,15 @@ pub async fn reconcile_druid(
     }
 
     // discovery
-    for discovery_cm in
-        build_discovery_configmaps(druid, druid, &resolved_product_image, &druid_tls_security)
-            .await
-            .context(BuildDiscoveryConfigSnafu)?
+    for discovery_cm in build_discovery_configmaps(
+        druid,
+        druid,
+        &client.kubernetes_cluster_info,
+        &resolved_product_image,
+        &druid_tls_security,
+    )
+    .await
+    .context(BuildDiscoveryConfigSnafu)?
     {
         cluster_resources
             .add(client, discovery_cm)

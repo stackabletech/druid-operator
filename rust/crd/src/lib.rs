@@ -48,7 +48,10 @@ use stackable_operator::{
     schemars::{self, JsonSchema},
     status::condition::{ClusterCondition, HasStatusCondition},
     time::Duration,
-    utils::{crds::raw_object_list_schema, COMMON_BASH_TRAP_FUNCTIONS},
+    utils::{
+        cluster_info::KubernetesClusterInfo, crds::raw_object_list_schema,
+        COMMON_BASH_TRAP_FUNCTIONS,
+    },
 };
 use std::collections::{BTreeMap, HashMap, HashSet};
 use strum::{Display, EnumDiscriminants, EnumIter, EnumString, IntoStaticStr};
@@ -717,11 +720,16 @@ impl DruidCluster {
     }
 
     /// The fully-qualified domain name of the role-level load-balanced Kubernetes `Service`
-    pub fn role_service_fqdn(&self, role: &DruidRole) -> Option<String> {
+    pub fn role_service_fqdn(
+        &self,
+        role: &DruidRole,
+        cluster_info: &KubernetesClusterInfo,
+    ) -> Option<String> {
         Some(format!(
-            "{}.{}.svc.cluster.local",
-            self.role_service_name(role)?,
-            self.metadata.namespace.as_ref()?
+            "{service_name}.{namespace}.svc.{cluster_domain}",
+            service_name = self.role_service_name(role)?,
+            namespace = self.metadata.namespace.as_ref()?,
+            cluster_domain = cluster_info.cluster_domain,
         ))
     }
 
@@ -1481,12 +1489,17 @@ pub fn build_recommended_labels<'a, T>(
 
 #[cfg(test)]
 mod tests {
+    use stackable_operator::commons::networking::DomainName;
+
     use super::*;
 
     #[test]
     fn test_service_name_generation() {
         let cluster =
             deserialize_yaml_file::<DruidCluster>("test/resources/role_service/druid_cluster.yaml");
+        let dummy_cluster_info = KubernetesClusterInfo {
+            cluster_domain: DomainName::try_from("cluster.local").unwrap(),
+        };
 
         assert_eq!(cluster.metadata.name, Some("testcluster".to_string()));
 
@@ -1496,7 +1509,7 @@ mod tests {
         );
 
         assert_eq!(
-            cluster.role_service_fqdn(&DruidRole::Router),
+            cluster.role_service_fqdn(&DruidRole::Router, &dummy_cluster_info),
             Some("testcluster-router.default.svc.cluster.local".to_string())
         )
     }
