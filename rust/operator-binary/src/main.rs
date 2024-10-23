@@ -21,6 +21,7 @@ use stackable_operator::{
         apps::v1::StatefulSet,
         core::v1::{ConfigMap, Service},
     },
+    kube::core::DeserializeGuard,
     kube::runtime::{watcher, Controller},
     logging::controller::report_controller_reconciled,
 };
@@ -71,7 +72,7 @@ async fn main() -> anyhow::Result<()> {
             .await?;
 
             Controller::new(
-                watch_namespace.get_api::<DruidCluster>(&client),
+                watch_namespace.get_api::<DeserializeGuard<DruidCluster>>(&client),
                 watcher::Config::default(),
             )
             .owns(
