@@ -590,6 +590,7 @@ pub async fn reconcile_druid(druid: Arc<DruidCluster>, ctx: Arc<Ctx>) -> Result<
     for discovery_cm in build_discovery_configmaps(
         &druid,
         &*druid,
+        &client.kubernetes_cluster_info,
         &resolved_product_image,
         &druid_tls_security,
     )

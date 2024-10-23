@@ -12,6 +12,7 @@ use stackable_operator::{
     commons::product_image_selection::ResolvedProductImage,
     k8s_openapi::api::core::v1::ConfigMap,
     kube::{runtime::reflector::ObjectRef, Resource, ResourceExt},
+    utils::cluster_info::KubernetesClusterInfo,
 };
 
 #[derive(Snafu, Debug)]
@@ -40,6 +41,7 @@ pub enum Error {
 pub async fn build_discovery_configmaps(
     druid: &DruidCluster,
     owner: &impl Resource<DynamicType = ()>,
+    cluster_info: &KubernetesClusterInfo,
     resolved_product_image: &ResolvedProductImage,
     druid_tls_security: &DruidTlsSecurity,
 ) -> Result<Vec<ConfigMap>, Error> {
@@ -47,6 +49,7 @@ pub async fn build_discovery_configmaps(
     Ok(vec![build_discovery_configmap(
         druid,
         owner,
+        cluster_info,
         resolved_product_image,
         druid_tls_security,
         &name,
@@ -57,6 +60,7 @@ pub async fn build_discovery_configmaps(
 fn build_discovery_configmap(
     druid: &DruidCluster,
     owner: &impl Resource<DynamicType = ()>,
+    cluster_info: &KubernetesClusterInfo,
     resolved_product_image: &ResolvedProductImage,
     druid_tls_security: &DruidTlsSecurity,
     name: &str,
@@ -64,7 +68,7 @@ fn build_discovery_configmap(
     let router_host = format!(
         "{}:{}",
         druid
-            .role_service_fqdn(&DruidRole::Router)
+            .role_service_fqdn(&DruidRole::Router, cluster_info)
             .with_context(|| NoServiceFqdnSnafu)?,
         if druid_tls_security.tls_enabled() {
             DruidRole::Router.get_https_port()

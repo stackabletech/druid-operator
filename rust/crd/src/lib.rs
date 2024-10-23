@@ -49,7 +49,7 @@ use stackable_operator::{
     status::condition::{ClusterCondition, HasStatusCondition},
     time::Duration,
     utils::{
-        cluster_domain::KUBERNETES_CLUSTER_DOMAIN, crds::raw_object_list_schema,
+        cluster_info::KubernetesClusterInfo, crds::raw_object_list_schema,
         COMMON_BASH_TRAP_FUNCTIONS,
     },
 };
@@ -720,14 +720,16 @@ impl DruidCluster {
     }
 
     /// The fully-qualified domain name of the role-level load-balanced Kubernetes `Service`
-    pub fn role_service_fqdn(&self, role: &DruidRole) -> Option<String> {
-        let cluster_domain = KUBERNETES_CLUSTER_DOMAIN
-            .get()
-            .expect("KUBERNETES_CLUSTER_DOMAIN must first be set by calling initialize_operator");
+    pub fn role_service_fqdn(
+        &self,
+        role: &DruidRole,
+        cluster_info: &KubernetesClusterInfo,
+    ) -> Option<String> {
         Some(format!(
-            "{}.{}.svc.{cluster_domain}",
-            self.role_service_name(role)?,
-            self.metadata.namespace.as_ref()?,
+            "{service_name}.{namespace}.svc.{cluster_domain}",
+            service_name = self.role_service_name(role)?,
+            namespace = self.metadata.namespace.as_ref()?,
+            cluster_domain = cluster_info.cluster_domain,
         ))
     }
 
@@ -1487,23 +1489,17 @@ pub fn build_recommended_labels<'a, T>(
 
 #[cfg(test)]
 mod tests {
+    use stackable_operator::commons::networking::DomainName;
+
     use super::*;
 
     #[test]
     fn test_service_name_generation() {
         let cluster =
             deserialize_yaml_file::<DruidCluster>("test/resources/role_service/druid_cluster.yaml");
-
-        // As we are not calling stackable_operator::client::initialize_operator, we need to set the
-        // Kubernetes cluster domain ourselves.
-        KUBERNETES_CLUSTER_DOMAIN
-            .set(
-                "cluster.local"
-                    .to_owned()
-                    .try_into()
-                    .expect("must always be a valid domain"),
-            )
-            .expect("failed to set Kubernetes cluster domain");
+        let dummy_cluster_info = KubernetesClusterInfo {
+            cluster_domain: DomainName::try_from("cluster.local").unwrap(),
+        };
 
         assert_eq!(cluster.metadata.name, Some("testcluster".to_string()));
 
@@ -1513,7 +1509,7 @@ mod tests {
         );
 
         assert_eq!(
-            cluster.role_service_fqdn(&DruidRole::Router),
+            cluster.role_service_fqdn(&DruidRole::Router, &dummy_cluster_info),
             Some("testcluster-router.default.svc.cluster.local".to_string())
         )
     }
