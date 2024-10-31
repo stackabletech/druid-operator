@@ -114,7 +114,7 @@ kubectl rollout status --watch statefulset/simple-hdfs-namenode-default --timeou
 
 echo "Install DruidCluster from druid.yaml"
 # tag::install-druid[]
-kubectl apply -f druid.yaml
+kubectl apply --server-side -f druid.yaml
 # end::install-druid[]
 
 for (( i=1; i<=15; i++ ))
