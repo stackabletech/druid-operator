@@ -34,8 +34,8 @@ pub enum Error {
         source: stackable_operator::commons::authentication::ldap::Error,
     },
 
-    #[snafu(display("failed to create LDAP endpoint url."))]
-    CreateOidcEndpointUrl {
+    #[snafu(display("failed to create the OIDC well-known url."))]
+    CreateOidcWellKnownUrl {
         source: stackable_operator::commons::authentication::oidc::Error,
     },
 

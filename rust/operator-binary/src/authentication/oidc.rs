@@ -7,13 +7,13 @@ use stackable_druid_crd::{
 use stackable_operator::{
     builder::pod::{container::ContainerBuilder, PodBuilder},
     commons::authentication::oidc::{
-        AuthenticationProvider, ClientAuthenticationOptions, DEFAULT_OIDC_WELLKNOWN_PATH,
+        AuthenticationProvider, ClientAuthenticationOptions,
     },
     k8s_openapi::api::core::v1::EnvVar,
 };
 
 use crate::{
-    authentication::{AddOidcVolumesSnafu, CreateOidcEndpointUrlSnafu, Error},
+    authentication::{AddOidcVolumesSnafu, CreateOidcWellKnownUrlSnafu, Error},
     internal_secret::env_var_from_secret,
 };
 
@@ -23,9 +23,9 @@ fn add_authenticator_config(
     oidc: &ClientAuthenticationOptions,
     config: &mut BTreeMap<String, Option<String>>,
 ) -> Result<(), Error> {
-    let endpoint_url = &provider
-        .endpoint_url()
-        .context(CreateOidcEndpointUrlSnafu)?;
+    let well_known_url = &provider
+        .well_known_config_url()
+        .context(CreateOidcWellKnownUrlSnafu)?;
 
     let (oidc_client_id_env, oidc_client_secret_env) =
         AuthenticationProvider::client_credentials_env_names(&oidc.client_credentials_secret_ref);
@@ -55,7 +55,7 @@ fn add_authenticator_config(
     );
     config.insert(
         "druid.auth.pac4j.oidc.discoveryURI".to_string(),
-        Some(format!("{endpoint_url}/{DEFAULT_OIDC_WELLKNOWN_PATH}").to_string()),
+        Some(well_known_url.to_string()),
     );
     config.insert(
         "druid.auth.pac4j.oidc.oidcClaim".to_string(),
