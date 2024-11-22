@@ -6,9 +6,7 @@ use stackable_druid_crd::{
 };
 use stackable_operator::{
     builder::pod::{container::ContainerBuilder, PodBuilder},
-    commons::authentication::oidc::{
-        AuthenticationProvider, ClientAuthenticationOptions,
-    },
+    commons::authentication::oidc::{AuthenticationProvider, ClientAuthenticationOptions},
     k8s_openapi::api::core::v1::EnvVar,
 };
 
