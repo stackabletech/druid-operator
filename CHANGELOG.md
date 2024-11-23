@@ -27,7 +27,7 @@ All notable changes to this project will be documented in this file.
 - Fix OIDC endpoint calculation in case the `rootPath` does have a trailing slash ([#656]).
 - BREAKING: Use distinct ServiceAccounts for the Stacklets, so that multiple Stacklets can be
   deployed in one namespace. Existing Stacklets will use the newly created ServiceAccounts after
-  restart ([#655]).
+  restart ([#657]).
 
 ### Removed
 
@@ -41,8 +41,8 @@ All notable changes to this project will be documented in this file.
 [#632]: https://github.com/stackabletech/druid-operator/pull/632
 [#637]: https://github.com/stackabletech/druid-operator/pull/637
 [#638]: https://github.com/stackabletech/druid-operator/pull/638
-[#655]: https://github.com/stackabletech/druid-operator/pull/655
 [#656]: https://github.com/stackabletech/druid-operator/pull/656
+[#657]: https://github.com/stackabletech/druid-operator/pull/657
 
 ## [24.7.0] - 2024-07-24
 
