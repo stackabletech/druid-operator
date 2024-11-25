@@ -30,12 +30,12 @@ type Result<T, E = Error> = std::result::Result<T, E>;
 #[derive(Snafu, Debug)]
 pub enum Error {
     #[snafu(display("failed to create LDAP endpoint url."))]
-    CreateLdapEndpointUrl {
+    ConstructLdapEndpointUrl {
         source: stackable_operator::commons::authentication::ldap::Error,
     },
 
     #[snafu(display("failed to create the OIDC well-known url."))]
-    CreateOidcWellKnownUrl {
+    ConstructOidcWellKnownUrl {
         source: stackable_operator::commons::authentication::oidc::Error,
     },
 

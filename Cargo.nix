@@ -2369,11 +2369,11 @@ rec {
         };
         resolvedDefaultFeatures = [ "ahash" "allocator-api2" "default" "inline-more" ];
       };
-      "hashbrown 0.15.1" = rec {
+      "hashbrown 0.15.2" = rec {
         crateName = "hashbrown";
-        version = "0.15.1";
+        version = "0.15.2";
         edition = "2021";
-        sha256 = "1czsvasi3azv2079fcvbhvpisa16w6fi1mfk8zm2c5wbyqdgr6rs";
+        sha256 = "12dj0yfn59p3kh3679ac0w1fagvzf4z2zp87a13gbbqbzw0185dz";
         authors = [
           "Amanieu d'Antras <amanieu@gmail.com>"
         ];
@@ -3583,7 +3583,7 @@ rec {
           }
           {
             name = "hashbrown";
-            packageId = "hashbrown 0.15.1";
+            packageId = "hashbrown 0.15.2";
             usesDefaultFeatures = false;
           }
         ];
@@ -4568,9 +4568,9 @@ rec {
       };
       "litemap" = rec {
         crateName = "litemap";
-        version = "0.7.3";
+        version = "0.7.4";
         edition = "2021";
-        sha256 = "0157lf44c3s2piqiwpppnynzzpv1rxyddl2z9l089hpwsjwb0g34";
+        sha256 = "012ili3vppd4952sh6y3qwcd0jkd0bq2qpr9h7cppc8sj11k7saf";
         authors = [
           "The ICU4X Project Developers"
         ];
@@ -6313,9 +6313,9 @@ rec {
       };
       "rustls" = rec {
         crateName = "rustls";
-        version = "0.23.17";
+        version = "0.23.18";
         edition = "2021";
-        sha256 = "07lg2b56s3gp3acd8a6yaqbpji8vv3xmv3ay8vaacjy525ap86kz";
+        sha256 = "0zxbcq0qy3kmp0m42mmf930h5bhr3hh3ivamrrd6ag94gvac374w";
         dependencies = [
           {
             name = "log";
@@ -9331,9 +9331,9 @@ rec {
       };
       "url" = rec {
         crateName = "url";
-        version = "2.5.3";
+        version = "2.5.4";
         edition = "2018";
-        sha256 = "1nis27cv09039nds9n83di92a23q5rqvl40zvkzh0ifijqdpy5cd";
+        sha256 = "0q6sgznyy2n4l5lm16zahkisvc9nip9aa5q1pps7656xra3bdy1j";
         authors = [
           "The rust-url developers"
         ];
@@ -10420,9 +10420,9 @@ rec {
       };
       "yoke" = rec {
         crateName = "yoke";
-        version = "0.7.4";
+        version = "0.7.5";
         edition = "2021";
-        sha256 = "198c4jkh6i3hxijia7mfa4cpnxg1iqym9bz364697c3rn0a16nvc";
+        sha256 = "0h3znzrdmll0a7sglzf9ji0p5iqml11wrj1dypaf6ad6kbpnl3hj";
         authors = [
           "Manish Goregaokar <manishsmail@gmail.com>"
         ];
@@ -10469,9 +10469,9 @@ rec {
       };
       "yoke-derive" = rec {
         crateName = "yoke-derive";
-        version = "0.7.4";
+        version = "0.7.5";
         edition = "2021";
-        sha256 = "15cvhkci2mchfffx3fmva84fpmp34dsmnbzibwfnzjqq3ds33k18";
+        sha256 = "0m4i4a7gy826bfvnqa9wy6sp90qf0as3wps3wb0smjaamn68g013";
         procMacro = true;
         libName = "yoke_derive";
         authors = [
@@ -10568,9 +10568,9 @@ rec {
       };
       "zerofrom" = rec {
         crateName = "zerofrom";
-        version = "0.1.4";
+        version = "0.1.5";
         edition = "2021";
-        sha256 = "0mdbjd7vmbix2ynxbrbrrli47a5yrpfx05hi99wf1l4pwwf13v4i";
+        sha256 = "0bnd8vjcllzrvr3wvn8x14k2hkrpyy1fm3crkn2y3plmr44fxwyg";
         authors = [
           "Manish Goregaokar <manishsmail@gmail.com>"
         ];
@@ -10590,9 +10590,9 @@ rec {
       };
       "zerofrom-derive" = rec {
         crateName = "zerofrom-derive";
-        version = "0.1.4";
+        version = "0.1.5";
         edition = "2021";
-        sha256 = "19b31rrs2ry1lrq5mpdqjzgg65va51fgvwghxnf6da3ycfiv99qf";
+        sha256 = "022q55phhb44qbrcfbc48k0b741fl8gnazw3hpmmndbx5ycfspjr";
         procMacro = true;
         libName = "zerofrom_derive";
         authors = [
