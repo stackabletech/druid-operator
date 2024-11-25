@@ -24,6 +24,7 @@ All notable changes to this project will be documented in this file.
 
 - BREAKING: The fields `connection` and `host` on `S3Connection` as well as `bucketName` on `S3Bucket`are now mandatory ([#632]).
 - Failing to parse one `DruidCluster`/`AuthenticationClass` should no longer cause the whole operator to stop functioning ([#638]).
+- Fix OIDC endpoint construction in case the `rootPath` does have a trailing slash ([#656]).
 
 ### Removed
 
@@ -37,6 +38,7 @@ All notable changes to this project will be documented in this file.
 [#632]: https://github.com/stackabletech/druid-operator/pull/632
 [#637]: https://github.com/stackabletech/druid-operator/pull/637
 [#638]: https://github.com/stackabletech/druid-operator/pull/638
+[#656]: https://github.com/stackabletech/druid-operator/pull/656
 
 ## [24.7.0] - 2024-07-24
 
