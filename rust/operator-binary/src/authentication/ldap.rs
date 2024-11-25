@@ -11,7 +11,7 @@ use stackable_druid_crd::security::{
 };
 
 use crate::authentication::{
-    AddLdapVolumesSnafu, CreateLdapEndpointUrlSnafu, Error, MissingLdapBindCredentialsSnafu,
+    AddLdapVolumesSnafu, ConstructLdapEndpointUrlSnafu, Error, MissingLdapBindCredentialsSnafu,
 };
 
 fn add_authenticator_config(
@@ -35,7 +35,7 @@ fn add_authenticator_config(
         Some(
             provider
                 .endpoint_url()
-                .context(CreateLdapEndpointUrlSnafu)?
+                .context(ConstructLdapEndpointUrlSnafu)?
                 .into(),
         ),
     );
