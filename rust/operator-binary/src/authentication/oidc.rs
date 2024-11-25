@@ -11,7 +11,7 @@ use stackable_operator::{
 };
 
 use crate::{
-    authentication::{AddOidcVolumesSnafu, CreateOidcWellKnownUrlSnafu, Error},
+    authentication::{AddOidcVolumesSnafu, ConstructOidcWellKnownUrlSnafu, Error},
     internal_secret::env_var_from_secret,
 };
 
@@ -23,7 +23,7 @@ fn add_authenticator_config(
 ) -> Result<(), Error> {
     let well_known_url = &provider
         .well_known_config_url()
-        .context(CreateOidcWellKnownUrlSnafu)?;
+        .context(ConstructOidcWellKnownUrlSnafu)?;
 
     let (oidc_client_id_env, oidc_client_secret_env) =
         AuthenticationProvider::client_credentials_env_names(&oidc.client_credentials_secret_ref);
