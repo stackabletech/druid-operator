@@ -35,14 +35,14 @@ use stackable_operator::{
     commons::{
         opa::OpaApiVersion,
         product_image_selection::ResolvedProductImage,
-        rbac::{build_rbac_resources, service_account_name},
+        rbac::build_rbac_resources,
         s3::{S3AccessStyle, S3ConnectionSpec, S3Error},
         tls_verification::TlsClientDetailsError,
     },
     k8s_openapi::{
         api::{
             apps::v1::{StatefulSet, StatefulSetSpec},
-            core::v1::{ConfigMap, EnvVar, Service, ServiceSpec},
+            core::v1::{ConfigMap, EnvVar, Service, ServiceAccount, ServiceSpec},
         },
         apimachinery::pkg::apis::meta::v1::LabelSelector,
         DeepMerge,
@@ -50,7 +50,7 @@ use stackable_operator::{
     kube::{
         core::{error_boundary, DeserializeGuard},
         runtime::{controller::Action, reflector::ObjectRef},
-        Resource,
+        Resource, ResourceExt,
     },
     kvp::{KeyValuePairError, Label, LabelError, LabelValueError, Labels},
     logging::controller::ReconcilerError,
@@ -488,7 +488,8 @@ pub async fn reconcile_druid(
     )
     .context(BuildRbacResourcesSnafu)?;
     cluster_resources
-        .add(client, rbac_sa)
+        // We clone rbac_sa because we need to reuse it below
+        .add(client, rbac_sa.clone())
         .await
         .context(ApplyServiceAccountSnafu)?;
     cluster_resources
@@ -559,6 +560,7 @@ pub async fn reconcile_druid(
                 s3_conn.as_ref(),
                 &druid_tls_security,
                 &druid_auth_config,
+                &rbac_sa,
             )?;
             cluster_resources
                 .add(client, rg_service)
@@ -916,6 +918,7 @@ fn build_rolegroup_statefulset(
     s3_conn: Option<&S3ConnectionSpec>,
     druid_tls_security: &DruidTlsSecurity,
     druid_auth_config: &Option<DruidAuthenticationConfig>,
+    service_account: &ServiceAccount,
 ) -> Result<StatefulSet> {
     // prepare container builder
     let prepare_container_name = Container::Prepare.to_string();
@@ -1119,7 +1122,7 @@ fn build_rolegroup_statefulset(
         .add_init_container(cb_prepare.build())
         .add_container(cb_druid.build())
         .metadata(metadata)
-        .service_account_name(service_account_name(APP_NAME))
+        .service_account_name(service_account.name_any())
         .security_context(
             PodSecurityContextBuilder::new()
                 .run_as_user(DRUID_UID)
