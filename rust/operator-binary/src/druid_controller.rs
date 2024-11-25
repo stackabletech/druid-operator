@@ -21,8 +21,6 @@ use stackable_druid_crd::{
     RUNTIME_PROPS, RW_CONFIG_DIRECTORY, S3_ACCESS_KEY, S3_ENDPOINT_URL, S3_PATH_STYLE_ACCESS,
     S3_SECRET_KEY, ZOOKEEPER_CONNECTION_STRING,
 };
-use stackable_operator::k8s_openapi::api::core::v1::ServiceAccount;
-use stackable_operator::kube::ResourceExt;
 use stackable_operator::{
     builder::{
         self,
@@ -44,7 +42,7 @@ use stackable_operator::{
     k8s_openapi::{
         api::{
             apps::v1::{StatefulSet, StatefulSetSpec},
-            core::v1::{ConfigMap, EnvVar, Service, ServiceSpec},
+            core::v1::{ConfigMap, EnvVar, Service, ServiceAccount, ServiceSpec},
         },
         apimachinery::pkg::apis::meta::v1::LabelSelector,
         DeepMerge,
@@ -52,7 +50,7 @@ use stackable_operator::{
     kube::{
         core::{error_boundary, DeserializeGuard},
         runtime::{controller::Action, reflector::ObjectRef},
-        Resource,
+        Resource, ResourceExt,
     },
     kvp::{KeyValuePairError, Label, LabelError, LabelValueError, Labels},
     logging::controller::ReconcilerError,
