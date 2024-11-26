@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Fixed
+
+- Fix OIDC endpoint construction in case the `rootPath` does have a trailing slash ([#656]).
+- BREAKING: Use distinct ServiceAccounts for the Stacklets, so that multiple Stacklets can be
+  deployed in one namespace. Existing Stacklets will use the newly created ServiceAccounts after
+  restart ([#657]).
+
+[#656]: https://github.com/stackabletech/druid-operator/pull/656
+[#657]: https://github.com/stackabletech/druid-operator/pull/657
+
 ## [24.11.0] - 2024-11-18
 
 ### Added
@@ -24,10 +34,6 @@ All notable changes to this project will be documented in this file.
 
 - BREAKING: The fields `connection` and `host` on `S3Connection` as well as `bucketName` on `S3Bucket`are now mandatory ([#632]).
 - Failing to parse one `DruidCluster`/`AuthenticationClass` should no longer cause the whole operator to stop functioning ([#638]).
-- Fix OIDC endpoint construction in case the `rootPath` does have a trailing slash ([#656]).
-- BREAKING: Use distinct ServiceAccounts for the Stacklets, so that multiple Stacklets can be
-  deployed in one namespace. Existing Stacklets will use the newly created ServiceAccounts after
-  restart ([#657]).
 
 ### Removed
 
@@ -41,8 +47,6 @@ All notable changes to this project will be documented in this file.
 [#632]: https://github.com/stackabletech/druid-operator/pull/632
 [#637]: https://github.com/stackabletech/druid-operator/pull/637
 [#638]: https://github.com/stackabletech/druid-operator/pull/638
-[#656]: https://github.com/stackabletech/druid-operator/pull/656
-[#657]: https://github.com/stackabletech/druid-operator/pull/657
 
 ## [24.7.0] - 2024-07-24
 
