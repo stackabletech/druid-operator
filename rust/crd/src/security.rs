@@ -20,6 +20,7 @@ use stackable_operator::{
         api::core::v1::{ContainerPort, Probe, ServicePort, TCPSocketAction},
         apimachinery::pkg::util::intstr::IntOrString,
     },
+    time::Duration,
 };
 
 use std::collections::BTreeMap;
@@ -190,6 +191,7 @@ impl DruidTlsSecurity {
         prepare: &mut ContainerBuilder,
         druid: &mut ContainerBuilder,
         pod: &mut PodBuilder,
+        requested_secret_lifetime: Duration,
     ) -> Result<(), Error> {
         // `ResolvedAuthenticationClasses::validate` already checked that the tls AuthenticationClass
         // uses the same SecretClass as the Druid server itself.
@@ -202,6 +204,7 @@ impl DruidTlsSecurity {
                             .with_node_scope()
                             .with_format(SecretFormat::TlsPkcs12)
                             .with_tls_pkcs12_password(TLS_STORE_PASSWORD)
+                            .with_auto_tls_cert_lifetime(requested_secret_lifetime)
                             .build()
                             .context(SecretVolumeBuildSnafu)?,
                     )
