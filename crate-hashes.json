@@ -1,3 +1,6 @@
 {
+  "git+https://github.com/stackabletech//operator-rs.git?branch=feat%2Frequest-secret-lifetime#stackable-operator-derive@0.3.1": "09l6s6yjskp3a2ab71z4cba20lrihscs11b3q19rlz252r5pvyqh",
+  "git+https://github.com/stackabletech//operator-rs.git?branch=feat%2Frequest-secret-lifetime#stackable-operator@0.82.0": "09l6s6yjskp3a2ab71z4cba20lrihscs11b3q19rlz252r5pvyqh",
+  "git+https://github.com/stackabletech//operator-rs.git?branch=feat%2Frequest-secret-lifetime#stackable-shared@0.0.1": "09l6s6yjskp3a2ab71z4cba20lrihscs11b3q19rlz252r5pvyqh",
   "git+https://github.com/stackabletech/product-config.git?tag=0.7.0#product-config@0.7.0": "0gjsm80g6r75pm3824dcyiz4ysq1ka4c1if6k1mjm9cnd5ym0gny"
 }

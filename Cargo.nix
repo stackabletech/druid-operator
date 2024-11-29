@@ -1405,33 +1405,6 @@ rec {
         };
         resolvedDefaultFeatures = [ "alloc" "powerfmt" "std" ];
       };
-      "derivative" = rec {
-        crateName = "derivative";
-        version = "2.2.0";
-        edition = "2015";
-        sha256 = "02vpb81wisk2zh1d5f44szzxamzinqgq2k8ydrfjj2wwkrgdvhzw";
-        procMacro = true;
-        authors = [
-          "mcarton <cartonmartin+git@gmail.com>"
-        ];
-        dependencies = [
-          {
-            name = "proc-macro2";
-            packageId = "proc-macro2";
-          }
-          {
-            name = "quote";
-            packageId = "quote";
-          }
-          {
-            name = "syn";
-            packageId = "syn 1.0.109";
-            features = [ "visit" "extra-traits" ];
-          }
-        ];
-        features = {
-        };
-      };
       "digest" = rec {
         crateName = "digest";
         version = "0.10.7";
@@ -1593,7 +1566,7 @@ rec {
           "default" = [ "Debug" "Clone" "Copy" "PartialEq" "Eq" "PartialOrd" "Ord" "Hash" "Default" "Deref" "DerefMut" "Into" ];
           "full" = [ "syn/full" ];
         };
-        resolvedDefaultFeatures = [ "Clone" "Debug" "Hash" "PartialEq" ];
+        resolvedDefaultFeatures = [ "Clone" "Debug" "Default" "Hash" "PartialEq" ];
       };
       "either" = rec {
         crateName = "either";
@@ -7557,7 +7530,12 @@ rec {
         crateName = "stackable-operator";
         version = "0.82.0";
         edition = "2021";
-        src = lib.cleanSourceWith { filter = sourceFilter;  src = ../operator-rs/crates/stackable-operator; };
+        workspace_member = null;
+        src = pkgs.fetchgit {
+          url = "https://github.com/stackabletech//operator-rs.git";
+          rev = "f6aa3c46948d4cb59f92c5daa08f685068a393ba";
+          sha256 = "09l6s6yjskp3a2ab71z4cba20lrihscs11b3q19rlz252r5pvyqh";
+        };
         libName = "stackable_operator";
         authors = [
           "Stackable GmbH <info@stackable.de>"
@@ -7582,12 +7560,14 @@ rec {
             packageId = "delegate";
           }
           {
-            name = "derivative";
-            packageId = "derivative";
-          }
-          {
             name = "dockerfile-parser";
             packageId = "dockerfile-parser";
+          }
+          {
+            name = "educe";
+            packageId = "educe";
+            usesDefaultFeatures = false;
+            features = [ "Clone" "Debug" "Default" "PartialEq" ];
           }
           {
             name = "either";
@@ -7710,7 +7690,12 @@ rec {
         crateName = "stackable-operator-derive";
         version = "0.3.1";
         edition = "2021";
-        src = lib.cleanSourceWith { filter = sourceFilter;  src = ../operator-rs/crates/stackable-operator-derive; };
+        workspace_member = null;
+        src = pkgs.fetchgit {
+          url = "https://github.com/stackabletech//operator-rs.git";
+          rev = "f6aa3c46948d4cb59f92c5daa08f685068a393ba";
+          sha256 = "09l6s6yjskp3a2ab71z4cba20lrihscs11b3q19rlz252r5pvyqh";
+        };
         procMacro = true;
         libName = "stackable_operator_derive";
         authors = [
@@ -7740,7 +7725,12 @@ rec {
         crateName = "stackable-shared";
         version = "0.0.1";
         edition = "2021";
-        src = lib.cleanSourceWith { filter = sourceFilter;  src = ../operator-rs/crates/stackable-shared; };
+        workspace_member = null;
+        src = pkgs.fetchgit {
+          url = "https://github.com/stackabletech//operator-rs.git";
+          rev = "f6aa3c46948d4cb59f92c5daa08f685068a393ba";
+          sha256 = "09l6s6yjskp3a2ab71z4cba20lrihscs11b3q19rlz252r5pvyqh";
+        };
         libName = "stackable_shared";
         authors = [
           "Stackable GmbH <info@stackable.de>"
@@ -7891,7 +7881,7 @@ rec {
           "quote" = [ "dep:quote" ];
           "test" = [ "syn-test-suite/all-features" ];
         };
-        resolvedDefaultFeatures = [ "clone-impls" "default" "derive" "extra-traits" "full" "parsing" "printing" "proc-macro" "quote" "visit" ];
+        resolvedDefaultFeatures = [ "clone-impls" "default" "derive" "full" "parsing" "printing" "proc-macro" "quote" ];
       };
       "syn 2.0.89" = rec {
         crateName = "syn";

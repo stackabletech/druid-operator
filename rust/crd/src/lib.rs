@@ -153,12 +153,19 @@ const DEFAULT_ROUTER_GRACEFUL_SHUTDOWN_TIMEOUT: Duration = Duration::from_minute
 const DEFAULT_HISTORICAL_GRACEFUL_SHUTDOWN_TIMEOUT: Duration = Duration::from_minutes_unchecked(5);
 
 // Auto TLS certificate lifetime
-const DEFAULT_SECRET_LIFETIME: Duration = Duration::from_days_unchecked(7);
+const DEFAULT_BROKER_SECRET_LIFETIME: Duration = Duration::from_days_unchecked(7);
+const DEFAULT_COORDINATOR_SECRET_LIFETIME: Duration = Duration::from_days_unchecked(7);
+const DEFAULT_MIDDLE_SECRET_LIFETIME: Duration = Duration::from_days_unchecked(7);
+const DEFAULT_ROUTER_SECRET_LIFETIME: Duration = Duration::from_days_unchecked(7);
+const DEFAULT_HISTORICAL_SECRET_LIFETIME: Duration = Duration::from_days_unchecked(7);
 
 #[derive(Snafu, Debug, EnumDiscriminants)]
 #[strum_discriminants(derive(IntoStaticStr))]
 #[allow(clippy::enum_variant_names)]
 pub enum Error {
+    #[snafu(display("missing secret lifetime"))]
+    MissingSecretLifetime,
+
     #[snafu(display("failed to resolve S3 connection"))]
     ResolveS3Connection { source: S3Error },
 
@@ -395,7 +402,7 @@ impl MergedConfig {
                         .config
                         .config
                         .requested_secret_lifetime
-                        .unwrap_or(DEFAULT_SECRET_LIFETIME),
+                        .context(MissingSecretLifetimeSnafu)?,
                 })
             }
             DruidRole::Coordinator => {
@@ -413,7 +420,7 @@ impl MergedConfig {
                         .config
                         .config
                         .requested_secret_lifetime
-                        .unwrap_or(DEFAULT_SECRET_LIFETIME),
+                        .context(MissingSecretLifetimeSnafu)?,
                 })
             }
             DruidRole::Historical => {
@@ -433,7 +440,7 @@ impl MergedConfig {
                         .config
                         .config
                         .requested_secret_lifetime
-                        .unwrap_or(DEFAULT_SECRET_LIFETIME),
+                        .context(MissingSecretLifetimeSnafu)?,
                 })
             }
             DruidRole::MiddleManager => {
@@ -451,7 +458,7 @@ impl MergedConfig {
                         .config
                         .config
                         .requested_secret_lifetime
-                        .unwrap_or(DEFAULT_SECRET_LIFETIME),
+                        .context(MissingSecretLifetimeSnafu)?,
                 })
             }
             DruidRole::Router => {
@@ -469,7 +476,7 @@ impl MergedConfig {
                         .config
                         .config
                         .requested_secret_lifetime
-                        .unwrap_or(DEFAULT_SECRET_LIFETIME),
+                        .context(MissingSecretLifetimeSnafu)?,
                 })
             }
         }
@@ -1151,7 +1158,7 @@ impl BrokerConfig {
             logging: product_logging::spec::default_logging(),
             affinity: get_affinity(cluster_name, role, deep_storage),
             graceful_shutdown_timeout: Some(role.default_graceful_shutdown_timeout()),
-            requested_secret_lifetime: Some(DEFAULT_SECRET_LIFETIME),
+            requested_secret_lifetime: Some(DEFAULT_BROKER_SECRET_LIFETIME),
         }
     }
 }
@@ -1198,7 +1205,7 @@ impl CoordinatorConfig {
             logging: product_logging::spec::default_logging(),
             affinity: get_affinity(cluster_name, role, deep_storage),
             graceful_shutdown_timeout: Some(role.default_graceful_shutdown_timeout()),
-            requested_secret_lifetime: Some(DEFAULT_SECRET_LIFETIME),
+            requested_secret_lifetime: Some(DEFAULT_COORDINATOR_SECRET_LIFETIME),
         }
     }
 }
@@ -1245,7 +1252,7 @@ impl MiddleManagerConfig {
             logging: product_logging::spec::default_logging(),
             affinity: get_affinity(cluster_name, role, deep_storage),
             graceful_shutdown_timeout: Some(role.default_graceful_shutdown_timeout()),
-            requested_secret_lifetime: Some(DEFAULT_SECRET_LIFETIME),
+            requested_secret_lifetime: Some(DEFAULT_MIDDLE_SECRET_LIFETIME),
         }
     }
 }
@@ -1292,7 +1299,7 @@ impl RouterConfig {
             logging: product_logging::spec::default_logging(),
             affinity: get_affinity(cluster_name, role, deep_storage),
             graceful_shutdown_timeout: Some(role.default_graceful_shutdown_timeout()),
-            requested_secret_lifetime: Some(DEFAULT_SECRET_LIFETIME),
+            requested_secret_lifetime: Some(DEFAULT_ROUTER_SECRET_LIFETIME),
         }
     }
 }
@@ -1339,7 +1346,7 @@ impl HistoricalConfig {
             logging: product_logging::spec::default_logging(),
             affinity: get_affinity(cluster_name, role, deep_storage),
             graceful_shutdown_timeout: Some(role.default_graceful_shutdown_timeout()),
-            requested_secret_lifetime: Some(DEFAULT_SECRET_LIFETIME),
+            requested_secret_lifetime: Some(DEFAULT_HISTORICAL_SECRET_LIFETIME),
         }
     }
 }
