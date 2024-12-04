@@ -191,7 +191,7 @@ impl DruidTlsSecurity {
         prepare: &mut ContainerBuilder,
         druid: &mut ContainerBuilder,
         pod: &mut PodBuilder,
-        requested_secret_lifetime: Duration,
+        requested_secret_lifetime: &Duration,
     ) -> Result<(), Error> {
         // `ResolvedAuthenticationClasses::validate` already checked that the tls AuthenticationClass
         // uses the same SecretClass as the Druid server itself.
