@@ -1237,6 +1237,7 @@ pub struct MiddleManagerConfig {
     /// [graceful shutdown documentation](DOCS_BASE_URL_PLACEHOLDER/druid/usage-guide/operations/graceful-shutdown).
     #[fragment_attrs(serde(default))]
     pub graceful_shutdown_timeout: Option<Duration>,
+
     /// Request secret (currently only autoTls certificates) lifetime from the secret operator, e.g. `7d`, or `30d`.
     /// This can be shortened by the `maxCertificateLifetime` setting on the SecretClass issuing the TLS certificate.
     #[fragment_attrs(serde(default))]
