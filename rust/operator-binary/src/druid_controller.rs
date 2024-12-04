@@ -985,7 +985,7 @@ fn build_rolegroup_statefulset(
             &mut cb_prepare,
             &mut cb_druid,
             &mut pb,
-            merged_rolegroup_config.requested_secret_lifetime,
+            &merged_rolegroup_config.requested_secret_lifetime,
         )
         .context(FailedToInitializeSecurityContextSnafu)?;
 
