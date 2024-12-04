@@ -981,7 +981,12 @@ fn build_rolegroup_statefulset(
 
     // volume and volume mounts
     druid_tls_security
-        .add_tls_volume_and_volume_mounts(&mut cb_prepare, &mut cb_druid, &mut pb)
+        .add_tls_volume_and_volume_mounts(
+            &mut cb_prepare,
+            &mut cb_druid,
+            &mut pb,
+            &merged_rolegroup_config.requested_secret_lifetime,
+        )
         .context(FailedToInitializeSecurityContextSnafu)?;
 
     if let Some(s3) = s3_conn {

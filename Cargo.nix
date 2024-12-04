@@ -1405,33 +1405,6 @@ rec {
         };
         resolvedDefaultFeatures = [ "alloc" "powerfmt" "std" ];
       };
-      "derivative" = rec {
-        crateName = "derivative";
-        version = "2.2.0";
-        edition = "2015";
-        sha256 = "02vpb81wisk2zh1d5f44szzxamzinqgq2k8ydrfjj2wwkrgdvhzw";
-        procMacro = true;
-        authors = [
-          "mcarton <cartonmartin+git@gmail.com>"
-        ];
-        dependencies = [
-          {
-            name = "proc-macro2";
-            packageId = "proc-macro2";
-          }
-          {
-            name = "quote";
-            packageId = "quote";
-          }
-          {
-            name = "syn";
-            packageId = "syn 1.0.109";
-            features = [ "visit" "extra-traits" ];
-          }
-        ];
-        features = {
-        };
-      };
       "digest" = rec {
         crateName = "digest";
         version = "0.10.7";
@@ -1593,7 +1566,7 @@ rec {
           "default" = [ "Debug" "Clone" "Copy" "PartialEq" "Eq" "PartialOrd" "Ord" "Hash" "Default" "Deref" "DerefMut" "Into" ];
           "full" = [ "syn/full" ];
         };
-        resolvedDefaultFeatures = [ "Clone" "Debug" "Hash" "PartialEq" ];
+        resolvedDefaultFeatures = [ "Clone" "Debug" "Default" "Hash" "PartialEq" ];
       };
       "either" = rec {
         crateName = "either";
@@ -7559,9 +7532,9 @@ rec {
         edition = "2021";
         workspace_member = null;
         src = pkgs.fetchgit {
-          url = "https://github.com/stackabletech/operator-rs.git";
-          rev = "415bbd031bd52e9c0c5392060235030e9930b46b";
-          sha256 = "0phasjwb64rxgn5hs8vks92icmx9255bd5v9dms280clrfpcg4hy";
+          url = "https://github.com/stackabletech//operator-rs.git";
+          rev = "f6aa3c46948d4cb59f92c5daa08f685068a393ba";
+          sha256 = "09l6s6yjskp3a2ab71z4cba20lrihscs11b3q19rlz252r5pvyqh";
         };
         libName = "stackable_operator";
         authors = [
@@ -7587,12 +7560,14 @@ rec {
             packageId = "delegate";
           }
           {
-            name = "derivative";
-            packageId = "derivative";
-          }
-          {
             name = "dockerfile-parser";
             packageId = "dockerfile-parser";
+          }
+          {
+            name = "educe";
+            packageId = "educe";
+            usesDefaultFeatures = false;
+            features = [ "Clone" "Debug" "Default" "PartialEq" ];
           }
           {
             name = "either";
@@ -7717,9 +7692,9 @@ rec {
         edition = "2021";
         workspace_member = null;
         src = pkgs.fetchgit {
-          url = "https://github.com/stackabletech/operator-rs.git";
-          rev = "415bbd031bd52e9c0c5392060235030e9930b46b";
-          sha256 = "0phasjwb64rxgn5hs8vks92icmx9255bd5v9dms280clrfpcg4hy";
+          url = "https://github.com/stackabletech//operator-rs.git";
+          rev = "f6aa3c46948d4cb59f92c5daa08f685068a393ba";
+          sha256 = "09l6s6yjskp3a2ab71z4cba20lrihscs11b3q19rlz252r5pvyqh";
         };
         procMacro = true;
         libName = "stackable_operator_derive";
@@ -7752,9 +7727,9 @@ rec {
         edition = "2021";
         workspace_member = null;
         src = pkgs.fetchgit {
-          url = "https://github.com/stackabletech/operator-rs.git";
-          rev = "415bbd031bd52e9c0c5392060235030e9930b46b";
-          sha256 = "0phasjwb64rxgn5hs8vks92icmx9255bd5v9dms280clrfpcg4hy";
+          url = "https://github.com/stackabletech//operator-rs.git";
+          rev = "f6aa3c46948d4cb59f92c5daa08f685068a393ba";
+          sha256 = "09l6s6yjskp3a2ab71z4cba20lrihscs11b3q19rlz252r5pvyqh";
         };
         libName = "stackable_shared";
         authors = [
@@ -7906,7 +7881,7 @@ rec {
           "quote" = [ "dep:quote" ];
           "test" = [ "syn-test-suite/all-features" ];
         };
-        resolvedDefaultFeatures = [ "clone-impls" "default" "derive" "extra-traits" "full" "parsing" "printing" "proc-macro" "quote" "visit" ];
+        resolvedDefaultFeatures = [ "clone-impls" "default" "derive" "full" "parsing" "printing" "proc-macro" "quote" ];
       };
       "syn 2.0.89" = rec {
         crateName = "syn";

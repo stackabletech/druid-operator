@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+
+- The lifetime of auto generated TLS certificates is now configurable with the role and roleGroup
+  config property `requestedSecretLifetime`. This helps reducing frequent Pod restarts ([#660]).
+
 ### Fixed
 
 - Fix OIDC endpoint construction in case the `rootPath` does have a trailing slash ([#656]).
@@ -13,6 +18,7 @@ All notable changes to this project will be documented in this file.
 
 [#656]: https://github.com/stackabletech/druid-operator/pull/656
 [#657]: https://github.com/stackabletech/druid-operator/pull/657
+[#660]: https://github.com/stackabletech/druid-operator/pull/660
 
 ## [24.11.0] - 2024-11-18
 
