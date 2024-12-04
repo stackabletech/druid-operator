@@ -204,7 +204,7 @@ impl DruidTlsSecurity {
                             .with_node_scope()
                             .with_format(SecretFormat::TlsPkcs12)
                             .with_tls_pkcs12_password(TLS_STORE_PASSWORD)
-                            .with_auto_tls_cert_lifetime(requested_secret_lifetime)
+                            .with_auto_tls_cert_lifetime(*requested_secret_lifetime)
                             .build()
                             .context(SecretVolumeBuildSnafu)?,
                     )
