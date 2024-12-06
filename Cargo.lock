@@ -2399,7 +2399,7 @@ checksum = "a8f112729512f8e442d81f95a8a7ddf2b7c6b8a1a6f509a95864142b30cab2d3"
 
 [[package]]
 name = "stackable-druid-crd"
-version = "24.11.0"
+version = "24.11.1-rc1"
 dependencies = [
  "indoc",
  "product-config",
@@ -2417,7 +2417,7 @@ dependencies = [
 
 [[package]]
 name = "stackable-druid-operator"
-version = "24.11.0"
+version = "24.11.1-rc1"
 dependencies = [
  "anyhow",
  "built",
