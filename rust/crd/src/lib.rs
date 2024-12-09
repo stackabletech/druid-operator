@@ -75,7 +75,7 @@ pub const JVM_SECURITY_PROPERTIES_FILE: &str = "security.properties";
 pub const STACKABLE_TRUST_STORE: &str = "/stackable/truststore.p12";
 pub const STACKABLE_TRUST_STORE_PASSWORD: &str = "changeit";
 pub const CERTS_DIR: &str = "/stackable/certificates";
-pub const LOG_DIR: &str = "/stackable/log";
+pub const STACKABLE_LOG_DIR: &str = "/stackable/log";
 
 // store file names
 pub const DRUID_LOG_FILE: &str = "druid.log4j2.xml";
@@ -604,6 +604,7 @@ impl DruidRole {
             {COMMON_BASH_TRAP_FUNCTIONS}
             {remove_vector_shutdown_file_command}
             prepare_signal_handlers
+            CONTAINERDEBUG_LOG_DIRECTORY={STACKABLE_LOG_DIR}/containerdebug containerdebug --output={STACKABLE_LOG_DIR}/containerdebug-state.json --loop &
             /stackable/druid/bin/run-druid {process_name} {RW_CONFIG_DIRECTORY} &
             echo \"$!\" >> /tmp/DRUID_PID
             wait_for_termination $(cat /tmp/DRUID_PID)
@@ -611,9 +612,9 @@ impl DruidRole {
             ",
                 process_name = self.get_process_name(),
         remove_vector_shutdown_file_command =
-            remove_vector_shutdown_file_command(LOG_DIR),
+            remove_vector_shutdown_file_command(STACKABLE_LOG_DIR),
         create_vector_shutdown_file_command =
-            create_vector_shutdown_file_command(LOG_DIR),
+            create_vector_shutdown_file_command(STACKABLE_LOG_DIR),
         }
     }
 }
