@@ -17,9 +17,9 @@ use stackable_druid_crd::{
     Container, DeepStorageSpec, DruidCluster, DruidClusterStatus, DruidRole, APP_NAME,
     AUTH_AUTHORIZER_OPA_URI, CREDENTIALS_SECRET_PROPERTY, DB_PASSWORD_ENV, DB_USERNAME_ENV,
     DRUID_CONFIG_DIRECTORY, DS_BUCKET, EXTENSIONS_LOADLIST, HDFS_CONFIG_DIRECTORY, JVM_CONFIG,
-    JVM_SECURITY_PROPERTIES_FILE, LOG_CONFIG_DIRECTORY, LOG_DIR, MAX_DRUID_LOG_FILES_SIZE,
-    RUNTIME_PROPS, RW_CONFIG_DIRECTORY, S3_ACCESS_KEY, S3_ENDPOINT_URL, S3_PATH_STYLE_ACCESS,
-    S3_SECRET_KEY, ZOOKEEPER_CONNECTION_STRING,
+    JVM_SECURITY_PROPERTIES_FILE, LOG_CONFIG_DIRECTORY, MAX_DRUID_LOG_FILES_SIZE, RUNTIME_PROPS,
+    RW_CONFIG_DIRECTORY, S3_ACCESS_KEY, S3_ENDPOINT_URL, S3_PATH_STYLE_ACCESS, S3_SECRET_KEY,
+    STACKABLE_LOG_DIR, ZOOKEEPER_CONNECTION_STRING,
 };
 use stackable_operator::{
     builder::{
@@ -964,7 +964,7 @@ fn build_rolegroup_statefulset(
         // This command needs to be added at the beginning of the shell commands,
         // otherwise the output of the following commands will not be captured!
         prepare_container_commands.push(product_logging::framework::capture_shell_output(
-            LOG_DIR,
+            STACKABLE_LOG_DIR,
             &prepare_container_name,
             log_config,
         ));
@@ -1292,10 +1292,10 @@ fn add_log_volume_and_volume_mounts(
     pb: &mut PodBuilder,
 ) -> Result<()> {
     cb_druid
-        .add_volume_mount(LOG_VOLUME_NAME, LOG_DIR)
+        .add_volume_mount(LOG_VOLUME_NAME, STACKABLE_LOG_DIR)
         .context(AddVolumeMountSnafu)?;
     cb_prepare
-        .add_volume_mount(LOG_VOLUME_NAME, LOG_DIR)
+        .add_volume_mount(LOG_VOLUME_NAME, STACKABLE_LOG_DIR)
         .context(AddVolumeMountSnafu)?;
     pb.add_volume(
         VolumeBuilder::new(LOG_VOLUME_NAME)

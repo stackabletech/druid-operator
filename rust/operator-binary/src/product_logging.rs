@@ -1,6 +1,7 @@
 use snafu::{OptionExt, ResultExt, Snafu};
 use stackable_druid_crd::{
-    Container, DruidCluster, DRUID_LOG_FILE, LOG4J2_CONFIG, LOG_DIR, MAX_DRUID_LOG_FILES_SIZE,
+    Container, DruidCluster, DRUID_LOG_FILE, LOG4J2_CONFIG, MAX_DRUID_LOG_FILES_SIZE,
+    STACKABLE_LOG_DIR,
 };
 use stackable_operator::{
     builder::configmap::ConfigMapBuilder,
@@ -90,7 +91,10 @@ pub fn extend_role_group_config_map(
         cm_builder.add_data(
             LOG4J2_CONFIG,
             product_logging::framework::create_log4j2_config(
-                &format!("{LOG_DIR}/{container}", container = Container::Druid),
+                &format!(
+                    "{STACKABLE_LOG_DIR}/{container}",
+                    container = Container::Druid
+                ),
                 DRUID_LOG_FILE,
                 MAX_DRUID_LOG_FILES_SIZE
                     .scale_to(BinaryMultiple::Mebi)
