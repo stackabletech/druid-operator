@@ -17,9 +17,9 @@ use stackable_druid_crd::{
     Container, DeepStorageSpec, DruidCluster, DruidClusterStatus, DruidRole, APP_NAME,
     AUTH_AUTHORIZER_OPA_URI, CREDENTIALS_SECRET_PROPERTY, DB_PASSWORD_ENV, DB_USERNAME_ENV,
     DRUID_CONFIG_DIRECTORY, DS_BUCKET, EXTENSIONS_LOADLIST, HDFS_CONFIG_DIRECTORY, JVM_CONFIG,
-    JVM_SECURITY_PROPERTIES_FILE, LOG_CONFIG_DIRECTORY, LOG_DIR, MAX_DRUID_LOG_FILES_SIZE,
-    RUNTIME_PROPS, RW_CONFIG_DIRECTORY, S3_ACCESS_KEY, S3_ENDPOINT_URL, S3_PATH_STYLE_ACCESS,
-    S3_SECRET_KEY, ZOOKEEPER_CONNECTION_STRING,
+    JVM_SECURITY_PROPERTIES_FILE, LOG_CONFIG_DIRECTORY, MAX_DRUID_LOG_FILES_SIZE, RUNTIME_PROPS,
+    RW_CONFIG_DIRECTORY, S3_ACCESS_KEY, S3_ENDPOINT_URL, S3_PATH_STYLE_ACCESS, S3_SECRET_KEY,
+    STACKABLE_LOG_DIR, ZOOKEEPER_CONNECTION_STRING,
 };
 use stackable_operator::{
     builder::{
@@ -35,14 +35,14 @@ use stackable_operator::{
     commons::{
         opa::OpaApiVersion,
         product_image_selection::ResolvedProductImage,
-        rbac::{build_rbac_resources, service_account_name},
+        rbac::build_rbac_resources,
         s3::{S3AccessStyle, S3ConnectionSpec, S3Error},
         tls_verification::TlsClientDetailsError,
     },
     k8s_openapi::{
         api::{
             apps::v1::{StatefulSet, StatefulSetSpec},
-            core::v1::{ConfigMap, EnvVar, Service, ServiceSpec},
+            core::v1::{ConfigMap, EnvVar, Service, ServiceAccount, ServiceSpec},
         },
         apimachinery::pkg::apis::meta::v1::LabelSelector,
         DeepMerge,
@@ -50,7 +50,7 @@ use stackable_operator::{
     kube::{
         core::{error_boundary, DeserializeGuard},
         runtime::{controller::Action, reflector::ObjectRef},
-        Resource,
+        Resource, ResourceExt,
     },
     kvp::{KeyValuePairError, Label, LabelError, LabelValueError, Labels},
     logging::controller::ReconcilerError,
@@ -488,7 +488,8 @@ pub async fn reconcile_druid(
     )
     .context(BuildRbacResourcesSnafu)?;
     cluster_resources
-        .add(client, rbac_sa)
+        // We clone rbac_sa because we need to reuse it below
+        .add(client, rbac_sa.clone())
         .await
         .context(ApplyServiceAccountSnafu)?;
     cluster_resources
@@ -559,6 +560,7 @@ pub async fn reconcile_druid(
                 s3_conn.as_ref(),
                 &druid_tls_security,
                 &druid_auth_config,
+                &rbac_sa,
             )?;
             cluster_resources
                 .add(client, rg_service)
@@ -916,6 +918,7 @@ fn build_rolegroup_statefulset(
     s3_conn: Option<&S3ConnectionSpec>,
     druid_tls_security: &DruidTlsSecurity,
     druid_auth_config: &Option<DruidAuthenticationConfig>,
+    service_account: &ServiceAccount,
 ) -> Result<StatefulSet> {
     // prepare container builder
     let prepare_container_name = Container::Prepare.to_string();
@@ -961,7 +964,7 @@ fn build_rolegroup_statefulset(
         // This command needs to be added at the beginning of the shell commands,
         // otherwise the output of the following commands will not be captured!
         prepare_container_commands.push(product_logging::framework::capture_shell_output(
-            LOG_DIR,
+            STACKABLE_LOG_DIR,
             &prepare_container_name,
             log_config,
         ));
@@ -978,7 +981,12 @@ fn build_rolegroup_statefulset(
 
     // volume and volume mounts
     druid_tls_security
-        .add_tls_volume_and_volume_mounts(&mut cb_prepare, &mut cb_druid, &mut pb)
+        .add_tls_volume_and_volume_mounts(
+            &mut cb_prepare,
+            &mut cb_druid,
+            &mut pb,
+            &merged_rolegroup_config.requested_secret_lifetime,
+        )
         .context(FailedToInitializeSecurityContextSnafu)?;
 
     if let Some(s3) = s3_conn {
@@ -1119,7 +1127,7 @@ fn build_rolegroup_statefulset(
         .add_init_container(cb_prepare.build())
         .add_container(cb_druid.build())
         .metadata(metadata)
-        .service_account_name(service_account_name(APP_NAME))
+        .service_account_name(service_account.name_any())
         .security_context(
             PodSecurityContextBuilder::new()
                 .run_as_user(DRUID_UID)
@@ -1284,10 +1292,10 @@ fn add_log_volume_and_volume_mounts(
     pb: &mut PodBuilder,
 ) -> Result<()> {
     cb_druid
-        .add_volume_mount(LOG_VOLUME_NAME, LOG_DIR)
+        .add_volume_mount(LOG_VOLUME_NAME, STACKABLE_LOG_DIR)
         .context(AddVolumeMountSnafu)?;
     cb_prepare
-        .add_volume_mount(LOG_VOLUME_NAME, LOG_DIR)
+        .add_volume_mount(LOG_VOLUME_NAME, STACKABLE_LOG_DIR)
         .context(AddVolumeMountSnafu)?;
     pb.add_volume(
         VolumeBuilder::new(LOG_VOLUME_NAME)

@@ -7,7 +7,7 @@ spec:
   provider:
     oidc:
       hostname: keycloak.$NAMESPACE.svc.cluster.local
-      rootPath: /realms/test
+      rootPath: /realms/test/
       principalClaim: preferred_username
       scopes:
         - openid

@@ -75,7 +75,7 @@ pub const JVM_SECURITY_PROPERTIES_FILE: &str = "security.properties";
 pub const STACKABLE_TRUST_STORE: &str = "/stackable/truststore.p12";
 pub const STACKABLE_TRUST_STORE_PASSWORD: &str = "changeit";
 pub const CERTS_DIR: &str = "/stackable/certificates";
-pub const LOG_DIR: &str = "/stackable/log";
+pub const STACKABLE_LOG_DIR: &str = "/stackable/log";
 
 // store file names
 pub const DRUID_LOG_FILE: &str = "druid.log4j2.xml";
@@ -152,10 +152,20 @@ const DEFAULT_MIDDLEMANAGER_GRACEFUL_SHUTDOWN_TIMEOUT: Duration =
 const DEFAULT_ROUTER_GRACEFUL_SHUTDOWN_TIMEOUT: Duration = Duration::from_minutes_unchecked(5);
 const DEFAULT_HISTORICAL_GRACEFUL_SHUTDOWN_TIMEOUT: Duration = Duration::from_minutes_unchecked(5);
 
+// Auto TLS certificate lifetime
+const DEFAULT_BROKER_SECRET_LIFETIME: Duration = Duration::from_days_unchecked(1);
+const DEFAULT_COORDINATOR_SECRET_LIFETIME: Duration = Duration::from_days_unchecked(1);
+const DEFAULT_MIDDLE_SECRET_LIFETIME: Duration = Duration::from_days_unchecked(1);
+const DEFAULT_ROUTER_SECRET_LIFETIME: Duration = Duration::from_days_unchecked(1);
+const DEFAULT_HISTORICAL_SECRET_LIFETIME: Duration = Duration::from_days_unchecked(1);
+
 #[derive(Snafu, Debug, EnumDiscriminants)]
 #[strum_discriminants(derive(IntoStaticStr))]
 #[allow(clippy::enum_variant_names)]
 pub enum Error {
+    #[snafu(display("missing secret lifetime"))]
+    MissingSecretLifetime,
+
     #[snafu(display("failed to resolve S3 connection"))]
     ResolveS3Connection { source: S3Error },
 
@@ -348,6 +358,7 @@ pub struct CommonRoleGroupConfig {
     pub replicas: Option<u16>,
     pub affinity: StackableAffinity,
     pub graceful_shutdown_timeout: Option<Duration>,
+    pub requested_secret_lifetime: Duration,
 }
 
 /// Container for the merged and validated role group configurations
@@ -387,6 +398,11 @@ impl MergedConfig {
                     replicas: rolegroup.replicas,
                     affinity: rolegroup.config.config.affinity.clone(),
                     graceful_shutdown_timeout: rolegroup.config.config.graceful_shutdown_timeout,
+                    requested_secret_lifetime: rolegroup
+                        .config
+                        .config
+                        .requested_secret_lifetime
+                        .context(MissingSecretLifetimeSnafu)?,
                 })
             }
             DruidRole::Coordinator => {
@@ -400,6 +416,11 @@ impl MergedConfig {
                     replicas: rolegroup.replicas,
                     affinity: rolegroup.config.config.affinity.clone(),
                     graceful_shutdown_timeout: rolegroup.config.config.graceful_shutdown_timeout,
+                    requested_secret_lifetime: rolegroup
+                        .config
+                        .config
+                        .requested_secret_lifetime
+                        .context(MissingSecretLifetimeSnafu)?,
                 })
             }
             DruidRole::Historical => {
@@ -415,6 +436,11 @@ impl MergedConfig {
                     replicas: rolegroup.replicas,
                     affinity: rolegroup.config.config.affinity.clone(),
                     graceful_shutdown_timeout: rolegroup.config.config.graceful_shutdown_timeout,
+                    requested_secret_lifetime: rolegroup
+                        .config
+                        .config
+                        .requested_secret_lifetime
+                        .context(MissingSecretLifetimeSnafu)?,
                 })
             }
             DruidRole::MiddleManager => {
@@ -428,6 +454,11 @@ impl MergedConfig {
                     replicas: rolegroup.replicas,
                     affinity: rolegroup.config.config.affinity.clone(),
                     graceful_shutdown_timeout: rolegroup.config.config.graceful_shutdown_timeout,
+                    requested_secret_lifetime: rolegroup
+                        .config
+                        .config
+                        .requested_secret_lifetime
+                        .context(MissingSecretLifetimeSnafu)?,
                 })
             }
             DruidRole::Router => {
@@ -441,6 +472,11 @@ impl MergedConfig {
                     replicas: rolegroup.replicas,
                     affinity: rolegroup.config.config.affinity.clone(),
                     graceful_shutdown_timeout: rolegroup.config.config.graceful_shutdown_timeout,
+                    requested_secret_lifetime: rolegroup
+                        .config
+                        .config
+                        .requested_secret_lifetime
+                        .context(MissingSecretLifetimeSnafu)?,
                 })
             }
         }
@@ -568,6 +604,7 @@ impl DruidRole {
             {COMMON_BASH_TRAP_FUNCTIONS}
             {remove_vector_shutdown_file_command}
             prepare_signal_handlers
+            CONTAINERDEBUG_LOG_DIRECTORY={STACKABLE_LOG_DIR}/containerdebug containerdebug --output={STACKABLE_LOG_DIR}/containerdebug-state.json --loop &
             /stackable/druid/bin/run-druid {process_name} {RW_CONFIG_DIRECTORY} &
             echo \"$!\" >> /tmp/DRUID_PID
             wait_for_termination $(cat /tmp/DRUID_PID)
@@ -575,9 +612,9 @@ impl DruidRole {
             ",
                 process_name = self.get_process_name(),
         remove_vector_shutdown_file_command =
-            remove_vector_shutdown_file_command(LOG_DIR),
+            remove_vector_shutdown_file_command(STACKABLE_LOG_DIR),
         create_vector_shutdown_file_command =
-            create_vector_shutdown_file_command(LOG_DIR),
+            create_vector_shutdown_file_command(STACKABLE_LOG_DIR),
         }
     }
 }
@@ -1105,6 +1142,11 @@ pub struct BrokerConfig {
     /// [graceful shutdown documentation](DOCS_BASE_URL_PLACEHOLDER/druid/usage-guide/operations/graceful-shutdown).
     #[fragment_attrs(serde(default))]
     pub graceful_shutdown_timeout: Option<Duration>,
+
+    /// Request secret (currently only autoTls certificates) lifetime from the secret operator, e.g. `7d`, or `30d`.
+    /// This can be shortened by the `maxCertificateLifetime` setting on the SecretClass issuing the TLS certificate.
+    #[fragment_attrs(serde(default))]
+    pub requested_secret_lifetime: Option<Duration>,
 }
 
 impl BrokerConfig {
@@ -1118,6 +1160,7 @@ impl BrokerConfig {
             logging: product_logging::spec::default_logging(),
             affinity: get_affinity(cluster_name, role, deep_storage),
             graceful_shutdown_timeout: Some(role.default_graceful_shutdown_timeout()),
+            requested_secret_lifetime: Some(DEFAULT_BROKER_SECRET_LIFETIME),
         }
     }
 }
@@ -1148,6 +1191,11 @@ pub struct CoordinatorConfig {
     /// [graceful shutdown documentation](DOCS_BASE_URL_PLACEHOLDER/druid/usage-guide/operations/graceful-shutdown).
     #[fragment_attrs(serde(default))]
     pub graceful_shutdown_timeout: Option<Duration>,
+
+    /// Request secret (currently only autoTls certificates) lifetime from the secret operator, e.g. `7d`, or `30d`.
+    /// This can be shortened by the `maxCertificateLifetime` setting on the SecretClass issuing the TLS certificate.
+    #[fragment_attrs(serde(default))]
+    pub requested_secret_lifetime: Option<Duration>,
 }
 
 impl CoordinatorConfig {
@@ -1161,6 +1209,7 @@ impl CoordinatorConfig {
             logging: product_logging::spec::default_logging(),
             affinity: get_affinity(cluster_name, role, deep_storage),
             graceful_shutdown_timeout: Some(role.default_graceful_shutdown_timeout()),
+            requested_secret_lifetime: Some(DEFAULT_COORDINATOR_SECRET_LIFETIME),
         }
     }
 }
@@ -1191,6 +1240,11 @@ pub struct MiddleManagerConfig {
     /// [graceful shutdown documentation](DOCS_BASE_URL_PLACEHOLDER/druid/usage-guide/operations/graceful-shutdown).
     #[fragment_attrs(serde(default))]
     pub graceful_shutdown_timeout: Option<Duration>,
+
+    /// Request secret (currently only autoTls certificates) lifetime from the secret operator, e.g. `7d`, or `30d`.
+    /// This can be shortened by the `maxCertificateLifetime` setting on the SecretClass issuing the TLS certificate.
+    #[fragment_attrs(serde(default))]
+    pub requested_secret_lifetime: Option<Duration>,
 }
 
 impl MiddleManagerConfig {
@@ -1204,6 +1258,7 @@ impl MiddleManagerConfig {
             logging: product_logging::spec::default_logging(),
             affinity: get_affinity(cluster_name, role, deep_storage),
             graceful_shutdown_timeout: Some(role.default_graceful_shutdown_timeout()),
+            requested_secret_lifetime: Some(DEFAULT_MIDDLE_SECRET_LIFETIME),
         }
     }
 }
@@ -1234,6 +1289,11 @@ pub struct RouterConfig {
     /// [graceful shutdown documentation](DOCS_BASE_URL_PLACEHOLDER/druid/usage-guide/operations/graceful-shutdown).
     #[fragment_attrs(serde(default))]
     pub graceful_shutdown_timeout: Option<Duration>,
+
+    /// Request secret (currently only autoTls certificates) lifetime from the secret operator, e.g. `7d`, or `30d`.
+    /// This can be shortened by the `maxCertificateLifetime` setting on the SecretClass issuing the TLS certificate.
+    #[fragment_attrs(serde(default))]
+    pub requested_secret_lifetime: Option<Duration>,
 }
 
 impl RouterConfig {
@@ -1247,6 +1307,7 @@ impl RouterConfig {
             logging: product_logging::spec::default_logging(),
             affinity: get_affinity(cluster_name, role, deep_storage),
             graceful_shutdown_timeout: Some(role.default_graceful_shutdown_timeout()),
+            requested_secret_lifetime: Some(DEFAULT_ROUTER_SECRET_LIFETIME),
         }
     }
 }
@@ -1277,6 +1338,11 @@ pub struct HistoricalConfig {
     /// [graceful shutdown documentation](DOCS_BASE_URL_PLACEHOLDER/druid/usage-guide/operations/graceful-shutdown).
     #[fragment_attrs(serde(default))]
     pub graceful_shutdown_timeout: Option<Duration>,
+
+    /// Request secret (currently only autoTls certificates) lifetime from the secret operator, e.g. `7d`, or `30d`.
+    /// This can be shortened by the `maxCertificateLifetime` setting on the SecretClass issuing the TLS certificate.
+    #[fragment_attrs(serde(default))]
+    pub requested_secret_lifetime: Option<Duration>,
 }
 
 impl HistoricalConfig {
@@ -1290,6 +1356,7 @@ impl HistoricalConfig {
             logging: product_logging::spec::default_logging(),
             affinity: get_affinity(cluster_name, role, deep_storage),
             graceful_shutdown_timeout: Some(role.default_graceful_shutdown_timeout()),
+            requested_secret_lifetime: Some(DEFAULT_HISTORICAL_SECRET_LIFETIME),
         }
     }
 }

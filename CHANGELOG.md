@@ -6,6 +6,26 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+- The lifetime of auto generated TLS certificates is now configurable with the role and roleGroup
+  config property `requestedSecretLifetime`. This helps reducing frequent Pod restarts ([#660]).
+- Run a `containerdebug` process in the background of each "druid" container to collect debugging information ([#667]).
+
+### Fixed
+
+- Fix OIDC endpoint construction in case the `rootPath` does have a trailing slash ([#656]).
+- BREAKING: Use distinct ServiceAccounts for the Stacklets, so that multiple Stacklets can be
+  deployed in one namespace. Existing Stacklets will use the newly created ServiceAccounts after
+  restart ([#657]).
+
+[#656]: https://github.com/stackabletech/druid-operator/pull/656
+[#657]: https://github.com/stackabletech/druid-operator/pull/657
+[#660]: https://github.com/stackabletech/druid-operator/pull/660
+[#667]: https://github.com/stackabletech/druid-operator/pull/667
+
+## [24.11.0] - 2024-11-18
+
+### Added
+
 - The operator can now run on Kubernetes clusters using a non-default cluster domain.
   Use the env var `KUBERNETES_CLUSTER_DOMAIN` or the operator Helm chart property `kubernetesClusterDomain` to set a non-default cluster domain ([#637]).
 
