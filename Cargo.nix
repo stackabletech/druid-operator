@@ -7381,7 +7381,7 @@ rec {
       };
       "stackable-druid-crd" = rec {
         crateName = "stackable-druid-crd";
-        version = "24.11.1-rc1";
+        version = "24.11.1-rc2";
         edition = "2021";
         src = lib.cleanSourceWith { filter = sourceFilter;  src = ./rust/crd; };
         libName = "stackable_druid_crd";
@@ -7447,7 +7447,7 @@ rec {
       };
       "stackable-druid-operator" = rec {
         crateName = "stackable-druid-operator";
-        version = "24.11.1-rc1";
+        version = "24.11.1-rc2";
         edition = "2021";
         crateBin = [
           {
