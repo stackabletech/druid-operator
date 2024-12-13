@@ -135,10 +135,10 @@ kubectl rollout status --watch statefulset/simple-druid-middlemanager-default --
 kubectl rollout status --watch statefulset/simple-druid-router-default --timeout=300s
 # end::watch-druid-rollout[]
 
-echo "Starting port-forwarding of port 8888"
+echo "Starting port-forwarding of port 9088"
 # shellcheck disable=2069 # we want all output to be blackholed
 # tag::port-forwarding[]
-kubectl port-forward svc/simple-druid-router 8888 > /dev/null 2>&1 &
+kubectl port-forward svc/simple-druid-router 9088 > /dev/null 2>&1 &
 # end::port-forwarding[]
 PORT_FORWARD_PID=$!
 # shellcheck disable=2064 # we want the PID evaluated now, not at the time the trap is
@@ -147,7 +147,7 @@ sleep 5
 
 submit_job() {
 # tag::submit-job[]
-curl -s -X 'POST' -H 'Content-Type:application/json' -d @ingestion_spec.json http://localhost:8888/druid/indexer/v1/task
+curl -s -k -X 'POST' -H 'Content-Type:application/json' -d @ingestion_spec.json https://localhost:9088/druid/indexer/v1/task
 # end::submit-job[]
 }
 
@@ -155,7 +155,7 @@ echo "Submitting job"
 task_id=$(submit_job | sed -e 's/.*":"\([^"]\+\).*/\1/g')
 
 request_job_status() {
-  curl -s "http://localhost:8888/druid/indexer/v1/task/${task_id}/status" | sed -e 's/.*statusCode":"\([^"]\+\).*/\1/g'
+  curl -s -k "https://localhost:9088/druid/indexer/v1/task/${task_id}/status" | sed -e 's/.*statusCode":"\([^"]\+\).*/\1/g'
 }
 
 while [ "$(request_job_status)" == "RUNNING" ]; do
@@ -173,7 +173,7 @@ else
 fi
 
 segment_load_status() {
- curl -s http://localhost:8888/druid/coordinator/v1/loadstatus | sed -e 's/.*wikipedia":\([0-9\.]\+\).*/\1/g'
+ curl -s -k https://localhost:9088/druid/coordinator/v1/loadstatus | sed -e 's/.*wikipedia":\([0-9\.]\+\).*/\1/g'
 }
 
 while [ "$(segment_load_status)" != "100.0" ]; do
@@ -183,7 +183,7 @@ done
 
 query_data() {
 # tag::query-data[]
-curl -s -X 'POST' -H 'Content-Type:application/json' -d @query.json http://localhost:8888/druid/v2/sql
+curl -s -k -X 'POST' -H 'Content-Type:application/json' -d @query.json https://localhost:9088/druid/v2/sql
 # end::query-data[]
 }
 
