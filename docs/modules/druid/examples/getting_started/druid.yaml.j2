@@ -7,17 +7,18 @@ spec:
   image:
     productVersion: 30.0.0
   clusterConfig:
+    listenerClass: external-stable # This exposes your Stacklet outside of Kubernetes. Remove this configuration if this is not desired
+    zookeeperConfigMapName: simple-druid-znode
     deepStorage:
       hdfs:
         configMapName: simple-hdfs
-        directory: /data
+        directory: /druid
     metadataStorageDatabase:
-      dbType: derby
-      connString: jdbc:derby://localhost:1527/var/druid/metadata.db;create=true
-      host: localhost
-      port: 1527
-    tls: null
-    zookeeperConfigMapName: simple-druid-znode
+      dbType: postgresql
+      connString: jdbc:postgresql://postgresql-druid/druid
+      host: postgresql-druid
+      port: 5432
+      credentialsSecret: druid-db-credentials
   brokers:
     roleGroups:
       default:
@@ -38,3 +39,11 @@ spec:
     roleGroups:
       default:
         replicas: 1
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: druid-db-credentials
+stringData:
+  username: druid
+  password: druid
