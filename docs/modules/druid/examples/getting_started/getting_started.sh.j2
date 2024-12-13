@@ -100,6 +100,17 @@ kubectl rollout status --watch statefulset/simple-hdfs-journalnode-default --tim
 kubectl rollout status --watch statefulset/simple-hdfs-namenode-default --timeout=300s
 # end::watch-hdfs-rollout[]
 
+echo "Installing PostgreSQL for Druid"
+# tag::helm-install-postgres[]
+helm install postgresql-druid \
+--repo https://charts.bitnami.com/bitnami postgresql \
+--version 16.1.2 \
+--set auth.database=druid \
+--set auth.username=druid \
+--set auth.password=druid \
+--wait
+# end::helm-install-postgres[]
+
 echo "Install DruidCluster from druid.yaml"
 # tag::install-druid[]
 kubectl apply --server-side -f druid.yaml
