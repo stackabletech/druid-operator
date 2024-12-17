@@ -1066,6 +1066,13 @@ fn build_rolegroup_statefulset(
         rest_env.extend(auth_config.get_env_var_mounts(druid, role))
     }
 
+    // Needed for the `containerdebug` process to log it's tracing information to.
+    rest_env.push(EnvVar {
+        name: "CONTAINERDEBUG_LOG_DIRECTORY".to_string(),
+        value: Some(format!("{STACKABLE_LOG_DIR}/containerdebug")),
+        value_from: None,
+    });
+
     main_container_commands.push(role.main_container_start_command());
     cb_druid
         .image_from_product_image(resolved_product_image)
