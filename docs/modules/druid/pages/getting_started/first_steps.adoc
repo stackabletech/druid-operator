@@ -10,6 +10,7 @@ Three things need to be installed to have a Druid cluster:
 
 * A ZooKeeper instance for internal use by Druid
 * An HDFS instance to be used as a backend for deep storage
+* A PostgreSQL database to store the metadata of Druid
 * The Druid cluster itself
 
 Create them in this order, each one is created by applying a manifest file.
@@ -45,6 +46,17 @@ And apply it:
 
 ----
 include::example$getting_started/getting_started.sh[tag=install-hdfs]
+----
+
+
+=== PostgreSQL
+
+Install a PostgreSQL database using `helm`.
+If you already have a PostgreSQL instance, you can skip this step and use your own below.
+
+[source,bash]
+----
+include::example$getting_started/getting_started.sh[tag=helm-install-postgres]
 ----
 
 === Druid
@@ -94,7 +106,9 @@ simple-hdfs-namenode-default         2/2     6m
 simple-zk-server-default             3/3     7m
 ----
 
-Then, create a port-forward for the Druid Router:
+Ideally you use `stackablectl stacklet list` to find out the address the Druid router is reachable at and use that address.
+
+As an alternative, you can create a port-forward for the Druid Router:
 
 ----
 include::example$getting_started/getting_started.sh[tag=port-forwarding]
@@ -126,7 +140,7 @@ Continue with the <<_query_the_data,next section>>.
 
 ====
 
-To open the web interface navigate your browser to https://localhost:8888/ to find the dashboard:
+To open the web interface navigate your browser to https://localhost:9088/ to find the dashboard:
 
 image::getting_started/dashboard.png[]
 
