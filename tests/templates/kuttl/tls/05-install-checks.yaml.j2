@@ -50,7 +50,7 @@ spec:
         runAsUser: 0
       containers:
         - name: druid-checks
-          image: docker.stackable.tech/stackable/testing-tools:0.2.0-stackable0.0.0-dev
+          image: oci.stackable.tech/sdp/testing-tools:0.2.0-stackable0.0.0-dev
           command: ["sleep", "infinity"]
           env:
           - name: DRUID_OIDC
