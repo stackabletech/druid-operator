@@ -1,7 +1,7 @@
 # Default values for druid-operator.
 ---
 image:
-  repository: oci.stackable.tech/stackable/druid-operator
+  repository: oci.stackable.tech/sdp/druid-operator
   pullPolicy: IfNotPresent
   pullSecrets: []
 
