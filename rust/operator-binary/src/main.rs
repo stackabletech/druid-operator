@@ -9,8 +9,8 @@ mod product_logging;
 
 use std::sync::Arc;
 
-use crate::druid_controller::DRUID_CONTROLLER_NAME;
 use clap::{crate_description, crate_version, Parser};
+use druid_controller::{DRUID_CONTROLLER_NAME, FULL_CONTROLLER_NAME};
 use futures::StreamExt;
 use stackable_druid_crd::{DruidCluster, APP_NAME, OPERATOR_NAME};
 use stackable_operator::CustomResourceExt;
@@ -21,8 +21,13 @@ use stackable_operator::{
         apps::v1::StatefulSet,
         core::v1::{ConfigMap, Service},
     },
-    kube::core::DeserializeGuard,
-    kube::runtime::{watcher, Controller},
+    kube::{
+        core::DeserializeGuard,
+        runtime::{
+            events::{Recorder, Reporter},
+            watcher, Controller,
+        },
+    },
     logging::controller::report_controller_reconciled,
 };
 
@@ -71,6 +76,14 @@ async fn main() -> anyhow::Result<()> {
             )
             .await?;
 
+            let event_recorder = Arc::new(Recorder::new(
+                client.as_kube_client(),
+                Reporter {
+                    controller: FULL_CONTROLLER_NAME.to_string(),
+                    instance: None,
+                },
+            ));
+
             Controller::new(
                 watch_namespace.get_api::<DeserializeGuard<DruidCluster>>(&client),
                 watcher::Config::default(),
@@ -96,14 +109,23 @@ async fn main() -> anyhow::Result<()> {
                     product_config,
                 }),
             )
-            .map(|res| {
-                report_controller_reconciled(
-                    &client,
-                    &format!("{DRUID_CONTROLLER_NAME}.{OPERATOR_NAME}"),
-                    &res,
-                )
-            })
-            .collect::<()>()
+            // We can let the reporting happen in the background
+            .for_each_concurrent(
+                16, // concurrency limit
+                |result| {
+                    // The event_recorder needs to be shared across all invocations, so that
+                    // events are correctly aggregated
+                    let event_recorder = event_recorder.clone();
+                    async move {
+                        report_controller_reconciled(
+                            &event_recorder,
+                            FULL_CONTROLLER_NAME,
+                            &result,
+                        )
+                        .await;
+                    }
+                },
+            )
             .await;
         }
     }

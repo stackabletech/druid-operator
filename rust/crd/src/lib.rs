@@ -44,7 +44,9 @@ use stackable_operator::{
         framework::{create_vector_shutdown_file_command, remove_vector_shutdown_file_command},
         spec::Logging,
     },
-    role_utils::{CommonConfiguration, GenericRoleConfig, Role, RoleGroup},
+    role_utils::{
+        CommonConfiguration, GenericProductSpecificCommonConfig, GenericRoleConfig, Role, RoleGroup,
+    },
     schemars::{self, JsonSchema},
     status::condition::{ClusterCondition, HasStatusCondition},
     time::Duration,
@@ -368,15 +370,18 @@ pub struct CommonRoleGroupConfig {
 /// configuration is not applied.
 pub struct MergedConfig {
     /// Merged configuration of the broker role
-    pub brokers: HashMap<String, RoleGroup<BrokerConfig>>,
+    pub brokers: HashMap<String, RoleGroup<BrokerConfig, GenericProductSpecificCommonConfig>>,
     /// Merged configuration of the coordinator role
-    pub coordinators: HashMap<String, RoleGroup<CoordinatorConfig>>,
+    pub coordinators:
+        HashMap<String, RoleGroup<CoordinatorConfig, GenericProductSpecificCommonConfig>>,
     /// Merged configuration of the historical role
-    pub historicals: HashMap<String, RoleGroup<HistoricalConfig>>,
+    pub historicals:
+        HashMap<String, RoleGroup<HistoricalConfig, GenericProductSpecificCommonConfig>>,
     /// Merged configuration of the middle manager role
-    pub middle_managers: HashMap<String, RoleGroup<MiddleManagerConfig>>,
+    pub middle_managers:
+        HashMap<String, RoleGroup<MiddleManagerConfig, GenericProductSpecificCommonConfig>>,
     /// Merged configuration of the router role
-    pub routers: HashMap<String, RoleGroup<RouterConfig>>,
+    pub routers: HashMap<String, RoleGroup<RouterConfig, GenericProductSpecificCommonConfig>>,
 }
 
 impl MergedConfig {
@@ -898,7 +903,7 @@ impl DruidCluster {
     fn merged_role<T>(
         role: &Role<T::Fragment>,
         default_config: &T::Fragment,
-    ) -> Result<HashMap<String, RoleGroup<T>>, Error>
+    ) -> Result<HashMap<String, RoleGroup<T, GenericProductSpecificCommonConfig>>, Error>
     where
         T: FromFragment,
         T::Fragment: Clone + Merge,
@@ -916,10 +921,10 @@ impl DruidCluster {
 
     /// Merges and validates the given role group with the given role and default configurations
     fn merged_rolegroup<T>(
-        rolegroup: &RoleGroup<T::Fragment>,
+        rolegroup: &RoleGroup<T::Fragment, GenericProductSpecificCommonConfig>,
         role_config: &T::Fragment,
         default_config: &T::Fragment,
-    ) -> Result<RoleGroup<T>, Error>
+    ) -> Result<RoleGroup<T, GenericProductSpecificCommonConfig>, Error>
     where
         T: FromFragment,
         T::Fragment: Clone + Merge,
@@ -936,6 +941,10 @@ impl DruidCluster {
                 env_overrides: rolegroup.config.env_overrides.to_owned(),
                 cli_overrides: rolegroup.config.cli_overrides.to_owned(),
                 pod_overrides: rolegroup.config.pod_overrides.to_owned(),
+                product_specific_common_config: rolegroup
+                    .config
+                    .product_specific_common_config
+                    .to_owned(),
             },
             replicas: rolegroup.replicas,
         })

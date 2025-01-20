@@ -9,6 +9,11 @@ All notable changes to this project will be documented in this file.
 - The lifetime of auto generated TLS certificates is now configurable with the role and roleGroup
   config property `requestedSecretLifetime`. This helps reducing frequent Pod restarts ([#660]).
 - Run a `containerdebug` process in the background of each "druid" container to collect debugging information ([#667]).
+- Aggregate emitted Kubernetes events on the CustomResources ([#xxx]).
+
+### Changed
+
+- Append a dot (`.`) to the default cluster domain to reduce DNS requests ([#xxx]).
 
 ### Fixed
 
@@ -21,6 +26,7 @@ All notable changes to this project will be documented in this file.
 [#657]: https://github.com/stackabletech/druid-operator/pull/657
 [#660]: https://github.com/stackabletech/druid-operator/pull/660
 [#667]: https://github.com/stackabletech/druid-operator/pull/667
+[#xxx]: https://github.com/stackabletech/druid-operator/pull/xxx
 
 ## [24.11.0] - 2024-11-18
 
