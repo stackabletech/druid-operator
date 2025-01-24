@@ -2153,7 +2153,7 @@ rec {
           "unstable" = [ "futures-core/unstable" "futures-task/unstable" ];
           "write-all-vectored" = [ "io" ];
         };
-        resolvedDefaultFeatures = [ "alloc" "async-await" "async-await-macro" "channel" "compat" "futures-channel" "futures-io" "futures-macro" "futures-sink" "futures_01" "io" "memchr" "sink" "slab" "std" ];
+        resolvedDefaultFeatures = [ "alloc" "async-await" "async-await-macro" "channel" "compat" "default" "futures-channel" "futures-io" "futures-macro" "futures-sink" "futures_01" "io" "memchr" "sink" "slab" "std" ];
       };
       "generic-array" = rec {
         crateName = "generic-array";
@@ -6171,21 +6171,21 @@ rec {
       };
       "rstest" = rec {
         crateName = "rstest";
-        version = "0.23.0";
+        version = "0.24.0";
         edition = "2021";
-        sha256 = "0d90hr3i2yajzgpzvsh6p2yjzmcb3nm8884xdbb5sswvwmdmhb0a";
+        sha256 = "12fd0cnd49n6dnlmygca97lkakvc9czs1hqy7khr7aq5d0lhbs83";
         authors = [
           "Michele d'Amico <michele.damico@gmail.com>"
         ];
         dependencies = [
           {
-            name = "futures";
-            packageId = "futures 0.3.31";
+            name = "futures-timer";
+            packageId = "futures-timer";
             optional = true;
           }
           {
-            name = "futures-timer";
-            packageId = "futures-timer";
+            name = "futures-util";
+            packageId = "futures-util";
             optional = true;
           }
           {
@@ -6201,7 +6201,7 @@ rec {
           }
         ];
         features = {
-          "async-timeout" = [ "dep:futures" "dep:futures-timer" "rstest_macros/async-timeout" ];
+          "async-timeout" = [ "dep:futures-timer" "dep:futures-util" "rstest_macros/async-timeout" ];
           "crate-name" = [ "rstest_macros/crate-name" ];
           "default" = [ "async-timeout" "crate-name" ];
         };
@@ -6209,9 +6209,9 @@ rec {
       };
       "rstest_macros" = rec {
         crateName = "rstest_macros";
-        version = "0.23.0";
+        version = "0.24.0";
         edition = "2021";
-        sha256 = "0nmdm7a4ysihnh0zz6w6gqrmw205zfp7xqkb2id3858vg20afpl2";
+        sha256 = "16zgrnnwgm6qss4f1vzig6w5fymy1ydlkk2bxqmhc2ffzyxm607g";
         procMacro = true;
         authors = [
           "Michele d'Amico <michele.damico@gmail.com>"
