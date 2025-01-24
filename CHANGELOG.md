@@ -11,10 +11,6 @@ All notable changes to this project will be documented in this file.
 - Run a `containerdebug` process in the background of each "druid" container to collect debugging information ([#667]).
 - Aggregate emitted Kubernetes events on the CustomResources ([#677]).
 
-### Changed
-
-- Append a dot (`.`) to the default cluster domain to reduce DNS requests ([#677]).
-
 ### Fixed
 
 - Fix OIDC endpoint construction in case the `rootPath` does have a trailing slash ([#656]).
