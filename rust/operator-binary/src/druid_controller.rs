@@ -5,6 +5,7 @@ use std::{
     sync::Arc,
 };
 
+use const_format::concatcp;
 use product_config::{
     types::PropertyNameKind,
     writer::{to_java_properties_string, PropertiesWriterError},
@@ -84,6 +85,7 @@ use crate::{
 };
 
 pub const DRUID_CONTROLLER_NAME: &str = "druidcluster";
+pub const FULL_CONTROLLER_NAME: &str = concatcp!(DRUID_CONTROLLER_NAME, '.', OPERATOR_NAME);
 
 const DRUID_UID: i64 = 1000;
 const DOCKER_IMAGE_BASE_NAME: &str = "druid";
