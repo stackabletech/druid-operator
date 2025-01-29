@@ -178,7 +178,7 @@ pub static MIDDLE_MANAGER_RESOURCES: LazyLock<
         max: Some(Quantity("1200m".to_owned())),
     },
     memory: MemoryLimitsFragment {
-        limit: Some(Quantity("1Gi".to_owned())),
+        limit: Some(Quantity("1500Mi".to_owned())),
         runtime_limits: NoRuntimeLimitsFragment {},
     },
     storage: storage::DruidStorageFragment {},
@@ -221,7 +221,7 @@ pub static COORDINATOR_RESOURCES: LazyLock<
         max: Some(Quantity("400m".to_owned())),
     },
     memory: MemoryLimitsFragment {
-        limit: Some(Quantity("512Mi".to_owned())),
+        limit: Some(Quantity("768Mi".to_owned())),
         runtime_limits: NoRuntimeLimitsFragment {},
     },
     storage: storage::DruidStorageFragment {},
