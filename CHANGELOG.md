@@ -11,8 +11,13 @@ All notable changes to this project will be documented in this file.
 - Run a `containerdebug` process in the background of each "druid" container to collect debugging information ([#667]).
 - Aggregate emitted Kubernetes events on the CustomResources ([#677]).
 
+### Changed
+
+- Default to OCI for image metadata and product image selection ([#676]).
+
 [#660]: https://github.com/stackabletech/druid-operator/pull/660
 [#667]: https://github.com/stackabletech/druid-operator/pull/667
+[#676]: https://github.com/stackabletech/druid-operator/pull/676
 [#677]: https://github.com/stackabletech/druid-operator/pull/677
 
 ## [24.11.1] - 2025-01-09
