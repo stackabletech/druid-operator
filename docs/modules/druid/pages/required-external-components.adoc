@@ -9,8 +9,7 @@ Consult the {druid-available-metadata-stores}[Druid documentation] for a list of
 == Feature specific: S3 and cloud deep storage
 
 {druid-deep-storage}[Deep storage] is where segments are stored.
-Druid offers multiple storage backends.
-For the local storage there are no prerequisites.
+Druid offers multiple storage backends, of which we support HDFS and S3.
 HDFS deep storage can be set up with the xref:hdfs:index.adoc[Stackable Operator for Apache HDFS].
 For S3 deep storage or the Google Cloud and Azure storage backends, you need to set up the respective storage backend.
 
