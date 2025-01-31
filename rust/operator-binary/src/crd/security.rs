@@ -103,6 +103,7 @@ pub const INTERNAL_INITIAL_CLIENT_PASSWORD_ENV: &str = "INTERNAL_INITIAL_CLIENT_
 pub const ESCALATOR_INTERNAL_CLIENT_PASSWORD_ENV: &str = INTERNAL_INITIAL_CLIENT_PASSWORD_ENV;
 
 impl DruidTlsSecurity {
+    #[cfg(test)]
     pub fn new(
         auth_classes: &AuthenticationClassesResolved,
         server_and_internal_secret_class: Option<String>,

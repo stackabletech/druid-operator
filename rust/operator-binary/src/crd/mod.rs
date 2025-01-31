@@ -77,7 +77,6 @@ pub const JVM_SECURITY_PROPERTIES_FILE: &str = "security.properties";
 // store directories
 pub const STACKABLE_TRUST_STORE: &str = "/stackable/truststore.p12";
 pub const STACKABLE_TRUST_STORE_PASSWORD: &str = "changeit";
-pub const CERTS_DIR: &str = "/stackable/certificates";
 pub const STACKABLE_LOG_DIR: &str = "/stackable/log";
 
 // store file names
@@ -132,14 +131,6 @@ pub const MAX_DRUID_LOG_FILES_SIZE: MemoryQuantity = MemoryQuantity {
 // metrics
 pub const PROMETHEUS_PORT: &str = "druid.emitter.prometheus.port";
 pub const METRICS_PORT: u16 = 9090;
-// container locations
-pub const S3_SECRET_DIR_NAME: &str = "/stackable/secrets";
-pub const SECRET_KEY_S3_ACCESS_KEY: &str = "accessKey";
-pub const SECRET_KEY_S3_SECRET_KEY: &str = "secretKey";
-// segment storage
-pub const SC_LOCATIONS: &str = "druid.segmentCache.locations";
-pub const SC_DIRECTORY: &str = "/stackable/var/druid/segment-cache";
-pub const SC_VOLUME_NAME: &str = "segment-cache";
 
 pub const COOKIE_PASSPHRASE_ENV: &str = "OIDC_COOKIE_PASSPHRASE";
 

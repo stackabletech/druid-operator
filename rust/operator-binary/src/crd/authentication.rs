@@ -219,15 +219,6 @@ impl AuthenticationClassesResolved {
         }
         false
     }
-
-    pub fn oidc_authentication_enabled(&self) -> bool {
-        if !self.auth_classes.is_empty() {
-            if let Some(AuthenticationClassResolved::Oidc { .. }) = self.auth_classes.first() {
-                return true;
-            }
-        }
-        false
-    }
 }
 
 #[cfg(test)]
