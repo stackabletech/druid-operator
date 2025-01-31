@@ -11,7 +11,7 @@ use stackable_operator::{
 };
 
 use crate::{
-    crd::{build_recommended_labels, security::DruidTlsSecurity, DruidCluster, DruidRole},
+    crd::{build_recommended_labels, security::DruidTlsSecurity, v1alpha1, DruidRole},
     DRUID_CONTROLLER_NAME,
 };
 
@@ -20,7 +20,7 @@ pub enum Error {
     #[snafu(display("object {} is missing metadata to build owner reference", druid))]
     ObjectMissingMetadataForOwnerRef {
         source: stackable_operator::builder::meta::Error,
-        druid: ObjectRef<DruidCluster>,
+        druid: ObjectRef<v1alpha1::DruidCluster>,
     },
 
     #[snafu(display("failed to get service FQDN"))]
@@ -39,7 +39,7 @@ pub enum Error {
 
 /// Builds discovery [`ConfigMap`]s for connecting to a [`DruidCluster`]
 pub async fn build_discovery_configmaps(
-    druid: &DruidCluster,
+    druid: &v1alpha1::DruidCluster,
     owner: &impl Resource<DynamicType = ()>,
     cluster_info: &KubernetesClusterInfo,
     resolved_product_image: &ResolvedProductImage,
@@ -58,7 +58,7 @@ pub async fn build_discovery_configmaps(
 
 /// Build a discovery [`ConfigMap`] containing information about how to connect to a certain [`DruidCluster`]
 fn build_discovery_configmap(
-    druid: &DruidCluster,
+    druid: &v1alpha1::DruidCluster,
     owner: &impl Resource<DynamicType = ()>,
     cluster_info: &KubernetesClusterInfo,
     resolved_product_image: &ResolvedProductImage,

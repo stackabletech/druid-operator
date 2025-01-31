@@ -4,7 +4,7 @@ use tracing::debug;
 
 use crate::{
     authentication::DruidAuthenticationConfig,
-    crd::{security::DruidTlsSecurity, DbType, DruidCluster},
+    crd::{security::DruidTlsSecurity, v1alpha1, DbType},
 };
 
 const EXT_S3: &str = "druid-s3-extensions";
@@ -20,7 +20,7 @@ const EXT_SIMPLE_CLIENT_SSL_CONTEXT: &str = "simple-client-sslcontext";
 const ENV_PAC4J: &str = "druid-pac4j";
 
 pub fn get_extension_list(
-    druid: &DruidCluster,
+    druid: &v1alpha1::DruidCluster,
     druid_tls_security: &DruidTlsSecurity,
     druid_auth_settings: &Option<DruidAuthenticationConfig>,
 ) -> Vec<String> {
@@ -82,8 +82,9 @@ mod tests {
 
     #[test]
     fn test_additional_extensions() {
-        let cluster =
-            deserialize_yaml_file::<DruidCluster>("test/resources/druid_controller/simple.yaml");
+        let cluster = deserialize_yaml_file::<v1alpha1::DruidCluster>(
+            "test/resources/druid_controller/simple.yaml",
+        );
 
         assert_eq!(
             cluster.spec.cluster_config.additional_extensions,

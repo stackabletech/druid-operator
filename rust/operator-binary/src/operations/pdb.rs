@@ -5,7 +5,7 @@ use stackable_operator::{
 };
 
 use crate::{
-    crd::{DruidCluster, DruidRole, APP_NAME, OPERATOR_NAME},
+    crd::{v1alpha1, DruidRole, APP_NAME, OPERATOR_NAME},
     druid_controller::DRUID_CONTROLLER_NAME,
 };
 
@@ -25,7 +25,7 @@ pub enum Error {
 
 pub async fn add_pdbs(
     pdb: &PdbConfig,
-    druid: &DruidCluster,
+    druid: &v1alpha1::DruidCluster,
     role: &DruidRole,
     client: &Client,
     cluster_resources: &mut ClusterResources,

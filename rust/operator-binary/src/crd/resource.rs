@@ -258,7 +258,7 @@ mod test {
     use crate::crd::{
         storage::{default_free_percentage_empty_dir, HistoricalStorage},
         tests::deserialize_yaml_file,
-        DruidCluster, MiddleManagerConfig,
+        v1alpha1, MiddleManagerConfig,
     };
 
     #[rstest]
@@ -394,7 +394,7 @@ mod test {
         #[case] third: Option<ResourcesFragment<HistoricalStorage>>,
         #[case] expected: Resources<HistoricalStorage>,
     ) {
-        let got = DruidCluster::merged_rolegroup_config(
+        let got = v1alpha1::DruidCluster::merged_rolegroup_config(
             &first.unwrap_or_default(),
             &second.unwrap_or_default(),
             &third.unwrap_or_default(),
@@ -405,7 +405,7 @@ mod test {
 
     #[test]
     fn test_resources() -> Result<(), Error> {
-        let cluster = deserialize_yaml_file::<DruidCluster>(
+        let cluster = deserialize_yaml_file::<v1alpha1::DruidCluster>(
             "test/resources/crd/resource_merge/druid_cluster.yaml",
         );
 
@@ -481,7 +481,7 @@ mod test {
 
     #[test]
     fn test_segment_cache() -> Result<(), Error> {
-        let cluster = deserialize_yaml_file::<DruidCluster>(
+        let cluster = deserialize_yaml_file::<v1alpha1::DruidCluster>(
             "test/resources/crd/resource_merge/segment_cache.yaml",
         );
 

@@ -90,7 +90,7 @@ mod tests {
     };
 
     use super::*;
-    use crate::crd::DruidCluster;
+    use crate::crd::v1alpha1;
 
     #[rstest]
     #[case(DruidRole::Coordinator)]
@@ -141,7 +141,7 @@ mod tests {
                 replicas: 1
         "#;
         let deserializer = serde_yaml::Deserializer::from_str(input);
-        let druid: DruidCluster =
+        let druid: v1alpha1::DruidCluster =
             serde_yaml::with::singleton_map_recursive::deserialize(deserializer).unwrap();
         let merged_config = druid
             .merged_config()

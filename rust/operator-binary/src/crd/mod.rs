@@ -41,6 +41,7 @@ use stackable_operator::{
         COMMON_BASH_TRAP_FUNCTIONS,
     },
 };
+use stackable_versioned::versioned;
 use strum::{Display, EnumDiscriminants, EnumIter, EnumString, IntoStaticStr};
 
 use crate::crd::{
@@ -179,50 +180,52 @@ pub enum Error {
     FragmentValidationFailure { source: ValidationError },
 }
 
-/// A Druid cluster stacklet. This resource is managed by the Stackable operator for Apache Druid.
-/// Find more information on how to use it and the resources that the operator generates in the
-/// [operator documentation](DOCS_BASE_URL_PLACEHOLDER/druid/).
-#[derive(Clone, CustomResource, Debug, Deserialize, JsonSchema, Serialize)]
-#[kube(
-    group = "druid.stackable.tech",
-    version = "v1alpha1",
-    kind = "DruidCluster",
-    plural = "druidclusters",
-    shortname = "druid",
-    status = "DruidClusterStatus",
-    namespaced,
-    crates(
-        kube_core = "stackable_operator::kube::core",
-        k8s_openapi = "stackable_operator::k8s_openapi",
-        schemars = "stackable_operator::schemars"
-    )
-)]
-#[serde(rename_all = "camelCase")]
-pub struct DruidClusterSpec {
-    /// Common cluster wide configuration that can not differ or be overridden on a role or role group level.
-    pub cluster_config: DruidClusterConfig,
+#[versioned(version(name = "v1alpha1"))]
+pub mod versioned {
+    /// A Druid cluster stacklet. This resource is managed by the Stackable operator for Apache Druid.
+    /// Find more information on how to use it and the resources that the operator generates in the
+    /// [operator documentation](DOCS_BASE_URL_PLACEHOLDER/druid/).
+    #[versioned(k8s(
+        group = "druid.stackable.tech",
+        kind = "DruidCluster",
+        plural = "druidclusters",
+        shortname = "druid",
+        status = "DruidClusterStatus",
+        namespaced,
+        crates(
+            kube_core = "stackable_operator::kube::core",
+            k8s_openapi = "stackable_operator::k8s_openapi",
+            schemars = "stackable_operator::schemars"
+        )
+    ))]
+    #[derive(Clone, CustomResource, Debug, Deserialize, JsonSchema, Serialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct DruidClusterSpec {
+        /// Common cluster wide configuration that can not differ or be overridden on a role or role group level.
+        pub cluster_config: DruidClusterConfig,
 
-    // no doc - docs provided by the struct.
-    pub image: ProductImage,
+        // no doc - docs provided by the struct.
+        pub image: ProductImage,
 
-    // no doc - docs provided by the struct.
-    pub brokers: Role<BrokerConfigFragment>,
+        // no doc - docs provided by the struct.
+        pub brokers: Role<BrokerConfigFragment>,
 
-    // no doc - docs provided by the struct.
-    pub coordinators: Role<CoordinatorConfigFragment>,
+        // no doc - docs provided by the struct.
+        pub coordinators: Role<CoordinatorConfigFragment>,
 
-    // no doc - docs provided by the struct.
-    pub historicals: Role<HistoricalConfigFragment>,
+        // no doc - docs provided by the struct.
+        pub historicals: Role<HistoricalConfigFragment>,
 
-    // no doc - docs provided by the struct.
-    pub middle_managers: Role<MiddleManagerConfigFragment>,
+        // no doc - docs provided by the struct.
+        pub middle_managers: Role<MiddleManagerConfigFragment>,
 
-    // no doc - docs provided by the struct.
-    pub routers: Role<RouterConfigFragment>,
+        // no doc - docs provided by the struct.
+        pub routers: Role<RouterConfigFragment>,
 
-    // no doc - docs provided by the struct.
-    #[serde(default)]
-    pub cluster_operation: ClusterOperation,
+        // no doc - docs provided by the struct.
+        #[serde(default)]
+        pub cluster_operation: ClusterOperation,
+    }
 }
 
 #[derive(
@@ -617,7 +620,7 @@ impl DruidRole {
 }
 
 // Required to retrieve the conditions from the cluster status
-impl HasStatusCondition for DruidCluster {
+impl HasStatusCondition for v1alpha1::DruidCluster {
     fn conditions(&self) -> Vec<ClusterCondition> {
         match &self.status {
             Some(status) => status.conditions.clone(),
@@ -626,7 +629,7 @@ impl HasStatusCondition for DruidCluster {
     }
 }
 
-impl DruidCluster {
+impl v1alpha1::DruidCluster {
     pub fn common_compute_files(
         &self,
         file: &str,
@@ -709,7 +712,7 @@ impl DruidCluster {
         String,
         (
             Vec<PropertyNameKind>,
-            Role<impl Configuration<Configurable = DruidCluster>>,
+            Role<impl Configuration<Configurable = v1alpha1::DruidCluster>>,
         ),
     > {
         let config_files = vec![
@@ -856,11 +859,11 @@ impl DruidCluster {
         let deep_storage = &self.spec.cluster_config.deep_storage;
 
         Ok(MergedConfig {
-            brokers: DruidCluster::merged_role(
+            brokers: v1alpha1::DruidCluster::merged_role(
                 &self.spec.brokers,
                 &BrokerConfig::default_config(&self.name_any(), &DruidRole::Broker, deep_storage),
             )?,
-            coordinators: DruidCluster::merged_role(
+            coordinators: v1alpha1::DruidCluster::merged_role(
                 &self.spec.coordinators,
                 &CoordinatorConfig::default_config(
                     &self.name_any(),
@@ -868,7 +871,7 @@ impl DruidCluster {
                     deep_storage,
                 ),
             )?,
-            historicals: DruidCluster::merged_role(
+            historicals: v1alpha1::DruidCluster::merged_role(
                 &self.spec.historicals,
                 &HistoricalConfig::default_config(
                     &self.name_any(),
@@ -876,7 +879,7 @@ impl DruidCluster {
                     deep_storage,
                 ),
             )?,
-            middle_managers: DruidCluster::merged_role(
+            middle_managers: v1alpha1::DruidCluster::merged_role(
                 &self.spec.middle_managers,
                 &MiddleManagerConfig::default_config(
                     &self.name_any(),
@@ -884,7 +887,7 @@ impl DruidCluster {
                     deep_storage,
                 ),
             )?,
-            routers: DruidCluster::merged_role(
+            routers: v1alpha1::DruidCluster::merged_role(
                 &self.spec.routers,
                 &RouterConfig::default_config(&self.name_any(), &DruidRole::Router, deep_storage),
             )?,
@@ -903,8 +906,11 @@ impl DruidCluster {
         let mut merged_role_config = HashMap::new();
 
         for (rolegroup_name, rolegroup) in &role.role_groups {
-            let merged_rolegroup_config =
-                DruidCluster::merged_rolegroup(rolegroup, &role.config.config, default_config)?;
+            let merged_rolegroup_config = v1alpha1::DruidCluster::merged_rolegroup(
+                rolegroup,
+                &role.config.config,
+                default_config,
+            )?;
             merged_role_config.insert(rolegroup_name.to_owned(), merged_rolegroup_config);
         }
 
@@ -921,7 +927,7 @@ impl DruidCluster {
         T: FromFragment,
         T::Fragment: Clone + Merge,
     {
-        let merged_config = DruidCluster::merged_rolegroup_config(
+        let merged_config = v1alpha1::DruidCluster::merged_rolegroup_config(
             &rolegroup.config.config,
             role_config,
             default_config,
@@ -1078,6 +1084,7 @@ impl DeepStorageSpec {
     pub fn is_hdfs(&self) -> bool {
         matches!(self, DeepStorageSpec::Hdfs(_))
     }
+
     pub fn is_s3(&self) -> bool {
         matches!(self, DeepStorageSpec::S3(_))
     }
@@ -1363,7 +1370,7 @@ impl HistoricalConfig {
 }
 
 impl Configuration for BrokerConfigFragment {
-    type Configurable = DruidCluster;
+    type Configurable = v1alpha1::DruidCluster;
 
     fn compute_env(
         &self,
@@ -1393,7 +1400,7 @@ impl Configuration for BrokerConfigFragment {
 }
 
 impl Configuration for HistoricalConfigFragment {
-    type Configurable = DruidCluster;
+    type Configurable = v1alpha1::DruidCluster;
 
     fn compute_env(
         &self,
@@ -1423,7 +1430,7 @@ impl Configuration for HistoricalConfigFragment {
 }
 
 impl Configuration for RouterConfigFragment {
-    type Configurable = DruidCluster;
+    type Configurable = v1alpha1::DruidCluster;
 
     fn compute_env(
         &self,
@@ -1453,7 +1460,7 @@ impl Configuration for RouterConfigFragment {
 }
 
 impl Configuration for MiddleManagerConfigFragment {
-    type Configurable = DruidCluster;
+    type Configurable = v1alpha1::DruidCluster;
 
     fn compute_env(
         &self,
@@ -1492,7 +1499,7 @@ impl Configuration for MiddleManagerConfigFragment {
 }
 
 impl Configuration for CoordinatorConfigFragment {
-    type Configurable = DruidCluster;
+    type Configurable = v1alpha1::DruidCluster;
 
     fn compute_env(
         &self,
@@ -1563,7 +1570,7 @@ mod tests {
 
     #[test]
     fn test_service_name_generation() {
-        let cluster = deserialize_yaml_file::<DruidCluster>(
+        let cluster = deserialize_yaml_file::<v1alpha1::DruidCluster>(
             "test/resources/crd/role_service/druid_cluster.yaml",
         );
         let dummy_cluster_info = KubernetesClusterInfo {

@@ -22,7 +22,7 @@ use stackable_operator::{
 
 use crate::crd::{
     authentication::{self, AuthenticationClassesResolved},
-    DruidCluster, DruidRole, METRICS_PORT, STACKABLE_TRUST_STORE, STACKABLE_TRUST_STORE_PASSWORD,
+    v1alpha1, DruidRole, METRICS_PORT, STACKABLE_TRUST_STORE, STACKABLE_TRUST_STORE_PASSWORD,
 };
 
 #[derive(Snafu, Debug)]
@@ -117,7 +117,7 @@ impl DruidTlsSecurity {
     /// Create a `DruidTlsSecurity` struct from the Druid custom resource and resolve
     /// all provided `AuthenticationClass` references.
     pub fn new_from_druid_cluster(
-        druid: &DruidCluster,
+        druid: &v1alpha1::DruidCluster,
         auth_classes: &AuthenticationClassesResolved,
     ) -> Self {
         DruidTlsSecurity {
