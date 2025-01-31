@@ -37,7 +37,7 @@ pub enum Error {
     },
 }
 
-/// Builds discovery [`ConfigMap`]s for connecting to a [`DruidCluster`]
+/// Builds discovery [`ConfigMap`]s for connecting to a [`v1alpha1::DruidCluster`].
 pub async fn build_discovery_configmaps(
     druid: &v1alpha1::DruidCluster,
     owner: &impl Resource<DynamicType = ()>,
@@ -56,7 +56,7 @@ pub async fn build_discovery_configmaps(
     )?])
 }
 
-/// Build a discovery [`ConfigMap`] containing information about how to connect to a certain [`DruidCluster`]
+/// Build a discovery [`ConfigMap`] containing information about how to connect to a certain [`v1alpha1::DruidCluster`].
 fn build_discovery_configmap(
     druid: &v1alpha1::DruidCluster,
     owner: &impl Resource<DynamicType = ()>,
