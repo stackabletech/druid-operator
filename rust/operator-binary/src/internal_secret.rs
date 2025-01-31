@@ -1,13 +1,17 @@
-use snafu::{OptionExt, ResultExt, Snafu};
-use stackable_druid_crd::security::INTERNAL_INITIAL_CLIENT_PASSWORD_ENV;
-use stackable_druid_crd::{DruidCluster, COOKIE_PASSPHRASE_ENV};
-use stackable_operator::k8s_openapi::api::core::v1::{EnvVar, EnvVarSource, SecretKeySelector};
-use stackable_operator::kube::ResourceExt;
-use stackable_operator::{
-    builder::meta::ObjectMetaBuilder, client::Client, k8s_openapi::api::core::v1::Secret,
-};
 use std::collections::{BTreeMap, HashSet};
+
+use snafu::{OptionExt, ResultExt, Snafu};
+use stackable_operator::{
+    builder::meta::ObjectMetaBuilder,
+    client::Client,
+    k8s_openapi::api::core::v1::{EnvVar, EnvVarSource, Secret, SecretKeySelector},
+    kube::ResourceExt,
+};
 use strum::{EnumDiscriminants, IntoStaticStr};
+
+use crate::crd::{
+    security::INTERNAL_INITIAL_CLIENT_PASSWORD_ENV, DruidCluster, COOKIE_PASSPHRASE_ENV,
+};
 
 #[derive(Snafu, Debug, EnumDiscriminants)]
 #[strum_discriminants(derive(IntoStaticStr))]

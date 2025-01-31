@@ -7,7 +7,7 @@ use stackable_operator::{
     memory::{BinaryMultiple, MemoryQuantity},
 };
 
-use crate::{
+use crate::crd::{
     storage::HistoricalStorage, PROCESSING_BUFFER_SIZE_BYTES, PROCESSING_NUM_MERGE_BUFFERS,
     PROCESSING_NUM_THREADS,
 };
@@ -167,8 +167,9 @@ fn format_for_druid(memory_quantity: &MemoryQuantity) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use rstest::*;
+
+    use super::*;
 
     #[rstest]
     #[case(1000, 1)]

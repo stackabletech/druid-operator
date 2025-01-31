@@ -31,8 +31,9 @@ pub fn tls_default() -> Option<String> {
 
 #[cfg(test)]
 mod tests {
-    use crate::{tests::deserialize_yaml_str, tls::DruidTls, DruidClusterConfig};
     use indoc::formatdoc;
+
+    use crate::crd::{tests::deserialize_yaml_str, tls::DruidTls, DruidClusterConfig};
 
     const BASE_DRUID_CONFIGURATION: &str = r#"
 deepStorage:

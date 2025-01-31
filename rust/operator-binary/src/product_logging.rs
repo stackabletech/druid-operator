@@ -1,8 +1,4 @@
 use snafu::{OptionExt, ResultExt, Snafu};
-use stackable_druid_crd::{
-    Container, DruidCluster, DRUID_LOG_FILE, LOG4J2_CONFIG, MAX_DRUID_LOG_FILES_SIZE,
-    STACKABLE_LOG_DIR,
-};
 use stackable_operator::{
     builder::configmap::ConfigMapBuilder,
     client::Client,
@@ -14,6 +10,11 @@ use stackable_operator::{
         spec::{ContainerLogConfig, ContainerLogConfigChoice, Logging},
     },
     role_utils::RoleGroupRef,
+};
+
+use crate::crd::{
+    Container, DruidCluster, DRUID_LOG_FILE, LOG4J2_CONFIG, MAX_DRUID_LOG_FILES_SIZE,
+    STACKABLE_LOG_DIR,
 };
 
 #[derive(Snafu, Debug)]

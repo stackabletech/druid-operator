@@ -1,8 +1,5 @@
-use crate::{
-    authentication::{self, AuthenticationClassesResolved},
-    DruidCluster, DruidRole, METRICS_PORT,
-};
-use crate::{STACKABLE_TRUST_STORE, STACKABLE_TRUST_STORE_PASSWORD};
+use std::collections::BTreeMap;
+
 use snafu::{ResultExt, Snafu};
 use stackable_operator::{
     builder::{
@@ -23,7 +20,10 @@ use stackable_operator::{
     time::Duration,
 };
 
-use std::collections::BTreeMap;
+use crate::crd::{
+    authentication::{self, AuthenticationClassesResolved},
+    DruidCluster, DruidRole, METRICS_PORT, STACKABLE_TRUST_STORE, STACKABLE_TRUST_STORE_PASSWORD,
+};
 
 #[derive(Snafu, Debug)]
 pub enum Error {

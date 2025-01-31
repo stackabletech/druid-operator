@@ -12,16 +12,6 @@ use product_config::{
     ProductConfigManager,
 };
 use snafu::{OptionExt, ResultExt, Snafu};
-use stackable_druid_crd::{
-    authentication::AuthenticationClassesResolved, authorization::DruidAuthorization,
-    build_recommended_labels, build_string_list, security::DruidTlsSecurity, CommonRoleGroupConfig,
-    Container, DeepStorageSpec, DruidCluster, DruidClusterStatus, DruidRole, APP_NAME,
-    AUTH_AUTHORIZER_OPA_URI, CREDENTIALS_SECRET_PROPERTY, DB_PASSWORD_ENV, DB_USERNAME_ENV,
-    DRUID_CONFIG_DIRECTORY, DS_BUCKET, EXTENSIONS_LOADLIST, HDFS_CONFIG_DIRECTORY, JVM_CONFIG,
-    JVM_SECURITY_PROPERTIES_FILE, LOG_CONFIG_DIRECTORY, MAX_DRUID_LOG_FILES_SIZE, RUNTIME_PROPS,
-    RW_CONFIG_DIRECTORY, S3_ACCESS_KEY, S3_ENDPOINT_URL, S3_PATH_STYLE_ACCESS, S3_SECRET_KEY,
-    STACKABLE_LOG_DIR, ZOOKEEPER_CONNECTION_STRING,
-};
 use stackable_operator::{
     builder::{
         self,
@@ -76,12 +66,22 @@ use strum::{EnumDiscriminants, IntoStaticStr};
 use crate::{
     authentication::DruidAuthenticationConfig,
     config::get_jvm_config,
+    crd::{
+        authentication::AuthenticationClassesResolved, authorization::DruidAuthorization,
+        build_recommended_labels, build_string_list, security::DruidTlsSecurity,
+        CommonRoleGroupConfig, Container, DeepStorageSpec, DruidCluster, DruidClusterStatus,
+        DruidRole, APP_NAME, AUTH_AUTHORIZER_OPA_URI, CREDENTIALS_SECRET_PROPERTY, DB_PASSWORD_ENV,
+        DB_USERNAME_ENV, DRUID_CONFIG_DIRECTORY, DS_BUCKET, EXTENSIONS_LOADLIST,
+        HDFS_CONFIG_DIRECTORY, JVM_CONFIG, JVM_SECURITY_PROPERTIES_FILE, LOG_CONFIG_DIRECTORY,
+        MAX_DRUID_LOG_FILES_SIZE, OPERATOR_NAME, RUNTIME_PROPS, RW_CONFIG_DIRECTORY, S3_ACCESS_KEY,
+        S3_ENDPOINT_URL, S3_PATH_STYLE_ACCESS, S3_SECRET_KEY, STACKABLE_LOG_DIR,
+        ZOOKEEPER_CONNECTION_STRING,
+    },
     discovery::{self, build_discovery_configmaps},
     extensions::get_extension_list,
     internal_secret::{create_shared_internal_secret, env_var_from_secret},
     operations::{graceful_shutdown::add_graceful_shutdown_config, pdb::add_pdbs},
     product_logging::{extend_role_group_config_map, resolve_vector_aggregator_address},
-    OPERATOR_NAME,
 };
 
 pub const DRUID_CONTROLLER_NAME: &str = "druidcluster";
@@ -170,7 +170,7 @@ pub enum Error {
     },
 
     #[snafu(display("failed to get valid S3 connection"))]
-    GetS3Connection { source: stackable_druid_crd::Error },
+    GetS3Connection { source: crate::crd::Error },
 
     #[snafu(display("failed to configure S3 connection"))]
     ConfigureS3 { source: S3Error },
@@ -220,10 +220,10 @@ pub enum Error {
     },
 
     #[snafu(display("failed to resolve and merge config for role and role group"))]
-    FailedToResolveConfig { source: stackable_druid_crd::Error },
+    FailedToResolveConfig { source: crate::crd::Error },
 
     #[snafu(display("invalid configuration"))]
-    InvalidConfiguration { source: stackable_druid_crd::Error },
+    InvalidConfiguration { source: crate::crd::Error },
 
     #[snafu(display("failed to create cluster resources"))]
     CreateClusterResources {
@@ -245,27 +245,21 @@ pub enum Error {
     ObjectHasNoNamespace,
 
     #[snafu(display("failed to initialize security context"))]
-    FailedToInitializeSecurityContext {
-        source: stackable_druid_crd::security::Error,
-    },
+    FailedToInitializeSecurityContext { source: crate::crd::security::Error },
 
     #[snafu(display("failed to retrieve AuthenticationClass"))]
     AuthenticationClassRetrieval {
-        source: stackable_druid_crd::authentication::Error,
+        source: crate::crd::authentication::Error,
     },
 
     #[snafu(display("failed to get JVM config"))]
     GetJvmConfig { source: crate::config::Error },
 
     #[snafu(display("failed to derive Druid memory settings from resources"))]
-    DeriveMemorySettings {
-        source: stackable_druid_crd::resource::Error,
-    },
+    DeriveMemorySettings { source: crate::crd::resource::Error },
 
     #[snafu(display("failed to update Druid config from resources"))]
-    UpdateDruidConfigFromResources {
-        source: stackable_druid_crd::resource::Error,
-    },
+    UpdateDruidConfigFromResources { source: crate::crd::resource::Error },
 
     #[snafu(display("failed to retrieve secret for internal communications"))]
     FailedInternalSecretCreation {
@@ -1218,7 +1212,7 @@ fn add_hdfs_cm_volume_and_volume_mounts(
     pb: &mut PodBuilder,
 ) -> Result<()> {
     // hdfs deep storage mount
-    if let DeepStorageSpec::HDFS(hdfs) = deep_storage_spec {
+    if let DeepStorageSpec::Hdfs(hdfs) = deep_storage_spec {
         cb_druid
             .add_volume_mount(HDFS_CONFIG_VOLUME_NAME, HDFS_CONFIG_DIRECTORY)
             .context(AddVolumeMountSnafu)?;
@@ -1334,11 +1328,11 @@ pub fn error_policy(
 
 #[cfg(test)]
 mod test {
-    use super::*;
-
     use product_config::{writer, ProductConfigManager};
     use rstest::*;
-    use stackable_druid_crd::PROP_SEGMENT_CACHE_LOCATIONS;
+
+    use super::*;
+    use crate::crd::PROP_SEGMENT_CACHE_LOCATIONS;
 
     #[derive(Snafu, Debug, EnumDiscriminants)]
     #[strum_discriminants(derive(IntoStaticStr))]
@@ -1359,9 +1353,9 @@ mod test {
             source: stackable_operator::product_config_utils::Error,
         },
         #[snafu(display("failed to resolve and merge config for role and role group"))]
-        FailedToResolveConfig { source: stackable_druid_crd::Error },
+        FailedToResolveConfig { source: crate::crd::Error },
         #[snafu(display("invalid configuration"))]
-        InvalidConfiguration { source: stackable_druid_crd::Error },
+        InvalidConfiguration { source: crate::crd::Error },
     }
 
     #[rstest]

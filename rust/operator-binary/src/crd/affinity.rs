@@ -3,7 +3,7 @@ use stackable_operator::{
     k8s_openapi::api::core::v1::{PodAffinity, PodAntiAffinity},
 };
 
-use crate::{DeepStorageSpec, DruidRole, HdfsDeepStorageSpec, APP_NAME};
+use crate::crd::{DeepStorageSpec, DruidRole, HdfsDeepStorageSpec, APP_NAME};
 
 /// Please have a look at the architecture diagram in <https://druid.apache.org/assets/images/druid-architecture-7db1cd79d2d70b2e5ccc73b6bebfcaa4.svg>
 /// to understand which roles do communicate with each other.
@@ -32,7 +32,7 @@ pub fn get_affinity(
         DruidRole::Historical |
         // Ingests data
         DruidRole::MiddleManager => {
-            if let DeepStorageSpec::HDFS(HdfsDeepStorageSpec {
+            if let DeepStorageSpec::Hdfs(HdfsDeepStorageSpec {
                 config_map_name: hdfs_discovery_cm_name,
                 ..
             }) = deep_storage
@@ -76,12 +76,9 @@ pub fn get_affinity(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-
-    use rstest::rstest;
     use std::collections::BTreeMap;
 
-    use crate::DruidCluster;
+    use rstest::rstest;
     use stackable_operator::{
         commons::affinity::StackableAffinity,
         k8s_openapi::{
@@ -91,6 +88,9 @@ mod tests {
             apimachinery::pkg::apis::meta::v1::LabelSelector,
         },
     };
+
+    use super::*;
+    use crate::crd::DruidCluster;
 
     #[rstest]
     #[case(DruidRole::Coordinator)]
