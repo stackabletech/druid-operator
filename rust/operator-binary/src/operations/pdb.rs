@@ -1,11 +1,13 @@
 use snafu::{ResultExt, Snafu};
-use stackable_druid_crd::{DruidCluster, DruidRole, APP_NAME, OPERATOR_NAME};
 use stackable_operator::{
     builder::pdb::PodDisruptionBudgetBuilder, client::Client, cluster_resources::ClusterResources,
     commons::pdb::PdbConfig, kube::ResourceExt,
 };
 
-use crate::druid_controller::DRUID_CONTROLLER_NAME;
+use crate::{
+    crd::{DruidCluster, DruidRole, APP_NAME, OPERATOR_NAME},
+    druid_controller::DRUID_CONTROLLER_NAME,
+};
 
 #[derive(Snafu, Debug)]
 pub enum Error {

@@ -1,11 +1,6 @@
 use std::collections::BTreeMap;
 
 use snafu::Snafu;
-use stackable_druid_crd::{
-    authentication::{AuthenticationClassResolved, AuthenticationClassesResolved},
-    security::{ESCALATOR_INTERNAL_CLIENT_PASSWORD_ENV, INTERNAL_INITIAL_CLIENT_PASSWORD_ENV},
-    DruidCluster, DruidRole,
-};
 use stackable_operator::{
     builder::pod::{container::ContainerBuilder, PodBuilder},
     commons::{
@@ -20,10 +15,17 @@ use stackable_operator::{
     k8s_openapi::api::core::v1::EnvVar,
 };
 
+use crate::{
+    crd::{
+        authentication::{AuthenticationClassResolved, AuthenticationClassesResolved},
+        security::{ESCALATOR_INTERNAL_CLIENT_PASSWORD_ENV, INTERNAL_INITIAL_CLIENT_PASSWORD_ENV},
+        DruidCluster, DruidRole,
+    },
+    internal_secret::{build_shared_internal_secret_name, env_var_from_secret},
+};
+
 pub mod ldap;
 pub mod oidc;
-
-use crate::internal_secret::{build_shared_internal_secret_name, env_var_from_secret};
 
 type Result<T, E = Error> = std::result::Result<T, E>;
 

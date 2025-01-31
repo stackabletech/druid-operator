@@ -1,18 +1,4 @@
-pub mod affinity;
-pub mod authentication;
-pub mod authorization;
-pub mod memory;
-pub mod resource;
-pub mod security;
-pub mod storage;
-pub mod tls;
-
-use crate::{
-    affinity::get_affinity,
-    authorization::DruidAuthorization,
-    resource::RoleResource,
-    tls::{default_druid_tls, DruidTls},
-};
+use std::collections::{BTreeMap, HashMap, HashSet};
 
 use indoc::formatdoc;
 use product_config::types::PropertyNameKind;
@@ -55,8 +41,23 @@ use stackable_operator::{
         COMMON_BASH_TRAP_FUNCTIONS,
     },
 };
-use std::collections::{BTreeMap, HashMap, HashSet};
 use strum::{Display, EnumDiscriminants, EnumIter, EnumString, IntoStaticStr};
+
+use crate::crd::{
+    affinity::get_affinity,
+    authorization::DruidAuthorization,
+    resource::RoleResource,
+    tls::{default_druid_tls, DruidTls},
+};
+
+pub mod affinity;
+pub mod authentication;
+pub mod authorization;
+pub mod memory;
+pub mod resource;
+pub mod security;
+pub mod storage;
+pub mod tls;
 
 pub const APP_NAME: &str = "druid";
 pub const OPERATOR_NAME: &str = "druid.stackable.tech";
@@ -690,7 +691,7 @@ impl DruidCluster {
                     Some(self.spec.cluster_config.deep_storage.to_string()),
                 );
                 match self.spec.cluster_config.deep_storage.clone() {
-                    DeepStorageSpec::HDFS(hdfs) => {
+                    DeepStorageSpec::Hdfs(hdfs) => {
                         result.insert(DS_DIRECTORY.to_string(), Some(hdfs.directory));
                     }
                     DeepStorageSpec::S3(s3_spec) => {
@@ -1076,7 +1077,7 @@ pub enum DeepStorageSpec {
     /// You can run an HDFS cluster with the [Stackable operator for Apache HDFS](DOCS_BASE_URL_PLACEHOLDER/hdfs/).
     #[serde(rename = "hdfs")]
     #[strum(serialize = "hdfs")]
-    HDFS(HdfsDeepStorageSpec),
+    Hdfs(HdfsDeepStorageSpec),
     /// [The S3 deep storage configuration](DOCS_BASE_URL_PLACEHOLDER/druid/usage-guide/deep-storage#_s3).
     #[strum(serialize = "s3")]
     S3(S3DeepStorageSpec),
@@ -1084,7 +1085,7 @@ pub enum DeepStorageSpec {
 
 impl DeepStorageSpec {
     pub fn is_hdfs(&self) -> bool {
-        matches!(self, DeepStorageSpec::HDFS(_))
+        matches!(self, DeepStorageSpec::Hdfs(_))
     }
     pub fn is_s3(&self) -> bool {
         matches!(self, DeepStorageSpec::S3(_))

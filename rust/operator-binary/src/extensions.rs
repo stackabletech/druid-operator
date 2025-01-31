@@ -1,9 +1,11 @@
 use std::collections::HashSet;
 
-use stackable_druid_crd::{security::DruidTlsSecurity, DbType, DruidCluster};
 use tracing::debug;
 
-use crate::authentication::DruidAuthenticationConfig;
+use crate::{
+    authentication::DruidAuthenticationConfig,
+    crd::{security::DruidTlsSecurity, DbType, DruidCluster},
+};
 
 const EXT_S3: &str = "druid-s3-extensions";
 const EXT_KAFKA_INDEXING: &str = "druid-kafka-indexing-service";
@@ -70,15 +72,13 @@ pub fn get_extension_list(
 
 #[cfg(test)]
 mod tests {
-    use stackable_druid_crd::authentication::{
-        AuthenticationClassResolved, AuthenticationClassesResolved,
-    };
     use stackable_operator::commons::{
         authentication::oidc::{AuthenticationProvider, ClientAuthenticationOptions},
         tls_verification::TlsClientDetails,
     };
 
     use super::*;
+    use crate::crd::authentication::{AuthenticationClassResolved, AuthenticationClassesResolved};
 
     #[test]
     fn test_additional_extensions() {
