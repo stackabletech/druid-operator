@@ -1563,8 +1563,9 @@ mod tests {
 
     #[test]
     fn test_service_name_generation() {
-        let cluster =
-            deserialize_yaml_file::<DruidCluster>("test/resources/role_service/druid_cluster.yaml");
+        let cluster = deserialize_yaml_file::<DruidCluster>(
+            "test/resources/crd/role_service/druid_cluster.yaml",
+        );
         let dummy_cluster_info = KubernetesClusterInfo {
             cluster_domain: DomainName::try_from("cluster.local").unwrap(),
         };

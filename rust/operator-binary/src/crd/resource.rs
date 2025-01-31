@@ -406,7 +406,7 @@ mod test {
     #[test]
     fn test_resources() -> Result<(), Error> {
         let cluster = deserialize_yaml_file::<DruidCluster>(
-            "test/resources/resource_merge/druid_cluster.yaml",
+            "test/resources/crd/resource_merge/druid_cluster.yaml",
         );
 
         let config = cluster.merged_config().unwrap();
@@ -482,7 +482,7 @@ mod test {
     #[test]
     fn test_segment_cache() -> Result<(), Error> {
         let cluster = deserialize_yaml_file::<DruidCluster>(
-            "test/resources/resource_merge/segment_cache.yaml",
+            "test/resources/crd/resource_merge/segment_cache.yaml",
         );
 
         // ---------- default role group
