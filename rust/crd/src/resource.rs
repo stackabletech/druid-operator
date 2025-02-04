@@ -1,13 +1,8 @@
-use std::collections::BTreeMap;
-use std::sync::LazyLock;
+use std::{collections::BTreeMap, sync::LazyLock};
 
-use crate::memory::{HistoricalDerivedSettings, RESERVED_OS_MEMORY};
-use crate::storage::{self, default_free_percentage_empty_dir_fragment};
-use crate::{DruidRole, PATH_SEGMENT_CACHE, PROP_SEGMENT_CACHE_LOCATIONS};
 use snafu::{OptionExt, ResultExt, Snafu};
-use stackable_operator::builder;
-use stackable_operator::memory::MemoryQuantity;
 use stackable_operator::{
+    builder,
     builder::pod::{container::ContainerBuilder, volume::VolumeBuilder, PodBuilder},
     commons::resources::{
         CpuLimitsFragment, MemoryLimits, MemoryLimitsFragment, NoRuntimeLimits,
@@ -17,8 +12,15 @@ use stackable_operator::{
         api::core::v1::{EmptyDirVolumeSource, ResourceRequirements},
         apimachinery::pkg::api::resource::Quantity,
     },
+    memory::MemoryQuantity,
 };
 use strum::{EnumDiscriminants, IntoStaticStr};
+
+use crate::{
+    memory::{HistoricalDerivedSettings, RESERVED_OS_MEMORY},
+    storage::{self, default_free_percentage_empty_dir_fragment},
+    DruidRole, PATH_SEGMENT_CACHE, PROP_SEGMENT_CACHE_LOCATIONS,
+};
 
 // volume names
 const SEGMENT_CACHE_VOLUME_NAME: &str = "segment-cache";
@@ -242,13 +244,6 @@ pub static ROUTER_RESOURCES: LazyLock<ResourcesFragment<storage::DruidStorage, N
 
 #[cfg(test)]
 mod test {
-    use super::*;
-    use crate::{
-        storage::{default_free_percentage_empty_dir, HistoricalStorage},
-        tests::deserialize_yaml_file,
-        DruidCluster, MiddleManagerConfig,
-    };
-
     use rstest::*;
     use stackable_operator::{
         commons::resources::{
@@ -257,6 +252,13 @@ mod test {
         },
         k8s_openapi::apimachinery::pkg::api::resource::Quantity,
         role_utils::{CommonConfiguration, RoleGroup},
+    };
+
+    use super::*;
+    use crate::{
+        storage::{default_free_percentage_empty_dir, HistoricalStorage},
+        tests::deserialize_yaml_file,
+        DruidCluster, MiddleManagerConfig,
     };
 
     #[rstest]

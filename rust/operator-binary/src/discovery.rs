@@ -1,8 +1,6 @@
 //! Discovery for Druid.  We make Druid discoverable by putting a connection string to the router service
 //! inside a config map.  We only provide a connection string to the router service, since it serves as
 //! a gateway to the cluster for client queries.
-use crate::DRUID_CONTROLLER_NAME;
-
 use snafu::{OptionExt, ResultExt, Snafu};
 use stackable_druid_crd::{
     build_recommended_labels, security::DruidTlsSecurity, DruidCluster, DruidRole,
@@ -14,6 +12,8 @@ use stackable_operator::{
     kube::{runtime::reflector::ObjectRef, Resource, ResourceExt},
     utils::cluster_info::KubernetesClusterInfo,
 };
+
+use crate::DRUID_CONTROLLER_NAME;
 
 #[derive(Snafu, Debug)]
 pub enum Error {

@@ -1,10 +1,9 @@
 use indoc::formatdoc;
 use snafu::{ResultExt, Snafu};
-use stackable_druid_crd::security::DruidTlsSecurity;
-use stackable_druid_crd::DruidRole;
-use stackable_operator::k8s_openapi::api::core::v1::{ExecAction, LifecycleHandler};
+use stackable_druid_crd::{security::DruidTlsSecurity, DruidRole};
 use stackable_operator::{
     builder::pod::{container::ContainerBuilder, PodBuilder},
+    k8s_openapi::api::core::v1::{ExecAction, LifecycleHandler},
     time::Duration,
 };
 

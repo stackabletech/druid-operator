@@ -7,12 +7,7 @@ pub mod security;
 pub mod storage;
 pub mod tls;
 
-use crate::{
-    affinity::get_affinity,
-    authorization::DruidAuthorization,
-    resource::RoleResource,
-    tls::{default_druid_tls, DruidTls},
-};
+use std::collections::{BTreeMap, HashMap, HashSet};
 
 use indoc::formatdoc;
 use product_config::types::PropertyNameKind;
@@ -55,8 +50,14 @@ use stackable_operator::{
         COMMON_BASH_TRAP_FUNCTIONS,
     },
 };
-use std::collections::{BTreeMap, HashMap, HashSet};
 use strum::{Display, EnumDiscriminants, EnumIter, EnumString, IntoStaticStr};
+
+use crate::{
+    affinity::get_affinity,
+    authorization::DruidAuthorization,
+    resource::RoleResource,
+    tls::{default_druid_tls, DruidTls},
+};
 
 pub const APP_NAME: &str = "druid";
 pub const OPERATOR_NAME: &str = "druid.stackable.tech";
