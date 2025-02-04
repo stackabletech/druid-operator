@@ -304,321 +304,6 @@ pub mod versioned {
     }
 }
 
-#[derive(
-    Clone,
-    Debug,
-    Deserialize,
-    Display,
-    Eq,
-    EnumIter,
-    JsonSchema,
-    Ord,
-    PartialEq,
-    PartialOrd,
-    Serialize,
-)]
-#[serde(rename_all = "kebab-case")]
-#[strum(serialize_all = "kebab-case")]
-pub enum Container {
-    Druid,
-    Prepare,
-    Vector,
-}
-
-// TODO: Temporary solution until listener-operator is finished
-#[derive(Clone, Debug, Default, Display, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
-#[serde(rename_all = "PascalCase")]
-pub enum CurrentlySupportedListenerClasses {
-    #[default]
-    #[serde(rename = "cluster-internal")]
-    ClusterInternal,
-    #[serde(rename = "external-unstable")]
-    ExternalUnstable,
-    #[serde(rename = "external-stable")]
-    ExternalStable,
-}
-
-impl CurrentlySupportedListenerClasses {
-    pub fn k8s_service_type(&self) -> String {
-        match self {
-            CurrentlySupportedListenerClasses::ClusterInternal => "ClusterIP".to_string(),
-            CurrentlySupportedListenerClasses::ExternalUnstable => "NodePort".to_string(),
-            CurrentlySupportedListenerClasses::ExternalStable => "LoadBalancer".to_string(),
-        }
-    }
-}
-
-/// Common configuration for all role groups
-pub struct CommonRoleGroupConfig {
-    pub resources: RoleResource,
-    pub logging: Logging<Container>,
-    pub replicas: Option<u16>,
-    pub affinity: StackableAffinity,
-    pub graceful_shutdown_timeout: Option<Duration>,
-    pub requested_secret_lifetime: Duration,
-}
-
-/// Container for the merged and validated role group configurations
-///
-/// This structure contains for every role a map from the role group names to their configurations.
-/// The role group configurations are merged with the role and default configurations. The product
-/// configuration is not applied.
-pub struct MergedConfig {
-    /// Merged configuration of the broker role
-    pub brokers: HashMap<String, RoleGroup<BrokerConfig, GenericProductSpecificCommonConfig>>,
-    /// Merged configuration of the coordinator role
-    pub coordinators:
-        HashMap<String, RoleGroup<CoordinatorConfig, GenericProductSpecificCommonConfig>>,
-    /// Merged configuration of the historical role
-    pub historicals:
-        HashMap<String, RoleGroup<HistoricalConfig, GenericProductSpecificCommonConfig>>,
-    /// Merged configuration of the middle manager role
-    pub middle_managers:
-        HashMap<String, RoleGroup<MiddleManagerConfig, GenericProductSpecificCommonConfig>>,
-    /// Merged configuration of the router role
-    pub routers: HashMap<String, RoleGroup<RouterConfig, GenericProductSpecificCommonConfig>>,
-}
-
-impl MergedConfig {
-    /// Returns the common configuration for the given role and rolegroup name
-    pub fn common_config(
-        &self,
-        role: DruidRole,
-        rolegroup_name: &str,
-    ) -> Result<CommonRoleGroupConfig, Error> {
-        match role {
-            DruidRole::Broker => {
-                let rolegroup = self
-                    .brokers
-                    .get(rolegroup_name)
-                    .context(CannotRetrieveRoleGroupSnafu { rolegroup_name })?;
-                Ok(CommonRoleGroupConfig {
-                    resources: RoleResource::Druid(rolegroup.config.config.resources.to_owned()),
-                    logging: rolegroup.config.config.logging.to_owned(),
-                    replicas: rolegroup.replicas,
-                    affinity: rolegroup.config.config.affinity.clone(),
-                    graceful_shutdown_timeout: rolegroup.config.config.graceful_shutdown_timeout,
-                    requested_secret_lifetime: rolegroup
-                        .config
-                        .config
-                        .requested_secret_lifetime
-                        .context(MissingSecretLifetimeSnafu)?,
-                })
-            }
-            DruidRole::Coordinator => {
-                let rolegroup = self
-                    .coordinators
-                    .get(rolegroup_name)
-                    .context(CannotRetrieveRoleGroupSnafu { rolegroup_name })?;
-                Ok(CommonRoleGroupConfig {
-                    resources: RoleResource::Druid(rolegroup.config.config.resources.to_owned()),
-                    logging: rolegroup.config.config.logging.to_owned(),
-                    replicas: rolegroup.replicas,
-                    affinity: rolegroup.config.config.affinity.clone(),
-                    graceful_shutdown_timeout: rolegroup.config.config.graceful_shutdown_timeout,
-                    requested_secret_lifetime: rolegroup
-                        .config
-                        .config
-                        .requested_secret_lifetime
-                        .context(MissingSecretLifetimeSnafu)?,
-                })
-            }
-            DruidRole::Historical => {
-                let rolegroup = self
-                    .historicals
-                    .get(rolegroup_name)
-                    .context(CannotRetrieveRoleGroupSnafu { rolegroup_name })?;
-                Ok(CommonRoleGroupConfig {
-                    resources: RoleResource::Historical(
-                        rolegroup.config.config.resources.to_owned(),
-                    ),
-                    logging: rolegroup.config.config.logging.to_owned(),
-                    replicas: rolegroup.replicas,
-                    affinity: rolegroup.config.config.affinity.clone(),
-                    graceful_shutdown_timeout: rolegroup.config.config.graceful_shutdown_timeout,
-                    requested_secret_lifetime: rolegroup
-                        .config
-                        .config
-                        .requested_secret_lifetime
-                        .context(MissingSecretLifetimeSnafu)?,
-                })
-            }
-            DruidRole::MiddleManager => {
-                let rolegroup = self
-                    .middle_managers
-                    .get(rolegroup_name)
-                    .context(CannotRetrieveRoleGroupSnafu { rolegroup_name })?;
-                Ok(CommonRoleGroupConfig {
-                    resources: RoleResource::Druid(rolegroup.config.config.resources.to_owned()),
-                    logging: rolegroup.config.config.logging.to_owned(),
-                    replicas: rolegroup.replicas,
-                    affinity: rolegroup.config.config.affinity.clone(),
-                    graceful_shutdown_timeout: rolegroup.config.config.graceful_shutdown_timeout,
-                    requested_secret_lifetime: rolegroup
-                        .config
-                        .config
-                        .requested_secret_lifetime
-                        .context(MissingSecretLifetimeSnafu)?,
-                })
-            }
-            DruidRole::Router => {
-                let rolegroup = self
-                    .routers
-                    .get(rolegroup_name)
-                    .context(CannotRetrieveRoleGroupSnafu { rolegroup_name })?;
-                Ok(CommonRoleGroupConfig {
-                    resources: RoleResource::Druid(rolegroup.config.config.resources.to_owned()),
-                    logging: rolegroup.config.config.logging.to_owned(),
-                    replicas: rolegroup.replicas,
-                    affinity: rolegroup.config.config.affinity.clone(),
-                    graceful_shutdown_timeout: rolegroup.config.config.graceful_shutdown_timeout,
-                    requested_secret_lifetime: rolegroup
-                        .config
-                        .config
-                        .requested_secret_lifetime
-                        .context(MissingSecretLifetimeSnafu)?,
-                })
-            }
-        }
-    }
-}
-
-#[derive(
-    Clone,
-    Debug,
-    Deserialize,
-    Display,
-    EnumIter,
-    Eq,
-    Hash,
-    JsonSchema,
-    PartialEq,
-    Serialize,
-    EnumString,
-)]
-pub enum DruidRole {
-    #[strum(serialize = "coordinator")]
-    Coordinator,
-    #[strum(serialize = "broker")]
-    Broker,
-    #[strum(serialize = "historical")]
-    Historical,
-    #[strum(serialize = "middlemanager")]
-    MiddleManager,
-    #[strum(serialize = "router")]
-    Router,
-}
-
-impl DruidRole {
-    /// Returns the name of the internal druid process name associated with the role.
-    /// These strings are used by druid internally to identify processes.
-    fn get_process_name(&self) -> &str {
-        match &self {
-            DruidRole::Coordinator => "coordinator",
-            DruidRole::Broker => "broker",
-            DruidRole::Historical => "historical",
-            DruidRole::MiddleManager => "middleManager",
-            DruidRole::Router => "router",
-        }
-    }
-
-    /// Returns the http port for every role
-    pub fn get_http_port(&self) -> u16 {
-        match &self {
-            DruidRole::Coordinator => 8081,
-            DruidRole::Broker => 8082,
-            DruidRole::Historical => 8083,
-            DruidRole::MiddleManager => 8091,
-            DruidRole::Router => 8888,
-        }
-    }
-
-    /// Returns the https port for every role
-    pub fn get_https_port(&self) -> u16 {
-        match &self {
-            DruidRole::Coordinator => 8281,
-            DruidRole::Broker => 8282,
-            DruidRole::Historical => 8283,
-            DruidRole::MiddleManager => 8291,
-            DruidRole::Router => 9088,
-        }
-    }
-
-    /// Return the default graceful shutdown timeout
-    pub fn default_graceful_shutdown_timeout(&self) -> Duration {
-        match &self {
-            DruidRole::Coordinator => DEFAULT_COORDINATOR_GRACEFUL_SHUTDOWN_TIMEOUT,
-            DruidRole::Broker => DEFAULT_BROKER_GRACEFUL_SHUTDOWN_TIMEOUT,
-            DruidRole::Historical => DEFAULT_HISTORICAL_GRACEFUL_SHUTDOWN_TIMEOUT,
-            DruidRole::MiddleManager => DEFAULT_MIDDLEMANAGER_GRACEFUL_SHUTDOWN_TIMEOUT,
-            DruidRole::Router => DEFAULT_ROUTER_GRACEFUL_SHUTDOWN_TIMEOUT,
-        }
-    }
-
-    pub fn main_container_prepare_commands(
-        &self,
-        s3: Option<&ResolvedS3Connection>,
-    ) -> Vec<String> {
-        let mut commands = vec![];
-
-        if let Some(s3) = s3 {
-            if let Some(ca_cert_file) = s3.tls.tls_ca_cert_mount_path() {
-                // The alias can not clash, as we only support a single S3Connection
-                commands.push(format!("keytool -importcert -file {ca_cert_file} -alias stackable-s3-ca-cert -keystore {STACKABLE_TRUST_STORE} -storepass {STACKABLE_TRUST_STORE_PASSWORD} -noprompt"));
-            }
-        }
-
-        // copy druid config to rw config
-        commands.push(format!(
-            "cp -RL {conf}/* {rw_conf}",
-            conf = DRUID_CONFIG_DIRECTORY,
-            rw_conf = RW_CONFIG_DIRECTORY
-        ));
-
-        // copy log config to rw config
-        commands.push(format!(
-            "cp -RL {conf}/* {rw_conf}",
-            conf = LOG_CONFIG_DIRECTORY,
-            rw_conf = RW_CONFIG_DIRECTORY
-        ));
-
-        // copy hdfs config to RW_CONFIG_DIRECTORY folder (if available)
-        commands.push(format!(
-            "cp -RL {hdfs_conf}/* {rw_conf} 2>/dev/null || :", // NOTE: the OR part is here because the command is not applicable sometimes, and would stop everything else from executing
-            hdfs_conf = HDFS_CONFIG_DIRECTORY,
-            rw_conf = RW_CONFIG_DIRECTORY,
-        ));
-
-        commands.extend([
-            format!("config-utils template {RW_CONFIG_DIRECTORY}/runtime.properties",),
-            format!("if test -f {RW_CONFIG_DIRECTORY}/core-site.xml; then config-utils template {RW_CONFIG_DIRECTORY}/core-site.xml; fi",),
-            format!("if test -f {RW_CONFIG_DIRECTORY}/hdfs-site.xml; then config-utils template {RW_CONFIG_DIRECTORY}/hdfs-site.xml; fi",),
-        ]);
-
-        commands
-    }
-
-    pub fn main_container_start_command(&self) -> String {
-        // We need to store the druid process PID for the graceful shutdown lifecycle pre stop hook.
-        formatdoc! {"
-            {COMMON_BASH_TRAP_FUNCTIONS}
-            {remove_vector_shutdown_file_command}
-            prepare_signal_handlers
-            containerdebug --output={STACKABLE_LOG_DIR}/containerdebug-state.json --loop &
-            /stackable/druid/bin/run-druid {process_name} {RW_CONFIG_DIRECTORY} &
-            echo \"$!\" >> /tmp/DRUID_PID
-            wait_for_termination $(cat /tmp/DRUID_PID)
-            {create_vector_shutdown_file_command}
-            ",
-                process_name = self.get_process_name(),
-        remove_vector_shutdown_file_command =
-            remove_vector_shutdown_file_command(STACKABLE_LOG_DIR),
-        create_vector_shutdown_file_command =
-            create_vector_shutdown_file_command(STACKABLE_LOG_DIR),
-        }
-    }
-}
-
 // Required to retrieve the conditions from the cluster status
 impl HasStatusCondition for v1alpha1::DruidCluster {
     fn conditions(&self) -> Vec<ClusterCondition> {
@@ -1023,6 +708,321 @@ impl v1alpha1::DruidCluster {
                 .role_groups
                 .get(role_group)
                 .map(|rg| &rg.config.pod_overrides),
+        }
+    }
+}
+
+#[derive(
+    Clone,
+    Debug,
+    Deserialize,
+    Display,
+    Eq,
+    EnumIter,
+    JsonSchema,
+    Ord,
+    PartialEq,
+    PartialOrd,
+    Serialize,
+)]
+#[serde(rename_all = "kebab-case")]
+#[strum(serialize_all = "kebab-case")]
+pub enum Container {
+    Druid,
+    Prepare,
+    Vector,
+}
+
+// TODO: Temporary solution until listener-operator is finished
+#[derive(Clone, Debug, Default, Display, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
+#[serde(rename_all = "PascalCase")]
+pub enum CurrentlySupportedListenerClasses {
+    #[default]
+    #[serde(rename = "cluster-internal")]
+    ClusterInternal,
+    #[serde(rename = "external-unstable")]
+    ExternalUnstable,
+    #[serde(rename = "external-stable")]
+    ExternalStable,
+}
+
+impl CurrentlySupportedListenerClasses {
+    pub fn k8s_service_type(&self) -> String {
+        match self {
+            CurrentlySupportedListenerClasses::ClusterInternal => "ClusterIP".to_string(),
+            CurrentlySupportedListenerClasses::ExternalUnstable => "NodePort".to_string(),
+            CurrentlySupportedListenerClasses::ExternalStable => "LoadBalancer".to_string(),
+        }
+    }
+}
+
+/// Common configuration for all role groups
+pub struct CommonRoleGroupConfig {
+    pub resources: RoleResource,
+    pub logging: Logging<Container>,
+    pub replicas: Option<u16>,
+    pub affinity: StackableAffinity,
+    pub graceful_shutdown_timeout: Option<Duration>,
+    pub requested_secret_lifetime: Duration,
+}
+
+/// Container for the merged and validated role group configurations
+///
+/// This structure contains for every role a map from the role group names to their configurations.
+/// The role group configurations are merged with the role and default configurations. The product
+/// configuration is not applied.
+pub struct MergedConfig {
+    /// Merged configuration of the broker role
+    pub brokers: HashMap<String, RoleGroup<BrokerConfig, GenericProductSpecificCommonConfig>>,
+    /// Merged configuration of the coordinator role
+    pub coordinators:
+        HashMap<String, RoleGroup<CoordinatorConfig, GenericProductSpecificCommonConfig>>,
+    /// Merged configuration of the historical role
+    pub historicals:
+        HashMap<String, RoleGroup<HistoricalConfig, GenericProductSpecificCommonConfig>>,
+    /// Merged configuration of the middle manager role
+    pub middle_managers:
+        HashMap<String, RoleGroup<MiddleManagerConfig, GenericProductSpecificCommonConfig>>,
+    /// Merged configuration of the router role
+    pub routers: HashMap<String, RoleGroup<RouterConfig, GenericProductSpecificCommonConfig>>,
+}
+
+impl MergedConfig {
+    /// Returns the common configuration for the given role and rolegroup name
+    pub fn common_config(
+        &self,
+        role: DruidRole,
+        rolegroup_name: &str,
+    ) -> Result<CommonRoleGroupConfig, Error> {
+        match role {
+            DruidRole::Broker => {
+                let rolegroup = self
+                    .brokers
+                    .get(rolegroup_name)
+                    .context(CannotRetrieveRoleGroupSnafu { rolegroup_name })?;
+                Ok(CommonRoleGroupConfig {
+                    resources: RoleResource::Druid(rolegroup.config.config.resources.to_owned()),
+                    logging: rolegroup.config.config.logging.to_owned(),
+                    replicas: rolegroup.replicas,
+                    affinity: rolegroup.config.config.affinity.clone(),
+                    graceful_shutdown_timeout: rolegroup.config.config.graceful_shutdown_timeout,
+                    requested_secret_lifetime: rolegroup
+                        .config
+                        .config
+                        .requested_secret_lifetime
+                        .context(MissingSecretLifetimeSnafu)?,
+                })
+            }
+            DruidRole::Coordinator => {
+                let rolegroup = self
+                    .coordinators
+                    .get(rolegroup_name)
+                    .context(CannotRetrieveRoleGroupSnafu { rolegroup_name })?;
+                Ok(CommonRoleGroupConfig {
+                    resources: RoleResource::Druid(rolegroup.config.config.resources.to_owned()),
+                    logging: rolegroup.config.config.logging.to_owned(),
+                    replicas: rolegroup.replicas,
+                    affinity: rolegroup.config.config.affinity.clone(),
+                    graceful_shutdown_timeout: rolegroup.config.config.graceful_shutdown_timeout,
+                    requested_secret_lifetime: rolegroup
+                        .config
+                        .config
+                        .requested_secret_lifetime
+                        .context(MissingSecretLifetimeSnafu)?,
+                })
+            }
+            DruidRole::Historical => {
+                let rolegroup = self
+                    .historicals
+                    .get(rolegroup_name)
+                    .context(CannotRetrieveRoleGroupSnafu { rolegroup_name })?;
+                Ok(CommonRoleGroupConfig {
+                    resources: RoleResource::Historical(
+                        rolegroup.config.config.resources.to_owned(),
+                    ),
+                    logging: rolegroup.config.config.logging.to_owned(),
+                    replicas: rolegroup.replicas,
+                    affinity: rolegroup.config.config.affinity.clone(),
+                    graceful_shutdown_timeout: rolegroup.config.config.graceful_shutdown_timeout,
+                    requested_secret_lifetime: rolegroup
+                        .config
+                        .config
+                        .requested_secret_lifetime
+                        .context(MissingSecretLifetimeSnafu)?,
+                })
+            }
+            DruidRole::MiddleManager => {
+                let rolegroup = self
+                    .middle_managers
+                    .get(rolegroup_name)
+                    .context(CannotRetrieveRoleGroupSnafu { rolegroup_name })?;
+                Ok(CommonRoleGroupConfig {
+                    resources: RoleResource::Druid(rolegroup.config.config.resources.to_owned()),
+                    logging: rolegroup.config.config.logging.to_owned(),
+                    replicas: rolegroup.replicas,
+                    affinity: rolegroup.config.config.affinity.clone(),
+                    graceful_shutdown_timeout: rolegroup.config.config.graceful_shutdown_timeout,
+                    requested_secret_lifetime: rolegroup
+                        .config
+                        .config
+                        .requested_secret_lifetime
+                        .context(MissingSecretLifetimeSnafu)?,
+                })
+            }
+            DruidRole::Router => {
+                let rolegroup = self
+                    .routers
+                    .get(rolegroup_name)
+                    .context(CannotRetrieveRoleGroupSnafu { rolegroup_name })?;
+                Ok(CommonRoleGroupConfig {
+                    resources: RoleResource::Druid(rolegroup.config.config.resources.to_owned()),
+                    logging: rolegroup.config.config.logging.to_owned(),
+                    replicas: rolegroup.replicas,
+                    affinity: rolegroup.config.config.affinity.clone(),
+                    graceful_shutdown_timeout: rolegroup.config.config.graceful_shutdown_timeout,
+                    requested_secret_lifetime: rolegroup
+                        .config
+                        .config
+                        .requested_secret_lifetime
+                        .context(MissingSecretLifetimeSnafu)?,
+                })
+            }
+        }
+    }
+}
+
+#[derive(
+    Clone,
+    Debug,
+    Deserialize,
+    Display,
+    EnumIter,
+    Eq,
+    Hash,
+    JsonSchema,
+    PartialEq,
+    Serialize,
+    EnumString,
+)]
+pub enum DruidRole {
+    #[strum(serialize = "coordinator")]
+    Coordinator,
+    #[strum(serialize = "broker")]
+    Broker,
+    #[strum(serialize = "historical")]
+    Historical,
+    #[strum(serialize = "middlemanager")]
+    MiddleManager,
+    #[strum(serialize = "router")]
+    Router,
+}
+
+impl DruidRole {
+    /// Returns the name of the internal druid process name associated with the role.
+    /// These strings are used by druid internally to identify processes.
+    fn get_process_name(&self) -> &str {
+        match &self {
+            DruidRole::Coordinator => "coordinator",
+            DruidRole::Broker => "broker",
+            DruidRole::Historical => "historical",
+            DruidRole::MiddleManager => "middleManager",
+            DruidRole::Router => "router",
+        }
+    }
+
+    /// Returns the http port for every role
+    pub fn get_http_port(&self) -> u16 {
+        match &self {
+            DruidRole::Coordinator => 8081,
+            DruidRole::Broker => 8082,
+            DruidRole::Historical => 8083,
+            DruidRole::MiddleManager => 8091,
+            DruidRole::Router => 8888,
+        }
+    }
+
+    /// Returns the https port for every role
+    pub fn get_https_port(&self) -> u16 {
+        match &self {
+            DruidRole::Coordinator => 8281,
+            DruidRole::Broker => 8282,
+            DruidRole::Historical => 8283,
+            DruidRole::MiddleManager => 8291,
+            DruidRole::Router => 9088,
+        }
+    }
+
+    /// Return the default graceful shutdown timeout
+    pub fn default_graceful_shutdown_timeout(&self) -> Duration {
+        match &self {
+            DruidRole::Coordinator => DEFAULT_COORDINATOR_GRACEFUL_SHUTDOWN_TIMEOUT,
+            DruidRole::Broker => DEFAULT_BROKER_GRACEFUL_SHUTDOWN_TIMEOUT,
+            DruidRole::Historical => DEFAULT_HISTORICAL_GRACEFUL_SHUTDOWN_TIMEOUT,
+            DruidRole::MiddleManager => DEFAULT_MIDDLEMANAGER_GRACEFUL_SHUTDOWN_TIMEOUT,
+            DruidRole::Router => DEFAULT_ROUTER_GRACEFUL_SHUTDOWN_TIMEOUT,
+        }
+    }
+
+    pub fn main_container_prepare_commands(
+        &self,
+        s3: Option<&ResolvedS3Connection>,
+    ) -> Vec<String> {
+        let mut commands = vec![];
+
+        if let Some(s3) = s3 {
+            if let Some(ca_cert_file) = s3.tls.tls_ca_cert_mount_path() {
+                // The alias can not clash, as we only support a single S3Connection
+                commands.push(format!("keytool -importcert -file {ca_cert_file} -alias stackable-s3-ca-cert -keystore {STACKABLE_TRUST_STORE} -storepass {STACKABLE_TRUST_STORE_PASSWORD} -noprompt"));
+            }
+        }
+
+        // copy druid config to rw config
+        commands.push(format!(
+            "cp -RL {conf}/* {rw_conf}",
+            conf = DRUID_CONFIG_DIRECTORY,
+            rw_conf = RW_CONFIG_DIRECTORY
+        ));
+
+        // copy log config to rw config
+        commands.push(format!(
+            "cp -RL {conf}/* {rw_conf}",
+            conf = LOG_CONFIG_DIRECTORY,
+            rw_conf = RW_CONFIG_DIRECTORY
+        ));
+
+        // copy hdfs config to RW_CONFIG_DIRECTORY folder (if available)
+        commands.push(format!(
+            "cp -RL {hdfs_conf}/* {rw_conf} 2>/dev/null || :", // NOTE: the OR part is here because the command is not applicable sometimes, and would stop everything else from executing
+            hdfs_conf = HDFS_CONFIG_DIRECTORY,
+            rw_conf = RW_CONFIG_DIRECTORY,
+        ));
+
+        commands.extend([
+            format!("config-utils template {RW_CONFIG_DIRECTORY}/runtime.properties",),
+            format!("if test -f {RW_CONFIG_DIRECTORY}/core-site.xml; then config-utils template {RW_CONFIG_DIRECTORY}/core-site.xml; fi",),
+            format!("if test -f {RW_CONFIG_DIRECTORY}/hdfs-site.xml; then config-utils template {RW_CONFIG_DIRECTORY}/hdfs-site.xml; fi",),
+        ]);
+
+        commands
+    }
+
+    pub fn main_container_start_command(&self) -> String {
+        // We need to store the druid process PID for the graceful shutdown lifecycle pre stop hook.
+        formatdoc! {"
+            {COMMON_BASH_TRAP_FUNCTIONS}
+            {remove_vector_shutdown_file_command}
+            prepare_signal_handlers
+            containerdebug --output={STACKABLE_LOG_DIR}/containerdebug-state.json --loop &
+            /stackable/druid/bin/run-druid {process_name} {RW_CONFIG_DIRECTORY} &
+            echo \"$!\" >> /tmp/DRUID_PID
+            wait_for_termination $(cat /tmp/DRUID_PID)
+            {create_vector_shutdown_file_command}
+            ",
+                process_name = self.get_process_name(),
+        remove_vector_shutdown_file_command =
+            remove_vector_shutdown_file_command(STACKABLE_LOG_DIR),
+        create_vector_shutdown_file_command =
+            create_vector_shutdown_file_command(STACKABLE_LOG_DIR),
         }
     }
 }
