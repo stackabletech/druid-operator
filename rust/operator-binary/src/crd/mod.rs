@@ -202,7 +202,7 @@ pub mod versioned {
     #[serde(rename_all = "camelCase")]
     pub struct DruidClusterSpec {
         /// Common cluster wide configuration that can not differ or be overridden on a role or role group level.
-        pub cluster_config: DruidClusterConfig,
+        pub cluster_config: v1alpha1::DruidClusterConfig,
 
         // no doc - docs provided by the struct.
         pub image: ProductImage,
@@ -226,6 +226,82 @@ pub mod versioned {
         #[serde(default)]
         pub cluster_operation: ClusterOperation,
     }
+
+    #[derive(Clone, Debug, Deserialize, JsonSchema, Serialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct DruidClusterConfig {
+        /// Additional extensions to load in Druid.
+        /// The operator will automatically load all extensions needed based on the cluster
+        /// configuration, but for extra functionality which the operator cannot anticipate, it can
+        /// sometimes be necessary to load additional extensions.
+        /// Add configuration for additional extensions using [configuration override for Druid](https://docs.stackable.tech/home/stable/druid/usage-guide/configuration-and-environment-overrides).
+        #[serde(default)]
+        pub additional_extensions: HashSet<String>,
+
+        /// List of [AuthenticationClasses](DOCS_BASE_URL_PLACEHOLDER/concepts/authentication)
+        /// to use for authenticating users. TLS, LDAP and OIDC authentication are supported. More information in
+        /// the [Druid operator security documentation](DOCS_BASE_URL_PLACEHOLDER/druid/usage-guide/security#_authentication).
+        ///
+        /// For TLS: Please note that the SecretClass used to authenticate users needs to be the same
+        /// as the SecretClass used for internal communication.
+        #[serde(default)]
+        pub authentication: Vec<ClientAuthenticationDetails>,
+
+        /// Authorization settings for Druid like OPA
+        #[serde(skip_serializing_if = "Option::is_none")]
+        pub authorization: Option<DruidAuthorization>,
+
+        /// [Druid deep storage configuration](DOCS_BASE_URL_PLACEHOLDER/druid/usage-guide/deep-storage).
+        /// Only one backend can be used at a time. Either HDFS or S3 are supported.
+        pub deep_storage: DeepStorageSpec,
+
+        /// Configuration properties for data ingestion tasks.
+        #[serde(skip_serializing_if = "Option::is_none")]
+        pub ingestion: Option<IngestionSpec>,
+
+        /// Druid requires an SQL database to store metadata into. Specify connection information here.
+        pub metadata_storage_database: DatabaseConnectionSpec,
+
+        /// TLS encryption settings for Druid, more information in the
+        /// [security documentation](DOCS_BASE_URL_PLACEHOLDER/druid/usage-guide/security).
+        /// This setting only affects server and internal communication.
+        /// It does not affect client tls authentication, use `clusterConfig.authentication` instead.
+        #[serde(default = "default_druid_tls", skip_serializing_if = "Option::is_none")]
+        pub tls: Option<DruidTls>,
+
+        /// Druid requires a ZooKeeper cluster connection to run.
+        /// Provide the name of the ZooKeeper [discovery ConfigMap](DOCS_BASE_URL_PLACEHOLDER/concepts/service_discovery)
+        /// here. When using the [Stackable operator for Apache ZooKeeper](DOCS_BASE_URL_PLACEHOLDER/zookeeper/)
+        /// to deploy a ZooKeeper cluster, this will simply be the name of your ZookeeperCluster resource.
+        pub zookeeper_config_map_name: String,
+
+        /// Name of the Vector aggregator [discovery ConfigMap](DOCS_BASE_URL_PLACEHOLDER/concepts/service_discovery).
+        /// It must contain the key `ADDRESS` with the address of the Vector aggregator.
+        /// Follow the [logging tutorial](DOCS_BASE_URL_PLACEHOLDER/tutorials/logging-vector-aggregator)
+        /// to learn how to configure log aggregation with Vector.
+        #[serde(skip_serializing_if = "Option::is_none")]
+        pub vector_aggregator_config_map_name: Option<String>,
+
+        /// Extra volumes similar to `.spec.volumes` on a Pod to mount into every container, this can be useful to for
+        /// example make client certificates, keytabs or similar things available to processors. These volumes will be
+        /// mounted into all pods at `/stackable/userdata/{volumename}`.
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        #[schemars(schema_with = "raw_object_list_schema")]
+        pub extra_volumes: Vec<Volume>,
+
+        /// This field controls which type of Service the Operator creates for this DruidCluster:
+        ///
+        /// * `cluster-internal`: Use a ClusterIP service
+        /// * `external-unstable`: Use a NodePort service
+        /// * `external-stable`: Use a LoadBalancer service
+        ///
+        /// This is a temporary solution with the goal to keep yaml manifests forward compatible.
+        /// In the future, this setting will control which
+        /// [ListenerClass](DOCS_BASE_URL_PLACEHOLDER/listener-operator/listenerclass.html)
+        /// will be used to expose the service, and ListenerClass names will stay the same, allowing for a non-breaking change.
+        #[serde(default)]
+        pub listener_class: CurrentlySupportedListenerClasses,
+    }
 }
 
 #[derive(
@@ -247,82 +323,6 @@ pub enum Container {
     Druid,
     Prepare,
     Vector,
-}
-
-#[derive(Clone, Debug, Deserialize, JsonSchema, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct DruidClusterConfig {
-    /// Additional extensions to load in Druid.
-    /// The operator will automatically load all extensions needed based on the cluster
-    /// configuration, but for extra functionality which the operator cannot anticipate, it can
-    /// sometimes be necessary to load additional extensions.
-    /// Add configuration for additional extensions using [configuration override for Druid](https://docs.stackable.tech/home/stable/druid/usage-guide/configuration-and-environment-overrides).
-    #[serde(default)]
-    pub additional_extensions: HashSet<String>,
-
-    /// List of [AuthenticationClasses](DOCS_BASE_URL_PLACEHOLDER/concepts/authentication)
-    /// to use for authenticating users. TLS, LDAP and OIDC authentication are supported. More information in
-    /// the [Druid operator security documentation](DOCS_BASE_URL_PLACEHOLDER/druid/usage-guide/security#_authentication).
-    ///
-    /// For TLS: Please note that the SecretClass used to authenticate users needs to be the same
-    /// as the SecretClass used for internal communication.
-    #[serde(default)]
-    pub authentication: Vec<ClientAuthenticationDetails>,
-
-    /// Authorization settings for Druid like OPA
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub authorization: Option<DruidAuthorization>,
-
-    /// [Druid deep storage configuration](DOCS_BASE_URL_PLACEHOLDER/druid/usage-guide/deep-storage).
-    /// Only one backend can be used at a time. Either HDFS or S3 are supported.
-    pub deep_storage: DeepStorageSpec,
-
-    /// Configuration properties for data ingestion tasks.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub ingestion: Option<IngestionSpec>,
-
-    /// Druid requires an SQL database to store metadata into. Specify connection information here.
-    pub metadata_storage_database: DatabaseConnectionSpec,
-
-    /// TLS encryption settings for Druid, more information in the
-    /// [security documentation](DOCS_BASE_URL_PLACEHOLDER/druid/usage-guide/security).
-    /// This setting only affects server and internal communication.
-    /// It does not affect client tls authentication, use `clusterConfig.authentication` instead.
-    #[serde(default = "default_druid_tls", skip_serializing_if = "Option::is_none")]
-    pub tls: Option<DruidTls>,
-
-    /// Druid requires a ZooKeeper cluster connection to run.
-    /// Provide the name of the ZooKeeper [discovery ConfigMap](DOCS_BASE_URL_PLACEHOLDER/concepts/service_discovery)
-    /// here. When using the [Stackable operator for Apache ZooKeeper](DOCS_BASE_URL_PLACEHOLDER/zookeeper/)
-    /// to deploy a ZooKeeper cluster, this will simply be the name of your ZookeeperCluster resource.
-    pub zookeeper_config_map_name: String,
-
-    /// Name of the Vector aggregator [discovery ConfigMap](DOCS_BASE_URL_PLACEHOLDER/concepts/service_discovery).
-    /// It must contain the key `ADDRESS` with the address of the Vector aggregator.
-    /// Follow the [logging tutorial](DOCS_BASE_URL_PLACEHOLDER/tutorials/logging-vector-aggregator)
-    /// to learn how to configure log aggregation with Vector.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub vector_aggregator_config_map_name: Option<String>,
-
-    /// Extra volumes similar to `.spec.volumes` on a Pod to mount into every container, this can be useful to for
-    /// example make client certificates, keytabs or similar things available to processors. These volumes will be
-    /// mounted into all pods at `/stackable/userdata/{volumename}`.
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    #[schemars(schema_with = "raw_object_list_schema")]
-    pub extra_volumes: Vec<Volume>,
-
-    /// This field controls which type of Service the Operator creates for this DruidCluster:
-    ///
-    /// * `cluster-internal`: Use a ClusterIP service
-    /// * `external-unstable`: Use a NodePort service
-    /// * `external-stable`: Use a LoadBalancer service
-    ///
-    /// This is a temporary solution with the goal to keep yaml manifests forward compatible.
-    /// In the future, this setting will control which
-    /// [ListenerClass](DOCS_BASE_URL_PLACEHOLDER/listener-operator/listenerclass.html)
-    /// will be used to expose the service, and ListenerClass names will stay the same, allowing for a non-breaking change.
-    #[serde(default)]
-    pub listener_class: CurrentlySupportedListenerClasses,
 }
 
 // TODO: Temporary solution until listener-operator is finished

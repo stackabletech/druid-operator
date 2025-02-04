@@ -12,7 +12,7 @@ use stackable_operator::{
 };
 use tracing::info;
 
-use crate::crd::DruidClusterConfig;
+use crate::crd::v1alpha1::DruidClusterConfig;
 
 type Result<T, E = Error> = std::result::Result<T, E>;
 
@@ -230,7 +230,7 @@ mod tests {
     use stackable_operator::kube;
 
     use super::*;
-    use crate::crd::{authentication::AuthenticationClassesResolved, DruidClusterConfig};
+    use crate::crd::{authentication::AuthenticationClassesResolved, v1alpha1::DruidClusterConfig};
 
     const BASE_CLUSTER_CONFIG: &str = r#"
 deepStorage:
