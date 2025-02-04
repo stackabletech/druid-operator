@@ -167,8 +167,9 @@ fn format_for_druid(memory_quantity: &MemoryQuantity) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use rstest::*;
+
+    use super::*;
 
     #[rstest]
     #[case(1000, 1)]

@@ -232,19 +232,14 @@ impl AuthenticationClassesResolved {
 
 #[cfg(test)]
 mod tests {
-    use indoc::formatdoc;
-    use oidc::ClientAuthenticationOptions;
-
-    use crate::DruidClusterConfig;
-
     use std::pin::Pin;
 
-    use indoc::indoc;
+    use indoc::{formatdoc, indoc};
+    use oidc::ClientAuthenticationOptions;
     use stackable_operator::kube;
 
     use super::*;
-
-    use crate::authentication::AuthenticationClassesResolved;
+    use crate::{authentication::AuthenticationClassesResolved, DruidClusterConfig};
 
     const BASE_CLUSTER_CONFIG: &str = r#"
 deepStorage:

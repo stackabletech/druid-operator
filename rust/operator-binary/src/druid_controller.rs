@@ -1334,11 +1334,11 @@ pub fn error_policy(
 
 #[cfg(test)]
 mod test {
-    use super::*;
-
     use product_config::{writer, ProductConfigManager};
     use rstest::*;
     use stackable_druid_crd::PROP_SEGMENT_CACHE_LOCATIONS;
+
+    use super::*;
 
     #[derive(Snafu, Debug, EnumDiscriminants)]
     #[strum_discriminants(derive(IntoStaticStr))]

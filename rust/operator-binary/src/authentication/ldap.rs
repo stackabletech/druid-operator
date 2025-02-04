@@ -1,13 +1,12 @@
 use std::collections::BTreeMap;
 
 use snafu::ResultExt;
+use stackable_druid_crd::security::{
+    add_cert_to_trust_store_cmd, STACKABLE_TLS_DIR, TLS_STORE_PASSWORD,
+};
 use stackable_operator::{
     builder::pod::{container::ContainerBuilder, PodBuilder},
     commons::authentication::ldap::AuthenticationProvider,
-};
-
-use stackable_druid_crd::security::{
-    add_cert_to_trust_store_cmd, STACKABLE_TLS_DIR, TLS_STORE_PASSWORD,
 };
 
 use crate::authentication::{

@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
-use stackable_operator::k8s_openapi::apimachinery::pkg::api::resource::Quantity;
 use stackable_operator::{
     config::{fragment::Fragment, merge::Merge},
+    k8s_openapi::apimachinery::pkg::api::resource::Quantity,
     schemars::{self, JsonSchema},
 };
 

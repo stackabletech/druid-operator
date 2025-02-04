@@ -13,10 +13,8 @@ use clap::{crate_description, crate_version, Parser};
 use druid_controller::{DRUID_CONTROLLER_NAME, FULL_CONTROLLER_NAME};
 use futures::StreamExt;
 use stackable_druid_crd::{DruidCluster, APP_NAME, OPERATOR_NAME};
-use stackable_operator::CustomResourceExt;
 use stackable_operator::{
-    cli::Command,
-    cli::ProductOperatorRun,
+    cli::{Command, ProductOperatorRun},
     k8s_openapi::api::{
         apps::v1::StatefulSet,
         core::v1::{ConfigMap, Service},
@@ -29,6 +27,7 @@ use stackable_operator::{
         },
     },
     logging::controller::report_controller_reconciled,
+    CustomResourceExt,
 };
 
 mod built_info {
