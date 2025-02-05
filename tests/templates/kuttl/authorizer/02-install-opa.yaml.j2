@@ -11,15 +11,15 @@ data:
 
     default allow = false
 
-    allow {
+    allow if {
       input.user == "alice"
     }
 
-    allow {
+    allow if {
       input.user == "admin"
     }
 
-    allow {
+    allow if {
       input.user == "druid_system"
     }
 ---
