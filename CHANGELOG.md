@@ -10,7 +10,7 @@ All notable changes to this project will be documented in this file.
 ￼ config property `requestedSecretLifetime`. This helps reducing frequent Pod restarts ([#660]).
 - Run a `containerdebug` process in the background of each "druid" container to collect debugging information ([#667]).
 - Aggregate emitted Kubernetes events on the CustomResources ([#677]).
-- Support Apache Druid `31.0.1` as experimental version and adjust memory limits of coordinator and middlemanager ([#685]).
+- Support Apache Druid `31.0.1` and adjust memory limits of coordinator and middlemanager ([#685]).
 
 ### Changed
 
