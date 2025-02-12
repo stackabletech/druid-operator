@@ -3,7 +3,7 @@ use stackable_operator::{
     k8s_openapi::api::core::v1::{PodAffinity, PodAntiAffinity},
 };
 
-use crate::{DeepStorageSpec, DruidRole, HdfsDeepStorageSpec, APP_NAME};
+use crate::crd::{DeepStorageSpec, DruidRole, HdfsDeepStorageSpec, APP_NAME};
 
 /// Please have a look at the architecture diagram in <https://druid.apache.org/assets/images/druid-architecture-7db1cd79d2d70b2e5ccc73b6bebfcaa4.svg>
 /// to understand which roles do communicate with each other.
@@ -32,7 +32,7 @@ pub fn get_affinity(
         DruidRole::Historical |
         // Ingests data
         DruidRole::MiddleManager => {
-            if let DeepStorageSpec::HDFS(HdfsDeepStorageSpec {
+            if let DeepStorageSpec::Hdfs(HdfsDeepStorageSpec {
                 config_map_name: hdfs_discovery_cm_name,
                 ..
             }) = deep_storage
@@ -90,7 +90,7 @@ mod tests {
     };
 
     use super::*;
-    use crate::DruidCluster;
+    use crate::crd::v1alpha1;
 
     #[rstest]
     #[case(DruidRole::Coordinator)]
@@ -141,7 +141,7 @@ mod tests {
                 replicas: 1
         "#;
         let deserializer = serde_yaml::Deserializer::from_str(input);
-        let druid: DruidCluster =
+        let druid: v1alpha1::DruidCluster =
             serde_yaml::with::singleton_map_recursive::deserialize(deserializer).unwrap();
         let merged_config = druid
             .merged_config()

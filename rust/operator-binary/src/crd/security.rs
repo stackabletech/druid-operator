@@ -20,9 +20,9 @@ use stackable_operator::{
     time::Duration,
 };
 
-use crate::{
+use crate::crd::{
     authentication::{self, AuthenticationClassesResolved},
-    DruidCluster, DruidRole, METRICS_PORT, STACKABLE_TRUST_STORE, STACKABLE_TRUST_STORE_PASSWORD,
+    v1alpha1, DruidRole, METRICS_PORT, STACKABLE_TRUST_STORE, STACKABLE_TRUST_STORE_PASSWORD,
 };
 
 #[derive(Snafu, Debug)]
@@ -103,6 +103,7 @@ pub const INTERNAL_INITIAL_CLIENT_PASSWORD_ENV: &str = "INTERNAL_INITIAL_CLIENT_
 pub const ESCALATOR_INTERNAL_CLIENT_PASSWORD_ENV: &str = INTERNAL_INITIAL_CLIENT_PASSWORD_ENV;
 
 impl DruidTlsSecurity {
+    #[cfg(test)]
     pub fn new(
         auth_classes: &AuthenticationClassesResolved,
         server_and_internal_secret_class: Option<String>,
@@ -116,7 +117,7 @@ impl DruidTlsSecurity {
     /// Create a `DruidTlsSecurity` struct from the Druid custom resource and resolve
     /// all provided `AuthenticationClass` references.
     pub fn new_from_druid_cluster(
-        druid: &DruidCluster,
+        druid: &v1alpha1::DruidCluster,
         auth_classes: &AuthenticationClassesResolved,
     ) -> Self {
         DruidTlsSecurity {

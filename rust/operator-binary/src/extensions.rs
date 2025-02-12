@@ -1,9 +1,11 @@
 use std::collections::HashSet;
 
-use stackable_druid_crd::{security::DruidTlsSecurity, DbType, DruidCluster};
 use tracing::debug;
 
-use crate::authentication::DruidAuthenticationConfig;
+use crate::{
+    authentication::DruidAuthenticationConfig,
+    crd::{security::DruidTlsSecurity, v1alpha1, DbType},
+};
 
 const EXT_S3: &str = "druid-s3-extensions";
 const EXT_KAFKA_INDEXING: &str = "druid-kafka-indexing-service";
@@ -18,7 +20,7 @@ const EXT_SIMPLE_CLIENT_SSL_CONTEXT: &str = "simple-client-sslcontext";
 const ENV_PAC4J: &str = "druid-pac4j";
 
 pub fn get_extension_list(
-    druid: &DruidCluster,
+    druid: &v1alpha1::DruidCluster,
     druid_tls_security: &DruidTlsSecurity,
     druid_auth_settings: &Option<DruidAuthenticationConfig>,
 ) -> Vec<String> {
@@ -70,20 +72,19 @@ pub fn get_extension_list(
 
 #[cfg(test)]
 mod tests {
-    use stackable_druid_crd::authentication::{
-        AuthenticationClassResolved, AuthenticationClassesResolved,
-    };
     use stackable_operator::commons::{
         authentication::oidc::{AuthenticationProvider, ClientAuthenticationOptions},
         tls_verification::TlsClientDetails,
     };
 
     use super::*;
+    use crate::crd::authentication::{AuthenticationClassResolved, AuthenticationClassesResolved};
 
     #[test]
     fn test_additional_extensions() {
-        let cluster =
-            deserialize_yaml_file::<DruidCluster>("test/resources/druid_controller/simple.yaml");
+        let cluster = deserialize_yaml_file::<v1alpha1::DruidCluster>(
+            "test/resources/druid_controller/simple.yaml",
+        );
 
         assert_eq!(
             cluster.spec.cluster_config.additional_extensions,

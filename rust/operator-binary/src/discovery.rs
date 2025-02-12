@@ -2,9 +2,6 @@
 //! inside a config map.  We only provide a connection string to the router service, since it serves as
 //! a gateway to the cluster for client queries.
 use snafu::{OptionExt, ResultExt, Snafu};
-use stackable_druid_crd::{
-    build_recommended_labels, security::DruidTlsSecurity, DruidCluster, DruidRole,
-};
 use stackable_operator::{
     builder::{configmap::ConfigMapBuilder, meta::ObjectMetaBuilder},
     commons::product_image_selection::ResolvedProductImage,
@@ -13,14 +10,17 @@ use stackable_operator::{
     utils::cluster_info::KubernetesClusterInfo,
 };
 
-use crate::DRUID_CONTROLLER_NAME;
+use crate::{
+    crd::{build_recommended_labels, security::DruidTlsSecurity, v1alpha1, DruidRole},
+    DRUID_CONTROLLER_NAME,
+};
 
 #[derive(Snafu, Debug)]
 pub enum Error {
     #[snafu(display("object {} is missing metadata to build owner reference", druid))]
     ObjectMissingMetadataForOwnerRef {
         source: stackable_operator::builder::meta::Error,
-        druid: ObjectRef<DruidCluster>,
+        druid: ObjectRef<v1alpha1::DruidCluster>,
     },
 
     #[snafu(display("failed to get service FQDN"))]
@@ -37,9 +37,9 @@ pub enum Error {
     },
 }
 
-/// Builds discovery [`ConfigMap`]s for connecting to a [`DruidCluster`]
+/// Builds discovery [`ConfigMap`]s for connecting to a [`v1alpha1::DruidCluster`].
 pub async fn build_discovery_configmaps(
-    druid: &DruidCluster,
+    druid: &v1alpha1::DruidCluster,
     owner: &impl Resource<DynamicType = ()>,
     cluster_info: &KubernetesClusterInfo,
     resolved_product_image: &ResolvedProductImage,
@@ -56,9 +56,9 @@ pub async fn build_discovery_configmaps(
     )?])
 }
 
-/// Build a discovery [`ConfigMap`] containing information about how to connect to a certain [`DruidCluster`]
+/// Build a discovery [`ConfigMap`] containing information about how to connect to a certain [`v1alpha1::DruidCluster`].
 fn build_discovery_configmap(
-    druid: &DruidCluster,
+    druid: &v1alpha1::DruidCluster,
     owner: &impl Resource<DynamicType = ()>,
     cluster_info: &KubernetesClusterInfo,
     resolved_product_image: &ResolvedProductImage,

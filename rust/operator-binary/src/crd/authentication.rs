@@ -12,7 +12,7 @@ use stackable_operator::{
 };
 use tracing::info;
 
-use crate::DruidClusterConfig;
+use crate::crd::v1alpha1::DruidClusterConfig;
 
 type Result<T, E = Error> = std::result::Result<T, E>;
 
@@ -219,15 +219,6 @@ impl AuthenticationClassesResolved {
         }
         false
     }
-
-    pub fn oidc_authentication_enabled(&self) -> bool {
-        if !self.auth_classes.is_empty() {
-            if let Some(AuthenticationClassResolved::Oidc { .. }) = self.auth_classes.first() {
-                return true;
-            }
-        }
-        false
-    }
 }
 
 #[cfg(test)]
@@ -239,7 +230,7 @@ mod tests {
     use stackable_operator::kube;
 
     use super::*;
-    use crate::{authentication::AuthenticationClassesResolved, DruidClusterConfig};
+    use crate::crd::{authentication::AuthenticationClassesResolved, v1alpha1::DruidClusterConfig};
 
     const BASE_CLUSTER_CONFIG: &str = r#"
 deepStorage:

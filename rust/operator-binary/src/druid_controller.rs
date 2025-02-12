@@ -1,4 +1,6 @@
-//! Ensures that `Pod`s are configured and running for each [`DruidCluster`]
+//! Ensures that `Pod`s are configured and running for each [`DruidCluster`][v1alpha1]
+//!
+//! [v1alpha1]: v1alpha1::DruidCluster
 use std::{
     collections::{BTreeMap, HashMap},
     str::FromStr,
@@ -12,16 +14,6 @@ use product_config::{
     ProductConfigManager,
 };
 use snafu::{OptionExt, ResultExt, Snafu};
-use stackable_druid_crd::{
-    authentication::AuthenticationClassesResolved, authorization::DruidAuthorization,
-    build_recommended_labels, build_string_list, security::DruidTlsSecurity, CommonRoleGroupConfig,
-    Container, DeepStorageSpec, DruidCluster, DruidClusterStatus, DruidRole, APP_NAME,
-    AUTH_AUTHORIZER_OPA_URI, CREDENTIALS_SECRET_PROPERTY, DB_PASSWORD_ENV, DB_USERNAME_ENV,
-    DRUID_CONFIG_DIRECTORY, DS_BUCKET, EXTENSIONS_LOADLIST, HDFS_CONFIG_DIRECTORY, JVM_CONFIG,
-    JVM_SECURITY_PROPERTIES_FILE, LOG_CONFIG_DIRECTORY, MAX_DRUID_LOG_FILES_SIZE, RUNTIME_PROPS,
-    RW_CONFIG_DIRECTORY, S3_ACCESS_KEY, S3_ENDPOINT_URL, S3_PATH_STYLE_ACCESS, S3_SECRET_KEY,
-    STACKABLE_LOG_DIR, ZOOKEEPER_CONNECTION_STRING,
-};
 use stackable_operator::{
     builder::{
         self,
@@ -76,12 +68,21 @@ use strum::{EnumDiscriminants, IntoStaticStr};
 use crate::{
     authentication::DruidAuthenticationConfig,
     config::get_jvm_config,
+    crd::{
+        authentication::AuthenticationClassesResolved, authorization::DruidAuthorization,
+        build_recommended_labels, build_string_list, security::DruidTlsSecurity, v1alpha1,
+        CommonRoleGroupConfig, Container, DeepStorageSpec, DruidClusterStatus, DruidRole, APP_NAME,
+        AUTH_AUTHORIZER_OPA_URI, CREDENTIALS_SECRET_PROPERTY, DB_PASSWORD_ENV, DB_USERNAME_ENV,
+        DRUID_CONFIG_DIRECTORY, DS_BUCKET, EXTENSIONS_LOADLIST, HDFS_CONFIG_DIRECTORY, JVM_CONFIG,
+        JVM_SECURITY_PROPERTIES_FILE, LOG_CONFIG_DIRECTORY, MAX_DRUID_LOG_FILES_SIZE,
+        OPERATOR_NAME, RUNTIME_PROPS, RW_CONFIG_DIRECTORY, S3_ACCESS_KEY, S3_ENDPOINT_URL,
+        S3_PATH_STYLE_ACCESS, S3_SECRET_KEY, STACKABLE_LOG_DIR, ZOOKEEPER_CONNECTION_STRING,
+    },
     discovery::{self, build_discovery_configmaps},
     extensions::get_extension_list,
     internal_secret::{create_shared_internal_secret, env_var_from_secret},
     operations::{graceful_shutdown::add_graceful_shutdown_config, pdb::add_pdbs},
     product_logging::{extend_role_group_config_map, resolve_vector_aggregator_address},
-    OPERATOR_NAME,
 };
 
 pub const DRUID_CONTROLLER_NAME: &str = "druidcluster";
@@ -115,25 +116,25 @@ pub enum Error {
     #[snafu(display("failed to apply Service for {}", rolegroup))]
     ApplyRoleGroupService {
         source: stackable_operator::cluster_resources::Error,
-        rolegroup: RoleGroupRef<DruidCluster>,
+        rolegroup: RoleGroupRef<v1alpha1::DruidCluster>,
     },
 
     #[snafu(display("failed to build ConfigMap for {}", rolegroup))]
     BuildRoleGroupConfig {
         source: stackable_operator::builder::configmap::Error,
-        rolegroup: RoleGroupRef<DruidCluster>,
+        rolegroup: RoleGroupRef<v1alpha1::DruidCluster>,
     },
 
     #[snafu(display("failed to apply ConfigMap for {}", rolegroup))]
     ApplyRoleGroupConfig {
         source: stackable_operator::cluster_resources::Error,
-        rolegroup: RoleGroupRef<DruidCluster>,
+        rolegroup: RoleGroupRef<v1alpha1::DruidCluster>,
     },
 
     #[snafu(display("failed to apply StatefulSet for {}", rolegroup))]
     ApplyRoleGroupStatefulSet {
         source: stackable_operator::cluster_resources::Error,
-        rolegroup: RoleGroupRef<DruidCluster>,
+        rolegroup: RoleGroupRef<v1alpha1::DruidCluster>,
     },
 
     #[snafu(display("invalid product configuration"))]
@@ -170,7 +171,7 @@ pub enum Error {
     },
 
     #[snafu(display("failed to get valid S3 connection"))]
-    GetS3Connection { source: stackable_druid_crd::Error },
+    GetS3Connection { source: crate::crd::Error },
 
     #[snafu(display("failed to configure S3 connection"))]
     ConfigureS3 { source: S3Error },
@@ -220,10 +221,10 @@ pub enum Error {
     },
 
     #[snafu(display("failed to resolve and merge config for role and role group"))]
-    FailedToResolveConfig { source: stackable_druid_crd::Error },
+    FailedToResolveConfig { source: crate::crd::Error },
 
     #[snafu(display("invalid configuration"))]
-    InvalidConfiguration { source: stackable_druid_crd::Error },
+    InvalidConfiguration { source: crate::crd::Error },
 
     #[snafu(display("failed to create cluster resources"))]
     CreateClusterResources {
@@ -245,27 +246,21 @@ pub enum Error {
     ObjectHasNoNamespace,
 
     #[snafu(display("failed to initialize security context"))]
-    FailedToInitializeSecurityContext {
-        source: stackable_druid_crd::security::Error,
-    },
+    FailedToInitializeSecurityContext { source: crate::crd::security::Error },
 
     #[snafu(display("failed to retrieve AuthenticationClass"))]
     AuthenticationClassRetrieval {
-        source: stackable_druid_crd::authentication::Error,
+        source: crate::crd::authentication::Error,
     },
 
     #[snafu(display("failed to get JVM config"))]
     GetJvmConfig { source: crate::config::Error },
 
     #[snafu(display("failed to derive Druid memory settings from resources"))]
-    DeriveMemorySettings {
-        source: stackable_druid_crd::resource::Error,
-    },
+    DeriveMemorySettings { source: crate::crd::resource::Error },
 
     #[snafu(display("failed to update Druid config from resources"))]
-    UpdateDruidConfigFromResources {
-        source: stackable_druid_crd::resource::Error,
-    },
+    UpdateDruidConfigFromResources { source: crate::crd::resource::Error },
 
     #[snafu(display("failed to retrieve secret for internal communications"))]
     FailedInternalSecretCreation {
@@ -376,7 +371,7 @@ impl ReconcilerError for Error {
 }
 
 pub async fn reconcile_druid(
-    druid: Arc<DeserializeGuard<DruidCluster>>,
+    druid: Arc<DeserializeGuard<v1alpha1::DruidCluster>>,
     ctx: Arc<Ctx>,
 ) -> Result<Action> {
     tracing::info!("Starting reconcile");
@@ -638,7 +633,7 @@ pub async fn reconcile_druid(
 /// The server-role service is the primary endpoint that should be used by clients that do not perform internal load balancing,
 /// including targets outside of the cluster.
 pub fn build_role_service(
-    druid: &DruidCluster,
+    druid: &v1alpha1::DruidCluster,
     resolved_product_image: &ResolvedProductImage,
     role: &DruidRole,
     druid_tls_security: &DruidTlsSecurity,
@@ -681,9 +676,9 @@ pub fn build_role_service(
 #[allow(clippy::too_many_arguments)]
 /// The rolegroup [`ConfigMap`] configures the rolegroup based on the configuration given by the administrator
 fn build_rolegroup_config_map(
-    druid: &DruidCluster,
+    druid: &v1alpha1::DruidCluster,
     resolved_product_image: &ResolvedProductImage,
-    rolegroup: &RoleGroupRef<DruidCluster>,
+    rolegroup: &RoleGroupRef<v1alpha1::DruidCluster>,
     rolegroup_config: &HashMap<PropertyNameKind, BTreeMap<String, String>>,
     merged_rolegroup_config: &CommonRoleGroupConfig,
     zk_connstr: &str,
@@ -861,9 +856,9 @@ fn build_rolegroup_config_map(
 ///
 /// This is mostly useful for internal communication between peers, or for clients that perform client-side load balancing.
 fn build_rolegroup_services(
-    druid: &DruidCluster,
+    druid: &v1alpha1::DruidCluster,
     resolved_product_image: &ResolvedProductImage,
-    rolegroup: &RoleGroupRef<DruidCluster>,
+    rolegroup: &RoleGroupRef<v1alpha1::DruidCluster>,
     druid_tls_security: &DruidTlsSecurity,
 ) -> Result<Service> {
     let role = DruidRole::from_str(&rolegroup.role).unwrap();
@@ -911,10 +906,10 @@ fn build_rolegroup_services(
 ///
 /// The [`Pod`](`stackable_operator::k8s_openapi::api::core::v1::Pod`)s are accessible through the corresponding [`Service`] (from [`build_rolegroup_services`]).
 fn build_rolegroup_statefulset(
-    druid: &DruidCluster,
+    druid: &v1alpha1::DruidCluster,
     resolved_product_image: &ResolvedProductImage,
     role: &DruidRole,
-    rolegroup_ref: &RoleGroupRef<DruidCluster>,
+    rolegroup_ref: &RoleGroupRef<v1alpha1::DruidCluster>,
     rolegroup_config: &HashMap<PropertyNameKind, BTreeMap<String, String>>,
     merged_rolegroup_config: &CommonRoleGroupConfig,
     s3_conn: Option<&S3ConnectionSpec>,
@@ -1218,7 +1213,7 @@ fn add_hdfs_cm_volume_and_volume_mounts(
     pb: &mut PodBuilder,
 ) -> Result<()> {
     // hdfs deep storage mount
-    if let DeepStorageSpec::HDFS(hdfs) = deep_storage_spec {
+    if let DeepStorageSpec::Hdfs(hdfs) = deep_storage_spec {
         cb_druid
             .add_volume_mount(HDFS_CONFIG_VOLUME_NAME, HDFS_CONFIG_DIRECTORY)
             .context(AddVolumeMountSnafu)?;
@@ -1234,7 +1229,7 @@ fn add_hdfs_cm_volume_and_volume_mounts(
 }
 
 fn add_config_volume_and_volume_mounts(
-    rolegroup_ref: &RoleGroupRef<DruidCluster>,
+    rolegroup_ref: &RoleGroupRef<v1alpha1::DruidCluster>,
     cb_druid: &mut ContainerBuilder,
     pb: &mut PodBuilder,
 ) -> Result<()> {
@@ -1261,7 +1256,7 @@ fn add_config_volume_and_volume_mounts(
 }
 
 fn add_log_config_volume_and_volume_mounts(
-    rolegroup_ref: &RoleGroupRef<DruidCluster>,
+    rolegroup_ref: &RoleGroupRef<v1alpha1::DruidCluster>,
     merged_rolegroup_config: &CommonRoleGroupConfig,
     cb_druid: &mut ContainerBuilder,
     pb: &mut PodBuilder,
@@ -1322,7 +1317,7 @@ fn add_log_volume_and_volume_mounts(
 }
 
 pub fn error_policy(
-    _obj: Arc<DeserializeGuard<DruidCluster>>,
+    _obj: Arc<DeserializeGuard<v1alpha1::DruidCluster>>,
     error: &Error,
     _ctx: Arc<Ctx>,
 ) -> Action {
@@ -1336,9 +1331,9 @@ pub fn error_policy(
 mod test {
     use product_config::{writer, ProductConfigManager};
     use rstest::*;
-    use stackable_druid_crd::PROP_SEGMENT_CACHE_LOCATIONS;
 
     use super::*;
+    use crate::crd::PROP_SEGMENT_CACHE_LOCATIONS;
 
     #[derive(Snafu, Debug, EnumDiscriminants)]
     #[strum_discriminants(derive(IntoStaticStr))]
@@ -1359,9 +1354,9 @@ mod test {
             source: stackable_operator::product_config_utils::Error,
         },
         #[snafu(display("failed to resolve and merge config for role and role group"))]
-        FailedToResolveConfig { source: stackable_druid_crd::Error },
+        FailedToResolveConfig { source: crate::crd::Error },
         #[snafu(display("invalid configuration"))]
-        InvalidConfiguration { source: stackable_druid_crd::Error },
+        InvalidConfiguration { source: crate::crd::Error },
     }
 
     #[rstest]
@@ -1384,7 +1379,7 @@ mod test {
             std::fs::File::open(format!("test/resources/druid_controller/{druid_manifest}"))
                 .unwrap();
         let deserializer = serde_yaml::Deserializer::from_reader(&cluster_cr);
-        let druid: DruidCluster =
+        let druid: v1alpha1::DruidCluster =
             serde_yaml::with::singleton_map_recursive::deserialize(deserializer).unwrap();
 
         let resolved_product_image: ResolvedProductImage = druid

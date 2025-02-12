@@ -1,18 +1,8 @@
-mod authentication;
-mod config;
-mod discovery;
-mod druid_controller;
-mod extensions;
-mod internal_secret;
-mod operations;
-mod product_logging;
-
 use std::sync::Arc;
 
 use clap::{crate_description, crate_version, Parser};
 use druid_controller::{DRUID_CONTROLLER_NAME, FULL_CONTROLLER_NAME};
 use futures::StreamExt;
-use stackable_druid_crd::{DruidCluster, APP_NAME, OPERATOR_NAME};
 use stackable_operator::{
     cli::{Command, ProductOperatorRun},
     k8s_openapi::api::{
@@ -27,8 +17,21 @@ use stackable_operator::{
         },
     },
     logging::controller::report_controller_reconciled,
-    CustomResourceExt,
+    shared::yaml::SerializeOptions,
+    YamlSchema,
 };
+
+use crate::crd::{v1alpha1, DruidCluster, APP_NAME, OPERATOR_NAME};
+
+mod authentication;
+mod config;
+mod crd;
+mod discovery;
+mod druid_controller;
+mod extensions;
+mod internal_secret;
+mod operations;
+mod product_logging;
 
 mod built_info {
     include!(concat!(env!("OUT_DIR"), "/built.rs"));
@@ -45,7 +48,8 @@ struct Opts {
 async fn main() -> anyhow::Result<()> {
     let opts = Opts::parse();
     match opts.cmd {
-        Command::Crd => DruidCluster::print_yaml_schema(built_info::PKG_VERSION)?,
+        Command::Crd => DruidCluster::merged_crd(DruidCluster::V1Alpha1)?
+            .print_yaml_schema(built_info::PKG_VERSION, SerializeOptions::default())?,
         Command::Run(ProductOperatorRun {
             product_config,
             watch_namespace,
@@ -84,7 +88,7 @@ async fn main() -> anyhow::Result<()> {
             ));
 
             Controller::new(
-                watch_namespace.get_api::<DeserializeGuard<DruidCluster>>(&client),
+                watch_namespace.get_api::<DeserializeGuard<v1alpha1::DruidCluster>>(&client),
                 watcher::Config::default(),
             )
             .owns(

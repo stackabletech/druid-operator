@@ -16,7 +16,7 @@ use stackable_operator::{
 };
 use strum::{EnumDiscriminants, IntoStaticStr};
 
-use crate::{
+use crate::crd::{
     memory::{HistoricalDerivedSettings, RESERVED_OS_MEMORY},
     storage::{self, default_free_percentage_empty_dir_fragment},
     DruidRole, PATH_SEGMENT_CACHE, PROP_SEGMENT_CACHE_LOCATIONS,
@@ -31,7 +31,7 @@ const SEGMENT_CACHE_VOLUME_NAME: &str = "segment-cache";
 #[allow(clippy::enum_variant_names)]
 pub enum Error {
     #[snafu(display("failed to derive Druid settings from resources"))]
-    DeriveMemorySettings { source: crate::memory::Error },
+    DeriveMemorySettings { source: crate::crd::memory::Error },
 
     #[snafu(display("failed to get memory limits"))]
     GetMemoryLimit,
@@ -255,10 +255,10 @@ mod test {
     };
 
     use super::*;
-    use crate::{
+    use crate::crd::{
         storage::{default_free_percentage_empty_dir, HistoricalStorage},
         tests::deserialize_yaml_file,
-        DruidCluster, MiddleManagerConfig,
+        v1alpha1, MiddleManagerConfig,
     };
 
     #[rstest]
@@ -394,7 +394,7 @@ mod test {
         #[case] third: Option<ResourcesFragment<HistoricalStorage>>,
         #[case] expected: Resources<HistoricalStorage>,
     ) {
-        let got = DruidCluster::merged_rolegroup_config(
+        let got = v1alpha1::DruidCluster::merged_rolegroup_config(
             &first.unwrap_or_default(),
             &second.unwrap_or_default(),
             &third.unwrap_or_default(),
@@ -405,8 +405,8 @@ mod test {
 
     #[test]
     fn test_resources() -> Result<(), Error> {
-        let cluster = deserialize_yaml_file::<DruidCluster>(
-            "test/resources/resource_merge/druid_cluster.yaml",
+        let cluster = deserialize_yaml_file::<v1alpha1::DruidCluster>(
+            "test/resources/crd/resource_merge/druid_cluster.yaml",
         );
 
         let config = cluster.merged_config().unwrap();
@@ -481,8 +481,8 @@ mod test {
 
     #[test]
     fn test_segment_cache() -> Result<(), Error> {
-        let cluster = deserialize_yaml_file::<DruidCluster>(
-            "test/resources/resource_merge/segment_cache.yaml",
+        let cluster = deserialize_yaml_file::<v1alpha1::DruidCluster>(
+            "test/resources/crd/resource_merge/segment_cache.yaml",
         );
 
         // ---------- default role group

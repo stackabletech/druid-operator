@@ -1,16 +1,16 @@
 use std::collections::BTreeMap;
 
 use snafu::ResultExt;
-use stackable_druid_crd::security::{
-    add_cert_to_trust_store_cmd, STACKABLE_TLS_DIR, TLS_STORE_PASSWORD,
-};
 use stackable_operator::{
     builder::pod::{container::ContainerBuilder, PodBuilder},
     commons::authentication::ldap::AuthenticationProvider,
 };
 
-use crate::authentication::{
-    AddLdapVolumesSnafu, ConstructLdapEndpointUrlSnafu, Error, MissingLdapBindCredentialsSnafu,
+use crate::{
+    authentication::{
+        AddLdapVolumesSnafu, ConstructLdapEndpointUrlSnafu, Error, MissingLdapBindCredentialsSnafu,
+    },
+    crd::security::{add_cert_to_trust_store_cmd, STACKABLE_TLS_DIR, TLS_STORE_PASSWORD},
 };
 
 fn add_authenticator_config(

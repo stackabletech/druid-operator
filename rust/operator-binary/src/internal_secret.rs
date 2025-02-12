@@ -1,9 +1,6 @@
 use std::collections::{BTreeMap, HashSet};
 
 use snafu::{OptionExt, ResultExt, Snafu};
-use stackable_druid_crd::{
-    security::INTERNAL_INITIAL_CLIENT_PASSWORD_ENV, DruidCluster, COOKIE_PASSPHRASE_ENV,
-};
 use stackable_operator::{
     builder::meta::ObjectMetaBuilder,
     client::Client,
@@ -11,6 +8,8 @@ use stackable_operator::{
     kube::ResourceExt,
 };
 use strum::{EnumDiscriminants, IntoStaticStr};
+
+use crate::crd::{security::INTERNAL_INITIAL_CLIENT_PASSWORD_ENV, v1alpha1, COOKIE_PASSPHRASE_ENV};
 
 #[derive(Snafu, Debug, EnumDiscriminants)]
 #[strum_discriminants(derive(IntoStaticStr))]
@@ -41,7 +40,7 @@ pub enum Error {
 }
 
 pub async fn create_shared_internal_secret(
-    druid: &DruidCluster,
+    druid: &v1alpha1::DruidCluster,
     client: &Client,
     controller_name: &str,
 ) -> Result<(), Error> {
@@ -145,7 +144,7 @@ pub async fn create_shared_internal_secret(
     Ok(())
 }
 
-pub fn build_shared_internal_secret(druid: &DruidCluster) -> Result<Secret, Error> {
+pub fn build_shared_internal_secret(druid: &v1alpha1::DruidCluster) -> Result<Secret, Error> {
     let mut internal_secret = BTreeMap::new();
     internal_secret.insert(
         INTERNAL_INITIAL_CLIENT_PASSWORD_ENV.to_string(),
@@ -165,11 +164,11 @@ pub fn build_shared_internal_secret(druid: &DruidCluster) -> Result<Secret, Erro
     })
 }
 
-pub fn build_immutable_shared_internal_secret_name(druid: &DruidCluster) -> String {
+pub fn build_immutable_shared_internal_secret_name(druid: &v1alpha1::DruidCluster) -> String {
     format!("{}-internal-secret", druid.name_any())
 }
 
-pub fn build_shared_internal_secret_name(druid: &DruidCluster) -> String {
+pub fn build_shared_internal_secret_name(druid: &v1alpha1::DruidCluster) -> String {
     format!("{}-shared-internal-secret", druid.name_any())
 }
 

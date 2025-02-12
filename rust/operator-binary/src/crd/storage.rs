@@ -71,6 +71,7 @@ pub struct FreePercentageEmptyDir {
     pub empty_dir: CapacityEmptyDir,
 }
 
+#[cfg(test)]
 pub fn default_free_percentage_empty_dir() -> FreePercentageEmptyDir {
     FreePercentageEmptyDir {
         free_percentage: Some(5),

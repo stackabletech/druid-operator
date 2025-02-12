@@ -1,10 +1,11 @@
 use indoc::formatdoc;
 use snafu::{ResultExt, Snafu};
-use stackable_druid_crd::{
+use stackable_operator::memory::MemoryQuantity;
+
+use crate::crd::{
     DruidRole, JVM_SECURITY_PROPERTIES_FILE, LOG4J2_CONFIG, RW_CONFIG_DIRECTORY,
     STACKABLE_TRUST_STORE, STACKABLE_TRUST_STORE_PASSWORD,
 };
-use stackable_operator::memory::MemoryQuantity;
 
 #[derive(Snafu, Debug)]
 pub enum Error {

@@ -1,8 +1,4 @@
 use snafu::{OptionExt, ResultExt, Snafu};
-use stackable_druid_crd::{
-    Container, DruidCluster, DRUID_LOG_FILE, LOG4J2_CONFIG, MAX_DRUID_LOG_FILES_SIZE,
-    STACKABLE_LOG_DIR,
-};
 use stackable_operator::{
     builder::configmap::ConfigMapBuilder,
     client::Client,
@@ -14,6 +10,10 @@ use stackable_operator::{
         spec::{ContainerLogConfig, ContainerLogConfigChoice, Logging},
     },
     role_utils::RoleGroupRef,
+};
+
+use crate::crd::{
+    v1alpha1, Container, DRUID_LOG_FILE, LOG4J2_CONFIG, MAX_DRUID_LOG_FILES_SIZE, STACKABLE_LOG_DIR,
 };
 
 #[derive(Snafu, Debug)]
@@ -42,7 +42,7 @@ const CONSOLE_CONVERSION_PATTERN: &str = "%d{ISO8601} %p [%t] %c - %m%n";
 /// Return the address of the Vector aggregator if the corresponding ConfigMap name is given in the
 /// cluster spec
 pub async fn resolve_vector_aggregator_address(
-    druid: &DruidCluster,
+    druid: &v1alpha1::DruidCluster,
     client: &Client,
 ) -> Result<Option<String>> {
     let vector_aggregator_address = if let Some(vector_aggregator_config_map_name) = &druid
@@ -79,7 +79,7 @@ pub async fn resolve_vector_aggregator_address(
 
 /// Extend the role group ConfigMap with logging and Vector configurations
 pub fn extend_role_group_config_map(
-    rolegroup: &RoleGroupRef<DruidCluster>,
+    rolegroup: &RoleGroupRef<v1alpha1::DruidCluster>,
     vector_aggregator_address: Option<&str>,
     logging: &Logging<Container>,
     cm_builder: &mut ConfigMapBuilder,
