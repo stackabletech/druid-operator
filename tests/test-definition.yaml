@@ -30,7 +30,7 @@ dimensions:
       - 3.9.2
   - name: opa
     values:
-      - 1.0.0
+      - 1.0.1
   - name: hadoop
     values:
       - 3.4.0
