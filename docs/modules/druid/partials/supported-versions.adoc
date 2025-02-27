@@ -2,5 +2,6 @@
 // This is a separate file, since it is used by both the direct Druid documentation, and the overarching
 // Stackable Platform documentation.
 
-- 30.0.0 (LTS)
-- 26.0.0 (deprecated)
+- 31.0.1
+- 30.0.1 (LTS)
+- 30.0.0 (deprecated)

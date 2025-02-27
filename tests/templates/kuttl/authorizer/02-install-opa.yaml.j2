@@ -11,16 +11,16 @@ data:
 
     default allow = false
 
-    allow if {
-      input.user == "alice"
+    allow {
+      input.authenticationResult.identity == "alice"
     }
 
-    allow if {
-      input.user == "admin"
+    allow {
+      input.authenticationResult.identity == "admin"
     }
 
-    allow if {
-      input.user == "druid_system"
+    allow {
+      input.authenticationResult.identity == "druid_system"
     }
 ---
 apiVersion: opa.stackable.tech/v1alpha1
