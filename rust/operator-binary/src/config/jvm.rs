@@ -136,8 +136,8 @@ mod tests {
             coordinator_jvm_config,
             indoc! {"
               -server
-              -Xmx212m
-              -Xms212m
+              -Xmx468m
+              -Xms468m
               -XX:+ExitOnOutOfMemoryError
               -XX:+UseG1GC
               -Djava.security.properties=/stackable/rwconfig/security.properties
