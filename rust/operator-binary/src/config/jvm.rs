@@ -1,13 +1,13 @@
 use snafu::{ResultExt, Snafu};
-use stackable_operator::role_utils::{
-    GenericRoleConfig, JavaCommonConfig, JvmArgumentOverrides, Role,
+use stackable_operator::{
+    memory::MemoryQuantity,
+    role_utils,
+    role_utils::{GenericRoleConfig, JavaCommonConfig, JvmArgumentOverrides, Role},
 };
-use stackable_operator::{memory::MemoryQuantity, role_utils};
 
-use crate::crd::DruidRole;
 use crate::crd::{
-    JVM_SECURITY_PROPERTIES_FILE, LOG4J2_CONFIG, RW_CONFIG_DIRECTORY, STACKABLE_TRUST_STORE,
-    STACKABLE_TRUST_STORE_PASSWORD,
+    DruidRole, JVM_SECURITY_PROPERTIES_FILE, LOG4J2_CONFIG, RW_CONFIG_DIRECTORY,
+    STACKABLE_TRUST_STORE, STACKABLE_TRUST_STORE_PASSWORD,
 };
 
 #[derive(Snafu, Debug)]
@@ -82,9 +82,8 @@ pub fn construct_jvm_args<T>(
 mod tests {
     use indoc::indoc;
 
-    use crate::crd::v1alpha1::DruidCluster;
-
     use super::*;
+    use crate::crd::v1alpha1::DruidCluster;
 
     #[test]
     fn test_construct_jvm_arguments_defaults() {
