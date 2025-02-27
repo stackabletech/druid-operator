@@ -10,6 +10,8 @@ All notable changes to this project will be documented in this file.
 ￼ config property `requestedSecretLifetime`. This helps reducing frequent Pod restarts ([#660]).
 - Run a `containerdebug` process in the background of each "druid" container to collect debugging information ([#667]).
 - Aggregate emitted Kubernetes events on the CustomResources ([#677]).
+- Support Apache Druid `31.0.1` and `30.0.1`, remove `26.0.0` ([#685]).
+- BREAKING: Adjust default memory limits of coordinator from `512Mi` to `768Mi` and middlemanager from `1Gi` to `1500Mi` ([#685]).
 - Support configuring JVM arguments ([#693]).
 
 ### Changed
@@ -21,6 +23,7 @@ All notable changes to this project will be documented in this file.
 [#676]: https://github.com/stackabletech/druid-operator/pull/676
 [#677]: https://github.com/stackabletech/druid-operator/pull/677
 [#693]: https://github.com/stackabletech/druid-operator/pull/693
+[#685]: https://github.com/stackabletech/druid-operator/pull/685
 
 ## [24.11.1] - 2025-01-09
 

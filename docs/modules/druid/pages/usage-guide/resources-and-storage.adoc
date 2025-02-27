@@ -13,7 +13,7 @@ A minimal HA setup consisting of 2 Pods of each role has the following https://k
 
 * `4700m` CPU request
 * `13800m` CPU limit
-* `11376m` memory request and limit
+* `12144Mi` memory request and limit
 
 Of course, additional services require additional resources.
 For Stackable components, see the corresponding documentation on further resource requirements.
@@ -54,7 +54,7 @@ spec:
           min: 300m
           max: 1200m
         memory:
-          limit: 1Gi
+          limit: 1500Mi
   coordinators:
     config:
       resources:
@@ -62,7 +62,7 @@ spec:
           min: 100m
           max: 400m
         memory:
-          limit: 512Mi
+          limit: 768Mi
 ----
 
 The operator may configure an additional container for log aggregation.
