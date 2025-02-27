@@ -11,7 +11,7 @@ All notable changes to this project will be documented in this file.
 - Run a `containerdebug` process in the background of each "druid" container to collect debugging information ([#667]).
 - Aggregate emitted Kubernetes events on the CustomResources ([#677]).
 - Support Apache Druid `31.0.1` and `30.0.1`, remove `26.0.0` ([#685]).
-- BREAKING: Adjust memory limits of coordinator and middlemanager ([#685]).
+- BREAKING: Adjust default memory limits of coordinator from `512Mi` to `768Mi` and middlemanager from `1Gi` to `1500Mi` ([#685]).
 
 ### Changed
 
