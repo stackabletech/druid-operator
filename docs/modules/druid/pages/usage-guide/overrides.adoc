@@ -129,5 +129,3 @@ Read the xref:concepts:overrides.adoc#pod-overrides[Pod overrides documentation]
 
 Stackable operators automatically determine the set of needed JVM arguments, such as memory settings or trust- and keystores.
 Using JVM argument overrides you can configure the JVM arguments xref:concepts:overrides.adoc#jvm-argument-overrides[according to the concepts page].
-
-TODO more docs specific to Druid.

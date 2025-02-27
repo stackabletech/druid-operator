@@ -67,7 +67,7 @@ use strum::{EnumDiscriminants, IntoStaticStr};
 
 use crate::{
     authentication::DruidAuthenticationConfig,
-    config::get_jvm_config,
+    config::jvm::construct_jvm_args,
     crd::{
         authentication::AuthenticationClassesResolved, authorization::DruidAuthorization,
         build_recommended_labels, build_string_list, security::DruidTlsSecurity, v1alpha1,
@@ -254,7 +254,7 @@ pub enum Error {
     },
 
     #[snafu(display("failed to get JVM config"))]
-    GetJvmConfig { source: crate::config::Error },
+    GetJvmConfig { source: crate::config::jvm::Error },
 
     #[snafu(display("failed to derive Druid memory settings from resources"))]
     DeriveMemorySettings { source: crate::crd::resource::Error },
@@ -524,7 +524,7 @@ pub async fn reconcile_druid(
             };
 
             let merged_rolegroup_config = merged_config
-                .common_config(druid_role.clone(), rolegroup_name)
+                .common_config(&druid_role, rolegroup_name)
                 .context(FailedToResolveConfigSnafu)?;
 
             let rg_service = build_rolegroup_services(
@@ -689,7 +689,8 @@ fn build_rolegroup_config_map(
     druid_tls_security: &DruidTlsSecurity,
     druid_auth_config: &Option<DruidAuthenticationConfig>,
 ) -> Result<ConfigMap> {
-    let role = DruidRole::from_str(&rolegroup.role).unwrap();
+    let druid_role = DruidRole::from_str(&rolegroup.role).unwrap();
+    let role = druid.get_role(&druid_role);
     let mut cm_conf_data = BTreeMap::new(); // filename -> filecontent
 
     for (property_name_kind, config) in rolegroup_config {
@@ -757,12 +758,12 @@ fn build_rolegroup_config_map(
                 );
 
                 // add tls encryption / auth properties
-                druid_tls_security.add_tls_config_properties(&mut conf, &role);
+                druid_tls_security.add_tls_config_properties(&mut conf, &druid_role);
 
                 if let Some(auth_config) = druid_auth_config {
                     conf.extend(
                         auth_config
-                            .generate_runtime_properties_config(&role)
+                            .generate_runtime_properties_config(&druid_role)
                             .context(GenerateAuthenticationRuntimeSettingsSnafu)?,
                     );
                 };
@@ -782,11 +783,11 @@ fn build_rolegroup_config_map(
             PropertyNameKind::File(file_name) if file_name == JVM_CONFIG => {
                 let (heap, direct) = merged_rolegroup_config
                     .resources
-                    .get_memory_sizes(&role)
+                    .get_memory_sizes(&druid_role)
                     .context(DeriveMemorySettingsSnafu)?;
-                let jvm_config = get_jvm_config(&role, heap, direct).context(GetJvmConfigSnafu)?;
-                // TODO the user can set overrides in the config, but currently they have no effect
-                // if this is changed in the future, make sure to respect overrides!
+                let jvm_config =
+                    construct_jvm_args(&druid_role, &role, &rolegroup.role_group, heap, direct)
+                        .context(GetJvmConfigSnafu)?;
                 cm_conf_data.insert(JVM_CONFIG.to_string(), jvm_config);
             }
 
@@ -1424,7 +1425,7 @@ mod test {
                     };
 
                     let merged_rolegroup_config = config
-                        .common_config(DruidRole::Historical, rolegroup_name)
+                        .common_config(&DruidRole::Historical, rolegroup_name)
                         .context(InvalidConfigurationSnafu)?;
 
                     let auth_settings: Option<DruidAuthenticationConfig> = None;

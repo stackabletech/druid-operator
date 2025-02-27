@@ -664,6 +664,23 @@ impl v1alpha1::DruidCluster {
         fragment::validate(rolegroup_config).context(FragmentValidationFailureSnafu)
     }
 
+    pub fn get_role(
+        &self,
+        druid_role: &DruidRole,
+    ) -> Role<
+        impl Configuration<Configurable = v1alpha1::DruidCluster>,
+        GenericRoleConfig,
+        JavaCommonConfig,
+    > {
+        match druid_role {
+            DruidRole::Coordinator => self.spec.coordinators.clone().erase(),
+            DruidRole::Broker => self.spec.brokers.clone().erase(),
+            DruidRole::Historical => self.spec.historicals.clone().erase(),
+            DruidRole::MiddleManager => self.spec.middle_managers.clone().erase(),
+            DruidRole::Router => self.spec.routers.clone().erase(),
+        }
+    }
+
     pub fn pod_overrides_for_role(&self, role: &DruidRole) -> &PodTemplateSpec {
         match role {
             DruidRole::Broker => &self.spec.brokers.config.pod_overrides,
@@ -790,7 +807,7 @@ impl MergedConfig {
     /// Returns the common configuration for the given role and rolegroup name
     pub fn common_config(
         &self,
-        role: DruidRole,
+        role: &DruidRole,
         rolegroup_name: &str,
     ) -> Result<CommonRoleGroupConfig, Error> {
         match role {
