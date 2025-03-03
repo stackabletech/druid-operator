@@ -2,4 +2,4 @@
 # It's also ok to use the stable toolchain by simple running "cargo fmt", but using the nigthly formatter is prefered.
 
 imports_granularity = "Crate"
-group_imports = "StdExternalCrate"
+group_imports =  "StdExternalCrate"
