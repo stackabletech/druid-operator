@@ -11,15 +11,15 @@ data:
 
     default allow = false
 
-    allow {
+    allow if {
       input.authenticationResult.identity == "alice"
     }
 
-    allow {
+    allow if {
       input.authenticationResult.identity == "admin"
     }
 
-    allow {
+    allow if {
       input.authenticationResult.identity == "druid_system"
     }
 ---

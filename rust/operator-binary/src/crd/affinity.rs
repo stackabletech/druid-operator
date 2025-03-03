@@ -146,7 +146,7 @@ mod tests {
         let merged_config = druid
             .merged_config()
             .unwrap()
-            .common_config(role.clone(), "default")
+            .common_config(&role, "default")
             .unwrap();
 
         let mut expected_affinities = vec![];

@@ -488,7 +488,7 @@ mod test {
         // ---------- default role group
         let config = cluster.merged_config().unwrap();
         let res = config
-            .common_config(DruidRole::Historical, "default")
+            .common_config(&DruidRole::Historical, "default")
             .unwrap()
             .resources;
         let mut got = BTreeMap::new();
@@ -502,7 +502,7 @@ mod test {
 
         // ---------- secondary role group
         let res = config
-            .common_config(DruidRole::Historical, "secondary")
+            .common_config(&DruidRole::Historical, "secondary")
             .unwrap()
             .resources;
         let mut got = BTreeMap::new();

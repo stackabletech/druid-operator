@@ -30,9 +30,7 @@ use stackable_operator::{
         framework::{create_vector_shutdown_file_command, remove_vector_shutdown_file_command},
         spec::Logging,
     },
-    role_utils::{
-        CommonConfiguration, GenericProductSpecificCommonConfig, GenericRoleConfig, Role, RoleGroup,
-    },
+    role_utils::{CommonConfiguration, GenericRoleConfig, JavaCommonConfig, Role, RoleGroup},
     schemars::{self, JsonSchema},
     status::condition::{ClusterCondition, HasStatusCondition},
     time::Duration,
@@ -208,19 +206,19 @@ pub mod versioned {
         pub image: ProductImage,
 
         // no doc - docs provided by the struct.
-        pub brokers: Role<BrokerConfigFragment>,
+        pub brokers: Role<BrokerConfigFragment, GenericRoleConfig, JavaCommonConfig>,
 
         // no doc - docs provided by the struct.
-        pub coordinators: Role<CoordinatorConfigFragment>,
+        pub coordinators: Role<CoordinatorConfigFragment, GenericRoleConfig, JavaCommonConfig>,
 
         // no doc - docs provided by the struct.
-        pub historicals: Role<HistoricalConfigFragment>,
+        pub historicals: Role<HistoricalConfigFragment, GenericRoleConfig, JavaCommonConfig>,
 
         // no doc - docs provided by the struct.
-        pub middle_managers: Role<MiddleManagerConfigFragment>,
+        pub middle_managers: Role<MiddleManagerConfigFragment, GenericRoleConfig, JavaCommonConfig>,
 
         // no doc - docs provided by the struct.
-        pub routers: Role<RouterConfigFragment>,
+        pub routers: Role<RouterConfigFragment, GenericRoleConfig, JavaCommonConfig>,
 
         // no doc - docs provided by the struct.
         #[serde(default)]
@@ -234,7 +232,7 @@ pub mod versioned {
         /// The operator will automatically load all extensions needed based on the cluster
         /// configuration, but for extra functionality which the operator cannot anticipate, it can
         /// sometimes be necessary to load additional extensions.
-        /// Add configuration for additional extensions using [configuration override for Druid](https://docs.stackable.tech/home/stable/druid/usage-guide/configuration-and-environment-overrides).
+        /// Add configuration for additional extensions using [configuration override for Druid](https://docs.stackable.tech/home/stable/druid/usage-guide/overrides).
         #[serde(default)]
         pub additional_extensions: HashSet<String>,
 
@@ -397,7 +395,11 @@ impl v1alpha1::DruidCluster {
         String,
         (
             Vec<PropertyNameKind>,
-            Role<impl Configuration<Configurable = v1alpha1::DruidCluster>>,
+            Role<
+                impl Configuration<Configurable = v1alpha1::DruidCluster>,
+                GenericRoleConfig,
+                JavaCommonConfig,
+            >,
         ),
     > {
         let config_files = vec![
@@ -581,9 +583,9 @@ impl v1alpha1::DruidCluster {
 
     /// Merges and validates the role groups of the given role with the given default configuration
     fn merged_role<T>(
-        role: &Role<T::Fragment>,
+        role: &Role<T::Fragment, GenericRoleConfig, JavaCommonConfig>,
         default_config: &T::Fragment,
-    ) -> Result<HashMap<String, RoleGroup<T, GenericProductSpecificCommonConfig>>, Error>
+    ) -> Result<HashMap<String, RoleGroup<T, JavaCommonConfig>>, Error>
     where
         T: FromFragment,
         T::Fragment: Clone + Merge,
@@ -604,10 +606,10 @@ impl v1alpha1::DruidCluster {
 
     /// Merges and validates the given role group with the given role and default configurations
     fn merged_rolegroup<T>(
-        rolegroup: &RoleGroup<T::Fragment, GenericProductSpecificCommonConfig>,
+        rolegroup: &RoleGroup<T::Fragment, JavaCommonConfig>,
         role_config: &T::Fragment,
         default_config: &T::Fragment,
-    ) -> Result<RoleGroup<T, GenericProductSpecificCommonConfig>, Error>
+    ) -> Result<RoleGroup<T, JavaCommonConfig>, Error>
     where
         T: FromFragment,
         T::Fragment: Clone + Merge,
@@ -660,6 +662,23 @@ impl v1alpha1::DruidCluster {
         rolegroup_config.merge(&role_config);
 
         fragment::validate(rolegroup_config).context(FragmentValidationFailureSnafu)
+    }
+
+    pub fn get_role(
+        &self,
+        druid_role: &DruidRole,
+    ) -> Role<
+        impl Configuration<Configurable = v1alpha1::DruidCluster>,
+        GenericRoleConfig,
+        JavaCommonConfig,
+    > {
+        match druid_role {
+            DruidRole::Coordinator => self.spec.coordinators.clone().erase(),
+            DruidRole::Broker => self.spec.brokers.clone().erase(),
+            DruidRole::Historical => self.spec.historicals.clone().erase(),
+            DruidRole::MiddleManager => self.spec.middle_managers.clone().erase(),
+            DruidRole::Router => self.spec.routers.clone().erase(),
+        }
     }
 
     pub fn pod_overrides_for_role(&self, role: &DruidRole) -> &PodTemplateSpec {
@@ -773,25 +792,22 @@ pub struct CommonRoleGroupConfig {
 /// configuration is not applied.
 pub struct MergedConfig {
     /// Merged configuration of the broker role
-    pub brokers: HashMap<String, RoleGroup<BrokerConfig, GenericProductSpecificCommonConfig>>,
+    pub brokers: HashMap<String, RoleGroup<BrokerConfig, JavaCommonConfig>>,
     /// Merged configuration of the coordinator role
-    pub coordinators:
-        HashMap<String, RoleGroup<CoordinatorConfig, GenericProductSpecificCommonConfig>>,
+    pub coordinators: HashMap<String, RoleGroup<CoordinatorConfig, JavaCommonConfig>>,
     /// Merged configuration of the historical role
-    pub historicals:
-        HashMap<String, RoleGroup<HistoricalConfig, GenericProductSpecificCommonConfig>>,
+    pub historicals: HashMap<String, RoleGroup<HistoricalConfig, JavaCommonConfig>>,
     /// Merged configuration of the middle manager role
-    pub middle_managers:
-        HashMap<String, RoleGroup<MiddleManagerConfig, GenericProductSpecificCommonConfig>>,
+    pub middle_managers: HashMap<String, RoleGroup<MiddleManagerConfig, JavaCommonConfig>>,
     /// Merged configuration of the router role
-    pub routers: HashMap<String, RoleGroup<RouterConfig, GenericProductSpecificCommonConfig>>,
+    pub routers: HashMap<String, RoleGroup<RouterConfig, JavaCommonConfig>>,
 }
 
 impl MergedConfig {
     /// Returns the common configuration for the given role and rolegroup name
     pub fn common_config(
         &self,
-        role: DruidRole,
+        role: &DruidRole,
         rolegroup_name: &str,
     ) -> Result<CommonRoleGroupConfig, Error> {
         match role {
