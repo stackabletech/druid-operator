@@ -689,7 +689,10 @@ fn build_rolegroup_config_map(
     druid_tls_security: &DruidTlsSecurity,
     druid_auth_config: &Option<DruidAuthenticationConfig>,
 ) -> Result<ConfigMap> {
-    let druid_role = DruidRole::from_str(&rolegroup.role).unwrap();
+    let druid_role =
+        DruidRole::from_str(&rolegroup.role).with_context(|_| UnidentifiedDruidRoleSnafu {
+            role: &rolegroup.role,
+        })?;
     let role = druid.get_role(&druid_role);
     let mut cm_conf_data = BTreeMap::new(); // filename -> filecontent
 
