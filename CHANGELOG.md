@@ -16,6 +16,10 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- Bump Rust dependencies ([#695]).
+  - `stackable-operator` to 0.87.0
+  - `rstest` to 0.25
+  - `strum` to 0.27
 - Default to OCI for image metadata and product image selection ([#676]).
 
 [#660]: https://github.com/stackabletech/druid-operator/pull/660
@@ -24,6 +28,7 @@ All notable changes to this project will be documented in this file.
 [#677]: https://github.com/stackabletech/druid-operator/pull/677
 [#693]: https://github.com/stackabletech/druid-operator/pull/693
 [#685]: https://github.com/stackabletech/druid-operator/pull/685
+[#695]: https://github.com/stackabletech/druid-operator/pull/695
 
 ## [24.11.1] - 2025-01-09
 
