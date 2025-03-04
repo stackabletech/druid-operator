@@ -17,6 +17,7 @@ All notable changes to this project will be documented in this file.
 ### Changed
 
 - Bump Rust dependencies ([#695]).
+  - `stackable-versioned` to 0.6.0
   - `stackable-operator` to 0.87.0
   - `rstest` to 0.25
   - `strum` to 0.27
