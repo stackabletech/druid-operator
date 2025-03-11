@@ -98,6 +98,7 @@ pub const DS_DIRECTORY: &str = "druid.storage.storageDirectory";
 pub const DS_BUCKET: &str = "druid.storage.bucket";
 pub const DS_BASE_KEY: &str = "druid.storage.baseKey";
 pub const S3_ENDPOINT_URL: &str = "druid.s3.endpoint.url";
+pub const S3_REGION_NAME: &str = "aws.region";
 pub const S3_ACCESS_KEY: &str = "druid.s3.accessKey";
 pub const S3_SECRET_KEY: &str = "druid.s3.secretKey";
 pub const S3_PATH_STYLE_ACCESS: &str = "druid.s3.enablePathStyleAccess";
@@ -389,6 +390,7 @@ impl v1alpha1::DruidCluster {
         Ok(result)
     }
 
+    #[allow(clippy::type_complexity)]
     pub fn build_role_properties(
         &self,
     ) -> HashMap<

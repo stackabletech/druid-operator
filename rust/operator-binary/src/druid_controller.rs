@@ -76,7 +76,8 @@ use crate::{
         DRUID_CONFIG_DIRECTORY, DS_BUCKET, EXTENSIONS_LOADLIST, HDFS_CONFIG_DIRECTORY, JVM_CONFIG,
         JVM_SECURITY_PROPERTIES_FILE, LOG_CONFIG_DIRECTORY, MAX_DRUID_LOG_FILES_SIZE,
         OPERATOR_NAME, RUNTIME_PROPS, RW_CONFIG_DIRECTORY, S3_ACCESS_KEY, S3_ENDPOINT_URL,
-        S3_PATH_STYLE_ACCESS, S3_SECRET_KEY, STACKABLE_LOG_DIR, ZOOKEEPER_CONNECTION_STRING,
+        S3_PATH_STYLE_ACCESS, S3_REGION_NAME, S3_SECRET_KEY, STACKABLE_LOG_DIR,
+        ZOOKEEPER_CONNECTION_STRING,
     },
     discovery::{self, build_discovery_configmaps},
     extensions::get_extension_list,
@@ -734,6 +735,8 @@ fn build_rolegroup_config_map(
                 };
 
                 if let Some(s3) = s3_conn {
+                    conf.insert(S3_REGION_NAME.to_string(), Some(s3.region.name.to_string()));
+
                     conf.insert(
                         S3_ENDPOINT_URL.to_string(),
                         Some(s3.endpoint().context(ConfigureS3Snafu)?.to_string()),
