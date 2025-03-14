@@ -9,3 +9,4 @@ versions:
   zookeeper: 0.0.0-dev
   hdfs: 0.0.0-dev
   druid: 0.0.0-dev
+  postgresql: 16.5.0
