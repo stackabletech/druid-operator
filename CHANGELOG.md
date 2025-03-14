@@ -14,7 +14,8 @@ All notable changes to this project will be documented in this file.
 - BREAKING: Adjust default memory limits of coordinator from `512Mi` to `768Mi` and middlemanager from `1Gi` to `1500Mi` ([#685]).
 - Support configuring JVM arguments ([#693]).
 - Add `region.name` field in S3Connection.
-  This field is **ignored** by this operator, see [ingestion] and [deep storage] documentation ([#695]).
+  This field is **ignored** by this operator, see [ingestion] and [deep storage] documentation.
+  A warning is emitted when a non-default endpoint is used ([#695], [#XXX]).
 
 ### Changed
 
