@@ -7,15 +7,18 @@ All notable changes to this project will be documented in this file.
 ### Added
 
 - The lifetime of auto generated TLS certificates is now configurable with the role and roleGroup
-￼ config property `requestedSecretLifetime`. This helps reducing frequent Pod restarts ([#660]).
+  config property `requestedSecretLifetime`. This helps reducing frequent Pod restarts ([#660]).
 - Run a `containerdebug` process in the background of each "druid" container to collect debugging information ([#667]).
 - Aggregate emitted Kubernetes events on the CustomResources ([#677]).
 - Support Apache Druid `31.0.1` and `30.0.1`, remove `26.0.0` ([#685]).
 - BREAKING: Adjust default memory limits of coordinator from `512Mi` to `768Mi` and middlemanager from `1Gi` to `1500Mi` ([#685]).
 - Support configuring JVM arguments ([#693]).
+- Add `region.name` field in S3Connection.
+  This field is **ignored** by this operator, see [ingestion] and [deep storage] documentation ([#695]).
 
 ### Changed
 
+- Bump `stackable-operator` to 0.87.0 and `stackable-versioned` to 0.6.0 ([#695]).
 - Default to OCI for image metadata and product image selection ([#676]).
 
 [#660]: https://github.com/stackabletech/druid-operator/pull/660
@@ -24,6 +27,10 @@ All notable changes to this project will be documented in this file.
 [#677]: https://github.com/stackabletech/druid-operator/pull/677
 [#693]: https://github.com/stackabletech/druid-operator/pull/693
 [#685]: https://github.com/stackabletech/druid-operator/pull/685
+[#695]: https://github.com/stackabletech/druid-operator/pull/695
+
+[ingestion]: https://docs.stackable.tech/home/nightly/druid/usage-guide/ingestion/
+[deep storage]: https://docs.stackable.tech/home/nightly/druid/usage-guide/deep-storage/
 
 ## [24.11.1] - 2025-01-09
 
