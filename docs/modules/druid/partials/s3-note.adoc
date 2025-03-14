@@ -3,7 +3,7 @@
 You can specify just a connection/bucket for either ingestion or deep storage or for both, but Druid only supports a single S3 connection under the hood.
 If two connections are specified, they must be the same. This is easiest if a dedicated S3 Connection Resource is used - not defined inline but as a dedicated object.
 
-The connection/bucket `region.name` field is ignored because Druid uses the AWS SDK v1, which ignores the region if the endpoint is set.
+The `S3Connection` `region` field is ignored because Druid uses the AWS SDK v1, which ignores the region if the endpoint is set.
 The host is a required field, therefore the endpoint will always be set.
 
 TLS for S3 is not yet supported.
