@@ -15,7 +15,7 @@ All notable changes to this project will be documented in this file.
 - Support configuring JVM arguments ([#693]).
 - Add `region.name` field in S3Connection.
   This field is **ignored** by this operator, see [ingestion] and [deep storage] documentation.
-  A warning is emitted when a non-default endpoint is used ([#695], [#XXX]).
+  A warning is emitted when a non-default endpoint is used ([#695], [#700]).
 
 ### Changed
 
@@ -29,6 +29,7 @@ All notable changes to this project will be documented in this file.
 [#693]: https://github.com/stackabletech/druid-operator/pull/693
 [#685]: https://github.com/stackabletech/druid-operator/pull/685
 [#695]: https://github.com/stackabletech/druid-operator/pull/695
+[#700]: https://github.com/stackabletech/druid-operator/pull/700
 
 [ingestion]: https://docs.stackable.tech/home/nightly/druid/usage-guide/ingestion/
 [deep storage]: https://docs.stackable.tech/home/nightly/druid/usage-guide/deep-storage/
