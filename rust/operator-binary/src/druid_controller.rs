@@ -738,7 +738,7 @@ fn build_rolegroup_config_map(
                         // Raising this as warning instead of returning an error, better safe than sorry.
                         // It might still work out for the user.
                         tracing::warn!(
-                            ?s3.region,
+                            region = ?s3.region,
                             "You configured a non-default region on the S3Connection.
                             The S3Connection region field is ignored, because Druid uses the AWS SDK v1, which ignores the region if the endpoint is set. \
                             The host is a required field, therefore the endpoint will always be set."
