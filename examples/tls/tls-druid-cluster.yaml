@@ -5,7 +5,7 @@ metadata:
   name: druid-zk
 spec:
   image:
-    productVersion: 3.9.2
+    productVersion: 3.9.3
   servers:
     roleGroups:
       default:
@@ -25,7 +25,7 @@ metadata:
   name: druid-hdfs
 spec:
   image:
-    productVersion: 3.4.0
+    productVersion: 3.4.1
   clusterConfig:
     dfsReplication: 1
     zookeeperConfigMapName: druid-hdfs-znode

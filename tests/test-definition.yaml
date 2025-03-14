@@ -26,18 +26,19 @@ dimensions:
   - name: zookeeper
     values:
       - 3.9.2
+      - 3.9.3
   - name: zookeeper-latest
     values:
-      - 3.9.2
+      - 3.9.3
   - name: opa
     values:
       - 1.0.1
   - name: hadoop
     values:
-      - 3.4.0
+      - 3.4.1
   - name: hadoop-latest
     values:
-      - 3.4.0
+      - 3.4.1
   - name: s3-use-tls
     values:
       - "true"
