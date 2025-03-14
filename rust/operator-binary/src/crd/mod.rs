@@ -389,6 +389,7 @@ impl v1alpha1::DruidCluster {
         Ok(result)
     }
 
+    #[allow(clippy::type_complexity)]
     pub fn build_role_properties(
         &self,
     ) -> HashMap<
