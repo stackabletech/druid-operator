@@ -7,7 +7,7 @@ All notable changes to this project will be documented in this file.
 ### Added
 
 - The lifetime of auto generated TLS certificates is now configurable with the role and roleGroup
-￼ config property `requestedSecretLifetime`. This helps reducing frequent Pod restarts ([#660]).
+  config property `requestedSecretLifetime`. This helps reducing frequent Pod restarts ([#660]).
 - Run a `containerdebug` process in the background of each "druid" container to collect debugging information ([#667]).
 - Aggregate emitted Kubernetes events on the CustomResources ([#677]).
 - Support Apache Druid `31.0.1` and `30.0.1`, remove `26.0.0` ([#685]).
