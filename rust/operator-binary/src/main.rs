@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use clap::{crate_description, crate_version, Parser};
+use clap::Parser;
 use druid_controller::{DRUID_CONTROLLER_NAME, FULL_CONTROLLER_NAME};
 use futures::StreamExt;
 use stackable_operator::{
@@ -61,13 +61,14 @@ async fn main() -> anyhow::Result<()> {
                 APP_NAME,
                 tracing_target,
             );
-            stackable_operator::utils::print_startup_string(
-                crate_description!(),
-                crate_version!(),
-                built_info::GIT_VERSION,
-                built_info::TARGET,
-                built_info::BUILT_TIME_UTC,
-                built_info::RUSTC_VERSION,
+            tracing::info!(
+                built_info.pkg_version = built_info::PKG_VERSION,
+                built_info.git_version = built_info::GIT_VERSION,
+                built_info.target = built_info::TARGET,
+                built_info.built_time_utc = built_info::BUILT_TIME_UTC,
+                built_info.rustc_version = built_info::RUSTC_VERSION,
+                "Starting {description}",
+                description = built_info::PKG_DESCRIPTION
             );
             let product_config = product_config.load(&[
                 "deploy/config-spec/properties.yaml",
