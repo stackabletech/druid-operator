@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Fixed
+
+- Fix a bug where changes to ConfigMaps that are referenced in the Druid spec didn't trigger a reconciliation ([#]).
+
+[#]: https://github.com/stackabletech/druid-operator/pull/
+
 ## [25.3.0] - 2025-03-21
 
 ### Added
