@@ -13,8 +13,10 @@ use stackable_operator::{
         core::DeserializeGuard,
         runtime::{
             events::{Recorder, Reporter},
+            reflector::ObjectRef,
             watcher, Controller,
         },
+        ResourceExt,
     },
     logging::controller::report_controller_reconciled,
     shared::yaml::SerializeOptions,
@@ -86,52 +88,88 @@ async fn main() -> anyhow::Result<()> {
                     instance: None,
                 },
             ));
-
-            Controller::new(
+            let druid_controller = Controller::new(
                 watch_namespace.get_api::<DeserializeGuard<v1alpha1::DruidCluster>>(&client),
                 watcher::Config::default(),
-            )
-            .owns(
-                watch_namespace.get_api::<Service>(&client),
-                watcher::Config::default(),
-            )
-            .owns(
-                watch_namespace.get_api::<StatefulSet>(&client),
-                watcher::Config::default(),
-            )
-            .owns(
-                watch_namespace.get_api::<ConfigMap>(&client),
-                watcher::Config::default(),
-            )
-            .shutdown_on_signal()
-            .run(
-                druid_controller::reconcile_druid,
-                druid_controller::error_policy,
-                Arc::new(druid_controller::Ctx {
-                    client: client.clone(),
-                    product_config,
-                }),
-            )
-            // We can let the reporting happen in the background
-            .for_each_concurrent(
-                16, // concurrency limit
-                |result| {
-                    // The event_recorder needs to be shared across all invocations, so that
-                    // events are correctly aggregated
-                    let event_recorder = event_recorder.clone();
-                    async move {
-                        report_controller_reconciled(
-                            &event_recorder,
-                            FULL_CONTROLLER_NAME,
-                            &result,
-                        )
-                        .await;
-                    }
-                },
-            )
-            .await;
+            );
+            let druid_store_1 = druid_controller.store();
+            druid_controller
+                .owns(
+                    watch_namespace.get_api::<Service>(&client),
+                    watcher::Config::default(),
+                )
+                .owns(
+                    watch_namespace.get_api::<StatefulSet>(&client),
+                    watcher::Config::default(),
+                )
+                .owns(
+                    watch_namespace.get_api::<ConfigMap>(&client),
+                    watcher::Config::default(),
+                )
+                .shutdown_on_signal()
+                .watches(
+                    watch_namespace.get_api::<DeserializeGuard<ConfigMap>>(&client),
+                    watcher::Config::default(),
+                    move |config_map| {
+                        druid_store_1
+                            .state()
+                            .into_iter()
+                            .filter(move |druid| references_config_map(druid, &config_map))
+                            .map(|druid| ObjectRef::from_obj(&*druid))
+                    },
+                )
+                .run(
+                    druid_controller::reconcile_druid,
+                    druid_controller::error_policy,
+                    Arc::new(druid_controller::Ctx {
+                        client: client.clone(),
+                        product_config,
+                    }),
+                )
+                // We can let the reporting happen in the background
+                .for_each_concurrent(
+                    16, // concurrency limit
+                    |result| {
+                        // The event_recorder needs to be shared across all invocations, so that
+                        // events are correctly aggregated
+                        let event_recorder = event_recorder.clone();
+                        async move {
+                            report_controller_reconciled(
+                                &event_recorder,
+                                FULL_CONTROLLER_NAME,
+                                &result,
+                            )
+                            .await;
+                        }
+                    },
+                )
+                .await;
         }
     }
 
     Ok(())
+}
+
+fn references_config_map(
+    druid: &DeserializeGuard<v1alpha1::DruidCluster>,
+    config_map: &DeserializeGuard<ConfigMap>,
+) -> bool {
+    let Ok(druid) = &druid.0 else {
+        return false;
+    };
+
+    druid.spec.cluster_config.vector_aggregator_config_map_name == Some(config_map.name_any())
+        || druid.spec.cluster_config.zookeeper_config_map_name == config_map.name_any()
+        || match druid.spec.cluster_config.authorization.to_owned() {
+            Some(druid_authorization) => {
+                druid_authorization.opa.config_map_name == config_map.name_any()
+            }
+            None => false,
+        }
+        || match druid.spec.cluster_config.deep_storage.to_owned() {
+            crd::DeepStorageSpec::Hdfs(hdfs_spec) => {
+                hdfs_spec.config_map_name == config_map.name_any()
+            }
+            _ => false,
+        }
 }
