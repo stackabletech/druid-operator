@@ -2,14 +2,14 @@ use std::collections::BTreeMap;
 
 use snafu::ResultExt;
 use stackable_operator::{
-    builder::pod::{container::ContainerBuilder, PodBuilder},
+    builder::pod::{PodBuilder, container::ContainerBuilder},
     commons::authentication::oidc::{AuthenticationProvider, ClientAuthenticationOptions},
     k8s_openapi::api::core::v1::EnvVar,
 };
 
 use crate::{
     authentication::{AddOidcVolumesSnafu, ConstructOidcWellKnownUrlSnafu, Error},
-    crd::{security::add_cert_to_jvm_trust_store_cmd, DruidRole, COOKIE_PASSPHRASE_ENV},
+    crd::{COOKIE_PASSPHRASE_ENV, DruidRole, security::add_cert_to_jvm_trust_store_cmd},
     internal_secret::env_var_from_secret,
 };
 
