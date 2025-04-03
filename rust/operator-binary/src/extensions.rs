@@ -4,7 +4,7 @@ use tracing::debug;
 
 use crate::{
     authentication::DruidAuthenticationConfig,
-    crd::{security::DruidTlsSecurity, v1alpha1, DbType},
+    crd::{DbType, security::DruidTlsSecurity, v1alpha1},
 };
 
 const EXT_S3: &str = "druid-s3-extensions";

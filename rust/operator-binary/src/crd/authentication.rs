@@ -1,14 +1,14 @@
 use std::future::Future;
 
-use snafu::{ensure, ResultExt, Snafu};
+use snafu::{ResultExt, Snafu, ensure};
 use stackable_operator::{
     client::Client,
     commons::authentication::{
-        ldap,
+        AuthenticationClass, AuthenticationClassProvider, ClientAuthenticationDetails, ldap,
         oidc::{self, IdentityProviderHint},
-        tls, AuthenticationClass, AuthenticationClassProvider, ClientAuthenticationDetails,
+        tls,
     },
-    kube::{runtime::reflector::ObjectRef, ResourceExt},
+    kube::{ResourceExt, runtime::reflector::ObjectRef},
 };
 use tracing::info;
 
@@ -33,22 +33,24 @@ pub enum Error {
     #[snafu(display("only one authentication class is currently supported at a time."))]
     MultipleAuthenticationClassesNotSupported,
     #[snafu(display(
-    "failed to use authentication provider [{authentication_class_provider}] for authentication class [{authentication_class}] - supported providers: {SUPPORTED_AUTHENTICATION_CLASS_PROVIDERS:?}",
+        "failed to use authentication provider [{authentication_class_provider}] for authentication class [{authentication_class}] - supported providers: {SUPPORTED_AUTHENTICATION_CLASS_PROVIDERS:?}",
     ))]
     AuthenticationClassProviderNotSupported {
         authentication_class_provider: String,
         authentication_class: ObjectRef<AuthenticationClass>,
     },
-    #[snafu(display("LDAP authentication without bind credentials is currently not supported. See https://github.com/stackabletech/druid-operator/issues/383 for details"))]
+    #[snafu(display(
+        "LDAP authentication without bind credentials is currently not supported. See https://github.com/stackabletech/druid-operator/issues/383 for details"
+    ))]
     LdapAuthenticationWithoutBindCredentialsNotSupported {},
     #[snafu(display("LDAP authentication requires server and internal tls to be enabled"))]
     LdapAuthenticationWithoutServerTlsNotSupported {},
     #[snafu(display(
-    "client authentication using TLS (as requested by AuthenticationClass {auth_class_name}) can not be used when Druid server and internal TLS is disabled",
+        "client authentication using TLS (as requested by AuthenticationClass {auth_class_name}) can not be used when Druid server and internal TLS is disabled",
     ))]
     TlsAuthenticationClassWithoutDruidServerTls { auth_class_name: String },
     #[snafu(display(
-    "client authentication using TLS (as requested by AuthenticationClass {auth_class_name}) can only use the same SecretClass as the Druid instance is using for server and internal communication (SecretClass {server_and_internal_secret_class} in this case)",
+        "client authentication using TLS (as requested by AuthenticationClass {auth_class_name}) can only use the same SecretClass as the Druid instance is using for server and internal communication (SecretClass {server_and_internal_secret_class} in this case)",
     ))]
     TlsAuthenticationClassSecretClassDiffersFromDruidServerTls {
         auth_class_name: String,
@@ -58,7 +60,9 @@ pub enum Error {
     OidcConfigurationInvalid {
         source: stackable_operator::commons::authentication::Error,
     },
-    #[snafu(display("the OIDC provider {oidc_provider:?} is not yet supported (AuthenticationClass {auth_class_name:?})"))]
+    #[snafu(display(
+        "the OIDC provider {oidc_provider:?} is not yet supported (AuthenticationClass {auth_class_name:?})"
+    ))]
     OidcProviderNotSupported {
         auth_class_name: String,
         oidc_provider: String,
@@ -186,8 +190,11 @@ impl AuthenticationClassesResolved {
     ) -> Result<AuthenticationClassResolved> {
         let oidc_provider = match &provider.provider_hint {
             None => {
-                info!("No OIDC provider hint given in AuthClass {auth_class_name}, assuming {default_oidc_provider_name}",
-                    default_oidc_provider_name = serde_json::to_string(&DEFAULT_OIDC_PROVIDER).unwrap());
+                info!(
+                    "No OIDC provider hint given in AuthClass {auth_class_name}, assuming {default_oidc_provider_name}",
+                    default_oidc_provider_name =
+                        serde_json::to_string(&DEFAULT_OIDC_PROVIDER).unwrap()
+                );
                 DEFAULT_OIDC_PROVIDER
             }
             Some(oidc_provider) => oidc_provider.to_owned(),
