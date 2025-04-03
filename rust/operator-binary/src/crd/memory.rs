@@ -8,8 +8,8 @@ use stackable_operator::{
 };
 
 use crate::crd::{
-    storage::HistoricalStorage, PROCESSING_BUFFER_SIZE_BYTES, PROCESSING_NUM_MERGE_BUFFERS,
-    PROCESSING_NUM_THREADS,
+    PROCESSING_BUFFER_SIZE_BYTES, PROCESSING_NUM_MERGE_BUFFERS, PROCESSING_NUM_THREADS,
+    storage::HistoricalStorage,
 };
 
 static MIN_HEAP_RATIO: f32 = 0.75;

@@ -1,12 +1,12 @@
 use indoc::formatdoc;
 use snafu::{ResultExt, Snafu};
 use stackable_operator::{
-    builder::pod::{container::ContainerBuilder, PodBuilder},
+    builder::pod::{PodBuilder, container::ContainerBuilder},
     k8s_openapi::api::core::v1::{ExecAction, LifecycleHandler},
     time::Duration,
 };
 
-use crate::crd::{security::DruidTlsSecurity, DruidRole};
+use crate::crd::{DruidRole, security::DruidTlsSecurity};
 
 #[derive(Debug, Snafu)]
 pub enum Error {
