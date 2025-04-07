@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+
+- Inject the vector aggregator address into the vector config using the env var `VECTOR_AGGREGATOR_ADDRESS` ([#704]).
+
 ### Fixed
 
 - Fix a bug where changes to ConfigMaps that are referenced in the Druid spec didn't trigger a reconciliation ([#704]).
