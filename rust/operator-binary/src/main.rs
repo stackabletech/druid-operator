@@ -158,8 +158,7 @@ fn references_config_map(
         return false;
     };
 
-    druid.spec.cluster_config.vector_aggregator_config_map_name == Some(config_map.name_any())
-        || druid.spec.cluster_config.zookeeper_config_map_name == config_map.name_any()
+    druid.spec.cluster_config.zookeeper_config_map_name == config_map.name_any()
         || match druid.spec.cluster_config.authorization.to_owned() {
             Some(druid_authorization) => {
                 druid_authorization.opa.config_map_name == config_map.name_any()
