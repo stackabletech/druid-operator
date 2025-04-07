@@ -10,7 +10,7 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 
-- Fix a bug where changes to ConfigMaps that are referenced in the Druid spec didn't trigger a reconciliation ([#704]).
+- Fix a bug where changes to ConfigMaps that are referenced in the DruidCluster spec didn't trigger a reconciliation ([#704]).
 
 [#704]: https://github.com/stackabletech/druid-operator/pull/704
 
