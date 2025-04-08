@@ -4,23 +4,16 @@ use clap::Parser;
 use druid_controller::{DRUID_CONTROLLER_NAME, FULL_CONTROLLER_NAME};
 use futures::StreamExt;
 use stackable_operator::{
-    YamlSchema,
-    cli::{Command, ProductOperatorRun, RollingPeriod},
-    k8s_openapi::api::{
+    cli::{Command, ProductOperatorRun, RollingPeriod}, k8s_openapi::api::{
         apps::v1::StatefulSet,
         core::v1::{ConfigMap, Service},
-    },
-    kube::{
+    }, kube::{
         core::DeserializeGuard,
         runtime::{
-            Controller,
-            events::{Recorder, Reporter},
-            watcher,
+            events::{Recorder, Reporter}, reflector::ObjectRef, watcher, Controller
         },
         ResourceExt,
-    },
-    logging::controller::report_controller_reconciled,
-    shared::yaml::SerializeOptions,
+    }, logging::controller::report_controller_reconciled, shared::yaml::SerializeOptions, YamlSchema
 };
 use stackable_telemetry::{Tracing, tracing::settings::Settings};
 use tracing::level_filters::LevelFilter;
