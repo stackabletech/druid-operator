@@ -4,16 +4,24 @@ use clap::Parser;
 use druid_controller::{DRUID_CONTROLLER_NAME, FULL_CONTROLLER_NAME};
 use futures::StreamExt;
 use stackable_operator::{
-    cli::{Command, ProductOperatorRun, RollingPeriod}, k8s_openapi::api::{
+    YamlSchema,
+    cli::{Command, ProductOperatorRun, RollingPeriod},
+    k8s_openapi::api::{
         apps::v1::StatefulSet,
         core::v1::{ConfigMap, Service},
-    }, kube::{
+    },
+    kube::{
+        ResourceExt,
         core::DeserializeGuard,
         runtime::{
-            events::{Recorder, Reporter}, reflector::ObjectRef, watcher, Controller
+            Controller,
+            events::{Recorder, Reporter},
+            reflector::ObjectRef,
+            watcher,
         },
-        ResourceExt,
-    }, logging::controller::report_controller_reconciled, shared::yaml::SerializeOptions, YamlSchema
+    },
+    logging::controller::report_controller_reconciled,
+    shared::yaml::SerializeOptions,
 };
 use stackable_telemetry::{Tracing, tracing::settings::Settings};
 use tracing::level_filters::LevelFilter;
@@ -115,7 +123,6 @@ async fn main() -> anyhow::Result<()> {
                 &cluster_info_opts,
             )
             .await?;
-
 
             let event_recorder = Arc::new(Recorder::new(client.as_kube_client(), Reporter {
                 controller: FULL_CONTROLLER_NAME.to_string(),
