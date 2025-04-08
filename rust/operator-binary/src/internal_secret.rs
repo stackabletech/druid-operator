@@ -9,7 +9,7 @@ use stackable_operator::{
 };
 use strum::{EnumDiscriminants, IntoStaticStr};
 
-use crate::crd::{security::INTERNAL_INITIAL_CLIENT_PASSWORD_ENV, v1alpha1, COOKIE_PASSPHRASE_ENV};
+use crate::crd::{COOKIE_PASSPHRASE_ENV, security::INTERNAL_INITIAL_CLIENT_PASSWORD_ENV, v1alpha1};
 
 #[derive(Snafu, Debug, EnumDiscriminants)]
 #[strum_discriminants(derive(IntoStaticStr))]
@@ -71,9 +71,9 @@ pub async fn create_shared_internal_secret(
             match existing_immutable_secret {
                 None => {
                     tracing::info!(
-                    secret_name = secret.name_any(),
-                    "Did not found a shared internal secret with the necessary data, creating one"
-                );
+                        secret_name = secret.name_any(),
+                        "Did not found a shared internal secret with the necessary data, creating one"
+                    );
                     client
                         .apply_patch(controller_name, &secret, &secret)
                         .await

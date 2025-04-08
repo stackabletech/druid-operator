@@ -5,12 +5,12 @@ use stackable_operator::{
     builder::{
         self,
         pod::{
+            PodBuilder,
             container::ContainerBuilder,
             volume::{
                 SecretFormat, SecretOperatorVolumeSourceBuilder,
                 SecretOperatorVolumeSourceBuilderError, VolumeBuilder,
             },
-            PodBuilder,
         },
     },
     k8s_openapi::{
@@ -21,8 +21,9 @@ use stackable_operator::{
 };
 
 use crate::crd::{
+    DruidRole, METRICS_PORT, STACKABLE_TRUST_STORE, STACKABLE_TRUST_STORE_PASSWORD,
     authentication::{self, AuthenticationClassesResolved},
-    v1alpha1, DruidRole, METRICS_PORT, STACKABLE_TRUST_STORE, STACKABLE_TRUST_STORE_PASSWORD,
+    v1alpha1,
 };
 
 #[derive(Snafu, Debug)]
@@ -452,17 +453,23 @@ pub fn add_cert_to_trust_store_cmd(
     alias_name: &str,
     store_password: &str,
 ) -> String {
-    format!("keytool -importcert -file {cert} -keystore {trust_store_directory}/truststore.p12 -storetype pkcs12 -alias {alias_name} -storepass {store_password} -noprompt")
+    format!(
+        "keytool -importcert -file {cert} -keystore {trust_store_directory}/truststore.p12 -storetype pkcs12 -alias {alias_name} -storepass {store_password} -noprompt"
+    )
 }
 
 pub fn add_cert_to_jvm_trust_store_cmd(cert: &str, alias_name: &str) -> String {
-    format!("keytool -importcert -file {cert} -keystore {STACKABLE_TRUST_STORE} -storetype pkcs12 -alias {alias_name} -storepass {STACKABLE_TRUST_STORE_PASSWORD} -noprompt")
+    format!(
+        "keytool -importcert -file {cert} -keystore {STACKABLE_TRUST_STORE} -storetype pkcs12 -alias {alias_name} -storepass {STACKABLE_TRUST_STORE_PASSWORD} -noprompt"
+    )
 }
 
 /// Import the system truststore to a truststore named `truststore.p12` in `destination_directory`.
 fn import_system_truststore(destination_directory: &str) -> String {
     let dest_truststore_path = format!("{destination_directory}/truststore.p12");
-    format!("keytool -importkeystore -srckeystore {SYSTEM_TRUST_STORE} -srcstoretype jks -srcstorepass {SYSTEM_TRUST_STORE_PASSWORD} -destkeystore {dest_truststore_path} -deststoretype pkcs12 -deststorepass {TLS_STORE_PASSWORD} -noprompt")
+    format!(
+        "keytool -importkeystore -srckeystore {SYSTEM_TRUST_STORE} -srcstoretype jks -srcstorepass {SYSTEM_TRUST_STORE_PASSWORD} -destkeystore {dest_truststore_path} -deststoretype pkcs12 -deststorepass {TLS_STORE_PASSWORD} -noprompt"
+    )
 }
 
 /// Generates the shell script to import a secret operator provided truststore without password
@@ -485,7 +492,9 @@ fn import_truststore(source_directory: &str, destination_directory: &str) -> Str
     // the destination truststore to avoid conflicts when importing multiple secret-op generated
     // truststores. We do not use the UUID rust crate since this will continuously change the STS... and
     // leads to never-ending reconciles.
-    format!("keytool -importkeystore -srckeystore {source_truststore_path} -srcstoretype PKCS12 -srcstorepass {TLS_STORE_PASSWORD} -srcalias 1 -destkeystore {dest_truststore_path} -deststoretype PKCS12 -deststorepass {TLS_STORE_PASSWORD} -destalias $(cat /proc/sys/kernel/random/uuid) -noprompt")
+    format!(
+        "keytool -importkeystore -srckeystore {source_truststore_path} -srcstoretype PKCS12 -srcstorepass {TLS_STORE_PASSWORD} -srcalias 1 -destkeystore {dest_truststore_path} -deststoretype PKCS12 -deststorepass {TLS_STORE_PASSWORD} -destalias $(cat /proc/sys/kernel/random/uuid) -noprompt"
+    )
 }
 
 /// Generate a script to import a mounted keystore to an empty dir and set an alias
@@ -496,5 +505,7 @@ fn import_keystore(source_directory: &str, destination_directory: &str) -> Strin
     // Therefore we import all the contents to a keystore in "writeable" empty dirs.
     // Using no password will result in a warning.
     // All secret-op generated keystores have one entry with alias "1".
-    format!("keytool -importkeystore -srckeystore {source_keystore_path} -srcstoretype PKCS12 -srcstorepass {TLS_STORE_PASSWORD} -srcalias 1 -destkeystore {dest_keystore_path} -deststoretype PKCS12 -deststorepass {TLS_STORE_PASSWORD} -destalias {TLS_ALIAS_NAME} -noprompt")
+    format!(
+        "keytool -importkeystore -srckeystore {source_keystore_path} -srcstoretype PKCS12 -srcstorepass {TLS_STORE_PASSWORD} -srcalias 1 -destkeystore {dest_keystore_path} -deststoretype PKCS12 -deststorepass {TLS_STORE_PASSWORD} -destalias {TLS_ALIAS_NAME} -noprompt"
+    )
 }

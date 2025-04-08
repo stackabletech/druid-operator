@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 
 use snafu::Snafu;
 use stackable_operator::{
-    builder::pod::{container::ContainerBuilder, PodBuilder},
+    builder::pod::{PodBuilder, container::ContainerBuilder},
     commons::{
         authentication::{
             ldap::AuthenticationProvider as LdapAuthenticationProvider,
@@ -17,9 +17,10 @@ use stackable_operator::{
 
 use crate::{
     crd::{
+        DruidRole,
         authentication::{AuthenticationClassResolved, AuthenticationClassesResolved},
         security::{ESCALATOR_INTERNAL_CLIENT_PASSWORD_ENV, INTERNAL_INITIAL_CLIENT_PASSWORD_ENV},
-        v1alpha1, DruidRole,
+        v1alpha1,
     },
     internal_secret::{build_shared_internal_secret_name, env_var_from_secret},
 };

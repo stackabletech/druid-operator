@@ -3,7 +3,7 @@ use std::{collections::BTreeMap, sync::LazyLock};
 use snafu::{OptionExt, ResultExt, Snafu};
 use stackable_operator::{
     builder,
-    builder::pod::{container::ContainerBuilder, volume::VolumeBuilder, PodBuilder},
+    builder::pod::{PodBuilder, container::ContainerBuilder, volume::VolumeBuilder},
     commons::resources::{
         CpuLimitsFragment, MemoryLimits, MemoryLimitsFragment, NoRuntimeLimits,
         NoRuntimeLimitsFragment, Resources, ResourcesFragment,
@@ -17,9 +17,9 @@ use stackable_operator::{
 use strum::{EnumDiscriminants, IntoStaticStr};
 
 use crate::crd::{
+    DruidRole, PATH_SEGMENT_CACHE, PROP_SEGMENT_CACHE_LOCATIONS,
     memory::{HistoricalDerivedSettings, RESERVED_OS_MEMORY},
     storage::{self, default_free_percentage_empty_dir_fragment},
-    DruidRole, PATH_SEGMENT_CACHE, PROP_SEGMENT_CACHE_LOCATIONS,
 };
 
 // volume names
@@ -256,9 +256,10 @@ mod test {
 
     use super::*;
     use crate::crd::{
-        storage::{default_free_percentage_empty_dir, HistoricalStorage},
+        MiddleManagerConfig,
+        storage::{HistoricalStorage, default_free_percentage_empty_dir},
         tests::deserialize_yaml_file,
-        v1alpha1, MiddleManagerConfig,
+        v1alpha1,
     };
 
     #[rstest]

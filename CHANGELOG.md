@@ -4,14 +4,20 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
-### Added
+### Changed
 
-- Inject the vector aggregator address into the vector config using the env var `VECTOR_AGGREGATOR_ADDRESS` ([#704]).
+- Replace stackable-operator `initialize_logging` with stackable-telemetry `Tracing` ([#703]).
+  - BREAKING: The file log directory was set by `DRUID_OPERATOR_LOG_DIRECTORY`, and is now set by `ROLLING_LOGS`
+    (or via `--rolling-logs <DIRECTORY>`).
+  - Replace stackable-operator `print_startup_string` with `tracing::info!` with fields.
+- BREAKING: Inject the vector aggregator address into the vector config using the env var `VECTOR_AGGREGATOR_ADDRESS` instead
+    of having the operator write it to the vector config ([#704]).
 
 ### Fixed
 
 - Fix a bug where changes to ConfigMaps that are referenced in the DruidCluster spec didn't trigger a reconciliation ([#704]).
 
+[#703]: https://github.com/stackabletech/druid-operator/pull/703
 [#704]: https://github.com/stackabletech/druid-operator/pull/704
 
 ## [25.3.0] - 2025-03-21

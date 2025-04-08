@@ -9,9 +9,9 @@ use std::{
 
 use const_format::concatcp;
 use product_config::{
-    types::PropertyNameKind,
-    writer::{to_java_properties_string, PropertiesWriterError},
     ProductConfigManager,
+    types::PropertyNameKind,
+    writer::{PropertiesWriterError, to_java_properties_string},
 };
 use snafu::{OptionExt, ResultExt, Snafu};
 use stackable_operator::{
@@ -20,8 +20,8 @@ use stackable_operator::{
         configmap::ConfigMapBuilder,
         meta::ObjectMetaBuilder,
         pod::{
-            container::ContainerBuilder, resources::ResourceRequirementsBuilder,
-            security::PodSecurityContextBuilder, volume::VolumeBuilder, PodBuilder,
+            PodBuilder, container::ContainerBuilder, resources::ResourceRequirementsBuilder,
+            security::PodSecurityContextBuilder, volume::VolumeBuilder,
         },
     },
     cluster_resources::{ClusterResourceApplyStrategy, ClusterResources},
@@ -33,17 +33,17 @@ use stackable_operator::{
         tls_verification::TlsClientDetailsError,
     },
     k8s_openapi::{
+        DeepMerge,
         api::{
             apps::v1::{StatefulSet, StatefulSetSpec},
             core::v1::{ConfigMap, EnvVar, Service, ServiceAccount, ServiceSpec},
         },
         apimachinery::pkg::apis::meta::v1::LabelSelector,
-        DeepMerge,
     },
     kube::{
-        core::{error_boundary, DeserializeGuard},
-        runtime::{controller::Action, reflector::ObjectRef},
         Resource, ResourceExt,
+        core::{DeserializeGuard, error_boundary},
+        runtime::{controller::Action, reflector::ObjectRef},
     },
     kvp::{KeyValuePairError, Label, LabelError, LabelValueError, Labels},
     logging::controller::ReconcilerError,
@@ -69,14 +69,14 @@ use crate::{
     authentication::DruidAuthenticationConfig,
     config::jvm::construct_jvm_args,
     crd::{
-        authentication::AuthenticationClassesResolved, authorization::DruidAuthorization,
-        build_recommended_labels, build_string_list, security::DruidTlsSecurity, v1alpha1,
-        CommonRoleGroupConfig, Container, DeepStorageSpec, DruidClusterStatus, DruidRole, APP_NAME,
-        AUTH_AUTHORIZER_OPA_URI, CREDENTIALS_SECRET_PROPERTY, DB_PASSWORD_ENV, DB_USERNAME_ENV,
-        DRUID_CONFIG_DIRECTORY, DS_BUCKET, EXTENSIONS_LOADLIST, HDFS_CONFIG_DIRECTORY, JVM_CONFIG,
-        JVM_SECURITY_PROPERTIES_FILE, LOG_CONFIG_DIRECTORY, MAX_DRUID_LOG_FILES_SIZE,
+        APP_NAME, AUTH_AUTHORIZER_OPA_URI, CREDENTIALS_SECRET_PROPERTY, CommonRoleGroupConfig,
+        Container, DB_PASSWORD_ENV, DB_USERNAME_ENV, DRUID_CONFIG_DIRECTORY, DS_BUCKET,
+        DeepStorageSpec, DruidClusterStatus, DruidRole, EXTENSIONS_LOADLIST, HDFS_CONFIG_DIRECTORY,
+        JVM_CONFIG, JVM_SECURITY_PROPERTIES_FILE, LOG_CONFIG_DIRECTORY, MAX_DRUID_LOG_FILES_SIZE,
         OPERATOR_NAME, RUNTIME_PROPS, RW_CONFIG_DIRECTORY, S3_ACCESS_KEY, S3_ENDPOINT_URL,
         S3_PATH_STYLE_ACCESS, S3_SECRET_KEY, STACKABLE_LOG_DIR, ZOOKEEPER_CONNECTION_STRING,
+        authentication::AuthenticationClassesResolved, authorization::DruidAuthorization,
+        build_recommended_labels, build_string_list, security::DruidTlsSecurity, v1alpha1,
     },
     discovery::{self, build_discovery_configmaps},
     extensions::get_extension_list,
@@ -1348,7 +1348,7 @@ pub fn error_policy(
 
 #[cfg(test)]
 mod test {
-    use product_config::{writer, ProductConfigManager};
+    use product_config::{ProductConfigManager, writer};
     use rstest::*;
 
     use super::*;

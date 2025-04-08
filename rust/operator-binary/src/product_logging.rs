@@ -10,7 +10,7 @@ use stackable_operator::{
 };
 
 use crate::crd::{
-    v1alpha1, Container, DRUID_LOG_FILE, LOG4J2_CONFIG, MAX_DRUID_LOG_FILES_SIZE, STACKABLE_LOG_DIR,
+    Container, DRUID_LOG_FILE, LOG4J2_CONFIG, MAX_DRUID_LOG_FILES_SIZE, STACKABLE_LOG_DIR, v1alpha1,
 };
 
 #[derive(Snafu, Debug)]

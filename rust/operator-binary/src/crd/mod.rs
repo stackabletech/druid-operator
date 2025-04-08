@@ -35,8 +35,8 @@ use stackable_operator::{
     status::condition::{ClusterCondition, HasStatusCondition},
     time::Duration,
     utils::{
-        cluster_info::KubernetesClusterInfo, crds::raw_object_list_schema,
-        COMMON_BASH_TRAP_FUNCTIONS,
+        COMMON_BASH_TRAP_FUNCTIONS, cluster_info::KubernetesClusterInfo,
+        crds::raw_object_list_schema,
     },
 };
 use stackable_versioned::versioned;
@@ -46,7 +46,7 @@ use crate::crd::{
     affinity::get_affinity,
     authorization::DruidAuthorization,
     resource::RoleResource,
-    tls::{default_druid_tls, DruidTls},
+    tls::{DruidTls, default_druid_tls},
 };
 
 pub mod affinity;
