@@ -82,7 +82,7 @@ use crate::{
     extensions::get_extension_list,
     internal_secret::{create_shared_internal_secret, env_var_from_secret},
     operations::{graceful_shutdown::add_graceful_shutdown_config, pdb::add_pdbs},
-    product_logging::{extend_role_group_config_map, resolve_vector_aggregator_address},
+    product_logging::extend_role_group_config_map,
 };
 
 pub const DRUID_CONTROLLER_NAME: &str = "druidcluster";
@@ -267,10 +267,8 @@ pub enum Error {
         source: crate::internal_secret::Error,
     },
 
-    #[snafu(display("failed to resolve the Vector aggregator address"))]
-    ResolveVectorAggregatorAddress {
-        source: crate::product_logging::Error,
-    },
+    #[snafu(display("vector agent is enabled but vector aggregator ConfigMap is missing"))]
+    VectorAggregatorConfigMapMissing,
 
     #[snafu(display("failed to add the logging configuration to the ConfigMap [{cm_name}]"))]
     InvalidLoggingConfig {
@@ -405,10 +403,6 @@ pub async fn reconcile_druid(
             cm_name: zk_confmap.clone(),
         })?;
 
-    let vector_aggregator_address = resolve_vector_aggregator_address(druid, client)
-        .await
-        .context(ResolveVectorAggregatorAddressSnafu)?;
-
     // Assemble the OPA connection string from the discovery and the given path, if a spec is given.
     let opa_connstr = if let Some(DruidAuthorization { opa: opa_config }) =
         &druid.spec.cluster_config.authorization
@@ -540,7 +534,6 @@ pub async fn reconcile_druid(
                 rolegroup_config,
                 &merged_rolegroup_config,
                 &zk_connstr,
-                vector_aggregator_address.as_deref(),
                 opa_connstr.as_deref(),
                 s3_conn.as_ref(),
                 deep_storage_bucket_name.as_deref(),
@@ -682,7 +675,6 @@ fn build_rolegroup_config_map(
     rolegroup_config: &HashMap<PropertyNameKind, BTreeMap<String, String>>,
     merged_rolegroup_config: &CommonRoleGroupConfig,
     zk_connstr: &str,
-    vector_aggregator_address: Option<&str>,
     opa_connstr: Option<&str>,
     s3_conn: Option<&S3ConnectionSpec>,
     deep_storage_bucket_name: Option<&str>,
@@ -852,7 +844,6 @@ fn build_rolegroup_config_map(
 
     extend_role_group_config_map(
         rolegroup,
-        vector_aggregator_address,
         &merged_rolegroup_config.logging,
         &mut config_map_builder,
     )
@@ -1156,24 +1147,32 @@ fn build_rolegroup_statefulset(
         );
 
     if merged_rolegroup_config.logging.enable_vector_agent {
-        pb.add_container(
-            product_logging::framework::vector_container(
-                resolved_product_image,
-                DRUID_CONFIG_VOLUME_NAME,
-                LOG_VOLUME_NAME,
-                merged_rolegroup_config
-                    .logging
-                    .containers
-                    .get(&Container::Vector),
-                ResourceRequirementsBuilder::new()
-                    .with_cpu_request("250m")
-                    .with_cpu_limit("500m")
-                    .with_memory_request("128Mi")
-                    .with_memory_limit("128Mi")
-                    .build(),
-            )
-            .context(BuildVectorContainerSnafu)?,
-        );
+        match &druid.spec.cluster_config.vector_aggregator_config_map_name {
+            Some(vector_aggregator_config_map_name) => {
+                pb.add_container(
+                    product_logging::framework::vector_container(
+                        resolved_product_image,
+                        DRUID_CONFIG_VOLUME_NAME,
+                        LOG_VOLUME_NAME,
+                        merged_rolegroup_config
+                            .logging
+                            .containers
+                            .get(&Container::Vector),
+                        ResourceRequirementsBuilder::new()
+                            .with_cpu_request("250m")
+                            .with_cpu_limit("500m")
+                            .with_memory_request("128Mi")
+                            .with_memory_limit("128Mi")
+                            .build(),
+                        vector_aggregator_config_map_name,
+                    )
+                    .context(BuildVectorContainerSnafu)?,
+                );
+            }
+            None => {
+                VectorAggregatorConfigMapMissingSnafu.fail()?;
+            }
+        }
     }
 
     let mut pod_template = pb.build_template();
@@ -1451,7 +1450,6 @@ mod test {
                         rolegroup_config,
                         &merged_rolegroup_config,
                         "zookeeper-connection-string",
-                        None,
                         None,
                         None,
                         None,
