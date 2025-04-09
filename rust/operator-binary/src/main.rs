@@ -200,13 +200,13 @@ fn references_config_map(
     };
 
     druid.spec.cluster_config.zookeeper_config_map_name == config_map.name_any()
-        || match druid.spec.cluster_config.authorization.to_owned() {
+        || match &druid.spec.cluster_config.authorization {
             Some(druid_authorization) => {
                 druid_authorization.opa.config_map_name == config_map.name_any()
             }
             None => false,
         }
-        || match druid.spec.cluster_config.deep_storage.to_owned() {
+        || match &druid.spec.cluster_config.deep_storage {
             crd::DeepStorageSpec::Hdfs(hdfs_spec) => {
                 hdfs_spec.config_map_name == config_map.name_any()
             }
