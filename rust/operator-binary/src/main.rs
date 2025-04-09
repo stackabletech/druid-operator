@@ -133,7 +133,7 @@ async fn main() -> anyhow::Result<()> {
                 watch_namespace.get_api::<DeserializeGuard<v1alpha1::DruidCluster>>(&client),
                 watcher::Config::default(),
             );
-            let druid_store_1 = druid_controller.store();
+            let config_map_store = druid_controller.store();
             druid_controller
                 .owns(
                     watch_namespace.get_api::<Service>(&client),
@@ -152,7 +152,7 @@ async fn main() -> anyhow::Result<()> {
                     watch_namespace.get_api::<DeserializeGuard<ConfigMap>>(&client),
                     watcher::Config::default(),
                     move |config_map| {
-                        druid_store_1
+                        config_map_store
                             .state()
                             .into_iter()
                             .filter(move |druid| references_config_map(druid, &config_map))
