@@ -15,10 +15,12 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 
+- Use `json` file extension for log files ([#709]).
 - Fix a bug where changes to ConfigMaps that are referenced in the DruidCluster spec didn't trigger a reconciliation ([#704]).
 
 [#703]: https://github.com/stackabletech/druid-operator/pull/703
 [#704]: https://github.com/stackabletech/druid-operator/pull/704
+[#709]: https://github.com/stackabletech/druid-operator/pull/709
 
 ## [25.3.0] - 2025-03-21
 
