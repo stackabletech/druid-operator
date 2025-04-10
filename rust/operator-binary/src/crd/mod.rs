@@ -38,8 +38,8 @@ use stackable_operator::{
         COMMON_BASH_TRAP_FUNCTIONS, cluster_info::KubernetesClusterInfo,
         crds::raw_object_list_schema,
     },
+    versioned::versioned,
 };
-use stackable_versioned::versioned;
 use strum::{Display, EnumDiscriminants, EnumIter, EnumString, IntoStaticStr};
 
 use crate::crd::{
