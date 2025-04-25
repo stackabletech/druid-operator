@@ -34,11 +34,7 @@ Helm::
 --
 You can also use Helm to install the operators.
 
-.Add the Stackable Helm repository
-[source,bash]
-----
-include::example$getting_started/getting_started.sh[tag=helm-add-repo]
-----
+NOTE: `helm repo` subcommands are not supported for OCI registries. The operators are installed directly, without adding the Helm Chart repository first.
 
 .Install the Stackable operators
 [source,bash]
