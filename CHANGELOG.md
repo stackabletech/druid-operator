@@ -27,11 +27,16 @@ All notable changes to this project will be documented in this file.
 - Use `json` file extension for log files ([#709]).
 - Fix a bug where changes to ConfigMaps that are referenced in the DruidCluster spec didn't trigger a reconciliation ([#704]).
 
+### Removed
+
+- test: ZooKeeper 3.9.2 removed ([#716]).
+
 [#703]: https://github.com/stackabletech/druid-operator/pull/703
 [#704]: https://github.com/stackabletech/druid-operator/pull/704
 [#709]: https://github.com/stackabletech/druid-operator/pull/709
 [#710]: https://github.com/stackabletech/druid-operator/pull/710
 [#714]: https://github.com/stackabletech/druid-operator/pull/714
+[#716]: https://github.com/stackabletech/druid-operator/pull/716
 
 ## [25.3.0] - 2025-03-21
 
