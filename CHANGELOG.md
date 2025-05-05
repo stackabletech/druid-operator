@@ -29,7 +29,7 @@ All notable changes to this project will be documented in this file.
 
 ### Removed
 
-- test: ZooKeeper 2.9.2 removed ([#716]).
+- test: ZooKeeper 3.9.2 removed ([#716]).
 
 [#703]: https://github.com/stackabletech/druid-operator/pull/703
 [#704]: https://github.com/stackabletech/druid-operator/pull/704
