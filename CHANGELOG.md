@@ -21,6 +21,7 @@ All notable changes to this project will be documented in this file.
   - Replace stackable-operator `print_startup_string` with `tracing::info!` with fields.
 - BREAKING: Inject the vector aggregator address into the vector config using the env var `VECTOR_AGGREGATOR_ADDRESS` instead
     of having the operator write it to the vector config ([#704]).
+- test: Bump to Vector `0.46.1` ([#719]).
 
 ### Fixed
 
@@ -37,6 +38,7 @@ All notable changes to this project will be documented in this file.
 [#710]: https://github.com/stackabletech/druid-operator/pull/710
 [#714]: https://github.com/stackabletech/druid-operator/pull/714
 [#716]: https://github.com/stackabletech/druid-operator/pull/716
+[#719]: https://github.com/stackabletech/druid-operator/pull/719
 
 ## [25.3.0] - 2025-03-21
 
