@@ -23,6 +23,10 @@ All notable changes to this project will be documented in this file.
     of having the operator write it to the vector config ([#704]).
 - test: Bump to Vector `0.46.1` ([#719]).
 - test: Bump OPA to `1.4.2` ([#721]).
+- BREAKING: Previously this operator would hardcode the UID and GID of the Pods being created to 1000/0, this has changed now ([#718])
+  - The `runAsUser` and `runAsGroup` fields will not be set anymore by the operator
+  - The defaults from the docker images itself will now apply, which will be different from 1000/0 going forward
+  - This is marked as breaking because tools and policies might exist, which require these fields to be set
 
 ### Fixed
 
@@ -39,6 +43,7 @@ All notable changes to this project will be documented in this file.
 [#710]: https://github.com/stackabletech/druid-operator/pull/710
 [#714]: https://github.com/stackabletech/druid-operator/pull/714
 [#716]: https://github.com/stackabletech/druid-operator/pull/716
+[#718]: https://github.com/stackabletech/druid-operator/pull/718
 [#719]: https://github.com/stackabletech/druid-operator/pull/719
 [#721]: https://github.com/stackabletech/druid-operator/pull/721
 

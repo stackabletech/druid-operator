@@ -88,7 +88,6 @@ use crate::{
 pub const DRUID_CONTROLLER_NAME: &str = "druidcluster";
 pub const FULL_CONTROLLER_NAME: &str = concatcp!(DRUID_CONTROLLER_NAME, '.', OPERATOR_NAME);
 
-const DRUID_UID: i64 = 1000;
 const DOCKER_IMAGE_BASE_NAME: &str = "druid";
 
 // volume names
@@ -1138,13 +1137,7 @@ fn build_rolegroup_statefulset(
         .add_container(cb_druid.build())
         .metadata(metadata)
         .service_account_name(service_account.name_any())
-        .security_context(
-            PodSecurityContextBuilder::new()
-                .run_as_user(DRUID_UID)
-                .run_as_group(0)
-                .fs_group(1000)
-                .build(),
-        );
+        .security_context(PodSecurityContextBuilder::new().fs_group(1000).build());
 
     if merged_rolegroup_config.logging.enable_vector_agent {
         match &druid.spec.cluster_config.vector_aggregator_config_map_name {
