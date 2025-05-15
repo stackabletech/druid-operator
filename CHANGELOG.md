@@ -10,6 +10,7 @@ All notable changes to this project will be documented in this file.
   - Use `--file-log-max-files` (or `FILE_LOG_MAX_FILES`) to limit the number of log files kept.
   - Use `--file-log-rotation-period` (or `FILE_LOG_ROTATION_PERIOD`) to configure the frequency of rotation.
   - Use `--console-log-format` (or `CONSOLE_LOG_FORMAT`) to set the format to `plain` (default) or `json`.
+- Add support for `33.0.0` ([#722]).
 
 ### Changed
 
@@ -27,6 +28,7 @@ All notable changes to this project will be documented in this file.
   - The `runAsUser` and `runAsGroup` fields will not be set anymore by the operator
   - The defaults from the docker images itself will now apply, which will be different from 1000/0 going forward
   - This is marked as breaking because tools and policies might exist, which require these fields to be set
+- Deprecate support for `31.0.1` ([#722]).
 
 ### Fixed
 
@@ -36,6 +38,7 @@ All notable changes to this project will be documented in this file.
 ### Removed
 
 - test: ZooKeeper 3.9.2 removed ([#716]).
+- Remove support for `30.0.0` ([#722]).
 
 [#703]: https://github.com/stackabletech/druid-operator/pull/703
 [#704]: https://github.com/stackabletech/druid-operator/pull/704
@@ -46,6 +49,7 @@ All notable changes to this project will be documented in this file.
 [#718]: https://github.com/stackabletech/druid-operator/pull/718
 [#719]: https://github.com/stackabletech/druid-operator/pull/719
 [#721]: https://github.com/stackabletech/druid-operator/pull/721
+[#722]: https://github.com/stackabletech/druid-operator/pull/722
 
 ## [25.3.0] - 2025-03-21
 
