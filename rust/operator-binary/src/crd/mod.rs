@@ -233,7 +233,7 @@ pub mod versioned {
         /// The operator will automatically load all extensions needed based on the cluster
         /// configuration, but for extra functionality which the operator cannot anticipate, it can
         /// sometimes be necessary to load additional extensions.
-        /// Add configuration for additional extensions using [configuration override for Druid](https://docs.stackable.tech/home/stable/druid/usage-guide/overrides).
+        /// Add configuration for additional extensions using [configuration override for Druid](DOCS_BASE_URL_PLACEHOLDER/druid/usage-guide/overrides).
         #[serde(default)]
         pub additional_extensions: HashSet<String>,
 
