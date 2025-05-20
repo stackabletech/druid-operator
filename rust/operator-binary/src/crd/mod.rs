@@ -8,18 +8,15 @@ use stackable_operator::{
     client::Client,
     commons::{
         affinity::StackableAffinity,
-        authentication::ClientAuthenticationDetails,
         cluster_operation::ClusterOperation,
         product_image_selection::ProductImage,
         resources::{NoRuntimeLimits, Resources},
-        s3::{
-            ResolvedS3Connection, S3BucketInlineOrReference, S3ConnectionInlineOrReference, S3Error,
-        },
     },
     config::{
         fragment::{self, Fragment, FromFragment, ValidationError},
         merge::Merge,
     },
+    crd::{authentication::core, s3},
     k8s_openapi::api::core::v1::{PodTemplateSpec, Volume},
     kube::{CustomResource, ResourceExt},
     kvp::ObjectLabels,
@@ -160,10 +157,14 @@ pub enum Error {
     MissingSecretLifetime,
 
     #[snafu(display("failed to resolve S3 connection"))]
-    ResolveS3Connection { source: S3Error },
+    ResolveS3Connection {
+        source: stackable_operator::crd::s3::v1alpha1::ConnectionError,
+    },
 
     #[snafu(display("failed to resolve S3 bucket"))]
-    ResolveS3Bucket { source: S3Error },
+    ResolveS3Bucket {
+        source: stackable_operator::crd::s3::v1alpha1::BucketError,
+    },
 
     #[snafu(display("2 differing s3 connections were given, this is unsupported by Druid"))]
     IncompatibleS3Connections,
@@ -243,7 +244,7 @@ pub mod versioned {
         /// For TLS: Please note that the SecretClass used to authenticate users needs to be the same
         /// as the SecretClass used for internal communication.
         #[serde(default)]
-        pub authentication: Vec<ClientAuthenticationDetails>,
+        pub authentication: Vec<core::v1alpha1::ClientAuthenticationDetails>,
 
         /// Authorization settings for Druid like OPA
         #[serde(skip_serializing_if = "Option::is_none")]
@@ -463,7 +464,7 @@ impl v1alpha1::DruidCluster {
     pub async fn get_s3_connection(
         &self,
         client: &Client,
-    ) -> Result<Option<ResolvedS3Connection>, Error> {
+    ) -> Result<Option<s3::v1alpha1::ConnectionSpec>, Error> {
         // retrieve connection for ingestion (can be None)
         let ingestion_conn = if let Some(ic) = self
             .spec
@@ -982,7 +983,7 @@ impl DruidRole {
 
     pub fn main_container_prepare_commands(
         &self,
-        s3: Option<&ResolvedS3Connection>,
+        s3: Option<&s3::v1alpha1::ConnectionSpec>,
     ) -> Vec<String> {
         let mut commands = vec![];
 
@@ -1123,7 +1124,7 @@ pub struct HdfsDeepStorageSpec {
 pub struct S3DeepStorageSpec {
     /// The S3 bucket to use for deep storage. Can either be defined inline or as a reference,
     /// read the [S3 bucket docs](DOCS_BASE_URL_PLACEHOLDER/concepts/s3) to learn more.
-    pub bucket: S3BucketInlineOrReference,
+    pub bucket: s3::v1alpha1::InlineBucketOrReference,
 
     /// The `baseKey` is similar to the `directory` in HDFS; it is the root key at which
     /// Druid will create its deep storage. If no `baseKey` is given, the bucket root
@@ -1138,7 +1139,7 @@ pub struct IngestionSpec {
     /// However, the S3 connection has to be specified in advance and only a single S3 connection is supported.
     /// S3 connections can either be specified `inline` or as a `reference`.
     /// Read the [S3 resource concept docs](DOCS_BASE_URL_PLACEHOLDER/concepts/s3) to learn more.
-    pub s3connection: Option<S3ConnectionInlineOrReference>,
+    pub s3connection: Option<s3::v1alpha1::InlineConnectionOrReference>,
 }
 
 #[derive(Clone, Debug, Default, Fragment, JsonSchema, PartialEq)]

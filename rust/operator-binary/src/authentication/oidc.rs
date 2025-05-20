@@ -3,20 +3,20 @@ use std::collections::BTreeMap;
 use snafu::ResultExt;
 use stackable_operator::{
     builder::pod::{PodBuilder, container::ContainerBuilder},
-    commons::authentication::oidc::{AuthenticationProvider, ClientAuthenticationOptions},
+    crd::authentication::oidc,
     k8s_openapi::api::core::v1::EnvVar,
 };
 
+use super::{AddOidcVolumesSnafu, ConstructOidcWellKnownUrlSnafu, Error};
 use crate::{
-    authentication::{AddOidcVolumesSnafu, ConstructOidcWellKnownUrlSnafu, Error},
     crd::{COOKIE_PASSPHRASE_ENV, DruidRole, security::add_cert_to_jvm_trust_store_cmd},
     internal_secret::env_var_from_secret,
 };
 
 /// Creates OIDC authenticator config using the pac4j extension for Druid: <https://druid.apache.org/docs/latest/development/extensions-core/druid-pac4j>.
 fn add_authenticator_config(
-    provider: &AuthenticationProvider,
-    oidc: &ClientAuthenticationOptions,
+    provider: &oidc::v1alpha1::AuthenticationProvider,
+    oidc: &oidc::v1alpha1::ClientAuthenticationOptions,
     config: &mut BTreeMap<String, Option<String>>,
 ) -> Result<(), Error> {
     let well_known_url = &provider
@@ -24,7 +24,9 @@ fn add_authenticator_config(
         .context(ConstructOidcWellKnownUrlSnafu)?;
 
     let (oidc_client_id_env, oidc_client_secret_env) =
-        AuthenticationProvider::client_credentials_env_names(&oidc.client_credentials_secret_ref);
+        oidc::v1alpha1::AuthenticationProvider::client_credentials_env_names(
+            &oidc.client_credentials_secret_ref,
+        );
 
     let mut scopes = provider.scopes.clone();
     scopes.extend_from_slice(&oidc.extra_scopes);
@@ -84,8 +86,8 @@ fn add_authorizer_config(config: &mut BTreeMap<String, Option<String>>) {
 /// OIDC authentication is not configured on middlemanagers, because end users don't interact with them directly using the web console and
 /// turning on OIDC will lead to problems with the communication with coordinators during data ingest.
 pub fn generate_runtime_properties_config(
-    provider: &AuthenticationProvider,
-    oidc: &ClientAuthenticationOptions,
+    provider: &oidc::v1alpha1::AuthenticationProvider,
+    oidc: &oidc::v1alpha1::ClientAuthenticationOptions,
     role: &DruidRole,
     config: &mut BTreeMap<String, Option<String>>,
 ) -> Result<(), Error> {
@@ -106,7 +108,7 @@ pub fn generate_runtime_properties_config(
 
 pub fn main_container_commands(
     auth_class_name: &String,
-    provider: &AuthenticationProvider,
+    provider: &oidc::v1alpha1::AuthenticationProvider,
     command: &mut Vec<String>,
 ) {
     if let Some(tls_ca_cert_mount_path) = provider.tls.tls_ca_cert_mount_path() {
@@ -121,16 +123,18 @@ pub fn main_container_commands(
 /// Not necessary on middlemanagers, because OIDC is not configured on them.
 pub fn get_env_var_mounts(
     role: &DruidRole,
-    oidc: &ClientAuthenticationOptions,
+    oidc: &oidc::v1alpha1::ClientAuthenticationOptions,
     internal_secret_name: &str,
 ) -> Vec<EnvVar> {
     let mut envs = vec![];
     match role {
         DruidRole::MiddleManager => (),
         _ => {
-            envs.extend(AuthenticationProvider::client_credentials_env_var_mounts(
-                oidc.client_credentials_secret_ref.to_owned(),
-            ));
+            envs.extend(
+                oidc::v1alpha1::AuthenticationProvider::client_credentials_env_var_mounts(
+                    oidc.client_credentials_secret_ref.to_owned(),
+                ),
+            );
             envs.push(env_var_from_secret(
                 internal_secret_name,
                 None,
@@ -142,7 +146,7 @@ pub fn get_env_var_mounts(
 }
 
 pub fn add_volumes_and_mounts(
-    provider: &AuthenticationProvider,
+    provider: &oidc::v1alpha1::AuthenticationProvider,
     pb: &mut PodBuilder,
     cb_druid: &mut ContainerBuilder,
     cb_prepare: &mut ContainerBuilder,
@@ -165,13 +169,13 @@ mod tests {
     #[case("/realms/sdp/")]
     #[case("/realms/sdp/////")]
     fn test_add_authenticator_config(#[case] root_path: String) {
-        use stackable_operator::commons::{
-            authentication::oidc,
-            tls_verification::{CaCert, TlsServerVerification, TlsVerification},
+        use stackable_operator::{
+            commons::tls_verification::{CaCert, TlsServerVerification, TlsVerification},
+            crd::authentication::oidc,
         };
 
         let mut properties = BTreeMap::new();
-        let provider = oidc::AuthenticationProvider::new(
+        let provider = oidc::v1alpha1::AuthenticationProvider::new(
             "keycloak.mycorp.org".to_owned().try_into().unwrap(),
             Some(443),
             root_path,
@@ -186,7 +190,7 @@ mod tests {
             vec!["openid".to_owned()],
             None,
         );
-        let oidc = ClientAuthenticationOptions {
+        let oidc = oidc::v1alpha1::ClientAuthenticationOptions {
             client_credentials_secret_ref: "nifi-keycloak-client".to_owned(),
             extra_scopes: vec![],
             product_specific_fields: (),
