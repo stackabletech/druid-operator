@@ -3,18 +3,16 @@ use std::collections::BTreeMap;
 use snafu::ResultExt;
 use stackable_operator::{
     builder::pod::{PodBuilder, container::ContainerBuilder},
-    commons::authentication::ldap::AuthenticationProvider,
+    crd::authentication::ldap,
 };
 
-use crate::{
-    authentication::{
-        AddLdapVolumesSnafu, ConstructLdapEndpointUrlSnafu, Error, MissingLdapBindCredentialsSnafu,
-    },
-    crd::security::{STACKABLE_TLS_DIR, TLS_STORE_PASSWORD, add_cert_to_trust_store_cmd},
+use super::{
+    AddLdapVolumesSnafu, ConstructLdapEndpointUrlSnafu, Error, MissingLdapBindCredentialsSnafu,
 };
+use crate::crd::security::{STACKABLE_TLS_DIR, TLS_STORE_PASSWORD, add_cert_to_trust_store_cmd};
 
 fn add_authenticator_config(
-    provider: &AuthenticationProvider,
+    provider: &ldap::v1alpha1::AuthenticationProvider,
     config: &mut BTreeMap<String, Option<String>>,
 ) -> Result<(), Error> {
     config.insert(
@@ -88,7 +86,7 @@ fn add_authorizer_config(config: &mut BTreeMap<String, Option<String>>) {
 }
 
 pub fn generate_runtime_properties_config(
-    provider: &AuthenticationProvider,
+    provider: &ldap::v1alpha1::AuthenticationProvider,
     config: &mut BTreeMap<String, Option<String>>,
 ) -> Result<(), Error> {
     add_authenticator_config(provider, config)?;
@@ -99,7 +97,7 @@ pub fn generate_runtime_properties_config(
 
 pub fn prepare_container_commands(
     auth_class_name: &String,
-    provider: &AuthenticationProvider,
+    provider: &ldap::v1alpha1::AuthenticationProvider,
     command: &mut Vec<String>,
 ) {
     if let Some(tls_ca_cert_mount_path) = provider.tls.tls_ca_cert_mount_path() {
@@ -113,7 +111,7 @@ pub fn prepare_container_commands(
 }
 
 pub fn add_volumes_and_mounts(
-    provider: &AuthenticationProvider,
+    provider: &ldap::v1alpha1::AuthenticationProvider,
     pb: &mut PodBuilder,
     cb_druid: &mut ContainerBuilder,
     cb_prepare: &mut ContainerBuilder,

@@ -72,9 +72,8 @@ pub fn get_extension_list(
 
 #[cfg(test)]
 mod tests {
-    use stackable_operator::commons::{
-        authentication::oidc::{AuthenticationProvider, ClientAuthenticationOptions},
-        tls_verification::TlsClientDetails,
+    use stackable_operator::{
+        commons::tls_verification::TlsClientDetails, crd::authentication::oidc,
     };
 
     use super::*;
@@ -108,7 +107,7 @@ mod tests {
                     DruidAuthenticationConfig::try_from(AuthenticationClassesResolved {
                         auth_classes: vec![AuthenticationClassResolved::Oidc {
                             auth_class_name: "oidc".to_string(),
-                            provider: AuthenticationProvider::new(
+                            provider: oidc::v1alpha1::AuthenticationProvider::new(
                                 "my-oidc-provider".to_string().try_into().unwrap(),
                                 None,
                                 "".to_string(),
@@ -117,7 +116,7 @@ mod tests {
                                 vec![],
                                 None
                             ),
-                            oidc: ClientAuthenticationOptions {
+                            oidc: oidc::v1alpha1::ClientAuthenticationOptions {
                                 client_credentials_secret_ref: "".to_string(),
                                 extra_scopes: vec![],
                                 product_specific_fields: ()

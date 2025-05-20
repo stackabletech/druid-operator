@@ -3,11 +3,7 @@ use std::future::Future;
 use snafu::{ResultExt, Snafu, ensure};
 use stackable_operator::{
     client::Client,
-    commons::authentication::{
-        AuthenticationClass, AuthenticationClassProvider, ClientAuthenticationDetails, ldap,
-        oidc::{self, IdentityProviderHint},
-        tls,
-    },
+    crd::authentication::{core, ldap, oidc, tls},
     kube::{ResourceExt, runtime::reflector::ObjectRef},
 };
 use tracing::info;
@@ -17,9 +13,11 @@ use crate::crd::v1alpha1::DruidClusterConfig;
 type Result<T, E = Error> = std::result::Result<T, E>;
 
 // The assumed OIDC provider if no hint is given in the AuthClass
-pub const DEFAULT_OIDC_PROVIDER: IdentityProviderHint = IdentityProviderHint::Keycloak;
+pub const DEFAULT_OIDC_PROVIDER: oidc::v1alpha1::IdentityProviderHint =
+    oidc::v1alpha1::IdentityProviderHint::Keycloak;
 
-const SUPPORTED_OIDC_PROVIDERS: &[IdentityProviderHint] = &[IdentityProviderHint::Keycloak];
+const SUPPORTED_OIDC_PROVIDERS: &[oidc::v1alpha1::IdentityProviderHint] =
+    &[oidc::v1alpha1::IdentityProviderHint::Keycloak];
 
 const SUPPORTED_AUTHENTICATION_CLASS_PROVIDERS: [&str; 3] = ["LDAP", "TLS", "OIDC"];
 
@@ -37,7 +35,7 @@ pub enum Error {
     ))]
     AuthenticationClassProviderNotSupported {
         authentication_class_provider: String,
-        authentication_class: ObjectRef<AuthenticationClass>,
+        authentication_class: ObjectRef<core::v1alpha1::AuthenticationClass>,
     },
     #[snafu(display(
         "LDAP authentication without bind credentials is currently not supported. See https://github.com/stackabletech/druid-operator/issues/383 for details"
@@ -58,7 +56,7 @@ pub enum Error {
     },
     #[snafu(display("invalid OIDC configuration"))]
     OidcConfigurationInvalid {
-        source: stackable_operator::commons::authentication::Error,
+        source: stackable_operator::crd::authentication::core::v1alpha1::Error,
     },
     #[snafu(display(
         "the OIDC provider {oidc_provider:?} is not yet supported (AuthenticationClass {auth_class_name:?})"
@@ -78,16 +76,16 @@ pub struct AuthenticationClassesResolved {
 pub enum AuthenticationClassResolved {
     /// An [AuthenticationClass](DOCS_BASE_URL_PLACEHOLDER/concepts/authentication) to use.
     Tls {
-        provider: tls::AuthenticationProvider,
+        provider: tls::v1alpha1::AuthenticationProvider,
     },
     Ldap {
         auth_class_name: String,
-        provider: ldap::AuthenticationProvider,
+        provider: ldap::v1alpha1::AuthenticationProvider,
     },
     Oidc {
         auth_class_name: String,
-        provider: oidc::AuthenticationProvider,
-        oidc: oidc::ClientAuthenticationOptions<()>,
+        provider: oidc::v1alpha1::AuthenticationProvider,
+        oidc: oidc::v1alpha1::ClientAuthenticationOptions<()>,
     },
 }
 
@@ -96,7 +94,7 @@ impl AuthenticationClassesResolved {
         cluster_config: &DruidClusterConfig,
         client: &Client,
     ) -> Result<AuthenticationClassesResolved> {
-        let resolve_auth_class = |auth_details: ClientAuthenticationDetails| async move {
+        let resolve_auth_class = |auth_details: core::v1alpha1::ClientAuthenticationDetails| async move {
             auth_details.resolve_class(client).await
         };
         AuthenticationClassesResolved::resolve(cluster_config, resolve_auth_class).await
@@ -105,10 +103,12 @@ impl AuthenticationClassesResolved {
     /// Retrieves all provided `AuthenticationClass` references and checks if the configuration (TLS settings, secret class, OIDC config, etc.) is valid.
     pub async fn resolve<R>(
         cluster_config: &DruidClusterConfig,
-        resolve_auth_class: impl Fn(ClientAuthenticationDetails) -> R,
+        resolve_auth_class: impl Fn(core::v1alpha1::ClientAuthenticationDetails) -> R,
     ) -> Result<AuthenticationClassesResolved>
     where
-        R: Future<Output = Result<AuthenticationClass, stackable_operator::client::Error>>,
+        R: Future<
+            Output = Result<core::v1alpha1::AuthenticationClass, stackable_operator::client::Error>,
+        >,
     {
         let mut resolved_auth_classes = vec![];
         let auth_details = &cluster_config.authentication;
@@ -130,7 +130,7 @@ impl AuthenticationClassesResolved {
                 .and_then(|tls| tls.server_and_internal_secret_class.to_owned());
 
             match &auth_class.spec.provider {
-                AuthenticationClassProvider::Tls(provider) => {
+                core::v1alpha1::AuthenticationClassProvider::Tls(provider) => {
                     match &server_and_internal_secret_class {
                         Some(server_and_internal_secret_class) => {
                             if let Some(auth_class_secret_class) =
@@ -153,7 +153,7 @@ impl AuthenticationClassesResolved {
                         provider: provider.clone(),
                     })
                 }
-                AuthenticationClassProvider::Ldap(provider) => {
+                core::v1alpha1::AuthenticationClassProvider::Ldap(provider) => {
                     if server_and_internal_secret_class.is_none() {
                         // We want the truststore to exist when using LDAP so that we can point to it
                         return LdapAuthenticationWithoutServerTlsNotSupportedSnafu.fail();
@@ -167,12 +167,18 @@ impl AuthenticationClassesResolved {
                         provider: provider.to_owned(),
                     })
                 }
-                AuthenticationClassProvider::Oidc(provider) => resolved_auth_classes.push(
-                    AuthenticationClassesResolved::from_oidc(&auth_class_name, provider, entry)?,
-                ),
+                core::v1alpha1::AuthenticationClassProvider::Oidc(provider) => {
+                    resolved_auth_classes.push(AuthenticationClassesResolved::from_oidc(
+                        &auth_class_name,
+                        provider,
+                        entry,
+                    )?)
+                }
                 _ => AuthenticationClassProviderNotSupportedSnafu {
                     authentication_class_provider: auth_class.spec.provider.to_string(),
-                    authentication_class: ObjectRef::<AuthenticationClass>::new(&auth_class_name),
+                    authentication_class: ObjectRef::<core::v1alpha1::AuthenticationClass>::new(
+                        &auth_class_name,
+                    ),
                 }
                 .fail()?,
             };
@@ -185,8 +191,8 @@ impl AuthenticationClassesResolved {
 
     fn from_oidc(
         auth_class_name: &str,
-        provider: &oidc::AuthenticationProvider,
-        auth_details: &ClientAuthenticationDetails,
+        provider: &oidc::v1alpha1::AuthenticationProvider,
+        auth_details: &core::v1alpha1::ClientAuthenticationDetails,
     ) -> Result<AuthenticationClassResolved> {
         let oidc_provider = match &provider.provider_hint {
             None => {
@@ -233,7 +239,7 @@ mod tests {
     use std::pin::Pin;
 
     use indoc::{formatdoc, indoc};
-    use oidc::ClientAuthenticationOptions;
+    use oidc::v1alpha1::ClientAuthenticationOptions;
     use stackable_operator::kube;
 
     use super::*;
@@ -281,7 +287,7 @@ zookeeperConfigMapName: zk-config-map
             AuthenticationClassesResolved {
                 auth_classes: vec![AuthenticationClassResolved::Ldap {
                     auth_class_name: "ldap".to_string(),
-                    provider: serde_yaml::from_str::<ldap::AuthenticationProvider>(
+                    provider: serde_yaml::from_str::<ldap::v1alpha1::AuthenticationProvider>(
                         "
                         hostname: my.ldap.server
                         port: 389
@@ -326,7 +332,7 @@ zookeeperConfigMapName: zk-config-map
             AuthenticationClassesResolved {
                 auth_classes: vec![AuthenticationClassResolved::Oidc {
                     auth_class_name: "oidc".to_string(),
-                    provider: serde_yaml::from_str::<oidc::AuthenticationProvider>(
+                    provider: serde_yaml::from_str::<oidc::v1alpha1::AuthenticationProvider>(
                         "
                         hostname: my.oidc.server
                         principalClaim: preferred_username
@@ -369,7 +375,8 @@ zookeeperConfigMapName: zk-config-map
         assert_eq!(
             AuthenticationClassesResolved {
                 auth_classes: vec![AuthenticationClassResolved::Tls {
-                    provider: serde_yaml::from_str::<tls::AuthenticationProvider>("").unwrap(),
+                    provider: serde_yaml::from_str::<tls::v1alpha1::AuthenticationProvider>("")
+                        .unwrap(),
                 }]
             },
             auth_classes_resolved
@@ -648,7 +655,7 @@ zookeeperConfigMapName: zk-config-map
     /// Deserialize the given `AuthenticationClass` YAML documents.
     ///
     /// Fail if the given string cannot be deserialized.
-    fn deserialize_auth_classes(input: &str) -> Vec<AuthenticationClass> {
+    fn deserialize_auth_classes(input: &str) -> Vec<core::v1alpha1::AuthenticationClass> {
         if input.is_empty() {
             Vec::new()
         } else {
@@ -669,13 +676,20 @@ zookeeperConfigMapName: zk-config-map
     /// `stackable_operator::commons::authentication::ClientAuthenticationDetails`
     /// which requires a Kubernetes client.
     fn create_auth_class_resolver(
-        auth_classes: Vec<AuthenticationClass>,
+        auth_classes: Vec<core::v1alpha1::AuthenticationClass>,
     ) -> impl Fn(
-        ClientAuthenticationDetails,
+        core::v1alpha1::ClientAuthenticationDetails,
     ) -> Pin<
-        Box<dyn Future<Output = Result<AuthenticationClass, stackable_operator::client::Error>>>,
+        Box<
+            dyn Future<
+                Output = Result<
+                    core::v1alpha1::AuthenticationClass,
+                    stackable_operator::client::Error,
+                >,
+            >,
+        >,
     > {
-        move |auth_details: ClientAuthenticationDetails| {
+        move |auth_details: core::v1alpha1::ClientAuthenticationDetails| {
             let auth_classes = auth_classes.clone();
             Box::pin(async move {
                 auth_classes

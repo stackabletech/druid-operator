@@ -3,15 +3,7 @@ use std::collections::BTreeMap;
 use snafu::Snafu;
 use stackable_operator::{
     builder::pod::{PodBuilder, container::ContainerBuilder},
-    commons::{
-        authentication::{
-            ldap::AuthenticationProvider as LdapAuthenticationProvider,
-            oidc::{
-                AuthenticationProvider as OidcAuthenticationProvider, ClientAuthenticationOptions,
-            },
-        },
-        tls_verification::TlsClientDetailsError,
-    },
+    crd::authentication,
     k8s_openapi::api::core::v1::EnvVar,
 };
 
@@ -34,21 +26,23 @@ type Result<T, E = Error> = std::result::Result<T, E>;
 pub enum Error {
     #[snafu(display("failed to create LDAP endpoint url."))]
     ConstructLdapEndpointUrl {
-        source: stackable_operator::commons::authentication::ldap::Error,
+        source: stackable_operator::crd::authentication::ldap::v1alpha1::Error,
     },
 
     #[snafu(display("failed to create the OIDC well-known url."))]
     ConstructOidcWellKnownUrl {
-        source: stackable_operator::commons::authentication::oidc::Error,
+        source: stackable_operator::crd::authentication::oidc::v1alpha1::Error,
     },
 
     #[snafu(display("failed to add LDAP Volumes and VolumeMounts to the Pod and containers"))]
     AddLdapVolumes {
-        source: stackable_operator::commons::authentication::ldap::Error,
+        source: stackable_operator::crd::authentication::ldap::v1alpha1::Error,
     },
 
     #[snafu(display("failed to add OIDC Volumes and VolumeMounts to the Pod and containers"))]
-    AddOidcVolumes { source: TlsClientDetailsError },
+    AddOidcVolumes {
+        source: stackable_operator::commons::tls_verification::TlsClientDetailsError,
+    },
 
     #[snafu(display(
         "failed to access bind credentials although they are required for LDAP to work"
@@ -61,12 +55,12 @@ pub enum DruidAuthenticationConfig {
     Tls {},
     Ldap {
         auth_class_name: String,
-        provider: LdapAuthenticationProvider,
+        provider: authentication::ldap::v1alpha1::AuthenticationProvider,
     },
     Oidc {
         auth_class_name: String,
-        provider: OidcAuthenticationProvider,
-        oidc: ClientAuthenticationOptions,
+        provider: authentication::oidc::v1alpha1::AuthenticationProvider,
+        oidc: authentication::oidc::v1alpha1::ClientAuthenticationOptions,
     },
 }
 
@@ -252,8 +246,6 @@ impl DruidAuthenticationConfig {
 
 #[cfg(test)]
 mod test {
-    use stackable_operator::commons::authentication::ldap::AuthenticationProvider as LdapAuthenticationProvider;
-
     use super::*;
 
     #[test]
@@ -261,7 +253,9 @@ mod test {
         let auth_config = DruidAuthenticationConfig::try_from(AuthenticationClassesResolved {
             auth_classes: vec![AuthenticationClassResolved::Ldap {
                 auth_class_name: "ldap".to_string(),
-                provider: serde_yaml::from_str::<LdapAuthenticationProvider>(
+                provider: serde_yaml::from_str::<
+                    authentication::ldap::v1alpha1::AuthenticationProvider,
+                >(
                     "
                 hostname: openldap
                 searchBase: ou=users,dc=example,dc=org

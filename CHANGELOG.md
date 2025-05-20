@@ -29,6 +29,7 @@ All notable changes to this project will be documented in this file.
   - The defaults from the docker images itself will now apply, which will be different from 1000/0 going forward
   - This is marked as breaking because tools and policies might exist, which require these fields to be set
 - Deprecate support for `31.0.1` ([#722]).
+- Use versioned common structs ([#725]).
 
 ### Fixed
 
@@ -50,6 +51,7 @@ All notable changes to this project will be documented in this file.
 [#719]: https://github.com/stackabletech/druid-operator/pull/719
 [#721]: https://github.com/stackabletech/druid-operator/pull/721
 [#722]: https://github.com/stackabletech/druid-operator/pull/722
+[#725]: https://github.com/stackabletech/druid-operator/pull/725
 
 ## [25.3.0] - 2025-03-21
 

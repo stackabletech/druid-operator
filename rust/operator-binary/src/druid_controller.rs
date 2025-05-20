@@ -26,12 +26,10 @@ use stackable_operator::{
     },
     cluster_resources::{ClusterResourceApplyStrategy, ClusterResources},
     commons::{
-        opa::OpaApiVersion,
-        product_image_selection::ResolvedProductImage,
-        rbac::build_rbac_resources,
-        s3::{S3AccessStyle, S3ConnectionSpec, S3Error},
-        tls_verification::TlsClientDetailsError,
+        opa::OpaApiVersion, product_image_selection::ResolvedProductImage,
+        rbac::build_rbac_resources, tls_verification::TlsClientDetailsError,
     },
+    crd::s3,
     k8s_openapi::{
         DeepMerge,
         api::{
@@ -173,13 +171,17 @@ pub enum Error {
     GetS3Connection { source: crate::crd::Error },
 
     #[snafu(display("failed to configure S3 connection"))]
-    ConfigureS3 { source: S3Error },
+    ConfigureS3 {
+        source: stackable_operator::crd::s3::v1alpha1::ConnectionError,
+    },
 
     #[snafu(display("failed to configure S3 TLS client details"))]
     ConfigureS3TlsClientDetails { source: TlsClientDetailsError },
 
     #[snafu(display("failed to get deep storage bucket"))]
-    GetDeepStorageBucket { source: S3Error },
+    GetDeepStorageBucket {
+        source: stackable_operator::crd::s3::v1alpha1::BucketError,
+    },
 
     #[snafu(display(
         "failed to get ZooKeeper connection string from config map {}",
@@ -675,7 +677,7 @@ fn build_rolegroup_config_map(
     merged_rolegroup_config: &CommonRoleGroupConfig,
     zk_connstr: &str,
     opa_connstr: Option<&str>,
-    s3_conn: Option<&S3ConnectionSpec>,
+    s3_conn: Option<&s3::v1alpha1::ConnectionSpec>,
     deep_storage_bucket_name: Option<&str>,
     druid_tls_security: &DruidTlsSecurity,
     druid_auth_config: &Option<DruidAuthenticationConfig>,
@@ -754,7 +756,7 @@ fn build_rolegroup_config_map(
 
                     conf.insert(
                         S3_PATH_STYLE_ACCESS.to_string(),
-                        Some((s3.access_style == S3AccessStyle::Path).to_string()),
+                        Some((s3.access_style == s3::v1alpha1::S3AccessStyle::Path).to_string()),
                     );
                 }
                 conf.insert(
@@ -917,7 +919,7 @@ fn build_rolegroup_statefulset(
     rolegroup_ref: &RoleGroupRef<v1alpha1::DruidCluster>,
     rolegroup_config: &HashMap<PropertyNameKind, BTreeMap<String, String>>,
     merged_rolegroup_config: &CommonRoleGroupConfig,
-    s3_conn: Option<&S3ConnectionSpec>,
+    s3_conn: Option<&s3::v1alpha1::ConnectionSpec>,
     druid_tls_security: &DruidTlsSecurity,
     druid_auth_config: &Option<DruidAuthenticationConfig>,
     service_account: &ServiceAccount,
@@ -1206,7 +1208,7 @@ fn build_rolegroup_statefulset(
                 ),
                 ..LabelSelector::default()
             },
-            service_name: rolegroup_ref.object_name(),
+            service_name: Some(rolegroup_ref.object_name()),
             template: pod_template,
             ..StatefulSetSpec::default()
         }),
