@@ -132,7 +132,9 @@ mod tests {
         let coordinator_jvm_config = construct_jvm_config_for_test(input, &DruidRole::Coordinator);
         let historical_jvm_config = construct_jvm_config_for_test(input, &DruidRole::Historical);
 
-        assert_eq!(coordinator_jvm_config, indoc! {"
+        assert_eq!(
+            coordinator_jvm_config,
+            indoc! {"
               -server
               -Xmx468m
               -Xms468m
@@ -147,8 +149,11 @@ mod tests {
               -Djavax.net.ssl.trustStore=/stackable/truststore.p12
               -Djavax.net.ssl.trustStorePassword=changeit
               -Djavax.net.ssl.trustStoreType=pkcs12
-              -Dderby.stream.error.file=/stackable/var/druid/derby.log"});
-        assert_eq!(historical_jvm_config, indoc! {"
+              -Dderby.stream.error.file=/stackable/var/druid/derby.log"}
+        );
+        assert_eq!(
+            historical_jvm_config,
+            indoc! {"
               -server
               -Xmx900m
               -Xms900m
@@ -163,7 +168,8 @@ mod tests {
               -Dlog4j.configurationFile=/stackable/rwconfig/log4j2.properties
               -Djavax.net.ssl.trustStore=/stackable/truststore.p12
               -Djavax.net.ssl.trustStorePassword=changeit
-              -Djavax.net.ssl.trustStoreType=pkcs12"});
+              -Djavax.net.ssl.trustStoreType=pkcs12"}
+        );
     }
 
     #[test]
@@ -237,7 +243,9 @@ mod tests {
         let coordinator_jvm_config = construct_jvm_config_for_test(input, &DruidRole::Coordinator);
         let historical_jvm_config = construct_jvm_config_for_test(input, &DruidRole::Historical);
 
-        assert_eq!(coordinator_jvm_config, indoc! {"
+        assert_eq!(
+            coordinator_jvm_config,
+            indoc! {"
               -server
               -Xms42708m
               -XX:+ExitOnOutOfMemoryError
@@ -255,8 +263,11 @@ mod tests {
               -Dhttps.proxyHost=proxy.my.corp
               -Djava.net.preferIPv4Stack=true
               -Xmx40000m
-              -Dhttps.proxyPort=1234"});
-        assert_eq!(historical_jvm_config, indoc! {"
+              -Dhttps.proxyPort=1234"}
+        );
+        assert_eq!(
+            historical_jvm_config,
+            indoc! {"
               -server
               -Xmx9759m
               -Xms9759m
@@ -272,7 +283,8 @@ mod tests {
               -Djavax.net.ssl.trustStore=/stackable/truststore.p12
               -Djavax.net.ssl.trustStorePassword=changeit
               -Djavax.net.ssl.trustStoreType=pkcs12
-              -Dfoo=bar"});
+              -Dfoo=bar"}
+        );
     }
 
     fn construct_jvm_config_for_test(druid_cluster: &str, druid_role: &DruidRole) -> String {
