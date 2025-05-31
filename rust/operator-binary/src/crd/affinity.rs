@@ -257,39 +257,45 @@ mod tests {
             _ => (),
         };
 
-        assert_eq!(merged_config.affinity, StackableAffinity {
-            pod_affinity: Some(PodAffinity {
-                preferred_during_scheduling_ignored_during_execution: Some(expected_affinities),
-                required_during_scheduling_ignored_during_execution: None,
-            }),
-            pod_anti_affinity: Some(PodAntiAffinity {
-                preferred_during_scheduling_ignored_during_execution: Some(vec![
-                    WeightedPodAffinityTerm {
-                        pod_affinity_term: PodAffinityTerm {
-                            label_selector: Some(LabelSelector {
-                                match_expressions: None,
-                                match_labels: Some(BTreeMap::from([
-                                    ("app.kubernetes.io/name".to_string(), "druid".to_string(),),
-                                    (
-                                        "app.kubernetes.io/instance".to_string(),
-                                        "simple-druid".to_string(),
-                                    ),
-                                    ("app.kubernetes.io/component".to_string(), role.to_string(),)
-                                ]))
-                            }),
-                            match_label_keys: None,
-                            mismatch_label_keys: None,
-                            namespace_selector: None,
-                            namespaces: None,
-                            topology_key: "kubernetes.io/hostname".to_string(),
-                        },
-                        weight: 70
-                    }
-                ]),
-                required_during_scheduling_ignored_during_execution: None,
-            }),
-            node_affinity: None,
-            node_selector: None,
-        });
+        assert_eq!(
+            merged_config.affinity,
+            StackableAffinity {
+                pod_affinity: Some(PodAffinity {
+                    preferred_during_scheduling_ignored_during_execution: Some(expected_affinities),
+                    required_during_scheduling_ignored_during_execution: None,
+                }),
+                pod_anti_affinity: Some(PodAntiAffinity {
+                    preferred_during_scheduling_ignored_during_execution: Some(vec![
+                        WeightedPodAffinityTerm {
+                            pod_affinity_term: PodAffinityTerm {
+                                label_selector: Some(LabelSelector {
+                                    match_expressions: None,
+                                    match_labels: Some(BTreeMap::from([
+                                        ("app.kubernetes.io/name".to_string(), "druid".to_string(),),
+                                        (
+                                            "app.kubernetes.io/instance".to_string(),
+                                            "simple-druid".to_string(),
+                                        ),
+                                        (
+                                            "app.kubernetes.io/component".to_string(),
+                                            role.to_string(),
+                                        )
+                                    ]))
+                                }),
+                                match_label_keys: None,
+                                mismatch_label_keys: None,
+                                namespace_selector: None,
+                                namespaces: None,
+                                topology_key: "kubernetes.io/hostname".to_string(),
+                            },
+                            weight: 70
+                        }
+                    ]),
+                    required_during_scheduling_ignored_during_execution: None,
+                }),
+                node_affinity: None,
+                node_selector: None,
+            }
+        );
     }
 }
