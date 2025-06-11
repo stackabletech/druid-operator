@@ -1260,7 +1260,10 @@ fn build_rolegroup_statefulset(
                 ),
                 ..LabelSelector::default()
             },
-            service_name: Some(rolegroup_ref.object_name()),
+            service_name: Some(format!(
+                "{name}-metrics",
+                name = rolegroup_ref.object_name()
+            )),
             template: pod_template,
             volume_claim_templates: pvcs,
             ..StatefulSetSpec::default()
