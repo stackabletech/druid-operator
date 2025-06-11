@@ -5,6 +5,7 @@ use product_config::types::PropertyNameKind;
 use serde::{Deserialize, Serialize};
 use snafu::{OptionExt, ResultExt, Snafu};
 use stackable_operator::{
+    builder::pod::volume::ListenerOperatorVolumeSourceBuilderError,
     client::Client,
     commons::{
         affinity::StackableAffinity,
@@ -27,7 +28,9 @@ use stackable_operator::{
         framework::{create_vector_shutdown_file_command, remove_vector_shutdown_file_command},
         spec::Logging,
     },
-    role_utils::{CommonConfiguration, GenericRoleConfig, JavaCommonConfig, Role, RoleGroup},
+    role_utils::{
+        CommonConfiguration, GenericRoleConfig, JavaCommonConfig, Role, RoleGroup, RoleGroupRef,
+    },
     schemars::{self, JsonSchema},
     status::condition::{ClusterCondition, HasStatusCondition},
     time::Duration,
@@ -126,6 +129,7 @@ pub const MAX_DRUID_LOG_FILES_SIZE: MemoryQuantity = MemoryQuantity {
 };
 // metrics
 pub const PROMETHEUS_PORT: &str = "druid.emitter.prometheus.port";
+pub const METRICS_PORT_NAME: &str = "metrics";
 pub const METRICS_PORT: u16 = 9090;
 
 pub const COOKIE_PASSPHRASE_ENV: &str = "OIDC_COOKIE_PASSPHRASE";
@@ -148,6 +152,10 @@ const DEFAULT_COORDINATOR_SECRET_LIFETIME: Duration = Duration::from_days_unchec
 const DEFAULT_MIDDLE_SECRET_LIFETIME: Duration = Duration::from_days_unchecked(1);
 const DEFAULT_ROUTER_SECRET_LIFETIME: Duration = Duration::from_days_unchecked(1);
 const DEFAULT_HISTORICAL_SECRET_LIFETIME: Duration = Duration::from_days_unchecked(1);
+
+// listener
+pub const LISTENER_VOLUME_NAME: &str = "listener";
+pub const LISTENER_VOLUME_DIR: &str = "/stackable/listener";
 
 #[derive(Snafu, Debug, EnumDiscriminants)]
 #[strum_discriminants(derive(IntoStaticStr))]
@@ -177,6 +185,21 @@ pub enum Error {
 
     #[snafu(display("fragment validation failure"))]
     FragmentValidationFailure { source: ValidationError },
+
+    #[snafu(display("failed to build Labels"))]
+    LabelBuild {
+        source: stackable_operator::kvp::LabelError,
+    },
+
+    #[snafu(display("failed to build listener volume"))]
+    BuildListenerVolume {
+        source: ListenerOperatorVolumeSourceBuilderError,
+    },
+
+    #[snafu(display("failed to apply group listener"))]
+    ApplyGroupListener {
+        source: stackable_operator::cluster_resources::Error,
+    },
 }
 
 #[versioned(version(name = "v1alpha1"))]
@@ -287,19 +310,6 @@ pub mod versioned {
         #[serde(default, skip_serializing_if = "Vec::is_empty")]
         #[schemars(schema_with = "raw_object_list_schema")]
         pub extra_volumes: Vec<Volume>,
-
-        /// This field controls which type of Service the Operator creates for this DruidCluster:
-        ///
-        /// * `cluster-internal`: Use a ClusterIP service
-        /// * `external-unstable`: Use a NodePort service
-        /// * `external-stable`: Use a LoadBalancer service
-        ///
-        /// This is a temporary solution with the goal to keep yaml manifests forward compatible.
-        /// In the future, this setting will control which
-        /// [ListenerClass](DOCS_BASE_URL_PLACEHOLDER/listener-operator/listenerclass.html)
-        /// will be used to expose the service, and ListenerClass names will stay the same, allowing for a non-breaking change.
-        #[serde(default)]
-        pub listener_class: CurrentlySupportedListenerClasses,
     }
 }
 
@@ -438,6 +448,22 @@ impl v1alpha1::DruidCluster {
         ]
         .into_iter()
         .collect()
+    }
+
+    /// The name of the group-listener provided for a specific role-group.
+    /// Webservers will use this group listener so that only one load balancer
+    /// is needed (per role group).
+    pub fn group_listener_name(
+        &self,
+        role: &DruidRole,
+        rolegroup: &RoleGroupRef<Self>,
+    ) -> Option<String> {
+        match role {
+            DruidRole::Coordinator | DruidRole::Broker | DruidRole::Router => {
+                Some(rolegroup.object_name())
+            }
+            DruidRole::Historical | DruidRole::MiddleManager => None,
+        }
     }
 
     /// The name of the role-level load-balanced Kubernetes `Service`
@@ -581,6 +607,47 @@ impl v1alpha1::DruidCluster {
                 &RouterConfig::default_config(&self.name_any(), &DruidRole::Router, deep_storage),
             )?,
         })
+    }
+
+    pub fn merged_listener_class(
+        &self,
+        role: &DruidRole,
+        rolegroup_name: &String,
+    ) -> Result<Option<String>, Error> {
+        let merged_config = self.merged_config()?;
+        match role {
+            &DruidRole::Broker => Ok(Some(
+                merged_config
+                    .brokers
+                    .get(rolegroup_name)
+                    .context(CannotRetrieveRoleGroupSnafu { rolegroup_name })?
+                    .config
+                    .config
+                    .listener_class
+                    .to_owned(),
+            )),
+            &DruidRole::Coordinator => Ok(Some(
+                merged_config
+                    .coordinators
+                    .get(rolegroup_name)
+                    .context(CannotRetrieveRoleGroupSnafu { rolegroup_name })?
+                    .config
+                    .config
+                    .listener_class
+                    .to_owned(),
+            )),
+            &DruidRole::Router => Ok(Some(
+                merged_config
+                    .routers
+                    .get(rolegroup_name)
+                    .context(CannotRetrieveRoleGroupSnafu { rolegroup_name })?
+                    .config
+                    .config
+                    .listener_class
+                    .to_owned(),
+            )),
+            &DruidRole::Historical | DruidRole::MiddleManager => Ok(None),
+        }
     }
 
     /// Merges and validates the role groups of the given role with the given default configuration
@@ -752,29 +819,6 @@ pub enum Container {
     Druid,
     Prepare,
     Vector,
-}
-
-// TODO: Temporary solution until listener-operator is finished
-#[derive(Clone, Debug, Default, Display, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
-#[serde(rename_all = "PascalCase")]
-pub enum CurrentlySupportedListenerClasses {
-    #[default]
-    #[serde(rename = "cluster-internal")]
-    ClusterInternal,
-    #[serde(rename = "external-unstable")]
-    ExternalUnstable,
-    #[serde(rename = "external-stable")]
-    ExternalStable,
-}
-
-impl CurrentlySupportedListenerClasses {
-    pub fn k8s_service_type(&self) -> String {
-        match self {
-            CurrentlySupportedListenerClasses::ClusterInternal => "ClusterIP".to_string(),
-            CurrentlySupportedListenerClasses::ExternalUnstable => "NodePort".to_string(),
-            CurrentlySupportedListenerClasses::ExternalStable => "LoadBalancer".to_string(),
-        }
-    }
 }
 
 /// Common configuration for all role groups
@@ -1173,6 +1217,10 @@ pub struct BrokerConfig {
     /// This can be shortened by the `maxCertificateLifetime` setting on the SecretClass issuing the TLS certificate.
     #[fragment_attrs(serde(default))]
     pub requested_secret_lifetime: Option<Duration>,
+
+    /// This field controls which [ListenerClass](DOCS_BASE_URL_PLACEHOLDER/listener-operator/listenerclass.html) is used to expose the brokers.
+    #[serde(default)]
+    pub listener_class: String,
 }
 
 impl BrokerConfig {
@@ -1187,6 +1235,7 @@ impl BrokerConfig {
             affinity: get_affinity(cluster_name, role, deep_storage),
             graceful_shutdown_timeout: Some(role.default_graceful_shutdown_timeout()),
             requested_secret_lifetime: Some(DEFAULT_BROKER_SECRET_LIFETIME),
+            listener_class: Some("cluster-internal".to_owned()),
         }
     }
 }
@@ -1222,6 +1271,10 @@ pub struct CoordinatorConfig {
     /// This can be shortened by the `maxCertificateLifetime` setting on the SecretClass issuing the TLS certificate.
     #[fragment_attrs(serde(default))]
     pub requested_secret_lifetime: Option<Duration>,
+
+    /// This field controls which [ListenerClass](DOCS_BASE_URL_PLACEHOLDER/listener-operator/listenerclass.html) is used to expose the coordinators.
+    #[serde(default)]
+    pub listener_class: String,
 }
 
 impl CoordinatorConfig {
@@ -1236,6 +1289,7 @@ impl CoordinatorConfig {
             affinity: get_affinity(cluster_name, role, deep_storage),
             graceful_shutdown_timeout: Some(role.default_graceful_shutdown_timeout()),
             requested_secret_lifetime: Some(DEFAULT_COORDINATOR_SECRET_LIFETIME),
+            listener_class: Some("cluster-internal".to_owned()),
         }
     }
 }
@@ -1271,6 +1325,10 @@ pub struct MiddleManagerConfig {
     /// This can be shortened by the `maxCertificateLifetime` setting on the SecretClass issuing the TLS certificate.
     #[fragment_attrs(serde(default))]
     pub requested_secret_lifetime: Option<Duration>,
+
+    /// This field controls which [ListenerClass](DOCS_BASE_URL_PLACEHOLDER/listener-operator/listenerclass.html) is used to expose the middle managers.
+    #[serde(default)]
+    pub listener_class: String,
 }
 
 impl MiddleManagerConfig {
@@ -1285,6 +1343,7 @@ impl MiddleManagerConfig {
             affinity: get_affinity(cluster_name, role, deep_storage),
             graceful_shutdown_timeout: Some(role.default_graceful_shutdown_timeout()),
             requested_secret_lifetime: Some(DEFAULT_MIDDLE_SECRET_LIFETIME),
+            listener_class: Some("cluster-internal".to_owned()),
         }
     }
 }
@@ -1320,6 +1379,10 @@ pub struct RouterConfig {
     /// This can be shortened by the `maxCertificateLifetime` setting on the SecretClass issuing the TLS certificate.
     #[fragment_attrs(serde(default))]
     pub requested_secret_lifetime: Option<Duration>,
+
+    /// This field controls which [ListenerClass](DOCS_BASE_URL_PLACEHOLDER/listener-operator/listenerclass.html) is used to expose the routers.
+    #[serde(default)]
+    pub listener_class: String,
 }
 
 impl RouterConfig {
@@ -1334,6 +1397,7 @@ impl RouterConfig {
             affinity: get_affinity(cluster_name, role, deep_storage),
             graceful_shutdown_timeout: Some(role.default_graceful_shutdown_timeout()),
             requested_secret_lifetime: Some(DEFAULT_ROUTER_SECRET_LIFETIME),
+            listener_class: Some("cluster-internal".to_owned()),
         }
     }
 }
@@ -1369,6 +1433,10 @@ pub struct HistoricalConfig {
     /// This can be shortened by the `maxCertificateLifetime` setting on the SecretClass issuing the TLS certificate.
     #[fragment_attrs(serde(default))]
     pub requested_secret_lifetime: Option<Duration>,
+
+    /// This field controls which [ListenerClass](DOCS_BASE_URL_PLACEHOLDER/listener-operator/listenerclass.html) is used to expose the historicals.
+    #[serde(default)]
+    pub listener_class: String,
 }
 
 impl HistoricalConfig {
@@ -1383,6 +1451,7 @@ impl HistoricalConfig {
             affinity: get_affinity(cluster_name, role, deep_storage),
             graceful_shutdown_timeout: Some(role.default_graceful_shutdown_timeout()),
             requested_secret_lifetime: Some(DEFAULT_HISTORICAL_SECRET_LIFETIME),
+            listener_class: Some("cluster-internal".to_owned()),
         }
     }
 }

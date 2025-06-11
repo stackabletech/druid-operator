@@ -13,15 +13,16 @@ use stackable_operator::{
             },
         },
     },
+    crd::listener,
     k8s_openapi::{
-        api::core::v1::{ContainerPort, Probe, ServicePort, TCPSocketAction},
+        api::core::v1::{ContainerPort, Probe, TCPSocketAction},
         apimachinery::pkg::util::intstr::IntOrString,
     },
     time::Duration,
 };
 
 use crate::crd::{
-    DruidRole, METRICS_PORT, STACKABLE_TRUST_STORE, STACKABLE_TRUST_STORE_PASSWORD,
+    DruidRole, STACKABLE_TRUST_STORE, STACKABLE_TRUST_STORE_PASSWORD,
     authentication::{self, AuthenticationClassesResolved},
     v1alpha1,
 };
@@ -59,7 +60,6 @@ const TLS_PORT: &str = "druid.tlsPort";
 // Port names
 const PLAINTEXT_PORT_NAME: &str = "http";
 const TLS_PORT_NAME: &str = "https";
-const METRICS_PORT_NAME: &str = "metrics";
 // Client side (Druid) TLS
 const CLIENT_HTTPS_KEY_STORE_PATH: &str = "druid.client.https.keyStorePath";
 const CLIENT_HTTPS_KEY_STORE_TYPE: &str = "druid.client.https.keyStoreType";
@@ -162,28 +162,29 @@ impl DruidTlsSecurity {
             .collect()
     }
 
-    pub fn service_ports(&self, role: &DruidRole) -> Vec<ServicePort> {
-        self.exposed_ports(role)
+    pub fn listener_ports(
+        &self,
+        role: &DruidRole,
+    ) -> Option<Vec<listener::v1alpha1::ListenerPort>> {
+        let listener_ports = self
+            .exposed_ports(role)
             .into_iter()
-            .map(|(name, val)| ServicePort {
-                name: Some(name),
+            .map(|(name, val)| listener::v1alpha1::ListenerPort {
+                name,
                 port: val.into(),
                 protocol: Some("TCP".to_string()),
-                ..ServicePort::default()
             })
-            .collect()
+            .collect();
+
+        Some(listener_ports)
     }
 
     fn exposed_ports(&self, role: &DruidRole) -> Vec<(String, u16)> {
-        let mut ports = vec![(METRICS_PORT_NAME.to_string(), METRICS_PORT)];
-
         if self.tls_enabled() {
-            ports.push((TLS_PORT_NAME.to_string(), role.get_https_port()));
+            vec![(TLS_PORT_NAME.to_string(), role.get_https_port())]
         } else {
-            ports.push((PLAINTEXT_PORT_NAME.to_string(), role.get_http_port()));
+            vec![(PLAINTEXT_PORT_NAME.to_string(), role.get_http_port())]
         }
-
-        ports
     }
 
     /// Adds required tls volume mounts to image and product container builders
