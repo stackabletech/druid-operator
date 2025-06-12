@@ -468,7 +468,7 @@ impl v1alpha1::DruidCluster {
 
     /// The name of the role-level load-balanced Kubernetes `Service`
     pub fn role_service_name(&self, role: &DruidRole) -> Option<String> {
-        Some(format!("{}-{}", self.metadata.name.clone()?, role))
+        Some(format!("{}-{}-metrics", self.metadata.name.clone()?, role))
     }
 
     /// The fully-qualified domain name of the role-level load-balanced Kubernetes `Service`
@@ -1668,12 +1668,12 @@ mod tests {
 
         assert_eq!(
             cluster.role_service_name(&DruidRole::Router),
-            Some("testcluster-router".to_string())
+            Some("testcluster-router-metrics".to_string())
         );
 
         assert_eq!(
             cluster.role_service_fqdn(&DruidRole::Router, &dummy_cluster_info),
-            Some("testcluster-router.default.svc.cluster.local".to_string())
+            Some("testcluster-router-metrics.default.svc.cluster.local".to_string())
         )
     }
 
