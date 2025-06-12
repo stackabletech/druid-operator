@@ -842,6 +842,10 @@ fn build_rolegroup_config_map(
         })
 }
 
+pub fn rolegroup_service_name(rolegroup: &RoleGroupRef<v1alpha1::DruidCluster>) -> String {
+    format!("{name}-metrics", name = rolegroup.object_name())
+}
+
 /// The rolegroup [`Service`] is a headless service that allows direct access to the instances of a certain rolegroup
 ///
 /// This is mostly useful for internal communication between peers, or for clients that perform client-side load balancing.
@@ -860,7 +864,7 @@ fn build_rolegroup_service(
     Ok(Service {
         metadata: ObjectMetaBuilder::new()
             .name_and_namespace(druid)
-            .name(format!("{name}-metrics", name = rolegroup.object_name()))
+            .name(rolegroup_service_name(rolegroup))
             .ownerreference_from_resource(druid, None, Some(true))
             .context(ObjectMissingMetadataForOwnerRefSnafu)?
             .with_recommended_labels(build_recommended_labels(
@@ -1260,10 +1264,7 @@ fn build_rolegroup_statefulset(
                 ),
                 ..LabelSelector::default()
             },
-            service_name: Some(format!(
-                "{name}-metrics",
-                name = rolegroup_ref.object_name()
-            )),
+            service_name: Some(rolegroup_service_name(rolegroup_ref)),
             template: pod_template,
             volume_claim_templates: pvcs,
             ..StatefulSetSpec::default()
