@@ -151,6 +151,13 @@ tests:
       - hadoop-latest
       - druid-latest
       - openshift
+  - name: external-access
+    dimensions:
+      - druid
+      - zookeeper-latest
+      - opa
+      - hadoop
+      - openshift
 suites:
   - name: nightly
     patch:
