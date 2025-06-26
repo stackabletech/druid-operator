@@ -32,7 +32,8 @@ spec:
       gracefulShutdownTimeout: 1s # Let the test run faster
       logging:
         enableVectorAgent: {{ lookup('env', 'VECTOR_AGGREGATOR') | length > 0 }}
-      listenerClass: test-external-stable-$NAMESPACE
+    roleConfig:
+      listenerClass: test-cluster-internal-$NAMESPACE
     roleGroups:
       default:
         replicas: 1
@@ -41,7 +42,8 @@ spec:
       gracefulShutdownTimeout: 1s # Let the test run faster
       logging:
         enableVectorAgent: {{ lookup('env', 'VECTOR_AGGREGATOR') | length > 0 }}
-      listenerClass: test-external-stable-$NAMESPACE
+    roleConfig:
+      listenerClass: test-cluster-internal-$NAMESPACE
     roleGroups:
       default:
         replicas: 1
@@ -66,7 +68,8 @@ spec:
       gracefulShutdownTimeout: 1s # Let the test run faster
       logging:
         enableVectorAgent: {{ lookup('env', 'VECTOR_AGGREGATOR') | length > 0 }}
-      listenerClass: test-external-stable-$NAMESPACE
+    roleConfig:
+      listenerClass: test-external-unstable-$NAMESPACE
     roleGroups:
       default:
         replicas: 1

@@ -20,14 +20,8 @@ use stackable_operator::{
         configmap::ConfigMapBuilder,
         meta::ObjectMetaBuilder,
         pod::{
-            PodBuilder,
-            container::ContainerBuilder,
-            resources::ResourceRequirementsBuilder,
-            security::PodSecurityContextBuilder,
-            volume::{
-                ListenerOperatorVolumeSourceBuilder, ListenerOperatorVolumeSourceBuilderError,
-                ListenerReference, VolumeBuilder,
-            },
+            PodBuilder, container::ContainerBuilder, resources::ResourceRequirementsBuilder,
+            security::PodSecurityContextBuilder, volume::VolumeBuilder,
         },
     },
     cluster_resources::{ClusterResourceApplyStrategy, ClusterResources},
@@ -35,7 +29,7 @@ use stackable_operator::{
         opa::OpaApiVersion, product_image_selection::ResolvedProductImage,
         rbac::build_rbac_resources, tls_verification::TlsClientDetailsError,
     },
-    crd::{listener, s3},
+    crd::s3,
     k8s_openapi::{
         DeepMerge,
         api::{
@@ -79,16 +73,20 @@ use crate::{
         APP_NAME, AUTH_AUTHORIZER_OPA_URI, CREDENTIALS_SECRET_PROPERTY, CommonRoleGroupConfig,
         Container, DB_PASSWORD_ENV, DB_USERNAME_ENV, DRUID_CONFIG_DIRECTORY, DS_BUCKET,
         DeepStorageSpec, DruidClusterStatus, DruidRole, EXTENSIONS_LOADLIST, HDFS_CONFIG_DIRECTORY,
-        JVM_CONFIG, JVM_SECURITY_PROPERTIES_FILE, LISTENER_VOLUME_DIR, LISTENER_VOLUME_NAME,
-        LOG_CONFIG_DIRECTORY, MAX_DRUID_LOG_FILES_SIZE, METRICS_PORT, METRICS_PORT_NAME,
-        OPERATOR_NAME, RUNTIME_PROPS, RW_CONFIG_DIRECTORY, S3_ACCESS_KEY, S3_ENDPOINT_URL,
-        S3_PATH_STYLE_ACCESS, S3_SECRET_KEY, STACKABLE_LOG_DIR, ZOOKEEPER_CONNECTION_STRING,
-        authentication::AuthenticationClassesResolved, authorization::DruidAuthorization,
-        build_recommended_labels, build_string_list, security::DruidTlsSecurity, v1alpha1,
+        JVM_CONFIG, JVM_SECURITY_PROPERTIES_FILE, LOG_CONFIG_DIRECTORY, MAX_DRUID_LOG_FILES_SIZE,
+        METRICS_PORT, METRICS_PORT_NAME, OPERATOR_NAME, RUNTIME_PROPS, RW_CONFIG_DIRECTORY,
+        S3_ACCESS_KEY, S3_ENDPOINT_URL, S3_PATH_STYLE_ACCESS, S3_SECRET_KEY, STACKABLE_LOG_DIR,
+        ZOOKEEPER_CONNECTION_STRING, authentication::AuthenticationClassesResolved,
+        authorization::DruidAuthorization, build_recommended_labels, build_string_list,
+        security::DruidTlsSecurity, v1alpha1,
     },
     discovery::{self, build_discovery_configmaps},
     extensions::get_extension_list,
     internal_secret::{create_shared_internal_secret, env_var_from_secret},
+    listener::{
+        LISTENER_VOLUME_DIR, LISTENER_VOLUME_NAME, build_group_listener, build_group_listener_pvc,
+        group_listener_name,
+    },
     operations::{graceful_shutdown::add_graceful_shutdown_config, pdb::add_pdbs},
     product_logging::extend_role_group_config_map,
 };
@@ -370,15 +368,13 @@ pub enum Error {
         source: error_boundary::InvalidObject,
     },
 
-    #[snafu(display("failed to build listener volume"))]
-    BuildListenerVolume {
-        source: ListenerOperatorVolumeSourceBuilderError,
-    },
-
     #[snafu(display("failed to apply group listener"))]
     ApplyGroupListener {
         source: stackable_operator::cluster_resources::Error,
     },
+
+    #[snafu(display("failed to configure listener"))]
+    ListenerConfiguration { source: crate::listener::Error },
 }
 
 type Result<T, E = Error> = std::result::Result<T, E>;
@@ -557,28 +553,7 @@ pub async fn reconcile_druid(
                 &druid_auth_config,
                 &rbac_sa,
             )?;
-            if let Some(listener_class) = druid
-                .merged_listener_class(&druid_role, &rolegroup.role_group)
-                .context(FailedToResolveConfigSnafu)?
-            {
-                if let Some(listener_group_name) =
-                    druid.group_listener_name(&druid_role, &rolegroup)
-                {
-                    let rg_group_listener = build_group_listener(
-                        druid,
-                        &resolved_product_image,
-                        &druid_role,
-                        &rolegroup,
-                        listener_class,
-                        listener_group_name,
-                        &druid_tls_security,
-                    )?;
-                    cluster_resources
-                        .add(client, rg_group_listener)
-                        .await
-                        .context(ApplyGroupListenerSnafu)?;
-                }
-            }
+
             cluster_resources
                 .add(client, rg_service)
                 .await
@@ -601,7 +576,32 @@ pub async fn reconcile_druid(
             );
         }
 
-        let role_config = druid.role_config(&druid_role);
+        if let Some(listener_class) = druid_role.listener_class_name(druid) {
+            if let Some(listener_group_name) = group_listener_name(druid, &druid_role) {
+                let role_group_listener = build_group_listener(
+                    druid,
+                    build_recommended_labels(
+                        druid,
+                        DRUID_CONTROLLER_NAME,
+                        &resolved_product_image.app_version_label,
+                        role_name,
+                        "none",
+                    ),
+                    listener_class.to_string(),
+                    listener_group_name,
+                    &druid_role,
+                    &druid_tls_security,
+                )
+                .context(ListenerConfigurationSnafu)?;
+
+                cluster_resources
+                    .add(client, role_group_listener)
+                    .await
+                    .context(ApplyGroupListenerSnafu)?;
+            }
+        }
+
+        let role_config = druid.generic_role_config(&druid_role);
 
         add_pdbs(
             &role_config.pod_disruption_budget,
@@ -899,39 +899,6 @@ fn build_rolegroup_service(
     })
 }
 
-pub fn build_group_listener(
-    druid: &v1alpha1::DruidCluster,
-    resolved_product_image: &ResolvedProductImage,
-    role: &DruidRole,
-    rolegroup: &RoleGroupRef<v1alpha1::DruidCluster>,
-    listener_class: String,
-    listener_group_name: String,
-    druid_tls_security: &DruidTlsSecurity,
-) -> Result<listener::v1alpha1::Listener> {
-    Ok(listener::v1alpha1::Listener {
-        metadata: ObjectMetaBuilder::new()
-            .name_and_namespace(druid)
-            .name(listener_group_name)
-            .ownerreference_from_resource(druid, None, Some(true))
-            .context(ObjectMissingMetadataForOwnerRefSnafu)?
-            .with_recommended_labels(build_recommended_labels(
-                druid,
-                DRUID_CONTROLLER_NAME,
-                &resolved_product_image.app_version_label,
-                &rolegroup.role,
-                &rolegroup.role_group,
-            ))
-            .context(ObjectMissingMetadataForOwnerRefSnafu)?
-            .build(),
-        spec: listener::v1alpha1::ListenerSpec {
-            class_name: Some(listener_class),
-            ports: druid_tls_security.listener_ports(role),
-            ..listener::v1alpha1::ListenerSpec::default()
-        },
-        status: None,
-    })
-}
-
 #[allow(clippy::too_many_arguments)]
 /// The rolegroup [`StatefulSet`] runs the rolegroup, as configured by the administrator.
 ///
@@ -1147,36 +1114,28 @@ fn build_rolegroup_statefulset(
             .context(AddVolumeMountSnafu)?;
     }
 
-    // Used for PVC templates that cannot be modified once they are deployed
-    let unversioned_recommended_labels = Labels::recommended(build_recommended_labels(
-        druid,
-        DRUID_CONTROLLER_NAME,
-        // A version value is required, and we do want to use the "recommended" format for the other desired labels
-        "none",
-        &rolegroup_ref.role,
-        &rolegroup_ref.role_group,
-    ))
-    .context(LabelBuildSnafu)?;
-
     let mut pvcs: Option<Vec<PersistentVolumeClaim>> = None;
 
-    if let Some(listener_group_name) = druid.group_listener_name(role, rolegroup_ref) {
-        // Listener endpoints for the Webserver role will use persistent volumes
-        // so that load balancers can hard-code the target addresses. This will
-        // be the case even when no class is set (and the value defaults to
-        // cluster-internal) as the address should still be consistent.
-        let listener_pvc = ListenerOperatorVolumeSourceBuilder::new(
-            &ListenerReference::ListenerName(listener_group_name),
-            &unversioned_recommended_labels,
-        )
-        .context(BuildListenerVolumeSnafu)?
-        .build_pvc(LISTENER_VOLUME_NAME.to_string())
-        .context(BuildListenerVolumeSnafu)?;
-        pvcs = Some(vec![listener_pvc]);
-
+    if let Some(group_listener_name) = group_listener_name(druid, role) {
         cb_druid
             .add_volume_mount(LISTENER_VOLUME_NAME, LISTENER_VOLUME_DIR)
             .context(AddVolumeMountSnafu)?;
+
+        // Used for PVC templates that cannot be modified once they are deployed
+        let unversioned_recommended_labels = Labels::recommended(build_recommended_labels(
+            druid,
+            DRUID_CONTROLLER_NAME,
+            // A version value is required, and we do want to use the "recommended" format for the other desired labels
+            "none",
+            &rolegroup_ref.role,
+            &rolegroup_ref.role_group,
+        ))
+        .context(LabelBuildSnafu)?;
+
+        pvcs = Some(vec![
+            build_group_listener_pvc(&group_listener_name, &unversioned_recommended_labels)
+                .context(ListenerConfigurationSnafu)?,
+        ]);
     }
 
     let metadata = ObjectMetaBuilder::new()

@@ -28,9 +28,7 @@ use stackable_operator::{
         framework::{create_vector_shutdown_file_command, remove_vector_shutdown_file_command},
         spec::Logging,
     },
-    role_utils::{
-        CommonConfiguration, GenericRoleConfig, JavaCommonConfig, Role, RoleGroup, RoleGroupRef,
-    },
+    role_utils::{CommonConfiguration, GenericRoleConfig, JavaCommonConfig, Role, RoleGroup},
     schemars::{self, JsonSchema},
     status::condition::{ClusterCondition, HasStatusCondition},
     time::Duration,
@@ -47,6 +45,7 @@ use crate::crd::{
     authorization::DruidAuthorization,
     resource::RoleResource,
     tls::{DruidTls, default_druid_tls},
+    v1alpha1::DruidRoleConfig,
 };
 
 pub mod affinity;
@@ -153,10 +152,6 @@ const DEFAULT_MIDDLE_SECRET_LIFETIME: Duration = Duration::from_days_unchecked(1
 const DEFAULT_ROUTER_SECRET_LIFETIME: Duration = Duration::from_days_unchecked(1);
 const DEFAULT_HISTORICAL_SECRET_LIFETIME: Duration = Duration::from_days_unchecked(1);
 
-// listener
-pub const LISTENER_VOLUME_NAME: &str = "listener";
-pub const LISTENER_VOLUME_DIR: &str = "/stackable/listener";
-
 #[derive(Snafu, Debug, EnumDiscriminants)]
 #[strum_discriminants(derive(IntoStaticStr))]
 #[allow(clippy::enum_variant_names)]
@@ -204,6 +199,8 @@ pub enum Error {
 
 #[versioned(version(name = "v1alpha1"))]
 pub mod versioned {
+    use crate::crd::v1alpha1::{DruidBrokerConfig, DruidRouterConfig};
+
     /// A Druid cluster stacklet. This resource is managed by the Stackable operator for Apache Druid.
     /// Find more information on how to use it and the resources that the operator generates in the
     /// [operator documentation](DOCS_BASE_URL_PLACEHOLDER/druid/).
@@ -230,10 +227,10 @@ pub mod versioned {
         pub image: ProductImage,
 
         // no doc - docs provided by the struct.
-        pub brokers: Role<BrokerConfigFragment, GenericRoleConfig, JavaCommonConfig>,
+        pub brokers: Role<BrokerConfigFragment, DruidRoleConfig, JavaCommonConfig>,
 
         // no doc - docs provided by the struct.
-        pub coordinators: Role<CoordinatorConfigFragment, GenericRoleConfig, JavaCommonConfig>,
+        pub coordinators: Role<CoordinatorConfigFragment, DruidRoleConfig, JavaCommonConfig>,
 
         // no doc - docs provided by the struct.
         pub historicals: Role<HistoricalConfigFragment, GenericRoleConfig, JavaCommonConfig>,
@@ -242,7 +239,7 @@ pub mod versioned {
         pub middle_managers: Role<MiddleManagerConfigFragment, GenericRoleConfig, JavaCommonConfig>,
 
         // no doc - docs provided by the struct.
-        pub routers: Role<RouterConfigFragment, GenericRoleConfig, JavaCommonConfig>,
+        pub routers: Role<RouterConfigFragment, DruidRoleConfig, JavaCommonConfig>,
 
         // no doc - docs provided by the struct.
         #[serde(default)]
@@ -310,6 +307,15 @@ pub mod versioned {
         #[serde(default, skip_serializing_if = "Vec::is_empty")]
         #[schemars(schema_with = "raw_object_list_schema")]
         pub extra_volumes: Vec<Volume>,
+    }
+    #[derive(Clone, Debug, Deserialize, JsonSchema, PartialEq, Serialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct DruidRoleConfig {
+        #[serde(flatten)]
+        pub common: GenericRoleConfig,
+
+        #[serde(default = "druid_default_listener_class")]
+        pub listener_class: String,
     }
 }
 
@@ -424,15 +430,25 @@ impl v1alpha1::DruidCluster {
         vec![
             (
                 DruidRole::Broker.to_string(),
-                (config_files.clone(), self.spec.brokers.clone().erase()),
+                (
+                    config_files.clone(),
+                    extract_role_from_role_config::<BrokerConfig>(self.spec.brokers.clone())
+                        .erase(),
+                ),
+            ),
+            (
+                DruidRole::Coordinator.to_string(),
+                (
+                    config_files.clone(),
+                    extract_role_from_role_config::<CoordinatorConfig>(
+                        self.spec.coordinators.clone(),
+                    )
+                    .erase(),
+                ),
             ),
             (
                 DruidRole::Historical.to_string(),
                 (config_files.clone(), self.spec.historicals.clone().erase()),
-            ),
-            (
-                DruidRole::Router.to_string(),
-                (config_files.clone(), self.spec.routers.clone().erase()),
             ),
             (
                 DruidRole::MiddleManager.to_string(),
@@ -442,28 +458,16 @@ impl v1alpha1::DruidCluster {
                 ),
             ),
             (
-                DruidRole::Coordinator.to_string(),
-                (config_files, self.spec.coordinators.clone().erase()),
+                DruidRole::Router.to_string(),
+                (
+                    config_files,
+                    extract_role_from_role_config::<RouterConfig>(self.spec.routers.clone())
+                        .erase(),
+                ),
             ),
         ]
         .into_iter()
         .collect()
-    }
-
-    /// The name of the group-listener provided for a specific role-group.
-    /// Webservers will use this group listener so that only one load balancer
-    /// is needed (per role group).
-    pub fn group_listener_name(
-        &self,
-        role: &DruidRole,
-        rolegroup: &RoleGroupRef<Self>,
-    ) -> Option<String> {
-        match role {
-            DruidRole::Coordinator | DruidRole::Broker | DruidRole::Router => {
-                Some(rolegroup.object_name())
-            }
-            DruidRole::Historical | DruidRole::MiddleManager => None,
-        }
     }
 
     /// The name of the role-level load-balanced Kubernetes `Service`
@@ -575,11 +579,11 @@ impl v1alpha1::DruidCluster {
 
         Ok(MergedConfig {
             brokers: v1alpha1::DruidCluster::merged_role(
-                &self.spec.brokers,
+                &extract_role_from_role_config::<BrokerConfig>(self.spec.brokers.clone()),
                 &BrokerConfig::default_config(&self.name_any(), &DruidRole::Broker, deep_storage),
             )?,
             coordinators: v1alpha1::DruidCluster::merged_role(
-                &self.spec.coordinators,
+                &extract_role_from_role_config::<CoordinatorConfig>(self.spec.coordinators.clone()),
                 &CoordinatorConfig::default_config(
                     &self.name_any(),
                     &DruidRole::Coordinator,
@@ -603,51 +607,10 @@ impl v1alpha1::DruidCluster {
                 ),
             )?,
             routers: v1alpha1::DruidCluster::merged_role(
-                &self.spec.routers,
+                &extract_role_from_role_config::<RouterConfig>(self.spec.routers.clone()),
                 &RouterConfig::default_config(&self.name_any(), &DruidRole::Router, deep_storage),
             )?,
         })
-    }
-
-    pub fn merged_listener_class(
-        &self,
-        role: &DruidRole,
-        rolegroup_name: &String,
-    ) -> Result<Option<String>, Error> {
-        let merged_config = self.merged_config()?;
-        match role {
-            &DruidRole::Broker => Ok(Some(
-                merged_config
-                    .brokers
-                    .get(rolegroup_name)
-                    .context(CannotRetrieveRoleGroupSnafu { rolegroup_name })?
-                    .config
-                    .config
-                    .listener_class
-                    .to_owned(),
-            )),
-            &DruidRole::Coordinator => Ok(Some(
-                merged_config
-                    .coordinators
-                    .get(rolegroup_name)
-                    .context(CannotRetrieveRoleGroupSnafu { rolegroup_name })?
-                    .config
-                    .config
-                    .listener_class
-                    .to_owned(),
-            )),
-            &DruidRole::Router => Ok(Some(
-                merged_config
-                    .routers
-                    .get(rolegroup_name)
-                    .context(CannotRetrieveRoleGroupSnafu { rolegroup_name })?
-                    .config
-                    .config
-                    .listener_class
-                    .to_owned(),
-            )),
-            &DruidRole::Historical | DruidRole::MiddleManager => Ok(None),
-        }
     }
 
     /// Merges and validates the role groups of the given role with the given default configuration
@@ -704,13 +667,13 @@ impl v1alpha1::DruidCluster {
         })
     }
 
-    pub fn role_config(&self, role: &DruidRole) -> &GenericRoleConfig {
+    pub fn generic_role_config(&self, role: &DruidRole) -> &GenericRoleConfig {
         match role {
-            DruidRole::Broker => &self.spec.brokers.role_config,
-            DruidRole::Coordinator => &self.spec.coordinators.role_config,
+            DruidRole::Broker => &self.spec.brokers.role_config.common,
+            DruidRole::Coordinator => &self.spec.coordinators.role_config.common,
             DruidRole::Historical => &self.spec.historicals.role_config,
             DruidRole::MiddleManager => &self.spec.middle_managers.role_config,
-            DruidRole::Router => &self.spec.routers.role_config,
+            DruidRole::Router => &self.spec.routers.role_config.common,
         }
     }
 
@@ -742,11 +705,18 @@ impl v1alpha1::DruidCluster {
         JavaCommonConfig,
     > {
         match druid_role {
-            DruidRole::Coordinator => self.spec.coordinators.clone().erase(),
-            DruidRole::Broker => self.spec.brokers.clone().erase(),
+            DruidRole::Broker => {
+                extract_role_from_role_config::<BrokerConfig>(self.spec.brokers.clone()).erase()
+            }
+            DruidRole::Coordinator => {
+                extract_role_from_role_config::<CoordinatorConfig>(self.spec.coordinators.clone())
+                    .erase()
+            }
             DruidRole::Historical => self.spec.historicals.clone().erase(),
             DruidRole::MiddleManager => self.spec.middle_managers.clone().erase(),
-            DruidRole::Router => self.spec.routers.clone().erase(),
+            DruidRole::Router => {
+                extract_role_from_role_config::<RouterConfig>(self.spec.routers.clone()).erase()
+            }
         }
     }
 
@@ -953,6 +923,19 @@ impl MergedConfig {
     }
 }
 
+impl Default for v1alpha1::DruidRoleConfig {
+    fn default() -> Self {
+        v1alpha1::DruidRoleConfig {
+            listener_class: druid_default_listener_class(),
+            common: Default::default(),
+        }
+    }
+}
+
+fn druid_default_listener_class() -> String {
+    "cluster-internal".to_string()
+}
+
 #[derive(
     Clone,
     Debug,
@@ -1087,6 +1070,22 @@ impl DruidRole {
             create_vector_shutdown_file_command(STACKABLE_LOG_DIR),
         }
     }
+
+    pub fn listener_class_name(&self, druid: &v1alpha1::DruidCluster) -> Option<String> {
+        match self {
+            Self::Broker => Some(druid.spec.brokers.role_config.listener_class.to_owned()),
+            Self::Coordinator => Some(
+                druid
+                    .spec
+                    .coordinators
+                    .role_config
+                    .listener_class
+                    .to_owned(),
+            ),
+            Self::Router => Some(druid.spec.routers.role_config.listener_class.to_owned()),
+            Self::Historical | Self::MiddleManager => None,
+        }
+    }
 }
 
 #[derive(Clone, Debug, Default, Deserialize, JsonSchema, Serialize)]
@@ -1217,10 +1216,6 @@ pub struct BrokerConfig {
     /// This can be shortened by the `maxCertificateLifetime` setting on the SecretClass issuing the TLS certificate.
     #[fragment_attrs(serde(default))]
     pub requested_secret_lifetime: Option<Duration>,
-
-    /// This field controls which [ListenerClass](DOCS_BASE_URL_PLACEHOLDER/listener-operator/listenerclass.html) is used to expose the brokers.
-    #[serde(default)]
-    pub listener_class: String,
 }
 
 impl BrokerConfig {
@@ -1235,7 +1230,6 @@ impl BrokerConfig {
             affinity: get_affinity(cluster_name, role, deep_storage),
             graceful_shutdown_timeout: Some(role.default_graceful_shutdown_timeout()),
             requested_secret_lifetime: Some(DEFAULT_BROKER_SECRET_LIFETIME),
-            listener_class: Some("cluster-internal".to_owned()),
         }
     }
 }
@@ -1271,10 +1265,6 @@ pub struct CoordinatorConfig {
     /// This can be shortened by the `maxCertificateLifetime` setting on the SecretClass issuing the TLS certificate.
     #[fragment_attrs(serde(default))]
     pub requested_secret_lifetime: Option<Duration>,
-
-    /// This field controls which [ListenerClass](DOCS_BASE_URL_PLACEHOLDER/listener-operator/listenerclass.html) is used to expose the coordinators.
-    #[serde(default)]
-    pub listener_class: String,
 }
 
 impl CoordinatorConfig {
@@ -1289,7 +1279,6 @@ impl CoordinatorConfig {
             affinity: get_affinity(cluster_name, role, deep_storage),
             graceful_shutdown_timeout: Some(role.default_graceful_shutdown_timeout()),
             requested_secret_lifetime: Some(DEFAULT_COORDINATOR_SECRET_LIFETIME),
-            listener_class: Some("cluster-internal".to_owned()),
         }
     }
 }
@@ -1325,10 +1314,6 @@ pub struct MiddleManagerConfig {
     /// This can be shortened by the `maxCertificateLifetime` setting on the SecretClass issuing the TLS certificate.
     #[fragment_attrs(serde(default))]
     pub requested_secret_lifetime: Option<Duration>,
-
-    /// This field controls which [ListenerClass](DOCS_BASE_URL_PLACEHOLDER/listener-operator/listenerclass.html) is used to expose the middle managers.
-    #[serde(default)]
-    pub listener_class: String,
 }
 
 impl MiddleManagerConfig {
@@ -1343,7 +1328,6 @@ impl MiddleManagerConfig {
             affinity: get_affinity(cluster_name, role, deep_storage),
             graceful_shutdown_timeout: Some(role.default_graceful_shutdown_timeout()),
             requested_secret_lifetime: Some(DEFAULT_MIDDLE_SECRET_LIFETIME),
-            listener_class: Some("cluster-internal".to_owned()),
         }
     }
 }
@@ -1379,10 +1363,6 @@ pub struct RouterConfig {
     /// This can be shortened by the `maxCertificateLifetime` setting on the SecretClass issuing the TLS certificate.
     #[fragment_attrs(serde(default))]
     pub requested_secret_lifetime: Option<Duration>,
-
-    /// This field controls which [ListenerClass](DOCS_BASE_URL_PLACEHOLDER/listener-operator/listenerclass.html) is used to expose the routers.
-    #[serde(default)]
-    pub listener_class: String,
 }
 
 impl RouterConfig {
@@ -1397,7 +1377,6 @@ impl RouterConfig {
             affinity: get_affinity(cluster_name, role, deep_storage),
             graceful_shutdown_timeout: Some(role.default_graceful_shutdown_timeout()),
             requested_secret_lifetime: Some(DEFAULT_ROUTER_SECRET_LIFETIME),
-            listener_class: Some("cluster-internal".to_owned()),
         }
     }
 }
@@ -1433,10 +1412,6 @@ pub struct HistoricalConfig {
     /// This can be shortened by the `maxCertificateLifetime` setting on the SecretClass issuing the TLS certificate.
     #[fragment_attrs(serde(default))]
     pub requested_secret_lifetime: Option<Duration>,
-
-    /// This field controls which [ListenerClass](DOCS_BASE_URL_PLACEHOLDER/listener-operator/listenerclass.html) is used to expose the historicals.
-    #[serde(default)]
-    pub listener_class: String,
 }
 
 impl HistoricalConfig {
@@ -1451,7 +1426,6 @@ impl HistoricalConfig {
             affinity: get_affinity(cluster_name, role, deep_storage),
             graceful_shutdown_timeout: Some(role.default_graceful_shutdown_timeout()),
             requested_secret_lifetime: Some(DEFAULT_HISTORICAL_SECRET_LIFETIME),
-            listener_class: Some("cluster-internal".to_owned()),
         }
     }
 }
@@ -1646,6 +1620,46 @@ pub fn build_recommended_labels<'a, T>(
         controller_name,
         role,
         role_group,
+    }
+}
+
+fn extract_role_from_role_config<T>(
+    fragment: Role<T::Fragment, DruidRoleConfig, JavaCommonConfig>,
+) -> Role<T::Fragment, GenericRoleConfig, JavaCommonConfig>
+where
+    T: FromFragment,
+    T::Fragment: Clone + Merge,
+{
+    Role {
+        config: CommonConfiguration {
+            config: fragment.config.config,
+            config_overrides: fragment.config.config_overrides,
+            env_overrides: fragment.config.env_overrides,
+            cli_overrides: fragment.config.cli_overrides,
+            pod_overrides: fragment.config.pod_overrides,
+            product_specific_common_config: fragment.config.product_specific_common_config,
+        },
+        role_config: fragment.role_config.common,
+        role_groups: fragment
+            .role_groups
+            .into_iter()
+            .map(|(k, v)| {
+                (
+                    k,
+                    RoleGroup {
+                        config: CommonConfiguration {
+                            config: v.config.config,
+                            config_overrides: v.config.config_overrides,
+                            env_overrides: v.config.env_overrides,
+                            cli_overrides: v.config.cli_overrides,
+                            pod_overrides: v.config.pod_overrides,
+                            product_specific_common_config: v.config.product_specific_common_config,
+                        },
+                        replicas: v.replicas,
+                    },
+                )
+            })
+            .collect(),
     }
 }
 

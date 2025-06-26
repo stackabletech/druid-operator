@@ -34,6 +34,7 @@ mod discovery;
 mod druid_controller;
 mod extensions;
 mod internal_secret;
+mod listener;
 mod operations;
 mod product_logging;
 

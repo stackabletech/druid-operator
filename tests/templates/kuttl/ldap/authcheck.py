@@ -26,7 +26,7 @@ def main():
     )
 
     for role, port in druid_role_ports.items():
-        url = f"https://{druid_cluster_name}-{role}-default:{port}/status"
+        url = f"https://{druid_cluster_name}-{role}-default-metrics:{port}/status"
         # make an authorized request -> return 401 expected
         logging.info(f"making unauthorized request to {role}.")
         res = requests.get(url, verify=False)
