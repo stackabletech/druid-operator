@@ -843,7 +843,7 @@ fn build_rolegroup_config_map(
 }
 
 pub fn rolegroup_service_name(rolegroup: &RoleGroupRef<v1alpha1::DruidCluster>) -> String {
-    format!("{name}-metrics", name = rolegroup.object_name())
+    format!("{name}-headless", name = rolegroup.object_name())
 }
 
 /// The rolegroup [`Service`] is a headless service that allows direct access to the instances of a certain rolegroup

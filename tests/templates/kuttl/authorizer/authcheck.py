@@ -2,7 +2,7 @@ import requests
 import sys
 import logging
 
-coordinator_host = "derby-druid-coordinator-default-metrics"
+coordinator_host = "derby-druid-coordinator-default-headless"
 coordinator_port = "8281"
 authenticator_name = "MyBasicMetadataAuthenticator"
 
@@ -52,7 +52,7 @@ if __name__ == "__main__":
     }
 
     for role, port in druid_role_ports.items():
-        url = f"https://{druid_cluster_name}-{role}-default-metrics:{port}/status"
+        url = f"https://{druid_cluster_name}-{role}-default-headless:{port}/status"
         # make an authorized request -> return 401 expected
         print("Checking Unauthorized")
         res = requests.get(url, verify=False)

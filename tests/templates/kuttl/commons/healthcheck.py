@@ -25,7 +25,7 @@ if __name__ == "__main__":
 
     for role, port in druid_role_ports.items():
         url = (
-            f"https://{druid_cluster_name}-{role}-default-metrics:{port}/status/health"
+            f"https://{druid_cluster_name}-{role}-default-headless:{port}/status/health"
         )
         count = 1
 

@@ -7,7 +7,7 @@ TYPE=$2
 # No encryption
 if [[ $TYPE == "no-tls" ]]
 then
-  HOST=http://derby-druid-router-default-0.derby-druid-router-default-metrics.${NAMESPACE}.svc.cluster.local:8888/status/health
+  HOST=http://derby-druid-router-default-0.derby-druid-router-default-headless.${NAMESPACE}.svc.cluster.local:8888/status/health
 
   # should work
   echo "[NO_TLS] Test unsecured access"
@@ -23,7 +23,7 @@ fi
 # Only encryption
 if [[ $TYPE == "internal-and-server-tls" ]]
 then
-  HOST=https://derby-druid-router-default-0.derby-druid-router-default-metrics.${NAMESPACE}.svc.cluster.local:9088/status/health
+  HOST=https://derby-druid-router-default-0.derby-druid-router-default-headless.${NAMESPACE}.svc.cluster.local:9088/status/health
 
   # should not work without --insecure
   echo "[TLS_ENCRYPTION] Test TLS without trusted CA and without insecure access"
@@ -69,7 +69,7 @@ fi
 # Encryption and TLS client auth
 if [[ $TYPE == "internal-and-server-tls-and-tls-client-auth" ]]
 then
-  HOST=https://derby-druid-router-default-0.derby-druid-router-default-metrics.${NAMESPACE}.svc.cluster.local:9088/status/health
+  HOST=https://derby-druid-router-default-0.derby-druid-router-default-headless.${NAMESPACE}.svc.cluster.local:9088/status/health
 
   # Should fail
   echo "[TLS_AUTH] Test insecure access"
