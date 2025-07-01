@@ -82,19 +82,3 @@ type: Opaque
 stringData:
   username: druid
   password: druid
----
-apiVersion: listeners.stackable.tech/v1alpha1
-kind: Listener
-metadata:
-  creationTimestamp: "2025-06-11T11:58:17Z"
-  generation: 1
-  labels:
-    app.kubernetes.io/component: historical
-    app.kubernetes.io/instance: druid
-  name: druid-historical-default
-spec:
-  className: test-cluster-internal-kuttl-test-perfect-moray
-  ports:
-  - name: https
-    port: 8283
-    protocol: TCP
