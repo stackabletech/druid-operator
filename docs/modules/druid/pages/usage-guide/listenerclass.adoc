@@ -4,8 +4,8 @@
 Apache Druid offers a web UI and an API, both are exposed by the `router` role.
 The `broker` and `coordinator` roles expose additional API endpoints.
 
-The operator deploys a xref:listener-operator:listener.adoc[Listener] for the the `router`, `broker` and `coordinator` roles.
-The listener defaults to only being accessible from within the Kubernetes cluster, but this can be changed by configuring a listener class
+The operator deploys a xref:listener-operator:listener.adoc[Listener] for the `router`, `broker` and `coordinator` roles.
+The Listener defaults to only being accessible from within the Kubernetes cluster, but this can be changed by configuring a ListenerClass
 for specific roles:
 
 [source,yaml]
