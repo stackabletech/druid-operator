@@ -32,10 +32,7 @@ use stackable_operator::{
     schemars::{self, JsonSchema},
     status::condition::{ClusterCondition, HasStatusCondition},
     time::Duration,
-    utils::{
-        COMMON_BASH_TRAP_FUNCTIONS, cluster_info::KubernetesClusterInfo,
-        crds::raw_object_list_schema,
-    },
+    utils::{COMMON_BASH_TRAP_FUNCTIONS, crds::raw_object_list_schema},
     versioned::versioned,
 };
 use strum::{Display, EnumDiscriminants, EnumIter, EnumString, IntoStaticStr};
@@ -468,25 +465,6 @@ impl v1alpha1::DruidCluster {
         ]
         .into_iter()
         .collect()
-    }
-
-    /// The name of the role-level load-balanced Kubernetes `Service`
-    pub fn role_service_name(&self, role: &DruidRole) -> Option<String> {
-        Some(format!("{}-{}-headless", self.metadata.name.clone()?, role))
-    }
-
-    /// The fully-qualified domain name of the role-level load-balanced Kubernetes `Service`
-    pub fn role_service_fqdn(
-        &self,
-        role: &DruidRole,
-        cluster_info: &KubernetesClusterInfo,
-    ) -> Option<String> {
-        Some(format!(
-            "{service_name}.{namespace}.svc.{cluster_domain}",
-            service_name = self.role_service_name(role)?,
-            namespace = self.metadata.namespace.as_ref()?,
-            cluster_domain = cluster_info.cluster_domain,
-        ))
     }
 
     /// If an s3 connection for ingestion is given, as well as an s3 connection for deep storage, they need to be the same.
@@ -1665,32 +1643,6 @@ where
 
 #[cfg(test)]
 mod tests {
-    use stackable_operator::commons::networking::DomainName;
-
-    use super::*;
-
-    #[test]
-    fn test_service_name_generation() {
-        let cluster = deserialize_yaml_file::<v1alpha1::DruidCluster>(
-            "test/resources/crd/role_service/druid_cluster.yaml",
-        );
-        let dummy_cluster_info = KubernetesClusterInfo {
-            cluster_domain: DomainName::try_from("cluster.local").unwrap(),
-        };
-
-        assert_eq!(cluster.metadata.name, Some("testcluster".to_string()));
-
-        assert_eq!(
-            cluster.role_service_name(&DruidRole::Router),
-            Some("testcluster-router-headless".to_string())
-        );
-
-        assert_eq!(
-            cluster.role_service_fqdn(&DruidRole::Router, &dummy_cluster_info),
-            Some("testcluster-router-headless.default.svc.cluster.local".to_string())
-        )
-    }
-
     pub fn deserialize_yaml_str<'a, T: serde::de::Deserialize<'a>>(value: &'a str) -> T {
         let deserializer = serde_yaml::Deserializer::from_str(value);
         serde_yaml::with::singleton_map_recursive::deserialize(deserializer).unwrap()

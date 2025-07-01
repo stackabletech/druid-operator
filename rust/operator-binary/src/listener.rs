@@ -1,4 +1,4 @@
-use snafu::{ResultExt, Snafu};
+use snafu::{OptionExt, ResultExt, Snafu};
 use stackable_operator::{
     builder::{
         meta::ObjectMetaBuilder,
@@ -10,7 +10,11 @@ use stackable_operator::{
     kvp::{Labels, ObjectLabels},
 };
 
-use crate::crd::{DruidRole, security::DruidTlsSecurity, v1alpha1};
+use crate::crd::{
+    DruidRole,
+    security::{DruidTlsSecurity, PLAINTEXT_PORT_NAME, TLS_PORT_NAME},
+    v1alpha1,
+};
 
 pub const LISTENER_VOLUME_NAME: &str = "listener";
 pub const LISTENER_VOLUME_DIR: &str = "/stackable/listener";
@@ -30,6 +34,15 @@ pub enum Error {
     #[snafu(display("failed to build listener volume"))]
     BuildListenerPersistentVolume {
         source: stackable_operator::builder::pod::volume::ListenerOperatorVolumeSourceBuilderError,
+    },
+
+    #[snafu(display("{role_name} listener has no adress"))]
+    RoleListenerHasNoAddress { role_name: String },
+
+    #[snafu(display("could not find port [{port_name}] for rolegroup listener {role_name}"))]
+    NoServicePort {
+        port_name: String,
+        role_name: String,
     },
 }
 
@@ -83,4 +96,33 @@ pub fn group_listener_name(
         )),
         DruidRole::Historical | DruidRole::MiddleManager => None,
     }
+}
+
+// Builds the connection string with respect to the listener provided objects
+pub fn build_listener_connection_string(
+    listener: Listener,
+    druid_tls_security: &DruidTlsSecurity,
+    role_name: &String,
+) -> Result<String, Error> {
+    // We only need the first address corresponding to the role
+    let listener_address = listener
+        .status
+        .and_then(|s| s.ingress_addresses?.into_iter().next())
+        .context(RoleListenerHasNoAddressSnafu { role_name })?;
+    let port_name = match druid_tls_security.tls_enabled() {
+        true => TLS_PORT_NAME,
+        false => PLAINTEXT_PORT_NAME,
+    };
+    Ok(format!(
+        "{address}:{port}",
+        address = listener_address.address,
+        port = listener_address
+            .ports
+            .get(port_name)
+            .copied()
+            .context(NoServicePortSnafu {
+                port_name,
+                role_name
+            })?
+    ))
 }

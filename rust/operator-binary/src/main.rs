@@ -37,6 +37,7 @@ mod internal_secret;
 mod listener;
 mod operations;
 mod product_logging;
+mod service;
 
 mod built_info {
     include!(concat!(env!("OUT_DIR"), "/built.rs"));

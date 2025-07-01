@@ -15,7 +15,7 @@ use stackable_operator::{
     },
     crd::listener,
     k8s_openapi::{
-        api::core::v1::{ContainerPort, Probe, TCPSocketAction},
+        api::core::v1::{ContainerPort, Probe, ServicePort, TCPSocketAction},
         apimachinery::pkg::util::intstr::IntOrString,
     },
     time::Duration,
@@ -58,8 +58,8 @@ const PLAINTEXT_PORT: &str = "druid.plaintextPort";
 const ENABLE_TLS_PORT: &str = "druid.enableTlsPort";
 const TLS_PORT: &str = "druid.tlsPort";
 // Port names
-const PLAINTEXT_PORT_NAME: &str = "http";
-const TLS_PORT_NAME: &str = "https";
+pub const PLAINTEXT_PORT_NAME: &str = "http";
+pub const TLS_PORT_NAME: &str = "https";
 // Client side (Druid) TLS
 const CLIENT_HTTPS_KEY_STORE_PATH: &str = "druid.client.https.keyStorePath";
 const CLIENT_HTTPS_KEY_STORE_TYPE: &str = "druid.client.https.keyStoreType";
@@ -158,6 +158,18 @@ impl DruidTlsSecurity {
                 container_port: val.into(),
                 protocol: Some("TCP".to_string()),
                 ..ContainerPort::default()
+            })
+            .collect()
+    }
+
+    pub fn service_ports(&self, role: &DruidRole) -> Vec<ServicePort> {
+        self.exposed_ports(role)
+            .into_iter()
+            .map(|(name, val)| ServicePort {
+                name: Some(name),
+                port: val.into(),
+                protocol: Some("TCP".to_string()),
+                ..ServicePort::default()
             })
             .collect()
     }
