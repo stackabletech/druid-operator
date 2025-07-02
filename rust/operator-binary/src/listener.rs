@@ -126,3 +126,13 @@ pub fn build_listener_connection_string(
             })?
     ))
 }
+
+/// The listener volume name depending on the role
+pub fn secret_volume_listener_scope(role: &DruidRole) -> Option<String> {
+    match role {
+        DruidRole::Broker | DruidRole::Coordinator | DruidRole::Router => {
+            Some(LISTENER_VOLUME_NAME.to_string())
+        }
+        DruidRole::Historical | DruidRole::MiddleManager => None,
+    }
+}

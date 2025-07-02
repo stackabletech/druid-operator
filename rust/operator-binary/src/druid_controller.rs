@@ -81,7 +81,7 @@ use crate::{
     internal_secret::{create_shared_internal_secret, env_var_from_secret},
     listener::{
         LISTENER_VOLUME_DIR, LISTENER_VOLUME_NAME, build_group_listener, build_group_listener_pvc,
-        group_listener_name,
+        group_listener_name, secret_volume_listener_scope,
     },
     operations::{graceful_shutdown::add_graceful_shutdown_config, pdb::add_pdbs},
     product_logging::extend_role_group_config_map,
@@ -968,6 +968,8 @@ fn build_rolegroup_statefulset(
             &mut cb_druid,
             &mut pb,
             &merged_rolegroup_config.requested_secret_lifetime,
+            // add listener
+            secret_volume_listener_scope(role),
         )
         .context(FailedToInitializeSecurityContextSnafu)?;
 

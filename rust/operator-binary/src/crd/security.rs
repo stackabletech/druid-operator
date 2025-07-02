@@ -207,19 +207,28 @@ impl DruidTlsSecurity {
         druid: &mut ContainerBuilder,
         pod: &mut PodBuilder,
         requested_secret_lifetime: &Duration,
+        listener_scope: Option<String>,
     ) -> Result<(), Error> {
         // `ResolvedAuthenticationClasses::validate` already checked that the tls AuthenticationClass
         // uses the same SecretClass as the Druid server itself.
         if let Some(secret_class) = &self.server_and_internal_secret_class {
+            let mut secret_volume_source_builder =
+                SecretOperatorVolumeSourceBuilder::new(secret_class);
+
+            secret_volume_source_builder
+                .with_pod_scope()
+                .with_format(SecretFormat::TlsPkcs12)
+                .with_tls_pkcs12_password(TLS_STORE_PASSWORD)
+                .with_auto_tls_cert_lifetime(*requested_secret_lifetime);
+
+            if let Some(listener_scope) = &listener_scope {
+                secret_volume_source_builder.with_listener_volume_scope(listener_scope);
+            }
+
             pod.add_volume(
                 VolumeBuilder::new(TLS_MOUNT_VOLUME_NAME)
                     .ephemeral(
-                        SecretOperatorVolumeSourceBuilder::new(secret_class)
-                            .with_pod_scope()
-                            .with_node_scope()
-                            .with_format(SecretFormat::TlsPkcs12)
-                            .with_tls_pkcs12_password(TLS_STORE_PASSWORD)
-                            .with_auto_tls_cert_lifetime(*requested_secret_lifetime)
+                        secret_volume_source_builder
                             .build()
                             .context(SecretVolumeBuildSnafu)?,
                     )
