@@ -15,7 +15,7 @@ tls = os.environ["OIDC_USE_TLS"]
 
 session = requests.Session()
 
-druid_router_service = f"druid-router-default.{namespace}.svc.cluster.local"
+druid_router_service = f"druid-router-default-headless.{namespace}.svc.cluster.local"
 keycloak_service = f"keycloak.{namespace}.svc.cluster.local"
 
 # Open Druid web UI which will redirect to OIDC login

@@ -11,6 +11,7 @@ All notable changes to this project will be documented in this file.
   - Use `--file-log-rotation-period` (or `FILE_LOG_ROTATION_PERIOD`) to configure the frequency of rotation.
   - Use `--console-log-format` (or `CONSOLE_LOG_FORMAT`) to set the format to `plain` (default) or `json`.
 - Add support for `33.0.0` ([#722]).
+- Add Listener support for Druid ([#731]).
 
 ### Changed
 
@@ -52,6 +53,7 @@ All notable changes to this project will be documented in this file.
 [#721]: https://github.com/stackabletech/druid-operator/pull/721
 [#722]: https://github.com/stackabletech/druid-operator/pull/722
 [#725]: https://github.com/stackabletech/druid-operator/pull/725
+[#731]: https://github.com/stackabletech/druid-operator/pull/731
 
 ## [25.3.0] - 2025-03-21
 

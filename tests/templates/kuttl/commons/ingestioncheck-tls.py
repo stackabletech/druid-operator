@@ -94,7 +94,7 @@ print("""
 Query tasks
 ===========""")
 tasks = druid.get_tasks(
-    url=f"{protocol}://{druid_cluster_name}-coordinator-default-0.{druid_cluster_name}-coordinator-default.{namespace}.svc.cluster.local:{coordinator_port}/druid/indexer/v1/tasks",
+    url=f"{protocol}://{druid_cluster_name}-coordinator-default-0.{druid_cluster_name}-coordinator-default-headless.{namespace}.svc.cluster.local:{coordinator_port}/druid/indexer/v1/tasks",
 )
 task_count = len(json.loads(tasks))
 print(f"existing tasks: {task_count}")
@@ -103,7 +103,7 @@ print("""
 Start ingestion task
 ====================""")
 ingestion = druid.post_task(
-    url=f"{protocol}://{druid_cluster_name}-coordinator-default-0.{druid_cluster_name}-coordinator-default.{namespace}.svc.cluster.local:{coordinator_port}/druid/indexer/v1/task",
+    url=f"{protocol}://{druid_cluster_name}-coordinator-default-0.{druid_cluster_name}-coordinator-default-headless.{namespace}.svc.cluster.local:{coordinator_port}/druid/indexer/v1/task",
     input="/tmp/druid-quickstartimport.json",
 )
 task_id = json.loads(ingestion)["task"]
@@ -113,11 +113,11 @@ print("""
 Re-query tasks
 ==============""")
 tasks = druid.get_tasks(
-    url=f"{protocol}://{druid_cluster_name}-coordinator-default-0.{druid_cluster_name}-coordinator-default.{namespace}.svc.cluster.local:{coordinator_port}/druid/indexer/v1/tasks",
+    url=f"{protocol}://{druid_cluster_name}-coordinator-default-0.{druid_cluster_name}-coordinator-default-headless.{namespace}.svc.cluster.local:{coordinator_port}/druid/indexer/v1/tasks",
 )
 new_task_count = len(json.loads(tasks))
 print(f"new tasks: {new_task_count}")
-print(f"assert {new_task_count} == {task_count+1}")
+print(f"assert {new_task_count} == {task_count + 1}")
 assert new_task_count == task_count + 1
 
 print("""
@@ -127,13 +127,13 @@ job_finished = False
 while not job_finished:
     time.sleep(5)
     task = druid.get(
-        url=f"{protocol}://{druid_cluster_name}-coordinator-default-0.{druid_cluster_name}-coordinator-default.{namespace}.svc.cluster.local:{coordinator_port}/druid/indexer/v1/task/{url_encoded_taskid}/status",
+        url=f"{protocol}://{druid_cluster_name}-coordinator-default-0.{druid_cluster_name}-coordinator-default-headless.{namespace}.svc.cluster.local:{coordinator_port}/druid/indexer/v1/task/{url_encoded_taskid}/status",
     )
     task_status = json.loads(task)["status"]["statusCode"]
     print(f"Current task status: [{task_status}]")
-    assert (
-        task_status == "RUNNING" or task_status == "SUCCESS"
-    ), f"Taskstatus not running or succeeeded: {task_status}"
+    assert task_status == "RUNNING" or task_status == "SUCCESS", (
+        f"Taskstatus not running or succeeeded: {task_status}"
+    )
     job_finished = task_status == "SUCCESS"
 
 print("""
@@ -143,7 +143,7 @@ broker_ready = False
 while not broker_ready:
     time.sleep(2)
     broker_ready_rc = druid.check_rc(
-        f"{protocol}://{druid_cluster_name}-broker-default-0.{druid_cluster_name}-broker-default.{namespace}.svc.cluster.local:{broker_port}/druid/broker/v1/readiness"
+        f"{protocol}://{druid_cluster_name}-broker-default-0.{druid_cluster_name}-broker-default-headless.{namespace}.svc.cluster.local:{broker_port}/druid/broker/v1/readiness"
     )
     broker_ready = broker_ready_rc == 200
     print(f"Broker respondend with [{broker_ready_rc}] to readiness check")
@@ -153,7 +153,7 @@ Datasource SQL
 ==============""")
 sample_data_size = 39244
 result = druid.query_datasource(
-    url=f"{protocol}://{druid_cluster_name}-broker-default-0.{druid_cluster_name}-broker-default.{namespace}.svc.cluster.local:{broker_port}/druid/v2/sql",
+    url=f"{protocol}://{druid_cluster_name}-broker-default-0.{druid_cluster_name}-broker-default-headless.{namespace}.svc.cluster.local:{broker_port}/druid/v2/sql",
     sql={"query": 'select count(*) as c from "wikipedia-2015-09-12"'},
     expected=sample_data_size,
     iterations=12,

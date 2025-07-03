@@ -13,6 +13,7 @@ use stackable_operator::{
             },
         },
     },
+    crd::listener,
     k8s_openapi::{
         api::core::v1::{ContainerPort, Probe, ServicePort, TCPSocketAction},
         apimachinery::pkg::util::intstr::IntOrString,
@@ -21,7 +22,7 @@ use stackable_operator::{
 };
 
 use crate::crd::{
-    DruidRole, METRICS_PORT, STACKABLE_TRUST_STORE, STACKABLE_TRUST_STORE_PASSWORD,
+    DruidRole, STACKABLE_TRUST_STORE, STACKABLE_TRUST_STORE_PASSWORD,
     authentication::{self, AuthenticationClassesResolved},
     v1alpha1,
 };
@@ -57,9 +58,8 @@ const PLAINTEXT_PORT: &str = "druid.plaintextPort";
 const ENABLE_TLS_PORT: &str = "druid.enableTlsPort";
 const TLS_PORT: &str = "druid.tlsPort";
 // Port names
-const PLAINTEXT_PORT_NAME: &str = "http";
-const TLS_PORT_NAME: &str = "https";
-const METRICS_PORT_NAME: &str = "metrics";
+pub const PLAINTEXT_PORT_NAME: &str = "http";
+pub const TLS_PORT_NAME: &str = "https";
 // Client side (Druid) TLS
 const CLIENT_HTTPS_KEY_STORE_PATH: &str = "druid.client.https.keyStorePath";
 const CLIENT_HTTPS_KEY_STORE_TYPE: &str = "druid.client.https.keyStoreType";
@@ -174,16 +174,29 @@ impl DruidTlsSecurity {
             .collect()
     }
 
+    pub fn listener_ports(
+        &self,
+        role: &DruidRole,
+    ) -> Option<Vec<listener::v1alpha1::ListenerPort>> {
+        let listener_ports = self
+            .exposed_ports(role)
+            .into_iter()
+            .map(|(name, val)| listener::v1alpha1::ListenerPort {
+                name,
+                port: val.into(),
+                protocol: Some("TCP".to_string()),
+            })
+            .collect();
+
+        Some(listener_ports)
+    }
+
     fn exposed_ports(&self, role: &DruidRole) -> Vec<(String, u16)> {
-        let mut ports = vec![(METRICS_PORT_NAME.to_string(), METRICS_PORT)];
-
         if self.tls_enabled() {
-            ports.push((TLS_PORT_NAME.to_string(), role.get_https_port()));
+            vec![(TLS_PORT_NAME.to_string(), role.get_https_port())]
         } else {
-            ports.push((PLAINTEXT_PORT_NAME.to_string(), role.get_http_port()));
+            vec![(PLAINTEXT_PORT_NAME.to_string(), role.get_http_port())]
         }
-
-        ports
     }
 
     /// Adds required tls volume mounts to image and product container builders
@@ -194,19 +207,28 @@ impl DruidTlsSecurity {
         druid: &mut ContainerBuilder,
         pod: &mut PodBuilder,
         requested_secret_lifetime: &Duration,
+        listener_scope: Option<String>,
     ) -> Result<(), Error> {
         // `ResolvedAuthenticationClasses::validate` already checked that the tls AuthenticationClass
         // uses the same SecretClass as the Druid server itself.
         if let Some(secret_class) = &self.server_and_internal_secret_class {
+            let mut secret_volume_source_builder =
+                SecretOperatorVolumeSourceBuilder::new(secret_class);
+
+            secret_volume_source_builder
+                .with_pod_scope()
+                .with_format(SecretFormat::TlsPkcs12)
+                .with_tls_pkcs12_password(TLS_STORE_PASSWORD)
+                .with_auto_tls_cert_lifetime(*requested_secret_lifetime);
+
+            if let Some(listener_scope) = &listener_scope {
+                secret_volume_source_builder.with_listener_volume_scope(listener_scope);
+            }
+
             pod.add_volume(
                 VolumeBuilder::new(TLS_MOUNT_VOLUME_NAME)
                     .ephemeral(
-                        SecretOperatorVolumeSourceBuilder::new(secret_class)
-                            .with_pod_scope()
-                            .with_node_scope()
-                            .with_format(SecretFormat::TlsPkcs12)
-                            .with_tls_pkcs12_password(TLS_STORE_PASSWORD)
-                            .with_auto_tls_cert_lifetime(*requested_secret_lifetime)
+                        secret_volume_source_builder
                             .build()
                             .context(SecretVolumeBuildSnafu)?,
                     )

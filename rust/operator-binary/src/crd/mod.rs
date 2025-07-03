@@ -5,6 +5,7 @@ use product_config::types::PropertyNameKind;
 use serde::{Deserialize, Serialize};
 use snafu::{OptionExt, ResultExt, Snafu};
 use stackable_operator::{
+    builder::pod::volume::ListenerOperatorVolumeSourceBuilderError,
     client::Client,
     commons::{
         affinity::StackableAffinity,
@@ -31,10 +32,7 @@ use stackable_operator::{
     schemars::{self, JsonSchema},
     status::condition::{ClusterCondition, HasStatusCondition},
     time::Duration,
-    utils::{
-        COMMON_BASH_TRAP_FUNCTIONS, cluster_info::KubernetesClusterInfo,
-        crds::raw_object_list_schema,
-    },
+    utils::{COMMON_BASH_TRAP_FUNCTIONS, crds::raw_object_list_schema},
     versioned::versioned,
 };
 use strum::{Display, EnumDiscriminants, EnumIter, EnumString, IntoStaticStr};
@@ -44,6 +42,7 @@ use crate::crd::{
     authorization::DruidAuthorization,
     resource::RoleResource,
     tls::{DruidTls, default_druid_tls},
+    v1alpha1::DruidRoleConfig,
 };
 
 pub mod affinity;
@@ -126,6 +125,7 @@ pub const MAX_DRUID_LOG_FILES_SIZE: MemoryQuantity = MemoryQuantity {
 };
 // metrics
 pub const PROMETHEUS_PORT: &str = "druid.emitter.prometheus.port";
+pub const METRICS_PORT_NAME: &str = "metrics";
 pub const METRICS_PORT: u16 = 9090;
 
 pub const COOKIE_PASSPHRASE_ENV: &str = "OIDC_COOKIE_PASSPHRASE";
@@ -177,10 +177,27 @@ pub enum Error {
 
     #[snafu(display("fragment validation failure"))]
     FragmentValidationFailure { source: ValidationError },
+
+    #[snafu(display("failed to build Labels"))]
+    LabelBuild {
+        source: stackable_operator::kvp::LabelError,
+    },
+
+    #[snafu(display("failed to build listener volume"))]
+    BuildListenerVolume {
+        source: ListenerOperatorVolumeSourceBuilderError,
+    },
+
+    #[snafu(display("failed to apply group listener"))]
+    ApplyGroupListener {
+        source: stackable_operator::cluster_resources::Error,
+    },
 }
 
 #[versioned(version(name = "v1alpha1"))]
 pub mod versioned {
+    use crate::crd::v1alpha1::{DruidBrokerConfig, DruidRouterConfig};
+
     /// A Druid cluster stacklet. This resource is managed by the Stackable operator for Apache Druid.
     /// Find more information on how to use it and the resources that the operator generates in the
     /// [operator documentation](DOCS_BASE_URL_PLACEHOLDER/druid/).
@@ -207,10 +224,10 @@ pub mod versioned {
         pub image: ProductImage,
 
         // no doc - docs provided by the struct.
-        pub brokers: Role<BrokerConfigFragment, GenericRoleConfig, JavaCommonConfig>,
+        pub brokers: Role<BrokerConfigFragment, DruidRoleConfig, JavaCommonConfig>,
 
         // no doc - docs provided by the struct.
-        pub coordinators: Role<CoordinatorConfigFragment, GenericRoleConfig, JavaCommonConfig>,
+        pub coordinators: Role<CoordinatorConfigFragment, DruidRoleConfig, JavaCommonConfig>,
 
         // no doc - docs provided by the struct.
         pub historicals: Role<HistoricalConfigFragment, GenericRoleConfig, JavaCommonConfig>,
@@ -219,7 +236,7 @@ pub mod versioned {
         pub middle_managers: Role<MiddleManagerConfigFragment, GenericRoleConfig, JavaCommonConfig>,
 
         // no doc - docs provided by the struct.
-        pub routers: Role<RouterConfigFragment, GenericRoleConfig, JavaCommonConfig>,
+        pub routers: Role<RouterConfigFragment, DruidRoleConfig, JavaCommonConfig>,
 
         // no doc - docs provided by the struct.
         #[serde(default)]
@@ -287,19 +304,15 @@ pub mod versioned {
         #[serde(default, skip_serializing_if = "Vec::is_empty")]
         #[schemars(schema_with = "raw_object_list_schema")]
         pub extra_volumes: Vec<Volume>,
+    }
+    #[derive(Clone, Debug, Deserialize, JsonSchema, PartialEq, Serialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct DruidRoleConfig {
+        #[serde(flatten)]
+        pub common: GenericRoleConfig,
 
-        /// This field controls which type of Service the Operator creates for this DruidCluster:
-        ///
-        /// * `cluster-internal`: Use a ClusterIP service
-        /// * `external-unstable`: Use a NodePort service
-        /// * `external-stable`: Use a LoadBalancer service
-        ///
-        /// This is a temporary solution with the goal to keep yaml manifests forward compatible.
-        /// In the future, this setting will control which
-        /// [ListenerClass](DOCS_BASE_URL_PLACEHOLDER/listener-operator/listenerclass.html)
-        /// will be used to expose the service, and ListenerClass names will stay the same, allowing for a non-breaking change.
-        #[serde(default)]
-        pub listener_class: CurrentlySupportedListenerClasses,
+        #[serde(default = "druid_default_listener_class")]
+        pub listener_class: String,
     }
 }
 
@@ -414,15 +427,25 @@ impl v1alpha1::DruidCluster {
         vec![
             (
                 DruidRole::Broker.to_string(),
-                (config_files.clone(), self.spec.brokers.clone().erase()),
+                (
+                    config_files.clone(),
+                    extract_role_from_role_config::<BrokerConfig>(self.spec.brokers.clone())
+                        .erase(),
+                ),
+            ),
+            (
+                DruidRole::Coordinator.to_string(),
+                (
+                    config_files.clone(),
+                    extract_role_from_role_config::<CoordinatorConfig>(
+                        self.spec.coordinators.clone(),
+                    )
+                    .erase(),
+                ),
             ),
             (
                 DruidRole::Historical.to_string(),
                 (config_files.clone(), self.spec.historicals.clone().erase()),
-            ),
-            (
-                DruidRole::Router.to_string(),
-                (config_files.clone(), self.spec.routers.clone().erase()),
             ),
             (
                 DruidRole::MiddleManager.to_string(),
@@ -432,31 +455,16 @@ impl v1alpha1::DruidCluster {
                 ),
             ),
             (
-                DruidRole::Coordinator.to_string(),
-                (config_files, self.spec.coordinators.clone().erase()),
+                DruidRole::Router.to_string(),
+                (
+                    config_files,
+                    extract_role_from_role_config::<RouterConfig>(self.spec.routers.clone())
+                        .erase(),
+                ),
             ),
         ]
         .into_iter()
         .collect()
-    }
-
-    /// The name of the role-level load-balanced Kubernetes `Service`
-    pub fn role_service_name(&self, role: &DruidRole) -> Option<String> {
-        Some(format!("{}-{}", self.metadata.name.clone()?, role))
-    }
-
-    /// The fully-qualified domain name of the role-level load-balanced Kubernetes `Service`
-    pub fn role_service_fqdn(
-        &self,
-        role: &DruidRole,
-        cluster_info: &KubernetesClusterInfo,
-    ) -> Option<String> {
-        Some(format!(
-            "{service_name}.{namespace}.svc.{cluster_domain}",
-            service_name = self.role_service_name(role)?,
-            namespace = self.metadata.namespace.as_ref()?,
-            cluster_domain = cluster_info.cluster_domain,
-        ))
     }
 
     /// If an s3 connection for ingestion is given, as well as an s3 connection for deep storage, they need to be the same.
@@ -549,11 +557,11 @@ impl v1alpha1::DruidCluster {
 
         Ok(MergedConfig {
             brokers: v1alpha1::DruidCluster::merged_role(
-                &self.spec.brokers,
+                &extract_role_from_role_config::<BrokerConfig>(self.spec.brokers.clone()),
                 &BrokerConfig::default_config(&self.name_any(), &DruidRole::Broker, deep_storage),
             )?,
             coordinators: v1alpha1::DruidCluster::merged_role(
-                &self.spec.coordinators,
+                &extract_role_from_role_config::<CoordinatorConfig>(self.spec.coordinators.clone()),
                 &CoordinatorConfig::default_config(
                     &self.name_any(),
                     &DruidRole::Coordinator,
@@ -577,7 +585,7 @@ impl v1alpha1::DruidCluster {
                 ),
             )?,
             routers: v1alpha1::DruidCluster::merged_role(
-                &self.spec.routers,
+                &extract_role_from_role_config::<RouterConfig>(self.spec.routers.clone()),
                 &RouterConfig::default_config(&self.name_any(), &DruidRole::Router, deep_storage),
             )?,
         })
@@ -637,13 +645,13 @@ impl v1alpha1::DruidCluster {
         })
     }
 
-    pub fn role_config(&self, role: &DruidRole) -> &GenericRoleConfig {
+    pub fn generic_role_config(&self, role: &DruidRole) -> &GenericRoleConfig {
         match role {
-            DruidRole::Broker => &self.spec.brokers.role_config,
-            DruidRole::Coordinator => &self.spec.coordinators.role_config,
+            DruidRole::Broker => &self.spec.brokers.role_config.common,
+            DruidRole::Coordinator => &self.spec.coordinators.role_config.common,
             DruidRole::Historical => &self.spec.historicals.role_config,
             DruidRole::MiddleManager => &self.spec.middle_managers.role_config,
-            DruidRole::Router => &self.spec.routers.role_config,
+            DruidRole::Router => &self.spec.routers.role_config.common,
         }
     }
 
@@ -675,11 +683,18 @@ impl v1alpha1::DruidCluster {
         JavaCommonConfig,
     > {
         match druid_role {
-            DruidRole::Coordinator => self.spec.coordinators.clone().erase(),
-            DruidRole::Broker => self.spec.brokers.clone().erase(),
+            DruidRole::Broker => {
+                extract_role_from_role_config::<BrokerConfig>(self.spec.brokers.clone()).erase()
+            }
+            DruidRole::Coordinator => {
+                extract_role_from_role_config::<CoordinatorConfig>(self.spec.coordinators.clone())
+                    .erase()
+            }
             DruidRole::Historical => self.spec.historicals.clone().erase(),
             DruidRole::MiddleManager => self.spec.middle_managers.clone().erase(),
-            DruidRole::Router => self.spec.routers.clone().erase(),
+            DruidRole::Router => {
+                extract_role_from_role_config::<RouterConfig>(self.spec.routers.clone()).erase()
+            }
         }
     }
 
@@ -752,29 +767,6 @@ pub enum Container {
     Druid,
     Prepare,
     Vector,
-}
-
-// TODO: Temporary solution until listener-operator is finished
-#[derive(Clone, Debug, Default, Display, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
-#[serde(rename_all = "PascalCase")]
-pub enum CurrentlySupportedListenerClasses {
-    #[default]
-    #[serde(rename = "cluster-internal")]
-    ClusterInternal,
-    #[serde(rename = "external-unstable")]
-    ExternalUnstable,
-    #[serde(rename = "external-stable")]
-    ExternalStable,
-}
-
-impl CurrentlySupportedListenerClasses {
-    pub fn k8s_service_type(&self) -> String {
-        match self {
-            CurrentlySupportedListenerClasses::ClusterInternal => "ClusterIP".to_string(),
-            CurrentlySupportedListenerClasses::ExternalUnstable => "NodePort".to_string(),
-            CurrentlySupportedListenerClasses::ExternalStable => "LoadBalancer".to_string(),
-        }
-    }
 }
 
 /// Common configuration for all role groups
@@ -909,6 +901,19 @@ impl MergedConfig {
     }
 }
 
+impl Default for v1alpha1::DruidRoleConfig {
+    fn default() -> Self {
+        v1alpha1::DruidRoleConfig {
+            listener_class: druid_default_listener_class(),
+            common: Default::default(),
+        }
+    }
+}
+
+fn druid_default_listener_class() -> String {
+    "cluster-internal".to_string()
+}
+
 #[derive(
     Clone,
     Debug,
@@ -1041,6 +1046,22 @@ impl DruidRole {
             remove_vector_shutdown_file_command(STACKABLE_LOG_DIR),
         create_vector_shutdown_file_command =
             create_vector_shutdown_file_command(STACKABLE_LOG_DIR),
+        }
+    }
+
+    pub fn listener_class_name(&self, druid: &v1alpha1::DruidCluster) -> Option<String> {
+        match self {
+            Self::Broker => Some(druid.spec.brokers.role_config.listener_class.to_owned()),
+            Self::Coordinator => Some(
+                druid
+                    .spec
+                    .coordinators
+                    .role_config
+                    .listener_class
+                    .to_owned(),
+            ),
+            Self::Router => Some(druid.spec.routers.role_config.listener_class.to_owned()),
+            Self::Historical | Self::MiddleManager => None,
         }
     }
 }
@@ -1580,34 +1601,48 @@ pub fn build_recommended_labels<'a, T>(
     }
 }
 
+fn extract_role_from_role_config<T>(
+    fragment: Role<T::Fragment, DruidRoleConfig, JavaCommonConfig>,
+) -> Role<T::Fragment, GenericRoleConfig, JavaCommonConfig>
+where
+    T: FromFragment,
+    T::Fragment: Clone + Merge,
+{
+    Role {
+        config: CommonConfiguration {
+            config: fragment.config.config,
+            config_overrides: fragment.config.config_overrides,
+            env_overrides: fragment.config.env_overrides,
+            cli_overrides: fragment.config.cli_overrides,
+            pod_overrides: fragment.config.pod_overrides,
+            product_specific_common_config: fragment.config.product_specific_common_config,
+        },
+        role_config: fragment.role_config.common,
+        role_groups: fragment
+            .role_groups
+            .into_iter()
+            .map(|(k, v)| {
+                (
+                    k,
+                    RoleGroup {
+                        config: CommonConfiguration {
+                            config: v.config.config,
+                            config_overrides: v.config.config_overrides,
+                            env_overrides: v.config.env_overrides,
+                            cli_overrides: v.config.cli_overrides,
+                            pod_overrides: v.config.pod_overrides,
+                            product_specific_common_config: v.config.product_specific_common_config,
+                        },
+                        replicas: v.replicas,
+                    },
+                )
+            })
+            .collect(),
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use stackable_operator::commons::networking::DomainName;
-
-    use super::*;
-
-    #[test]
-    fn test_service_name_generation() {
-        let cluster = deserialize_yaml_file::<v1alpha1::DruidCluster>(
-            "test/resources/crd/role_service/druid_cluster.yaml",
-        );
-        let dummy_cluster_info = KubernetesClusterInfo {
-            cluster_domain: DomainName::try_from("cluster.local").unwrap(),
-        };
-
-        assert_eq!(cluster.metadata.name, Some("testcluster".to_string()));
-
-        assert_eq!(
-            cluster.role_service_name(&DruidRole::Router),
-            Some("testcluster-router".to_string())
-        );
-
-        assert_eq!(
-            cluster.role_service_fqdn(&DruidRole::Router, &dummy_cluster_info),
-            Some("testcluster-router.default.svc.cluster.local".to_string())
-        )
-    }
-
     pub fn deserialize_yaml_str<'a, T: serde::de::Deserialize<'a>>(value: &'a str) -> T {
         let deserializer = serde_yaml::Deserializer::from_str(value);
         serde_yaml::with::singleton_map_recursive::deserialize(deserializer).unwrap()

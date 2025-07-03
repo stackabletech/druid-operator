@@ -1,0 +1,91 @@
+---
+apiVersion: kuttl.dev/v1beta1
+kind: TestAssert
+timeout: 600
+commands:
+  - script: kubectl -n $NAMESPACE wait --for=condition=available druidclusters.druid.stackable.tech/druid --timeout 301s
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: druid-broker-default
+status:
+  readyReplicas: 1
+  replicas: 1
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: druid-coordinator-default
+status:
+  readyReplicas: 1
+  replicas: 1
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: druid-historical-default
+status:
+  readyReplicas: 1
+  replicas: 1
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: druid-middlemanager-default
+status:
+  readyReplicas: 1
+  replicas: 1
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: druid-router-default
+status:
+  readyReplicas: 1
+  replicas: 1
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: druid-broker
+status:
+  expectedPods: 1
+  currentHealthy: 1
+  disruptionsAllowed: 1
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: druid-historical
+status:
+  expectedPods: 1
+  currentHealthy: 1
+  disruptionsAllowed: 1
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: druid-broker
+status:
+  expectedPods: 1
+  currentHealthy: 1
+  disruptionsAllowed: 1
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: druid-middlemanager
+status:
+  expectedPods: 1
+  currentHealthy: 1
+  disruptionsAllowed: 1
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: druid-router
+status:
+  expectedPods: 1
+  currentHealthy: 1
+  disruptionsAllowed: 1

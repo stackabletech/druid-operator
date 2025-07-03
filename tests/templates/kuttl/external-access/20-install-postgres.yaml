@@ -1,0 +1,10 @@
+---
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands:
+  - script: >-
+      helm install druid-postgresql
+      --namespace $NAMESPACE
+      --version 12.5.6
+      -f 20_helm-bitnami-postgresql-values.yaml
+      --repo https://charts.bitnami.com/bitnami postgresql

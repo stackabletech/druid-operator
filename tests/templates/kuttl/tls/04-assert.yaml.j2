@@ -49,10 +49,6 @@ metadata:
   name: derby-druid-coordinator
 spec:
   ports:
-    - name: metrics
-      port: 9090
-      protocol: TCP
-      targetPort: 9090
 {% if test_scenario['values']['tls-mode'] == 'internal-and-server-tls' or test_scenario['values']['tls-mode'] == 'internal-and-server-tls-and-tls-client-auth' %}
     - name: https
       port: 8281
@@ -68,57 +64,9 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: derby-druid-middlemanager
-spec:
-  ports:
-    - name: metrics
-      port: 9090
-      protocol: TCP
-      targetPort: 9090
-{% if test_scenario['values']['tls-mode'] == 'internal-and-server-tls' or test_scenario['values']['tls-mode'] == 'internal-and-server-tls-and-tls-client-auth' %}
-    - name: https
-      port: 8291
-      protocol: TCP
-      targetPort: 8291
-{% else %}
-    - name: http
-      port: 8091
-      protocol: TCP
-      targetPort: 8091
-{% endif %}
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: derby-druid-historical
-spec:
-  ports:
-    - name: metrics
-      port: 9090
-      protocol: TCP
-      targetPort: 9090
-{% if test_scenario['values']['tls-mode'] == 'internal-and-server-tls' or test_scenario['values']['tls-mode'] == 'internal-and-server-tls-and-tls-client-auth' %}
-    - name: https
-      port: 8283
-      protocol: TCP
-      targetPort: 8283
-{% else %}
-    - name: http
-      port: 8083
-      protocol: TCP
-      targetPort: 8083
-{% endif %}
----
-apiVersion: v1
-kind: Service
-metadata:
   name: derby-druid-router
 spec:
   ports:
-    - name: metrics
-      port: 9090
-      protocol: TCP
-      targetPort: 9090
 {% if test_scenario['values']['tls-mode'] == 'internal-and-server-tls' or test_scenario['values']['tls-mode'] == 'internal-and-server-tls-and-tls-client-auth' %}
     - name: https
       port: 9088
@@ -137,10 +85,6 @@ metadata:
   name: derby-druid-broker
 spec:
   ports:
-    - name: metrics
-      port: 9090
-      protocol: TCP
-      targetPort: 9090
 {% if test_scenario['values']['tls-mode'] == 'internal-and-server-tls' or test_scenario['values']['tls-mode'] == 'internal-and-server-tls-and-tls-client-auth' %}
     - name: https
       port: 8282
