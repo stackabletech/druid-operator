@@ -194,25 +194,27 @@ pub enum Error {
     },
 }
 
-#[versioned(version(name = "v1alpha1"))]
+#[versioned(
+    version(name = "v1alpha1"),
+    crates(
+        kube_core = "stackable_operator::kube::core",
+        kube_client = "stackable_operator::kube::client",
+        k8s_openapi = "stackable_operator::k8s_openapi",
+        schemars = "stackable_operator::schemars",
+        versioned = "stackable_operator::versioned"
+    )
+)]
 pub mod versioned {
-    use crate::crd::v1alpha1::{DruidBrokerConfig, DruidRouterConfig};
-
     /// A Druid cluster stacklet. This resource is managed by the Stackable operator for Apache Druid.
     /// Find more information on how to use it and the resources that the operator generates in the
     /// [operator documentation](DOCS_BASE_URL_PLACEHOLDER/druid/).
-    #[versioned(k8s(
+    #[versioned(crd(
         group = "druid.stackable.tech",
         kind = "DruidCluster",
         plural = "druidclusters",
         shortname = "druid",
         status = "DruidClusterStatus",
-        namespaced,
-        crates(
-            kube_core = "stackable_operator::kube::core",
-            k8s_openapi = "stackable_operator::k8s_openapi",
-            schemars = "stackable_operator::schemars"
-        )
+        namespaced
     ))]
     #[derive(Clone, CustomResource, Debug, Deserialize, JsonSchema, Serialize)]
     #[serde(rename_all = "camelCase")]

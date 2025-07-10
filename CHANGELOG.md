@@ -32,16 +32,23 @@ All notable changes to this project will be documented in this file.
   - This is marked as breaking because tools and policies might exist, which require these fields to be set
 - Deprecate support for `31.0.1` ([#722]).
 - Use versioned common structs ([#725]).
+- BREAKING: Bump stackable-operator to 0.94.0 and update other dependencies ([#xxx]).
+  - The default Kubernetes cluster domain name is now fetched from the kubelet API unless explicitly configured.
+  - This requires operators to have the RBAC permission to get nodes/proxy in the apiGroup "". The helm-chart takes care of this.
+  - The CLI argument `--kubernetes-node-name` or env variable `KUBERNETES_NODE_NAME` needs to be set. The helm-chart takes care of this.
 
 ### Fixed
 
 - Use `json` file extension for log files ([#709]).
 - Fix a bug where changes to ConfigMaps that are referenced in the DruidCluster spec didn't trigger a reconciliation ([#704]).
+- Allow uppercase characters in domain names ([#xxx]).
 
 ### Removed
 
 - test: ZooKeeper 3.9.2 removed ([#716]).
 - Remove support for `30.0.0` ([#722]).
+- Remove the `lastUpdateTime` field from the stacklet status ([#xxx]).
+- Remove role binding to legacy service accounts ([#xxx]).
 
 [#703]: https://github.com/stackabletech/druid-operator/pull/703
 [#704]: https://github.com/stackabletech/druid-operator/pull/704
@@ -55,6 +62,7 @@ All notable changes to this project will be documented in this file.
 [#722]: https://github.com/stackabletech/druid-operator/pull/722
 [#725]: https://github.com/stackabletech/druid-operator/pull/725
 [#731]: https://github.com/stackabletech/druid-operator/pull/731
+[#xxx]: https://github.com/stackabletech/druid-operator/pull/xxx
 
 ## [25.3.0] - 2025-03-21
 
