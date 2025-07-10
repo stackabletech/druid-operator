@@ -12,6 +12,7 @@ All notable changes to this project will be documented in this file.
   - Use `--console-log-format` (or `CONSOLE_LOG_FORMAT`) to set the format to `plain` (default) or `json`.
 - Add support for `33.0.0` ([#722]).
 - Add Listener support for Druid ([#731]).
+- Add RBAC rule to helm template for automatic cluster domain detection ([#xxx]).
 
 ### Changed
 
