@@ -498,10 +498,10 @@ fn import_system_truststore(destination_directory: &str) -> String {
 /// into a new truststore with password in a writeable empty dir
 ///
 /// # Arguments
-/// - `source_directory`      - The directory of the source truststore.
-///                             Should usually be a secret operator volume mount.
-/// - `destination_directory` - The directory of the destination truststore.
-///                             Should usually be an empty dir.
+/// - `source_directory`: The directory of the source truststore. Should usually be a secret
+///   operator volume mount.
+/// - `destination_directory`: The directory of the destination truststore. Should usually be an
+///   empty dir.
 fn import_truststore(source_directory: &str, destination_directory: &str) -> String {
     let source_truststore_path = format!("{source_directory}/truststore.p12");
     let dest_truststore_path = format!("{destination_directory}/truststore.p12");

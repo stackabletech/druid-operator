@@ -1,3 +1,7 @@
+// TODO: Look into how to properly resolve `clippy::large_enum_variant`.
+// This will need changes in our and upstream error types.
+#![allow(clippy::result_large_err)]
+
 use std::sync::Arc;
 
 use clap::Parser;
@@ -25,7 +29,7 @@ use stackable_operator::{
     telemetry::Tracing,
 };
 
-use crate::crd::{DruidCluster, OPERATOR_NAME, v1alpha1};
+use crate::crd::{DruidCluster, DruidClusterVersion, OPERATOR_NAME, v1alpha1};
 
 mod authentication;
 mod config;
@@ -54,7 +58,7 @@ struct Opts {
 async fn main() -> anyhow::Result<()> {
     let opts = Opts::parse();
     match opts.cmd {
-        Command::Crd => DruidCluster::merged_crd(DruidCluster::V1Alpha1)?
+        Command::Crd => DruidCluster::merged_crd(DruidClusterVersion::V1Alpha1)?
             .print_yaml_schema(built_info::PKG_VERSION, SerializeOptions::default())?,
         Command::Run(ProductOperatorRun {
             product_config,
