@@ -44,7 +44,7 @@ All notable changes to this project will be documented in this file.
 - Use `json` file extension for log files ([#709]).
 - Fix a bug where changes to ConfigMaps that are referenced in the DruidCluster spec didn't trigger a reconciliation ([#704]).
 - Allow uppercase characters in domain names ([#735]).
-- Fix lot of configuration properties missing on the middleManager roles ([#XXX]).
+- Fix lot of configuration properties missing on the middleManager roles ([#740]).
   This includes properties such as:
   * Enable Prometheus metrics
   * JVM DNS request cache settings
@@ -72,6 +72,7 @@ All notable changes to this project will be documented in this file.
 [#731]: https://github.com/stackabletech/druid-operator/pull/731
 [#735]: https://github.com/stackabletech/druid-operator/pull/735
 [#737]: https://github.com/stackabletech/druid-operator/pull/737
+[#740]: https://github.com/stackabletech/druid-operator/pull/740
 
 ## [25.3.0] - 2025-03-21
 
