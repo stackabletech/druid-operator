@@ -46,10 +46,10 @@ All notable changes to this project will be documented in this file.
 - Allow uppercase characters in domain names ([#735]).
 - Fix lot of configuration properties missing on the middleManager roles ([#740]).
   This includes properties such as:
-  * Enable Prometheus metrics
-  * JVM DNS request cache settings
-  * Druid indexer logs directory
-  * Druid processing temp directory
+  - Enable Prometheus metrics
+  - JVM DNS request cache settings
+  - Druid indexer logs directory
+  - Druid processing temp directory
 
 ### Removed
 
