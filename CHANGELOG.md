@@ -44,6 +44,12 @@ All notable changes to this project will be documented in this file.
 - Use `json` file extension for log files ([#709]).
 - Fix a bug where changes to ConfigMaps that are referenced in the DruidCluster spec didn't trigger a reconciliation ([#704]).
 - Allow uppercase characters in domain names ([#735]).
+- Fix lot of configuration properties missing on the middleManager roles ([#XXX]).
+  This includes properties such as:
+  * Enable Prometheus metrics
+  * JVM DNS request cache settings
+  * Druid indexer logs directory
+  * Druid processing temp directory
 
 ### Removed
 
