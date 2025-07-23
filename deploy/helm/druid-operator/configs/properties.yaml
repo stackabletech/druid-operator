@@ -94,7 +94,7 @@ properties:
         - fromVersion: "0.0.0"
           value: "30"
       roles:
-        - name: "middleManager"
+        - name: "middlemanager"
           required: true
       asOfVersion: "0.0.0"
       comment: "TTL for successfully resolved domain names."
@@ -189,7 +189,7 @@ properties:
         - fromVersion: "0.0.0"
           value: "0"
       roles:
-        - name: "middleManager"
+        - name: "middlemanager"
           required: true
       asOfVersion: "0.0.0"
       comment: "TTL for host names that cannot be resolved."
@@ -233,7 +233,7 @@ properties:
           required: false
         - name: "historical"
           required: false
-        - name: "middleManager"
+        - name: "middlemanager"
           required: false
         - name: "router"
           required: false
@@ -257,7 +257,7 @@ properties:
           required: false
         - name: "historical"
           required: false
-        - name: "middleManager"
+        - name: "middlemanager"
           required: false
         - name: "router"
           required: false
@@ -281,7 +281,7 @@ properties:
           required: true
         - name: "historical"
           required: true
-        - name: "middleManager"
+        - name: "middlemanager"
           required: true
         - name: "router"
           required: true
@@ -305,7 +305,7 @@ properties:
           required: true
         - name: "historical"
           required: true
-        - name: "middleManager"
+        - name: "middlemanager"
           required: true
         - name: "router"
           required: true
@@ -336,7 +336,7 @@ properties:
           required: true
         - name: "historical"
           required: true
-        - name: "middleManager"
+        - name: "middlemanager"
           required: true
         - name: "router"
           required: true
@@ -363,7 +363,7 @@ properties:
           required: true
         - name: "historical"
           required: true
-        - name: "middleManager"
+        - name: "middlemanager"
           required: true
         - name: "router"
           required: true
@@ -388,7 +388,7 @@ properties:
           required: true
         - name: "historical"
           required: true
-        - name: "middleManager"
+        - name: "middlemanager"
           required: true
         - name: "router"
           required: true
@@ -412,7 +412,7 @@ properties:
           required: true
         - name: "historical"
           required: true
-        - name: "middleManager"
+        - name: "middlemanager"
           required: true
         - name: "router"
           required: true
@@ -437,7 +437,7 @@ properties:
           required: true
         - name: "historical"
           required: true
-        - name: "middleManager"
+        - name: "middlemanager"
           required: true
         - name: "router"
           required: true
@@ -458,7 +458,7 @@ properties:
           required: true
         - name: "historical"
           required: true
-        - name: "middleManager"
+        - name: "middlemanager"
           required: true
         - name: "router"
           required: true
@@ -479,7 +479,7 @@ properties:
           required: true
         - name: "historical"
           required: true
-        - name: "middleManager"
+        - name: "middlemanager"
           required: true
         - name: "router"
           required: true
@@ -503,7 +503,7 @@ properties:
           required: true
         - name: "historical"
           required: true
-        - name: "middleManager"
+        - name: "middlemanager"
           required: true
         - name: "router"
           required: true
@@ -524,7 +524,7 @@ properties:
           required: false
         - name: "historical"
           required: false
-        - name: "middleManager"
+        - name: "middlemanager"
           required: false
         - name: "router"
           required: false
@@ -545,7 +545,7 @@ properties:
           required: false
         - name: "historical"
           required: false
-        - name: "middleManager"
+        - name: "middlemanager"
           required: false
         - name: "router"
           required: false
@@ -570,7 +570,7 @@ properties:
           required: true
         - name: "historical"
           required: true
-        - name: "middleManager"
+        - name: "middlemanager"
           required: true
         - name: "router"
           required: true
@@ -595,7 +595,7 @@ properties:
           required: false
         - name: "historical"
           required: true
-        - name: "middleManager"
+        - name: "middlemanager"
           required: false
         - name: "router"
           required: false
@@ -620,7 +620,7 @@ properties:
           required: false
         - name: "historical"
           required: false
-        - name: "middleManager"
+        - name: "middlemanager"
           required: true
         - name: "router"
           required: false
@@ -645,7 +645,7 @@ properties:
           required: false
         - name: "historical"
           required: false
-        - name: "middleManager"
+        - name: "middlemanager"
           required: true
         - name: "router"
           required: false
@@ -669,7 +669,7 @@ properties:
           required: false
         - name: "historical"
           required: false
-        - name: "middleManager"
+        - name: "middlemanager"
           required: true
         - name: "router"
           required: false
@@ -694,7 +694,7 @@ properties:
           required: false
         - name: "historical"
           required: false
-        - name: "middleManager"
+        - name: "middlemanager"
           required: false
         - name: "router"
           required: true
@@ -718,7 +718,7 @@ properties:
           required: false
         - name: "historical"
           required: false
-        - name: "middleManager"
+        - name: "middlemanager"
           required: false
         - name: "router"
           required: true
@@ -742,7 +742,7 @@ properties:
           required: false
         - name: "historical"
           required: true
-        - name: "middleManager"
+        - name: "middlemanager"
           required: false
         - name: "router"
           required: false
@@ -766,7 +766,7 @@ properties:
           required: false
         - name: "historical"
           required: true
-        - name: "middleManager"
+        - name: "middlemanager"
           required: false
         - name: "router"
           required: false
@@ -791,7 +791,7 @@ properties:
           required: true
         - name: "historical"
           required: false
-        - name: "middleManager"
+        - name: "middlemanager"
           required: false
         - name: "router"
           required: false
@@ -816,7 +816,7 @@ properties:
           required: true
         - name: "historical"
           required: false
-        - name: "middleManager"
+        - name: "middlemanager"
           required: false
         - name: "router"
           required: false
@@ -844,7 +844,7 @@ properties:
           required: true
         - name: "historical"
           required: false
-        - name: "middleManager"
+        - name: "middlemanager"
           required: false
         - name: "router"
           required: false
@@ -871,7 +871,7 @@ properties:
           required: true
         - name: "historical"
           required: false
-        - name: "middleManager"
+        - name: "middlemanager"
           required: false
         - name: "router"
           required: false
@@ -896,7 +896,7 @@ properties:
           required: true
         - name: "historical"
           required: false
-        - name: "middleManager"
+        - name: "middlemanager"
           required: false
         - name: "router"
           required: false
@@ -920,7 +920,7 @@ properties:
           required: true
         - name: "historical"
           required: false
-        - name: "middleManager"
+        - name: "middlemanager"
           required: false
         - name: "router"
           required: false
@@ -944,7 +944,7 @@ properties:
           required: true
         - name: "historical"
           required: false
-        - name: "middleManager"
+        - name: "middlemanager"
           required: false
         - name: "router"
           required: false
