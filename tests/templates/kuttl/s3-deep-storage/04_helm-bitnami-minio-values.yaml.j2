@@ -1,4 +1,16 @@
 ---
+image:
+  repository: bitnamilegacy/minio
+clientImage:
+  repository: bitnamilegacy/minio-client
+defaultInitContainers:
+  volumePermissions:
+    image:
+      repository: bitnamilegacy/os-shell
+console:
+  image:
+    repository: bitnamilegacy/minio-object-browser
+
 mode: standalone
 disableWebUI: false
 extraEnvVars:

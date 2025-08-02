@@ -98,6 +98,10 @@ echo "Installing PostgreSQL for Druid"
 # tag::helm-install-postgres[]
 helm install postgresql-druid oci://registry-1.docker.io/bitnamicharts/postgresql \
   --version 16.5.0 \
+  --set image.repository=bitnamilegacy/postgresql \
+  --set volumePermissions.image.repository=bitnamilegacy/os-shell \
+  --set metrics.image.repository=bitnamilegacy/postgres-exporter \
+  --set global.security.allowInsecureImages=true \
   --set auth.database=druid \
   --set auth.username=druid \
   --set auth.password=druid \
