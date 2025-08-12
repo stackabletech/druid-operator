@@ -23,13 +23,13 @@ spec:
       default:
         replicas: 1
     roleConfig:
-      listenerClass: external-stable # This exposes your Stacklet outside of Kubernetes. Remove this configuration if this is not desired
+      listenerClass: external-stable # This exposes this role outside of Kubernetes. Remove this configuration if this is not desired
   coordinators:
     roleGroups:
       default:
         replicas: 1
     roleConfig:
-      listenerClass: external-stable # This exposes your Stacklet outside of Kubernetes. Remove this configuration if this is not desired
+      listenerClass: external-stable # This exposes this role outside of Kubernetes. Remove this configuration if this is not desired
   historicals:
     roleGroups:
       default:
@@ -43,7 +43,7 @@ spec:
       default:
         replicas: 1
     roleConfig:
-      listenerClass: external-stable # This exposes your Stacklet outside of Kubernetes. Remove this configuration if this is not desired
+      listenerClass: external-stable # This exposes this role outside of Kubernetes. Remove this configuration if this is not desired
 ---
 apiVersion: v1
 kind: Secret
