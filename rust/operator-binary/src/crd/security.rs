@@ -18,7 +18,7 @@ use stackable_operator::{
         api::core::v1::{ContainerPort, Probe, ServicePort, TCPSocketAction},
         apimachinery::pkg::util::intstr::IntOrString,
     },
-    time::Duration,
+    shared::time::Duration,
 };
 
 use crate::crd::{

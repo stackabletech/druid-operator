@@ -26,8 +26,10 @@ use stackable_operator::{
     },
     cluster_resources::{ClusterResourceApplyStrategy, ClusterResources},
     commons::{
-        opa::OpaApiVersion, product_image_selection::ResolvedProductImage,
-        rbac::build_rbac_resources, tls_verification::TlsClientDetailsError,
+        opa::OpaApiVersion,
+        product_image_selection::{self, ResolvedProductImage},
+        rbac::build_rbac_resources,
+        tls_verification::TlsClientDetailsError,
     },
     crd::s3,
     k8s_openapi::{
@@ -55,11 +57,11 @@ use stackable_operator::{
         },
     },
     role_utils::RoleGroupRef,
+    shared::time::Duration,
     status::condition::{
         compute_conditions, operations::ClusterOperationsConditionBuilder,
         statefulset::StatefulSetConditionBuilder,
     },
-    time::Duration,
 };
 use strum::{EnumDiscriminants, IntoStaticStr};
 
@@ -378,6 +380,11 @@ pub enum Error {
 
     #[snafu(display("failed to configure service"))]
     ServiceConfiguration { source: crate::service::Error },
+
+    #[snafu(display("failed to resolve product image"))]
+    ResolveProductImage {
+        source: product_image_selection::Error,
+    },
 }
 
 type Result<T, E = Error> = std::result::Result<T, E>;
@@ -405,10 +412,11 @@ pub async fn reconcile_druid(
         .namespace
         .clone()
         .with_context(|| ObjectHasNoNamespaceSnafu {})?;
-    let resolved_product_image: ResolvedProductImage = druid
+    let resolved_product_image = druid
         .spec
         .image
-        .resolve(DOCKER_IMAGE_BASE_NAME, crate::built_info::PKG_VERSION);
+        .resolve(DOCKER_IMAGE_BASE_NAME, crate::built_info::PKG_VERSION)
+        .context(ResolveProductImageSnafu)?;
 
     let zk_confmap = druid.spec.cluster_config.zookeeper_config_map_name.clone();
     let zk_connstr = client
@@ -533,7 +541,7 @@ pub async fn reconcile_druid(
             let role_group_service_recommended_labels = build_recommended_labels(
                 druid,
                 DRUID_CONTROLLER_NAME,
-                &resolved_product_image.app_version_label,
+                &resolved_product_image.app_version_label_value,
                 &rolegroup.role,
                 &rolegroup.role_group,
             );
@@ -624,7 +632,7 @@ pub async fn reconcile_druid(
                     build_recommended_labels(
                         druid,
                         DRUID_CONTROLLER_NAME,
-                        &resolved_product_image.app_version_label,
+                        &resolved_product_image.app_version_label_value,
                         role_name,
                         "none",
                     ),
@@ -857,7 +865,7 @@ fn build_rolegroup_config_map(
             .with_recommended_labels(build_recommended_labels(
                 druid,
                 DRUID_CONTROLLER_NAME,
-                &resolved_product_image.app_version_label,
+                &resolved_product_image.app_version_label_value,
                 &rolegroup.role,
                 &rolegroup.role_group,
             ))
@@ -1131,7 +1139,7 @@ fn build_rolegroup_statefulset(
         .with_recommended_labels(build_recommended_labels(
             druid,
             DRUID_CONTROLLER_NAME,
-            &resolved_product_image.app_version_label,
+            &resolved_product_image.app_version_label_value,
             &rolegroup_ref.role,
             &rolegroup_ref.role_group,
         ))
@@ -1190,7 +1198,7 @@ fn build_rolegroup_statefulset(
             .with_recommended_labels(build_recommended_labels(
                 druid,
                 DRUID_CONTROLLER_NAME,
-                &resolved_product_image.app_version_label,
+                &resolved_product_image.app_version_label_value,
                 &rolegroup_ref.role,
                 &rolegroup_ref.role_group,
             ))
@@ -1401,7 +1409,8 @@ mod test {
         let resolved_product_image: ResolvedProductImage = druid
             .spec
             .image
-            .resolve(DOCKER_IMAGE_BASE_NAME, crate::built_info::PKG_VERSION);
+            .resolve(DOCKER_IMAGE_BASE_NAME, crate::built_info::PKG_VERSION)
+            .expect("test: resolved product image is always valid");
         let role_config = transform_all_roles_to_config(&druid, druid.build_role_properties());
 
         let product_config_manager =

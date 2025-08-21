@@ -93,7 +93,7 @@ fn build_discovery_configmap(
                 .with_recommended_labels(build_recommended_labels(
                     druid,
                     DRUID_CONTROLLER_NAME,
-                    &resolved_product_image.app_version_label,
+                    &resolved_product_image.app_version_label_value,
                     &DruidRole::Router.to_string(),
                     "discovery",
                 ))

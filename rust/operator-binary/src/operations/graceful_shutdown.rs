@@ -3,7 +3,7 @@ use snafu::{ResultExt, Snafu};
 use stackable_operator::{
     builder::pod::{PodBuilder, container::ContainerBuilder},
     k8s_openapi::api::core::v1::{ExecAction, LifecycleHandler},
-    time::Duration,
+    shared::time::Duration,
 };
 
 use crate::crd::{DruidRole, security::DruidTlsSecurity};
