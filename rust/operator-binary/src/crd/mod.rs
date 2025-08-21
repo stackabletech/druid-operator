@@ -30,8 +30,8 @@ use stackable_operator::{
     },
     role_utils::{CommonConfiguration, GenericRoleConfig, JavaCommonConfig, Role, RoleGroup},
     schemars::{self, JsonSchema},
+    shared::time::Duration,
     status::condition::{ClusterCondition, HasStatusCondition},
-    time::Duration,
     utils::{COMMON_BASH_TRAP_FUNCTIONS, crds::raw_object_list_schema},
     versioned::versioned,
 };
