@@ -22,7 +22,7 @@ use stackable_operator::{
 };
 
 use crate::crd::{
-    DruidRole, STACKABLE_TRUST_STORE, STACKABLE_TRUST_STORE_PASSWORD,
+    DruidRole, STACKABLE_TRUST_STORE_PASSWORD,
     authentication::{self, AuthenticationClassesResolved},
     v1alpha1,
 };
@@ -81,15 +81,16 @@ const SERVER_HTTPS_CERT_ALIAS: &str = "druid.server.https.certAlias";
 const SERVER_HTTPS_VALIDATE_HOST_NAMES: &str = "druid.server.https.validateHostnames";
 const SERVER_HTTPS_KEY_MANAGER_PASSWORD: &str = "druid.server.https.keyManagerPassword";
 const SERVER_HTTPS_REQUIRE_CLIENT_CERTIFICATE: &str = "druid.server.https.requireClientCertificate";
-const TLS_ALIAS_NAME: &str = "tls";
+/// The alias of the certificate in the keystore used for TLS stuff.
+/// All secret-op generated keystores have one entry with the alias "1".
+/// (side node: I think technically they don't have an alias and the JVm counts them, but not sure)
+const TLS_ALIAS_NAME: &str = "1";
 pub const AUTH_TRUST_STORE_PATH: &str = "druid.auth.basic.ssl.trustStorePath";
 pub const AUTH_TRUST_STORE_TYPE: &str = "druid.auth.basic.ssl.trustStoreType";
 pub const AUTH_TRUST_STORE_PASSWORD: &str = "druid.auth.basic.ssl.trustStorePassword";
 // Misc TLS
 pub const TLS_STORE_PASSWORD: &str = "changeit";
 pub const TLS_STORE_TYPE: &str = "pkcs12";
-const SYSTEM_TRUST_STORE: &str = "/etc/pki/java/cacerts";
-const SYSTEM_TRUST_STORE_PASSWORD: &str = "changeit";
 
 // directories
 const STACKABLE_MOUNT_TLS_DIR: &str = "/stackable/mount_tls";
@@ -432,12 +433,13 @@ impl DruidTlsSecurity {
         }
 
         vec![
-            // Copy system truststore to empty dir and convert to PKCS12
-            import_system_truststore(STACKABLE_TLS_DIR),
-            // Import secret-op truststore to copied system trust store
-            import_truststore(STACKABLE_MOUNT_TLS_DIR, STACKABLE_TLS_DIR),
-            // Import / Copy secret-op keystore to empty dir and set required alias
-            import_keystore(STACKABLE_MOUNT_TLS_DIR, STACKABLE_TLS_DIR),
+            // FIXME: *Technically* we should only add the system truststore in case any webPki usage is detected,
+            // wether that's in S3, LDAP, OIDC, FTE or whatnot.
+            format!(
+                "cert-tools generate-pkcs12-truststore --pkcs12 '{STACKABLE_MOUNT_TLS_DIR}/truststore.p12:{TLS_STORE_PASSWORD}' --pem /etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem --out {STACKABLE_TLS_DIR}/truststore.p12 --out-password '{TLS_STORE_PASSWORD}'"
+            ),
+            // We can copy the keystore as is.
+            format!("cp {STACKABLE_MOUNT_TLS_DIR}/keystore.p12 {STACKABLE_TLS_DIR}/keystore.p12"),
         ]
     }
 
@@ -468,66 +470,19 @@ impl DruidTlsSecurity {
     }
 }
 
-/// Generate a script to add a CA to a truststore
+/// Generate a bash command to add a CA to a truststore
 pub fn add_cert_to_trust_store_cmd(
-    cert: &str,
-    trust_store_directory: &str,
-    alias_name: &str,
+    cert_file: &str,
+    destination_directory: &str,
     store_password: &str,
 ) -> String {
+    let truststore = format!("{destination_directory}/truststore.p12");
     format!(
-        "keytool -importcert -file {cert} -keystore {trust_store_directory}/truststore.p12 -storetype pkcs12 -alias {alias_name} -storepass {store_password} -noprompt"
+        "cert-tools generate-pkcs12-truststore --pkcs12 {truststore}:{store_password} --pem {cert_file} --out {truststore} --out-password {store_password}"
     )
 }
 
-pub fn add_cert_to_jvm_trust_store_cmd(cert: &str, alias_name: &str) -> String {
-    format!(
-        "keytool -importcert -file {cert} -keystore {STACKABLE_TRUST_STORE} -storetype pkcs12 -alias {alias_name} -storepass {STACKABLE_TRUST_STORE_PASSWORD} -noprompt"
-    )
-}
-
-/// Import the system truststore to a truststore named `truststore.p12` in `destination_directory`.
-fn import_system_truststore(destination_directory: &str) -> String {
-    let dest_truststore_path = format!("{destination_directory}/truststore.p12");
-    format!(
-        "keytool -importkeystore -srckeystore {SYSTEM_TRUST_STORE} -srcstoretype jks -srcstorepass {SYSTEM_TRUST_STORE_PASSWORD} -destkeystore {dest_truststore_path} -deststoretype pkcs12 -deststorepass {TLS_STORE_PASSWORD} -noprompt"
-    )
-}
-
-/// Generates the shell script to import a secret operator provided truststore without password
-/// into a new truststore with password in a writeable empty dir
-///
-/// # Arguments
-/// - `source_directory`: The directory of the source truststore. Should usually be a secret
-///   operator volume mount.
-/// - `destination_directory`: The directory of the destination truststore. Should usually be an
-///   empty dir.
-fn import_truststore(source_directory: &str, destination_directory: &str) -> String {
-    let source_truststore_path = format!("{source_directory}/truststore.p12");
-    let dest_truststore_path = format!("{destination_directory}/truststore.p12");
-    // The source directory is a secret-op mount and we do not want to write / add anything in there
-    // Therefore we import all the contents to a truststore in "writeable" empty dirs.
-    // Keytool is only barking if a password is not set for the destination truststore (which we set)
-    // and do provide an empty password for the source truststore coming from the secret-operator.
-    // Using no password will result in a warning.
-    // All secret-op generated truststores have one entry with alias "1". We generate a UUID for
-    // the destination truststore to avoid conflicts when importing multiple secret-op generated
-    // truststores. We do not use the UUID rust crate since this will continuously change the STS... and
-    // leads to never-ending reconciles.
-    format!(
-        "keytool -importkeystore -srckeystore {source_truststore_path} -srcstoretype PKCS12 -srcstorepass {TLS_STORE_PASSWORD} -srcalias 1 -destkeystore {dest_truststore_path} -deststoretype PKCS12 -deststorepass {TLS_STORE_PASSWORD} -destalias $(cat /proc/sys/kernel/random/uuid) -noprompt"
-    )
-}
-
-/// Generate a script to import a mounted keystore to an empty dir and set an alias
-fn import_keystore(source_directory: &str, destination_directory: &str) -> String {
-    let source_keystore_path = format!("{source_directory}/keystore.p12");
-    let dest_keystore_path = format!("{destination_directory}/keystore.p12");
-    // The source directory is a secret-op mount and we do not want to write / add anything in there
-    // Therefore we import all the contents to a keystore in "writeable" empty dirs.
-    // Using no password will result in a warning.
-    // All secret-op generated keystores have one entry with alias "1".
-    format!(
-        "keytool -importkeystore -srckeystore {source_keystore_path} -srcstoretype PKCS12 -srcstorepass {TLS_STORE_PASSWORD} -srcalias 1 -destkeystore {dest_keystore_path} -deststoretype PKCS12 -deststorepass {TLS_STORE_PASSWORD} -destalias {TLS_ALIAS_NAME} -noprompt"
-    )
+/// Generate a bash command to add a CA to the truststore that is passed to the JVM
+pub fn add_cert_to_jvm_trust_store_cmd(cert_file: &str) -> String {
+    add_cert_to_trust_store_cmd(cert_file, "/stackable", STACKABLE_TRUST_STORE_PASSWORD)
 }
