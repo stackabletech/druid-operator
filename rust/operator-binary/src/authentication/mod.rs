@@ -54,11 +54,9 @@ pub enum Error {
 pub enum DruidAuthenticationConfig {
     Tls {},
     Ldap {
-        auth_class_name: String,
         provider: authentication::ldap::v1alpha1::AuthenticationProvider,
     },
     Oidc {
-        auth_class_name: String,
         provider: authentication::oidc::v1alpha1::AuthenticationProvider,
         oidc: authentication::oidc::v1alpha1::ClientAuthenticationOptions,
     },
@@ -75,19 +73,10 @@ impl DruidAuthenticationConfig {
             None => Ok(None),
             Some(auth_class_resolved) => match &auth_class_resolved {
                 AuthenticationClassResolved::Tls { .. } => Ok(Some(Self::Tls {})),
-                AuthenticationClassResolved::Ldap {
-                    auth_class_name,
-                    provider,
-                } => Ok(Some(Self::Ldap {
-                    auth_class_name: auth_class_name.to_string(),
+                AuthenticationClassResolved::Ldap { provider, .. } => Ok(Some(Self::Ldap {
                     provider: provider.clone(),
                 })),
-                AuthenticationClassResolved::Oidc {
-                    auth_class_name,
-                    provider,
-                    oidc,
-                } => Ok(Some(Self::Oidc {
-                    auth_class_name: auth_class_name.to_string(),
+                AuthenticationClassResolved::Oidc { provider, oidc, .. } => Ok(Some(Self::Oidc {
                     provider: provider.clone(),
                     oidc: oidc.clone(),
                 })),
@@ -133,25 +122,16 @@ impl DruidAuthenticationConfig {
 
     pub fn main_container_commands(&self) -> Vec<String> {
         let mut command = vec![];
-        if let DruidAuthenticationConfig::Oidc {
-            auth_class_name,
-            provider,
-            ..
-        } = self
-        {
-            oidc::main_container_commands(auth_class_name, provider, &mut command)
+        if let DruidAuthenticationConfig::Oidc { provider, .. } = self {
+            oidc::main_container_commands(provider, &mut command)
         }
         command
     }
 
     pub fn prepare_container_commands(&self) -> Vec<String> {
         let mut command = vec![];
-        if let DruidAuthenticationConfig::Ldap {
-            auth_class_name,
-            provider,
-        } = self
-        {
-            ldap::prepare_container_commands(auth_class_name, provider, &mut command)
+        if let DruidAuthenticationConfig::Ldap { provider } = self {
+            ldap::prepare_container_commands(provider, &mut command)
         }
         command
     }

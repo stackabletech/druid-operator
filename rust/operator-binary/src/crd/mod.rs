@@ -2,6 +2,7 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 
 use indoc::formatdoc;
 use product_config::types::PropertyNameKind;
+use security::add_cert_to_jvm_trust_store_cmd;
 use serde::{Deserialize, Serialize};
 use snafu::{OptionExt, ResultExt, Snafu};
 use stackable_operator::{
@@ -996,8 +997,7 @@ impl DruidRole {
 
         if let Some(s3) = s3 {
             if let Some(ca_cert_file) = s3.tls.tls_ca_cert_mount_path() {
-                // The alias can not clash, as we only support a single S3Connection
-                commands.push(format!("keytool -importcert -file {ca_cert_file} -alias stackable-s3-ca-cert -keystore {STACKABLE_TRUST_STORE} -storepass {STACKABLE_TRUST_STORE_PASSWORD} -noprompt"));
+                commands.push(add_cert_to_jvm_trust_store_cmd(&ca_cert_file));
             }
         }
 
