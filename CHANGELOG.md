@@ -7,8 +7,18 @@ All notable changes to this project will be documented in this file.
 ### Added
 
 - Helm: Allow Pod `priorityClassName` to be configured ([#752]).
+- Add support for `34.0.0` ([#755]).
+
+### Changed
+
+- Deprecate support for `33.0.0` ([#755]).
+
+### Removed
+
+- Remove support for `31.0.1` ([#755]).
 
 [#752]: https://github.com/stackabletech/druid-operator/pull/752
+[#755]: https://github.com/stackabletech/druid-operator/pull/755
 
 ## [25.7.0] - 2025-07-23
 
