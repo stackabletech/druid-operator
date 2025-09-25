@@ -96,7 +96,6 @@ pub fn generate_runtime_properties_config(
 }
 
 pub fn prepare_container_commands(
-    auth_class_name: &String,
     provider: &ldap::v1alpha1::AuthenticationProvider,
     command: &mut Vec<String>,
 ) {
@@ -104,7 +103,6 @@ pub fn prepare_container_commands(
         command.push(add_cert_to_trust_store_cmd(
             &tls_ca_cert_mount_path,
             STACKABLE_TLS_DIR,
-            &format!("ldap-{}", auth_class_name),
             TLS_STORE_PASSWORD,
         ))
     }

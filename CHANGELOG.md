@@ -13,11 +13,22 @@ All notable changes to this project will be documented in this file.
 
 - Deprecate support for `33.0.0` ([#755]).
 
+### Fixed
+
+- Previously we had a bug that could lead to missing certificates ([#753]).
+
+  This could be the case when the Stackable PKI rotated its CA certificate or you specified multiple
+  CAs in your SecretClass.
+  Especially the CA rotation could break working clusters at any time.
+  We now correctly handle multiple certificates for both cases.
+  See [this GitHub issue](https://github.com/stackabletech/issues/issues/764) for details
+
 ### Removed
 
 - Remove support for `31.0.1` ([#755]).
 
 [#752]: https://github.com/stackabletech/druid-operator/pull/752
+[#753]: https://github.com/stackabletech/druid-operator/pull/753
 [#755]: https://github.com/stackabletech/druid-operator/pull/755
 
 ## [25.7.0] - 2025-07-23
