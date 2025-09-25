@@ -7,6 +7,11 @@ All notable changes to this project will be documented in this file.
 ### Added
 
 - Helm: Allow Pod `priorityClassName` to be configured ([#752]).
+- Add support for `34.0.0` ([#755]).
+
+### Changed
+
+- Deprecate support for `33.0.0` ([#755]).
 
 ### Fixed
 
@@ -18,8 +23,13 @@ All notable changes to this project will be documented in this file.
   We now correctly handle multiple certificates for both cases.
   See [this GitHub issue](https://github.com/stackabletech/issues/issues/764) for details
 
+### Removed
+
+- Remove support for `31.0.1` ([#755]).
+
 [#752]: https://github.com/stackabletech/druid-operator/pull/752
 [#753]: https://github.com/stackabletech/druid-operator/pull/753
+[#755]: https://github.com/stackabletech/druid-operator/pull/755
 
 ## [25.7.0] - 2025-07-23
 
