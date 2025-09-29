@@ -111,7 +111,7 @@ pub fn main_container_commands(
     command: &mut Vec<String>,
 ) {
     if let Some(tls_ca_cert_mount_path) = provider.tls.tls_ca_cert_mount_path() {
-        command.push(add_cert_to_jvm_trust_store_cmd(&tls_ca_cert_mount_path))
+        command.extend(add_cert_to_jvm_trust_store_cmd(&tls_ca_cert_mount_path))
     }
 }
 

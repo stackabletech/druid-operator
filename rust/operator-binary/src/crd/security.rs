@@ -475,14 +475,14 @@ pub fn add_cert_to_trust_store_cmd(
     cert_file: &str,
     destination_directory: &str,
     store_password: &str,
-) -> String {
+) -> Vec<String> {
     let truststore = format!("{destination_directory}/truststore.p12");
-    format!(
-        "cert-tools generate-pkcs12-truststore --pkcs12 {truststore}:{store_password} --pem {cert_file} --out {truststore} --out-password {store_password}"
-    )
+    vec![format!(
+        "if [ -f {truststore} ]; then cert-tools generate-pkcs12-truststore --pkcs12 {truststore}:{store_password} --pem {cert_file} --out {truststore} --out-password {store_password}; else cert-tools generate-pkcs12-truststore --pem {cert_file} --out {truststore} --out-password {store_password}; fi" // "cert-tools generate-pkcs12-truststore --pkcs12 {truststore}:{store_password} --pem {cert_file} --out {truststore} --out-password {store_password}"
+    )]
 }
 
 /// Generate a bash command to add a CA to the truststore that is passed to the JVM
-pub fn add_cert_to_jvm_trust_store_cmd(cert_file: &str) -> String {
+pub fn add_cert_to_jvm_trust_store_cmd(cert_file: &str) -> Vec<String> {
     add_cert_to_trust_store_cmd(cert_file, "/stackable", STACKABLE_TRUST_STORE_PASSWORD)
 }
