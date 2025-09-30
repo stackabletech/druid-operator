@@ -15,7 +15,7 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 
-- Previously we had a bug that could lead to missing certificates ([#753]).
+- Fix keytool behavior that could lead to missing certificates ([#753], [#756]).
 
   This could be the case when the Stackable PKI rotated its CA certificate or you specified multiple
   CAs in your SecretClass.
@@ -30,6 +30,7 @@ All notable changes to this project will be documented in this file.
 [#752]: https://github.com/stackabletech/druid-operator/pull/752
 [#753]: https://github.com/stackabletech/druid-operator/pull/753
 [#755]: https://github.com/stackabletech/druid-operator/pull/755
+[#756]: https://github.com/stackabletech/druid-operator/pull/756
 
 ## [25.7.0] - 2025-07-23
 

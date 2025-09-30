@@ -997,7 +997,7 @@ impl DruidRole {
 
         if let Some(s3) = s3 {
             if let Some(ca_cert_file) = s3.tls.tls_ca_cert_mount_path() {
-                commands.push(add_cert_to_jvm_trust_store_cmd(&ca_cert_file));
+                commands.extend(add_cert_to_jvm_trust_store_cmd(&ca_cert_file));
             }
         }
 
