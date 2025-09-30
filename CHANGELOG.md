@@ -15,7 +15,7 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 
-- Previously we had a bug that could lead to missing certificates ([#753], [#756]).
+- Fix keytool behavior that could lead to missing certificates ([#753], [#756]).
 
   This could be the case when the Stackable PKI rotated its CA certificate or you specified multiple
   CAs in your SecretClass.
