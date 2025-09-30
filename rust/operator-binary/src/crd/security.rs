@@ -478,7 +478,7 @@ pub fn add_cert_to_trust_store_cmd(
 ) -> Vec<String> {
     let truststore = format!("{destination_directory}/truststore.p12");
     vec![format!(
-        "if [ -f {truststore} ]; then cert-tools generate-pkcs12-truststore --pkcs12 {truststore}:{store_password} --pem {cert_file} --out {truststore} --out-password {store_password}; else cert-tools generate-pkcs12-truststore --pem {cert_file} --out {truststore} --out-password {store_password}; fi" // "cert-tools generate-pkcs12-truststore --pkcs12 {truststore}:{store_password} --pem {cert_file} --out {truststore} --out-password {store_password}"
+        "if [ -f {truststore} ]; then cert-tools generate-pkcs12-truststore --pkcs12 {truststore}:{store_password} --pem {cert_file} --out {truststore} --out-password {store_password}; else cert-tools generate-pkcs12-truststore --pem {cert_file} --out {truststore} --out-password {store_password}; fi"
     )]
 }
 
