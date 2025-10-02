@@ -34,10 +34,10 @@ dimensions:
       - 1.4.2
   - name: hadoop
     values:
-      - 3.4.1
+      - 3.4.2
   - name: hadoop-latest
     values:
-      - 3.4.1
+      - 3.4.2
   - name: s3-use-tls
     values:
       - "true"
