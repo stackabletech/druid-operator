@@ -8,6 +8,10 @@ All notable changes to this project will be documented in this file.
 
 - Helm: Allow Pod `priorityClassName` to be configured ([#752]).
 - Add support for `34.0.0` ([#755]).
+- Add end-of-support checker ([#759]).
+  - `EOS_CHECK_MODE` (`--eos-check-mode`) to set the EoS check mode. Currently, only "offline" is supported.
+  - `EOS_INTERVAL` (`--eos-interval`) to set the interval in which the operator checks if it is EoS.
+  - `EOS_DISABLED` (`--eos-disabled`) to disable the EoS checker completely.
 
 ### Changed
 
@@ -31,6 +35,7 @@ All notable changes to this project will be documented in this file.
 [#753]: https://github.com/stackabletech/druid-operator/pull/753
 [#755]: https://github.com/stackabletech/druid-operator/pull/755
 [#756]: https://github.com/stackabletech/druid-operator/pull/756
+[#759]: https://github.com/stackabletech/druid-operator/pull/759
 
 ## [25.7.0] - 2025-07-23
 
