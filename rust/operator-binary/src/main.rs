@@ -6,11 +6,10 @@ use std::sync::Arc;
 
 use clap::Parser;
 use druid_controller::{DRUID_CONTROLLER_NAME, FULL_CONTROLLER_NAME};
-use futures::{FutureExt, StreamExt};
+use futures::StreamExt;
 use stackable_operator::{
     YamlSchema,
-    cli::{Command, RunArguments},
-    eos::EndOfSupportChecker,
+    cli::{Command, ProductOperatorRun},
     k8s_openapi::api::{
         apps::v1::StatefulSet,
         core::v1::{ConfigMap, Service},
@@ -61,19 +60,18 @@ async fn main() -> anyhow::Result<()> {
     match opts.cmd {
         Command::Crd => DruidCluster::merged_crd(DruidClusterVersion::V1Alpha1)?
             .print_yaml_schema(built_info::PKG_VERSION, SerializeOptions::default())?,
-        Command::Run(RunArguments {
+        Command::Run(ProductOperatorRun {
             product_config,
             watch_namespace,
             operator_environment: _,
-            maintenance,
-            common,
+            telemetry,
+            cluster_info,
         }) => {
             // NOTE (@NickLarsenNZ): Before stackable-telemetry was used:
             // - The console log level was set by `DRUID_OPERATOR_LOG`, and is now `CONSOLE_LOG` (when using Tracing::pre_configured).
             // - The file log level was set by `DRUID_OPERATOR_LOG`, and is now set via `FILE_LOG` (when using Tracing::pre_configured).
             // - The file log directory was set by `DRUID_OPERATOR_LOG_DIRECTORY`, and is now set by `ROLLING_LOGS_DIR` (or via `--rolling-logs <DIRECTORY>`).
-            let _tracing_guard =
-                Tracing::pre_configured(built_info::PKG_NAME, common.telemetry).init()?;
+            let _tracing_guard = Tracing::pre_configured(built_info::PKG_NAME, telemetry).init()?;
 
             tracing::info!(
                 built_info.pkg_version = built_info::PKG_VERSION,
@@ -85,18 +83,13 @@ async fn main() -> anyhow::Result<()> {
                 description = built_info::PKG_DESCRIPTION
             );
 
-            let eos_checker =
-                EndOfSupportChecker::new(built_info::BUILT_TIME_UTC, maintenance.end_of_support)?
-                    .run()
-                    .map(anyhow::Ok);
-
             let product_config = product_config.load(&[
                 "deploy/config-spec/properties.yaml",
                 "/etc/stackable/druid-operator/config-spec/properties.yaml",
             ])?;
             let client = stackable_operator::client::initialize_operator(
                 Some(OPERATOR_NAME.to_string()),
-                &common.cluster_info,
+                &cluster_info,
             )
             .await?;
 
@@ -113,7 +106,7 @@ async fn main() -> anyhow::Result<()> {
                 watcher::Config::default(),
             );
             let config_map_store = druid_controller.store();
-            let druid_controller = druid_controller
+            druid_controller
                 .owns(
                     watch_namespace.get_api::<Service>(&client),
                     watcher::Config::default(),
@@ -163,9 +156,7 @@ async fn main() -> anyhow::Result<()> {
                         }
                     },
                 )
-                .map(anyhow::Ok);
-
-            futures::try_join!(druid_controller, eos_checker)?;
+                .await;
         }
     }
 
