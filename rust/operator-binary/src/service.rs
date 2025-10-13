@@ -4,7 +4,7 @@ use snafu::{ResultExt, Snafu};
 use stackable_operator::{
     builder::meta::ObjectMetaBuilder,
     k8s_openapi::api::core::v1::{Service, ServicePort, ServiceSpec},
-    kvp::{Label, ObjectLabels},
+    kvp::{Annotations, Label, ObjectLabels},
     role_utils::RoleGroupRef,
 };
 
@@ -85,6 +85,7 @@ pub fn build_rolegroup_metrics_service(
             .with_recommended_labels(object_labels)
             .context(MetadataBuildSnafu)?
             .with_label(Label::try_from(("prometheus.io/scrape", "true")).context(LabelBuildSnafu)?)
+            .with_annotations(prometheus_annotations())
             .build(),
         spec: Some(ServiceSpec {
             // Internal communication does not need to be exposed
@@ -116,4 +117,19 @@ fn rolegroup_metrics_service_name(role_group_ref_object_name: &str) -> String {
 /// Returns the headless rolegroup service name `<cluster>-<role>-<rolegroup>-<HEADLESS_SERVICE_SUFFIX>`.
 pub fn rolegroup_headless_service_name(role_group_ref_object_name: &str) -> String {
     format!("{role_group_ref_object_name}-{HEADLESS_SERVICE_SUFFIX}")
+}
+
+/// Common annotations for Prometheus
+///
+/// These annotations can be used in a ServiceMonitor.
+///
+/// see also <https://github.com/prometheus-community/helm-charts/blob/prometheus-27.32.0/charts/prometheus/values.yaml#L983-L1036>
+fn prometheus_annotations() -> Annotations {
+    Annotations::try_from([
+        ("prometheus.io/path".to_owned(), "/metrics".to_owned()),
+        ("prometheus.io/port".to_owned(), METRICS_PORT.to_string()),
+        ("prometheus.io/scheme".to_owned(), "http".to_owned()),
+        ("prometheus.io/scrape".to_owned(), "true".to_owned()),
+    ])
+    .expect("should be valid annotations")
 }
