@@ -12,9 +12,6 @@ use crate::crd::{
     DruidRole, METRICS_PORT, METRICS_PORT_NAME, security::DruidTlsSecurity, v1alpha1,
 };
 
-const METRICS_SERVICE_SUFFIX: &str = "metrics";
-const HEADLESS_SERVICE_SUFFIX: &str = "headless";
-
 #[derive(Snafu, Debug)]
 pub enum Error {
     #[snafu(display("object is missing metadata to build owner reference"))]
@@ -46,9 +43,7 @@ pub fn build_rolegroup_headless_service(
     Ok(Service {
         metadata: ObjectMetaBuilder::new()
             .name_and_namespace(druid)
-            .name(rolegroup_headless_service_name(
-                &role_group_ref.object_name(),
-            ))
+            .name(role_group_ref.rolegroup_headless_service_name())
             .ownerreference_from_resource(druid, None, Some(true))
             .context(ObjectMissingMetadataForOwnerRefSnafu)?
             .with_recommended_labels(object_labels)
@@ -77,9 +72,7 @@ pub fn build_rolegroup_metrics_service(
     Ok(Service {
         metadata: ObjectMetaBuilder::new()
             .name_and_namespace(druid)
-            .name(rolegroup_metrics_service_name(
-                &role_group_ref.object_name(),
-            ))
+            .name(role_group_ref.rolegroup_metrics_service_name())
             .ownerreference_from_resource(druid, None, Some(true))
             .context(ObjectMissingMetadataForOwnerRefSnafu)?
             .with_recommended_labels(object_labels)
@@ -107,16 +100,6 @@ fn metrics_service_ports() -> Vec<ServicePort> {
         protocol: Some("TCP".to_string()),
         ..ServicePort::default()
     }]
-}
-
-/// Returns the metrics rolegroup service name `<cluster>-<role>-<rolegroup>-<METRICS_SERVICE_SUFFIX>`.
-fn rolegroup_metrics_service_name(role_group_ref_object_name: &str) -> String {
-    format!("{role_group_ref_object_name}-{METRICS_SERVICE_SUFFIX}")
-}
-
-/// Returns the headless rolegroup service name `<cluster>-<role>-<rolegroup>-<HEADLESS_SERVICE_SUFFIX>`.
-pub fn rolegroup_headless_service_name(role_group_ref_object_name: &str) -> String {
-    format!("{role_group_ref_object_name}-{HEADLESS_SERVICE_SUFFIX}")
 }
 
 /// Common annotations for Prometheus

@@ -88,10 +88,7 @@ use crate::{
     },
     operations::{graceful_shutdown::add_graceful_shutdown_config, pdb::add_pdbs},
     product_logging::extend_role_group_config_map,
-    service::{
-        build_rolegroup_headless_service, build_rolegroup_metrics_service,
-        rolegroup_headless_service_name,
-    },
+    service::{build_rolegroup_headless_service, build_rolegroup_metrics_service},
 };
 
 pub const DRUID_CONTROLLER_NAME: &str = "druidcluster";
@@ -1222,9 +1219,7 @@ fn build_rolegroup_statefulset(
                 ),
                 ..LabelSelector::default()
             },
-            service_name: Some(rolegroup_headless_service_name(
-                &rolegroup_ref.object_name(),
-            )),
+            service_name: Some(rolegroup_ref.rolegroup_headless_service_name()),
             template: pod_template,
             volume_claim_templates: pvcs,
             ..StatefulSetSpec::default()
