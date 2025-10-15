@@ -73,10 +73,11 @@ use crate::{
         Container, DB_PASSWORD_ENV, DB_USERNAME_ENV, DRUID_CONFIG_DIRECTORY, DS_BUCKET,
         DeepStorageSpec, DruidClusterStatus, DruidRole, EXTENSIONS_LOADLIST, HDFS_CONFIG_DIRECTORY,
         JVM_CONFIG, JVM_SECURITY_PROPERTIES_FILE, LOG_CONFIG_DIRECTORY, MAX_DRUID_LOG_FILES_SIZE,
-        OPERATOR_NAME, RUNTIME_PROPS, RW_CONFIG_DIRECTORY, S3_ACCESS_KEY, S3_ENDPOINT_URL,
-        S3_PATH_STYLE_ACCESS, S3_SECRET_KEY, STACKABLE_LOG_DIR, ZOOKEEPER_CONNECTION_STRING,
-        authentication::AuthenticationClassesResolved, authorization::DruidAuthorization,
-        build_recommended_labels, build_string_list, security::DruidTlsSecurity, v1alpha1,
+        METRICS_PORT, METRICS_PORT_NAME, OPERATOR_NAME, RUNTIME_PROPS, RW_CONFIG_DIRECTORY,
+        S3_ACCESS_KEY, S3_ENDPOINT_URL, S3_PATH_STYLE_ACCESS, S3_SECRET_KEY, STACKABLE_LOG_DIR,
+        ZOOKEEPER_CONNECTION_STRING, authentication::AuthenticationClassesResolved,
+        authorization::DruidAuthorization, build_recommended_labels, build_string_list,
+        security::DruidTlsSecurity, v1alpha1,
     },
     discovery::{self, build_discovery_configmaps},
     extensions::get_extension_list,
@@ -87,10 +88,7 @@ use crate::{
     },
     operations::{graceful_shutdown::add_graceful_shutdown_config, pdb::add_pdbs},
     product_logging::extend_role_group_config_map,
-    service::{
-        build_rolegroup_headless_service, build_rolegroup_metrics_service,
-        rolegroup_headless_service_name,
-    },
+    service::{build_rolegroup_headless_service, build_rolegroup_metrics_service},
 };
 
 pub const DRUID_CONTROLLER_NAME: &str = "druidcluster";
@@ -1078,6 +1076,7 @@ fn build_rolegroup_statefulset(
         .args(vec![main_container_commands.join("\n")])
         .add_env_vars(rest_env)
         .add_container_ports(druid_tls_security.container_ports(role))
+        .add_container_port(METRICS_PORT_NAME, METRICS_PORT.into())
         // 10s * 30 = 300s to come up
         .startup_probe(druid_tls_security.get_tcp_socket_probe(30, 10, 30, 3))
         // 10s * 1 = 10s to get removed from service
@@ -1220,9 +1219,7 @@ fn build_rolegroup_statefulset(
                 ),
                 ..LabelSelector::default()
             },
-            service_name: Some(rolegroup_headless_service_name(
-                &rolegroup_ref.object_name(),
-            )),
+            service_name: Some(rolegroup_ref.rolegroup_headless_service_name()),
             template: pod_template,
             volume_claim_templates: pvcs,
             ..StatefulSetSpec::default()
