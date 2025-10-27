@@ -12,6 +12,7 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- Bump stackable-operator to `0.100.1` and product-config to `0.8.0` ([#764]).
 - Deprecate support for `33.0.0` ([#755]).
 
 ### Fixed
@@ -33,6 +34,7 @@ All notable changes to this project will be documented in this file.
 [#755]: https://github.com/stackabletech/druid-operator/pull/755
 [#756]: https://github.com/stackabletech/druid-operator/pull/756
 [#761]: https://github.com/stackabletech/druid-operator/pull/761
+[#766]: https://github.com/stackabletech/druid-operator/pull/766
 
 ## [25.7.0] - 2025-07-23
 
