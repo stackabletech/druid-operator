@@ -16,6 +16,7 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- Bump stackable-operator to `0.100.1` and product-config to `0.8.0` ([#764]).
 - Deprecate support for `33.0.0` ([#755]).
 
 ### Fixed
