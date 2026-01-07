@@ -85,13 +85,21 @@ spec:
             - name: OIDC_USE_TLS
               value: "{{ test_scenario['values']['oidc-use-tls'] }}"
       volumes:
-        - name: tls
-          csi:
-            driver: secrets.stackable.tech
-            volumeAttributes:
-              secrets.stackable.tech/class: tls
-              secrets.stackable.tech/scope: pod
         - name: ingestion-check
           configMap:
             name: ingestion-check
+        - name: tls
+          ephemeral:
+            volumeClaimTemplate:
+              metadata:
+                annotations:
+                  secrets.stackable.tech/class: tls
+                  secrets.stackable.tech/scope: pod
+              spec:
+                storageClassName: secrets.stackable.tech
+                accessModes:
+                  - ReadWriteOnce
+                resources:
+                  requests:
+                    storage: "1"
       terminationGracePeriodSeconds: 1
