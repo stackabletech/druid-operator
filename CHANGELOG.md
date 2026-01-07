@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Changed
+
+- Bump testing-tools to `0.3.0-stackable0.0.0-dev` ([#780]).
+
+[#780]: https://github.com/stackabletech/druid-operator/pull/780
+
 ## [25.11.0] - 2025-11-07
 
 ## [25.11.0-rc1] - 2025-11-06
