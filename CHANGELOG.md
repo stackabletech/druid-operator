@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+
+- Support objectOverrides using `.spec.objectOverrides`.
+  See [objectOverrides concepts page](https://docs.stackable.tech/home/nightly/concepts/overrides/#object-overrides) for details ([#XXX]).
+
+[#XXX]: https://github.com/stackabletech/druid-operator/pull/XXX
+
 ### Changed
 
 - Bump testing-tools to `0.3.0-stackable0.0.0-dev` ([#780]).
