@@ -7,9 +7,9 @@ All notable changes to this project will be documented in this file.
 ### Added
 
 - Support objectOverrides using `.spec.objectOverrides`.
-  See [objectOverrides concepts page](https://docs.stackable.tech/home/nightly/concepts/overrides/#object-overrides) for details ([#XXX]).
+  See [objectOverrides concepts page](https://docs.stackable.tech/home/nightly/concepts/overrides/#object-overrides) for details ([#782]).
 
-[#XXX]: https://github.com/stackabletech/druid-operator/pull/XXX
+[#782]: https://github.com/stackabletech/druid-operator/pull/782
 
 ### Changed
 
