@@ -491,6 +491,7 @@ pub async fn reconcile_druid(
         DRUID_CONTROLLER_NAME,
         &druid.object_ref(&()),
         ClusterResourceApplyStrategy::from(&druid.spec.cluster_operation),
+        &druid.spec.object_overrides,
     )
     .context(CreateClusterResourcesSnafu)?;
 

@@ -19,6 +19,7 @@ use stackable_operator::{
         merge::Merge,
     },
     crd::{authentication::core, s3},
+    deep_merger::ObjectOverrides,
     k8s_openapi::api::core::v1::{PodTemplateSpec, Volume},
     kube::{CustomResource, ResourceExt},
     kvp::ObjectLabels,
@@ -244,6 +245,10 @@ pub mod versioned {
         // no doc - docs provided by the struct.
         #[serde(default)]
         pub cluster_operation: ClusterOperation,
+
+        // no doc - docs provided by the struct.
+        #[serde(default)]
+        pub object_overrides: ObjectOverrides,
     }
 
     #[derive(Clone, Debug, Deserialize, JsonSchema, Serialize)]
