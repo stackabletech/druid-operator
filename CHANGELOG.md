@@ -8,8 +8,10 @@ All notable changes to this project will be documented in this file.
 
 - Support objectOverrides using `.spec.objectOverrides`.
   See [objectOverrides concepts page](https://docs.stackable.tech/home/nightly/concepts/overrides/#object-overrides) for details ([#782]).
+- Enable the [restart-controller](https://docs.stackable.tech/home/nightly/commons-operator/restarter/), so that the Pods are automatically restarted on config changes ([#XXX]).
 
 [#782]: https://github.com/stackabletech/druid-operator/pull/782
+[#XXX]: https://github.com/stackabletech/druid-operator/pull/XXX
 
 ### Changed
 

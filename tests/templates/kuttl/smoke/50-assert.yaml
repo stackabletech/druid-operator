@@ -9,6 +9,9 @@ apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   name: druid-broker-default
+  generation: 1 # There should be no unneeded Pod restarts
+  labels:
+    restarter.stackable.tech/enabled: "true"
 spec:
   template:
     spec:
@@ -21,6 +24,9 @@ apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   name: druid-coordinator-default
+  generation: 1 # There should be no unneeded Pod restarts
+  labels:
+    restarter.stackable.tech/enabled: "true"
 spec:
   template:
     spec:
@@ -33,6 +39,9 @@ apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   name: druid-historical-default
+  generation: 1 # There should be no unneeded Pod restarts
+  labels:
+    restarter.stackable.tech/enabled: "true"
 spec:
   template:
     spec:
@@ -69,6 +78,9 @@ apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   name: druid-middlemanager-default
+  generation: 1 # There should be no unneeded Pod restarts
+  labels:
+    restarter.stackable.tech/enabled: "true"
 spec:
   template:
     spec:
@@ -81,6 +93,9 @@ apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   name: druid-router-default
+  generation: 1 # There should be no unneeded Pod restarts
+  labels:
+    restarter.stackable.tech/enabled: "true"
 spec:
   template:
     spec:
