@@ -31,6 +31,7 @@ use stackable_operator::{
         rbac::build_rbac_resources,
         tls_verification::TlsClientDetailsError,
     },
+    constants::RESTART_CONTROLLER_ENABLED_LABEL,
     crd::s3,
     k8s_openapi::{
         DeepMerge,
@@ -614,6 +615,10 @@ pub async fn reconcile_druid(
                 .with_context(|_| ApplyRoleGroupConfigSnafu {
                     rolegroup: rolegroup.clone(),
                 })?;
+
+            // Note: The StatefulSet needs to be applied after all ConfigMaps and Secrets it mounts
+            // to prevent unnecessary Pod restarts.
+            // See https://github.com/stackabletech/commons-operator/issues/111 for details.
             ss_cond_builder.add(
                 cluster_resources
                     .add(client, rg_statefulset)
@@ -1203,6 +1208,7 @@ fn build_rolegroup_statefulset(
                 &rolegroup_ref.role_group,
             ))
             .context(MetadataBuildSnafu)?
+            .with_label(RESTART_CONTROLLER_ENABLED_LABEL.to_owned())
             .build(),
         spec: Some(StatefulSetSpec {
             pod_management_policy: Some("Parallel".to_string()),
