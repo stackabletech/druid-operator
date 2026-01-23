@@ -11,9 +11,10 @@ include::home:concepts:stackable_resource_requests.adoc[]
 
 A minimal HA setup consisting of 2 Pods of each role has the following https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/[resource requirements]:
 
-// This is calculated using the following formula: sum(cpumin_druid) * 2 + sum(cpumin_hdfs) + sum(cpumin_zookeeper) + sum(cpumin_operators)
+// We are not sure how these values were calculated in the first place, but we assume the are calculated like this:
+// The sum of resources listed below + HDFS resources + ZK resources + some overhead (maybe for operators).
+// The amount of resources for HDFS and ZK are taken from their individual documentation pages.
 * `5100m` CPU request
-// This is calculated using the following formula: sum(cpumax_druid) * 2 + sum(cpumax_hdfs) + sum(cpumax_zookeeper) + sum(cpumax_operators)
 * `15600m` CPU limit
 * `12144Mi` memory request and limit
 
