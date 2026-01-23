@@ -14,6 +14,7 @@ if __name__ == "__main__":
     )
 
     druid_cluster_name = sys.argv[1]
+    namespace = sys.argv[2]
 
     druid_role_ports = {
         "broker": 8282,
@@ -24,9 +25,7 @@ if __name__ == "__main__":
     }
 
     for role, port in druid_role_ports.items():
-        url = (
-            f"https://{druid_cluster_name}-{role}-default-headless:{port}/status/health"
-        )
+        url = f"https://{druid_cluster_name}-{role}-default-headless.{namespace}.svc.cluster.local:{port}/status/health"
         count = 1
 
         # As this script is intended to be executed by Kuttl which is in charge of overall test timeouts it is ok
