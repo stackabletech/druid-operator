@@ -232,8 +232,8 @@ pub static COORDINATOR_RESOURCES: LazyLock<
 pub static ROUTER_RESOURCES: LazyLock<ResourcesFragment<storage::DruidStorage, NoRuntimeLimits>> =
     LazyLock::new(|| ResourcesFragment {
         cpu: CpuLimitsFragment {
-            min: Some(Quantity("100m".to_owned())),
-            max: Some(Quantity("400m".to_owned())),
+            min: Some(Quantity("300m".to_owned())),
+            max: Some(Quantity("1200m".to_owned())),
         },
         memory: MemoryLimitsFragment {
             limit: Some(Quantity("512Mi".to_owned())),
