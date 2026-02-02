@@ -53,8 +53,12 @@ namespace = sys.argv[2]
 druid = DruidClient()
 
 # Build FQDNs for TLS/SNI validation
-coordinator_host = f"{druid_cluster_name}-coordinator-default-headless.{namespace}.svc.cluster.local"
-broker_host = f"{druid_cluster_name}-broker-default-headless.{namespace}.svc.cluster.local"
+coordinator_host = (
+    f"{druid_cluster_name}-coordinator-default-headless.{namespace}.svc.cluster.local"
+)
+broker_host = (
+    f"{druid_cluster_name}-broker-default-headless.{namespace}.svc.cluster.local"
+)
 
 print("""
 Query tasks

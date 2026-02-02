@@ -39,7 +39,9 @@ if __name__ == "__main__":
     namespace = sys.argv[2]
 
     # Build FQDN for coordinator for TLS/SNI validation
-    coordinator_host = f"derby-druid-coordinator-default-headless.{namespace}.svc.cluster.local"
+    coordinator_host = (
+        f"derby-druid-coordinator-default-headless.{namespace}.svc.cluster.local"
+    )
 
     print("CREATING USERS")
     create_user("alice", coordinator_host)
