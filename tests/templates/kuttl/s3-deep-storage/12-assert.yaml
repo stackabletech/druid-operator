@@ -2,5 +2,5 @@
 apiVersion: kuttl.dev/v1beta1
 kind: TestAssert
 commands:
-  - script: kubectl exec -n $NAMESPACE checks-0 -- python /tmp/ingestioncheck.py druid-s3-deep-storage
+  - script: kubectl exec -n $NAMESPACE checks-0 -- python /tmp/ingestioncheck.py druid-s3-deep-storage $NAMESPACE
 timeout: 300

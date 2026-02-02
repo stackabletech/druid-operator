@@ -2,12 +2,11 @@ import requests
 import sys
 import logging
 
-coordinator_host = "derby-druid-coordinator-default-headless"
 coordinator_port = "8281"
 authenticator_name = "MyBasicMetadataAuthenticator"
 
 
-def create_user(user_name):
+def create_user(user_name, coordinator_host):
     requests.post(
         f"https://{coordinator_host}:{coordinator_port}/druid-ext/basic-security/authentication/db/{authenticator_name}/users/{user_name}",
         auth=("admin", "password1"),
@@ -36,12 +35,16 @@ if __name__ == "__main__":
         stream=sys.stdout,
     )
 
-    print("CREATING USERS")
-    create_user("alice")
-    create_user("eve")
-    print("USERS CREATED!")
-
     druid_cluster_name = sys.argv[1]
+    namespace = sys.argv[2]
+
+    # Build FQDN for coordinator for TLS/SNI validation
+    coordinator_host = f"derby-druid-coordinator-default-headless.{namespace}.svc.cluster.local"
+
+    print("CREATING USERS")
+    create_user("alice", coordinator_host)
+    create_user("eve", coordinator_host)
+    print("USERS CREATED!")
 
     druid_role_ports = {
         "broker": 8282,
@@ -52,7 +55,9 @@ if __name__ == "__main__":
     }
 
     for role, port in druid_role_ports.items():
-        url = f"https://{druid_cluster_name}-{role}-default-headless:{port}/status"
+        # Build FQDN for TLS/SNI validation
+        host = f"{druid_cluster_name}-{role}-default-headless.{namespace}.svc.cluster.local"
+        url = f"https://{host}:{port}/status"
         # make an authorized request -> return 401 expected
         print("Checking Unauthorized")
         res = requests.get(url, verify=False)
