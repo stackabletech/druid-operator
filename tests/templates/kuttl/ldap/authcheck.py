@@ -10,6 +10,7 @@ def main():
     result = 0
 
     druid_cluster_name = "derby-druid"
+    namespace = sys.argv[1]
 
     druid_role_ports = {
         "broker": 8282,
@@ -26,7 +27,9 @@ def main():
     )
 
     for role, port in druid_role_ports.items():
-        url = f"https://{druid_cluster_name}-{role}-default-headless:{port}/status"
+        # Build FQDN for TLS/SNI validation
+        host = f"{druid_cluster_name}-{role}-default-headless.{namespace}.svc.cluster.local"
+        url = f"https://{host}:{port}/status"
         # make an authorized request -> return 401 expected
         logging.info(f"making unauthorized request to {role}.")
         res = requests.get(url, verify=False)

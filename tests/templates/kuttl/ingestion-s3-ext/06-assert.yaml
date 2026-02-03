@@ -2,5 +2,5 @@
 apiVersion: kuttl.dev/v1beta1
 kind: TestAssert
 commands:
-  - script: kubectl exec -n $NAMESPACE checks-0 -- python /tmp/ingestioncheck.py derby-druid
+  - script: kubectl exec -n $NAMESPACE checks-0 -- python /tmp/ingestioncheck.py derby-druid $NAMESPACE
 timeout: 300
