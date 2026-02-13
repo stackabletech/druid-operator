@@ -4,9 +4,10 @@
 
 use std::sync::Arc;
 
+use anyhow::anyhow;
 use clap::Parser;
 use druid_controller::{DRUID_CONTROLLER_NAME, FULL_CONTROLLER_NAME};
-use futures::{FutureExt, StreamExt};
+use futures::{FutureExt, StreamExt, TryFutureExt};
 use stackable_operator::{
     YamlSchema,
     cli::{Command, RunArguments},
@@ -31,7 +32,10 @@ use stackable_operator::{
     utils::signal::SignalWatcher,
 };
 
-use crate::crd::{DruidCluster, DruidClusterVersion, OPERATOR_NAME, v1alpha1};
+use crate::{
+    crd::{DruidCluster, DruidClusterVersion, OPERATOR_NAME, v1alpha1},
+    webhooks::conversion::create_webhook_server,
+};
 
 mod authentication;
 mod config;
@@ -44,6 +48,7 @@ mod listener;
 mod operations;
 mod product_logging;
 mod service;
+mod webhooks;
 
 mod built_info {
     include!(concat!(env!("OUT_DIR"), "/built.rs"));
@@ -63,7 +68,7 @@ async fn main() -> anyhow::Result<()> {
         Command::Crd => DruidCluster::merged_crd(DruidClusterVersion::V1Alpha1)?
             .print_yaml_schema(built_info::PKG_VERSION, SerializeOptions::default())?,
         Command::Run(RunArguments {
-            operator_environment: _,
+            operator_environment,
             watch_namespace,
             product_config,
             maintenance,
@@ -95,15 +100,27 @@ async fn main() -> anyhow::Result<()> {
                     .run(sigterm_watcher.handle())
                     .map(anyhow::Ok);
 
-            let product_config = product_config.load(&[
-                "deploy/config-spec/properties.yaml",
-                "/etc/stackable/druid-operator/config-spec/properties.yaml",
-            ])?;
             let client = stackable_operator::client::initialize_operator(
                 Some(OPERATOR_NAME.to_string()),
                 &common.cluster_info,
             )
             .await?;
+
+            let webhook_server = create_webhook_server(
+                &operator_environment,
+                maintenance.disable_crd_maintenance,
+                client.as_kube_client(),
+            )
+            .await?;
+
+            let webhook_server = webhook_server
+                .run(sigterm_watcher.handle())
+                .map_err(|err| anyhow!(err).context("failed to run webhook server"));
+
+            let product_config = product_config.load(&[
+                "deploy/config-spec/properties.yaml",
+                "/etc/stackable/druid-operator/config-spec/properties.yaml",
+            ])?;
 
             let event_recorder = Arc::new(Recorder::new(
                 client.as_kube_client(),
@@ -170,7 +187,7 @@ async fn main() -> anyhow::Result<()> {
                 )
                 .map(anyhow::Ok);
 
-            futures::try_join!(druid_controller, eos_checker)?;
+            futures::try_join!(druid_controller, eos_checker, webhook_server)?;
         }
     }
 

@@ -58,6 +58,7 @@ pub mod tls;
 
 pub const APP_NAME: &str = "druid";
 pub const OPERATOR_NAME: &str = "druid.stackable.tech";
+pub const FIELD_MANAGER: &str = "druid-operator";
 
 // config directories
 pub const DRUID_CONFIG_DIRECTORY: &str = "/stackable/config";
