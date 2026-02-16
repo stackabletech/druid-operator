@@ -6,6 +6,7 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+- Add conversion webhook ([#790]).
 - Support objectOverrides using `.spec.objectOverrides`.
   See [objectOverrides concepts page](https://docs.stackable.tech/home/nightly/concepts/overrides/#object-overrides) for details ([#782]).
 - Enable the [restart-controller](https://docs.stackable.tech/home/nightly/commons-operator/restarter/), so that the Pods are automatically restarted on config changes ([#785]).
@@ -20,6 +21,7 @@ All notable changes to this project will be documented in this file.
 
 [#780]: https://github.com/stackabletech/druid-operator/pull/780
 [#788]: https://github.com/stackabletech/druid-operator/pull/788
+[#790]: https://github.com/stackabletech/druid-operator/pull/790
 
 ## [25.11.0] - 2025-11-07
 
