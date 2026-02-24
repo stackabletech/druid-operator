@@ -1368,21 +1368,29 @@ mod test {
     #[allow(clippy::enum_variant_names)]
     pub enum Error {
         #[snafu(display("controller error"))]
-        Controller { source: super::Error },
+        Controller {
+            #[snafu(source(from(super::Error, Box::new)))]
+            source: Box<super::Error>,
+        },
+
         #[snafu(display("product config error"))]
         ProductConfig {
             source: product_config::error::Error,
         },
+
         #[snafu(display("product config utils error"))]
         ProductConfigUtils {
             source: stackable_operator::product_config_utils::Error,
         },
+
         #[snafu(display("operator framework error"))]
         OperatorFramework {
             source: stackable_operator::product_config_utils::Error,
         },
+
         #[snafu(display("failed to resolve and merge config for role and role group"))]
         FailedToResolveConfig { source: crate::crd::Error },
+
         #[snafu(display("invalid configuration"))]
         InvalidConfiguration { source: crate::crd::Error },
     }
