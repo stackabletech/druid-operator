@@ -16,12 +16,14 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- Bump stackable-operator to 0.106.2, and strum to 0.28 ([#794]).
 - Gracefully shutdown all concurrent tasks by forwarding the SIGTERM signal ([#788]).
 - Bump testing-tools to `0.3.0-stackable0.0.0-dev` ([#780]).
 
 [#780]: https://github.com/stackabletech/druid-operator/pull/780
 [#788]: https://github.com/stackabletech/druid-operator/pull/788
 [#790]: https://github.com/stackabletech/druid-operator/pull/790
+[#794]: https://github.com/stackabletech/druid-operator/pull/794
 
 ## [25.11.0] - 2025-11-07
 
