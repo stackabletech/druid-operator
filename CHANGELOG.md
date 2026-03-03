@@ -10,6 +10,7 @@ All notable changes to this project will be documented in this file.
 - Support objectOverrides using `.spec.objectOverrides`.
   See [objectOverrides concepts page](https://docs.stackable.tech/home/nightly/concepts/overrides/#object-overrides) for details ([#782]).
 - Enable the [restart-controller](https://docs.stackable.tech/home/nightly/commons-operator/restarter/), so that the Pods are automatically restarted on config changes ([#785]).
+- Add Druid 35.0.1 ([#786]).
 
 [#782]: https://github.com/stackabletech/druid-operator/pull/782
 [#785]: https://github.com/stackabletech/druid-operator/pull/785
@@ -19,8 +20,14 @@ All notable changes to this project will be documented in this file.
 - Bump stackable-operator to 0.106.2, and strum to 0.28 ([#794]).
 - Gracefully shutdown all concurrent tasks by forwarding the SIGTERM signal ([#788]).
 - Bump testing-tools to `0.3.0-stackable0.0.0-dev` ([#780]).
+- Increase default CPU request/limit to 300m/1200m for the router role ([#786]).
+
+### Removed
+
+- Remove Druid 33.0.0 ([#786]).
 
 [#780]: https://github.com/stackabletech/druid-operator/pull/780
+[#786]: https://github.com/stackabletech/druid-operator/pull/786
 [#788]: https://github.com/stackabletech/druid-operator/pull/788
 [#790]: https://github.com/stackabletech/druid-operator/pull/790
 [#794]: https://github.com/stackabletech/druid-operator/pull/794
