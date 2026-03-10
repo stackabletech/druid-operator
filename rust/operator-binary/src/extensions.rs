@@ -120,7 +120,6 @@ mod tests {
                                 client_credentials_secret_ref: "".to_string(),
                                 extra_scopes: vec![],
                                 product_specific_fields: (),
-                                client_authentication_method: Default::default()
                             }
                         }]
                     })

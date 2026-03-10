@@ -17,7 +17,7 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
-- Bump stackable-operator to 0.107.1, and strum to 0.28 ([#794], [#801]).
+- Bump stackable-operator to 0.108.0, and strum to 0.28 ([#794], [#801]).
 - Gracefully shutdown all concurrent tasks by forwarding the SIGTERM signal ([#788]).
 - Bump testing-tools to `0.3.0-stackable0.0.0-dev` ([#780]).
 - Increase default CPU request/limit to 300m/1200m for the router role ([#786]).
