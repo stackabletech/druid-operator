@@ -17,10 +17,14 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
-- Bump stackable-operator to 0.106.2, and strum to 0.28 ([#794]).
+- Bump stackable-operator to 0.107.1, and strum to 0.28 ([#794], [#801]).
 - Gracefully shutdown all concurrent tasks by forwarding the SIGTERM signal ([#788]).
 - Bump testing-tools to `0.3.0-stackable0.0.0-dev` ([#780]).
 - Increase default CPU request/limit to 300m/1200m for the router role ([#786]).
+
+### Fixed
+
+- Fix "404 page not found" error for the initial object list ([#801]).
 
 ### Removed
 
@@ -31,6 +35,7 @@ All notable changes to this project will be documented in this file.
 [#788]: https://github.com/stackabletech/druid-operator/pull/788
 [#790]: https://github.com/stackabletech/druid-operator/pull/790
 [#794]: https://github.com/stackabletech/druid-operator/pull/794
+[#801]: https://github.com/stackabletech/druid-operator/pull/801
 
 ## [25.11.0] - 2025-11-07
 
