@@ -102,6 +102,9 @@ The secret containing the OIDC client credentials should be structured like this
 include::example$druid-oidc-authentication.yaml[tag=secret]
 ----
 
+NOTE: OIDC authentication may fail since Druid versions `35.x.x` and `36.x.x` due to a change in how the authentication method is selected when connecting to an OIDC provider.
+If your OIDC provider (e.g. Keycloak) advertises `private_key_jwt` as a supported client authentication method, Druid may attempt to use it, which causes authentication to fail.
+
 === Current Limitations and Upcoming Work
 
 At the moment you can either use TLS, LDAP or OIDC authentication but not a combination of authentication methods.
