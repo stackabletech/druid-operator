@@ -119,7 +119,8 @@ mod tests {
                             oidc: oidc::v1alpha1::ClientAuthenticationOptions {
                                 client_credentials_secret_ref: "".to_string(),
                                 extra_scopes: vec![],
-                                product_specific_fields: ()
+                                product_specific_fields: (),
+                                client_authentication_method: Default::default()
                             }
                         }]
                     })
