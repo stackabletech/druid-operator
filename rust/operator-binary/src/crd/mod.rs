@@ -1093,10 +1093,13 @@ pub struct DatabaseConnectionSpec {
     pub credentials_secret: Option<String>,
 }
 
-#[derive(Clone, Debug, Deserialize, Eq, JsonSchema, PartialEq, Serialize, Display, EnumString)]
+#[derive(
+    Clone, Debug, Default, Deserialize, Eq, JsonSchema, PartialEq, Serialize, Display, EnumString,
+)]
 pub enum DbType {
     #[serde(rename = "derby")]
     #[strum(serialize = "derby")]
+    #[default]
     Derby,
 
     #[serde(rename = "mysql")]
@@ -1106,12 +1109,6 @@ pub enum DbType {
     #[serde(rename = "postgresql")]
     #[strum(serialize = "postgresql")]
     Postgresql,
-}
-
-impl Default for DbType {
-    fn default() -> Self {
-        Self::Derby
-    }
 }
 
 #[derive(Clone, Debug, Deserialize, JsonSchema, PartialEq, Eq, Serialize, Display)]
