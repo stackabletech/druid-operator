@@ -20,6 +20,9 @@ then
   exit 1
 fi
 
+echo "Waiting for node(s) to be ready..."
+kubectl wait node --all --for=condition=Ready --timeout=120s
+
 cd "$(dirname "$0")"
 
 case "$1" in
@@ -51,6 +54,9 @@ echo "Need to give 'helm' or 'stackablectl' as an argument for which installatio
 exit 1
 ;;
 esac
+
+# TODO: Remove once https://github.com/stackabletech/issues/issues/828 has been implemented (see that issue for details).
+until kubectl get crd druidclusters.druid.stackable.tech >/dev/null 2>&1; do echo "Waiting for CRDs to be installed" && sleep 1; done
 
 echo "Installing ZooKeeper from zookeeper.yaml"
 # tag::install-zookeeper[]
@@ -89,9 +95,9 @@ done
 
 echo "Awaiting HDFS rollout finish"
 # tag::watch-hdfs-rollout[]
-kubectl rollout status --watch statefulset/simple-hdfs-datanode-default --timeout=300s
-kubectl rollout status --watch statefulset/simple-hdfs-journalnode-default --timeout=300s
-kubectl rollout status --watch statefulset/simple-hdfs-namenode-default --timeout=300s
+kubectl rollout status --watch statefulset/simple-hdfs-datanode-default --timeout=600s
+kubectl rollout status --watch statefulset/simple-hdfs-journalnode-default --timeout=600s
+kubectl rollout status --watch statefulset/simple-hdfs-namenode-default --timeout=600s
 # end::watch-hdfs-rollout[]
 
 echo "Installing PostgreSQL for Druid"
@@ -125,39 +131,36 @@ done
 
 echo "Awaiting Druid rollout finish"
 # tag::watch-druid-rollout[]
-kubectl rollout status --watch statefulset/simple-druid-broker-default --timeout=300s
-kubectl rollout status --watch statefulset/simple-druid-coordinator-default --timeout=300s
-kubectl rollout status --watch statefulset/simple-druid-historical-default --timeout=300s
-kubectl rollout status --watch statefulset/simple-druid-middlemanager-default --timeout=300s
-kubectl rollout status --watch statefulset/simple-druid-router-default --timeout=300s
+kubectl rollout status --watch statefulset/simple-druid-broker-default --timeout=600s
+kubectl rollout status --watch statefulset/simple-druid-coordinator-default --timeout=600s
+kubectl rollout status --watch statefulset/simple-druid-historical-default --timeout=600s
+kubectl rollout status --watch statefulset/simple-druid-middlemanager-default --timeout=600s
+kubectl rollout status --watch statefulset/simple-druid-router-default --timeout=600s
 # end::watch-druid-rollout[]
 
-echo "Starting port-forwarding of port 9088"
-# shellcheck disable=2069 # we want all output to be blackholed
-# tag::port-forwarding[]
-kubectl port-forward svc/simple-druid-router 9088 > /dev/null 2>&1 &
-# end::port-forwarding[]
-PORT_FORWARD_PID=$!
-# shellcheck disable=2064 # we want the PID evaluated now, not at the time the trap is
-trap "kill $PORT_FORWARD_PID" EXIT
-sleep 5
+COORDINATOR="simple-druid-coordinator-default-headless.default.svc.cluster.local"
+BROKER="simple-druid-broker-default-headless.default.svc.cluster.local"
 
 submit_job() {
-# tag::submit-job[]
-curl -s -k -X 'POST' -H 'Content-Type:application/json' -d @ingestion_spec.json https://localhost:9088/druid/indexer/v1/task
-# end::submit-job[]
+  # tag::submit-job[]
+  kubectl exec simple-druid-coordinator-default-0 -i -- \
+    curl -s -k -X POST -H 'Content-Type:application/json' --data-binary @- \
+    "https://${COORDINATOR}:8281/druid/indexer/v1/task" < ingestion_spec.json
+  # end::submit-job[]
 }
 
 echo "Submitting job"
 task_id=$(submit_job | sed -e 's/.*":"\([^"]\+\).*/\1/g')
 
 request_job_status() {
-  curl -s -k "https://localhost:9088/druid/indexer/v1/task/${task_id}/status" | sed -e 's/.*statusCode":"\([^"]\+\).*/\1/g'
+  kubectl exec simple-druid-coordinator-default-0 -- \
+    curl -s -k "https://${COORDINATOR}:8281/druid/indexer/v1/task/${task_id}/status" \
+  | sed -e 's/.*statusCode":"\([^"]\+\).*/\1/g'
 }
 
 while [ "$(request_job_status)" == "RUNNING" ]; do
   echo "Task still running..."
-  sleep 5
+  sleep 10
 done
 
 task_status=$(request_job_status)
@@ -170,18 +173,22 @@ else
 fi
 
 segment_load_status() {
- curl -s -k https://localhost:9088/druid/coordinator/v1/loadstatus | sed -e 's/.*wikipedia":\([0-9\.]\+\).*/\1/g'
+  kubectl exec simple-druid-coordinator-default-0 -- \
+    curl -s -k "https://${COORDINATOR}:8281/druid/coordinator/v1/loadstatus" \
+  | sed -e 's/.*wikipedia":\([0-9\.]\+\).*/\1/g'
 }
 
 while [ "$(segment_load_status)" != "100.0" ]; do
   echo "Segments still loading..."
-  sleep 5
+  sleep 10
 done
 
 query_data() {
-# tag::query-data[]
-curl -s -k -X 'POST' -H 'Content-Type:application/json' -d @query.json https://localhost:9088/druid/v2/sql
-# end::query-data[]
+  # tag::query-data[]
+  kubectl exec simple-druid-broker-default-0 -i -- \
+    curl -s -k -X POST -H 'Content-Type:application/json' --data-binary @- \
+    "https://${BROKER}:8282/druid/v2/sql" < query.json
+  # end::query-data[]
 }
 
 echo "Querying data..."
