@@ -9661,7 +9661,7 @@ rec {
       };
       "stackable-druid-operator" = rec {
         crateName = "stackable-druid-operator";
-        version = "0.0.0-dev";
+        version = "26.3.0-rc1";
         edition = "2021";
         crateBin = [
           {
