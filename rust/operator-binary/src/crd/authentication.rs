@@ -701,12 +701,12 @@ zookeeperConfigMapName: zk-config-map
                     .cloned()
                     .ok_or_else(|| stackable_operator::client::Error::ListResources {
                         source: kube::Error::Api(Box::new(kube::core::Status {
-                            status: None,
                             code: 404,
-                            message: "AuthenticationClass not found".to_owned(),
-                            metadata: None,
-                            reason: "NotFound".to_owned(),
+                            message: "AuthenticationClass not found".into(),
+                            reason: "NotFound".into(),
+                            status: Some(kube::core::response::StatusSummary::Failure),
                             details: None,
+                            metadata: Default::default(),
                         })),
                     })
             })
