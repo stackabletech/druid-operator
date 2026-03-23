@@ -63,6 +63,18 @@ fn add_authenticator_config(
         "druid.auth.pac4j.oidc.scope".to_string(),
         Some(scopes.join(" ")),
     );
+
+    // Serialize the enum to get the snake_case string representation
+    let method_string =
+        serde_json::to_value(oidc.client_authentication_method).expect("serializing ClientAuthenticationMethod to string");
+    let method_string = method_string
+        .as_str()
+        .expect("ClientAuthenticationMethod should serialize to a string");
+    config.insert(
+        "druid.auth.pac4j.oidc.clientAuthenticationMethod".to_string(),
+        Some(method_string.to_string()),
+    );
+
     config.insert(
         "druid.auth.authenticatorChain".to_string(),
         Some(r#"["DruidSystemAuthenticator", "Oidc"]"#.to_string()),
@@ -184,11 +196,12 @@ mod tests {
             },
             "preferred_username".to_owned(),
             vec!["openid".to_owned()],
-            None,
+            Some(oidc::v1alpha1::IdentityProviderHint::Keycloak),
         );
         let oidc = oidc::v1alpha1::ClientAuthenticationOptions {
             client_credentials_secret_ref: "nifi-keycloak-client".to_owned(),
             extra_scopes: vec![],
+            client_authentication_method: oidc::v1alpha1::ClientAuthenticationMethod::ClientSecretPost,
             product_specific_fields: (),
         };
 
@@ -223,6 +236,10 @@ mod tests {
             ))
         );
 
+        assert_eq!(
+            properties.get("druid.auth.pac4j.oidc.clientAuthenticationMethod"),
+            Some(&Some("client_secret_post".to_owned()))
+        );
         assert!(properties.contains_key("druid.auth.pac4j.oidc.clientID"));
         assert!(properties.contains_key("druid.auth.pac4j.oidc.clientSecret"));
         assert!(properties.contains_key("druid.auth.pac4j.cookiePassphrase"));
