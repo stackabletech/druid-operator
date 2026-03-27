@@ -6,7 +6,7 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
-- Helm deployed RBAC permissions documented, with unnecessary permissions removed ([#810]).
+- Document Helm deployed RBAC permissions and remove unnecessary permissions ([#810]).
 
 - [#810]: https://github.com/stackabletech/druid-operator/pull/810
 
