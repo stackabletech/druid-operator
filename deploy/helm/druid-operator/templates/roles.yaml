@@ -178,16 +178,6 @@ metadata:
   labels:
   {{- include "operator.labels" . | nindent 4 }}
 rules:
-  # Druid reads its own configuration (ConfigMaps), credentials (Secrets), and service account
-  # token (ServiceAccount) at runtime from within the pod.
-  - apiGroups:
-      - ""
-    resources:
-      - configmaps
-      - secrets
-      - serviceaccounts
-    verbs:
-      - get
   # Allows Druid pods to emit Kubernetes events (e.g. for lifecycle notifications).
   - apiGroups:
       - events.k8s.io
