@@ -6,21 +6,16 @@ metadata:
   labels:
   {{- include "operator.labels" . | nindent 4 }}
 rules:
-  # For automatic cluster domain detection: the operator fetches the kubelet config from
-  # /api/v1/nodes/{name}/proxy/configz to read clusterDomain. The node name is provided
-  # via the downward API (KUBERNETES_NODE_NAME env var) so no list/watch on nodes is needed.
+  # For automatic cluster domain detection
   - apiGroups:
       - ""
     resources:
       - nodes/proxy
     verbs:
       - get
-  # Manage core workload resources created per DruidCluster.
-  # Applied via Server-Side Apply (create + patch) and tracked for orphan cleanup (list + delete).
-  # get is also required: when reconciliation is paused the framework calls client.get() instead
-  # of apply_patch(). Both types are owned by the controller (.owns()) and therefore also need watch.
-  # - configmaps: role-group config maps and discovery config maps
-  # - services: headless and metrics services per role group
+  # Manage core workload resources created per AirflowCluster.
+  # All resources are applied via Server-Side Apply (create + patch) and tracked for
+  # orphan cleanup (list + delete).
   - apiGroups:
       - ""
     resources:
@@ -34,8 +29,7 @@ rules:
       - patch
       - watch
   # Shared internal authentication secret (cookie passphrase and internal client password).
-  # Managed directly via client.apply_patch() / client.delete() in internal_secret.rs —
-  # not via ClusterResources — so list and watch are not needed.
+  # Orphan cleanup not needed (instead, Kubernetes GC via owner reference).
   - apiGroups:
       - ""
     resources:
@@ -79,7 +73,7 @@ rules:
     resourceNames:
       - {{ include "operator.name" . }}-clusterrole
   # StatefulSet created per role group. Applied via SSA, tracked for orphan cleanup, and
-  # owned by the controller (.owns()), so watch is also required.
+  # owned by the controller.
   - apiGroups:
       - apps
     resources:
@@ -120,7 +114,7 @@ rules:
       - list
       - watch
   # Listener created per role group for external access. Applied via SSA and tracked for orphan
-  # cleanup. Not watched by the controller (no .owns() or .watches() on Listener in main.rs).
+  # cleanup.
   - apiGroups:
       - listeners.stackable.tech
     resources:
@@ -140,8 +134,6 @@ rules:
       - create
       - patch
   # Primary CRD: watched by Controller::new() and read during reconciliation.
-  # The operator only modifies the status subresource (see druiddclusters/status below),
-  # so patch on the main object is not needed.
   - apiGroups:
       - {{ include "operator.name" . }}.stackable.tech
     resources:
@@ -150,7 +142,7 @@ rules:
       - get
       - list
       - watch
-  # Status subresource: updated at the end of every reconciliation via apply_patch_status().
+  # Status subresource: updated at the end of every reconciliation.
   - apiGroups:
       - {{ include "operator.name" . }}.stackable.tech
     resources:
@@ -177,6 +169,8 @@ rules:
       - list
       - watch
 ---
+# Product ClusterRole: bound (via per DruidCluster RoleBinding) to the ServiceAccount that Druid
+# workload pods (webserver, scheduler, worker, triggerer, dag-processor) run as.
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
