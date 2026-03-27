@@ -1,6 +1,6 @@
 ---
 # Product ClusterRole: bound (via per DruidCluster RoleBinding) to the ServiceAccount that Druid
-# workload pods (webserver, scheduler, worker, triggerer, dag-processor) run as.
+# workload pods (brokers, coordinators, historicals, middleManagers, routers) run as.
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
