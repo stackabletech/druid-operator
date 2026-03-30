@@ -13,7 +13,7 @@ rules:
       - nodes/proxy
     verbs:
       - get
-  # Manage core workload resources created per AirflowCluster.
+  # Manage core workload resources created per DruidCluster.
   # All resources are applied via Server-Side Apply (create + patch) and tracked for
   # orphan cleanup (list + delete).
   - apiGroups:
