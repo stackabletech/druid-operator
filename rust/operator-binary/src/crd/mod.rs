@@ -18,7 +18,8 @@ use stackable_operator::{
         fragment::{self, Fragment, FromFragment, ValidationError},
         merge::Merge,
     },
-    crd::{authentication::core, s3},
+    config_overrides::{KeyValueConfigOverrides, KeyValueOverridesProvider},
+    crd::{authentication::{core, oidc}, s3},
     deep_merger::ObjectOverrides,
     k8s_openapi::api::core::v1::{PodTemplateSpec, Volume},
     kube::{CustomResource, ResourceExt},
@@ -44,7 +45,6 @@ use crate::crd::{
     authorization::DruidAuthorization,
     resource::RoleResource,
     tls::{DruidTls, default_druid_tls},
-    v1alpha1::DruidRoleConfig,
 };
 
 pub mod affinity;
@@ -152,6 +152,58 @@ const DEFAULT_MIDDLE_SECRET_LIFETIME: Duration = Duration::from_days_unchecked(1
 const DEFAULT_ROUTER_SECRET_LIFETIME: Duration = Duration::from_days_unchecked(1);
 const DEFAULT_HISTORICAL_SECRET_LIFETIME: Duration = Duration::from_days_unchecked(1);
 
+/// Typed config override strategies for Druid config files.
+#[derive(Clone, Debug, Default, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DruidConfigOverrides {
+    /// Overrides for the `runtime.properties` file.
+    #[serde(
+        default,
+        rename = "runtime.properties",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub runtime_properties: Option<KeyValueConfigOverrides>,
+
+    /// Overrides for the `jvm.config` file.
+    #[serde(
+        default,
+        rename = "jvm.config",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub jvm_config: Option<KeyValueConfigOverrides>,
+
+    /// Overrides for the `security.properties` file.
+    #[serde(
+        default,
+        rename = "security.properties",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub security_properties: Option<KeyValueConfigOverrides>,
+}
+
+impl KeyValueOverridesProvider for DruidConfigOverrides {
+    fn get_key_value_overrides(&self, file: &str) -> BTreeMap<String, Option<String>> {
+        match file {
+            RUNTIME_PROPS => self
+                .runtime_properties
+                .as_ref()
+                .map(KeyValueConfigOverrides::as_product_config_overrides)
+                .unwrap_or_default(),
+            JVM_CONFIG => self
+                .jvm_config
+                .as_ref()
+                .map(KeyValueConfigOverrides::as_product_config_overrides)
+                .unwrap_or_default(),
+            JVM_SECURITY_PROPERTIES_FILE => self
+                .security_properties
+                .as_ref()
+                .map(KeyValueConfigOverrides::as_product_config_overrides)
+                .unwrap_or_default(),
+            _ => BTreeMap::new(),
+        }
+    }
+}
+
 #[derive(Snafu, Debug, EnumDiscriminants)]
 #[strum_discriminants(derive(IntoStaticStr))]
 #[allow(clippy::enum_variant_names)]
@@ -229,19 +281,19 @@ pub mod versioned {
         pub image: ProductImage,
 
         // no doc - docs provided by the struct.
-        pub brokers: Role<BrokerConfigFragment, DruidRoleConfig, JavaCommonConfig>,
+        pub brokers: Role<BrokerConfigFragment, DruidConfigOverrides, DruidRoleConfig, JavaCommonConfig>,
 
         // no doc - docs provided by the struct.
-        pub coordinators: Role<CoordinatorConfigFragment, DruidRoleConfig, JavaCommonConfig>,
+        pub coordinators: Role<CoordinatorConfigFragment, DruidConfigOverrides, DruidRoleConfig, JavaCommonConfig>,
 
         // no doc - docs provided by the struct.
-        pub historicals: Role<HistoricalConfigFragment, GenericRoleConfig, JavaCommonConfig>,
+        pub historicals: Role<HistoricalConfigFragment, DruidConfigOverrides, GenericRoleConfig, JavaCommonConfig>,
 
         // no doc - docs provided by the struct.
-        pub middle_managers: Role<MiddleManagerConfigFragment, GenericRoleConfig, JavaCommonConfig>,
+        pub middle_managers: Role<MiddleManagerConfigFragment, DruidConfigOverrides, GenericRoleConfig, JavaCommonConfig>,
 
         // no doc - docs provided by the struct.
-        pub routers: Role<RouterConfigFragment, DruidRoleConfig, JavaCommonConfig>,
+        pub routers: Role<RouterConfigFragment, DruidConfigOverrides, DruidRoleConfig, JavaCommonConfig>,
 
         // no doc - docs provided by the struct.
         #[serde(default)]
@@ -270,7 +322,7 @@ pub mod versioned {
         /// For TLS: Please note that the SecretClass used to authenticate users needs to be the same
         /// as the SecretClass used for internal communication.
         #[serde(default)]
-        pub authentication: Vec<core::v1alpha1::ClientAuthenticationDetails>,
+        pub authentication: Vec<core::v1alpha1::ClientAuthenticationDetails<oidc::v1alpha1::ClientAuthenticationMethodOption>>,
 
         /// Authorization settings for Druid like OPA
         #[serde(skip_serializing_if = "Option::is_none")]
@@ -318,7 +370,7 @@ pub mod versioned {
     #[serde(rename_all = "camelCase")]
     pub struct DruidRoleConfig {
         #[serde(flatten)]
-        pub common: GenericRoleConfig,
+        pub generic: GenericRoleConfig,
 
         #[serde(default = "druid_default_listener_class")]
         pub listener_class: String,
@@ -421,6 +473,7 @@ impl v1alpha1::DruidCluster {
             Vec<PropertyNameKind>,
             Role<
                 impl Configuration<Configurable = v1alpha1::DruidCluster>,
+                DruidConfigOverrides,
                 GenericRoleConfig,
                 JavaCommonConfig,
             >,
@@ -602,9 +655,9 @@ impl v1alpha1::DruidCluster {
 
     /// Merges and validates the role groups of the given role with the given default configuration
     fn merged_role<T>(
-        role: &Role<T::Fragment, GenericRoleConfig, JavaCommonConfig>,
+        role: &Role<T::Fragment, DruidConfigOverrides, GenericRoleConfig, JavaCommonConfig>,
         default_config: &T::Fragment,
-    ) -> Result<HashMap<String, RoleGroup<T, JavaCommonConfig>>, Error>
+    ) -> Result<HashMap<String, RoleGroup<T, JavaCommonConfig, DruidConfigOverrides>>, Error>
     where
         T: FromFragment,
         T::Fragment: Clone + Merge,
@@ -625,10 +678,10 @@ impl v1alpha1::DruidCluster {
 
     /// Merges and validates the given role group with the given role and default configurations
     fn merged_rolegroup<T>(
-        rolegroup: &RoleGroup<T::Fragment, JavaCommonConfig>,
+        rolegroup: &RoleGroup<T::Fragment, JavaCommonConfig, DruidConfigOverrides>,
         role_config: &T::Fragment,
         default_config: &T::Fragment,
-    ) -> Result<RoleGroup<T, JavaCommonConfig>, Error>
+    ) -> Result<RoleGroup<T, JavaCommonConfig, DruidConfigOverrides>, Error>
     where
         T: FromFragment,
         T::Fragment: Clone + Merge,
@@ -656,11 +709,11 @@ impl v1alpha1::DruidCluster {
 
     pub fn generic_role_config(&self, role: &DruidRole) -> &GenericRoleConfig {
         match role {
-            DruidRole::Broker => &self.spec.brokers.role_config.common,
-            DruidRole::Coordinator => &self.spec.coordinators.role_config.common,
+            DruidRole::Broker => &self.spec.brokers.role_config.generic,
+            DruidRole::Coordinator => &self.spec.coordinators.role_config.generic,
             DruidRole::Historical => &self.spec.historicals.role_config,
             DruidRole::MiddleManager => &self.spec.middle_managers.role_config,
-            DruidRole::Router => &self.spec.routers.role_config.common,
+            DruidRole::Router => &self.spec.routers.role_config.generic,
         }
     }
 
@@ -688,6 +741,7 @@ impl v1alpha1::DruidCluster {
         druid_role: &DruidRole,
     ) -> Role<
         impl Configuration<Configurable = v1alpha1::DruidCluster>,
+        DruidConfigOverrides,
         GenericRoleConfig,
         JavaCommonConfig,
     > {
@@ -795,15 +849,15 @@ pub struct CommonRoleGroupConfig {
 /// configuration is not applied.
 pub struct MergedConfig {
     /// Merged configuration of the broker role
-    pub brokers: HashMap<String, RoleGroup<BrokerConfig, JavaCommonConfig>>,
+    pub brokers: HashMap<String, RoleGroup<BrokerConfig, JavaCommonConfig, DruidConfigOverrides>>,
     /// Merged configuration of the coordinator role
-    pub coordinators: HashMap<String, RoleGroup<CoordinatorConfig, JavaCommonConfig>>,
+    pub coordinators: HashMap<String, RoleGroup<CoordinatorConfig, JavaCommonConfig, DruidConfigOverrides>>,
     /// Merged configuration of the historical role
-    pub historicals: HashMap<String, RoleGroup<HistoricalConfig, JavaCommonConfig>>,
+    pub historicals: HashMap<String, RoleGroup<HistoricalConfig, JavaCommonConfig, DruidConfigOverrides>>,
     /// Merged configuration of the middle manager role
-    pub middle_managers: HashMap<String, RoleGroup<MiddleManagerConfig, JavaCommonConfig>>,
+    pub middle_managers: HashMap<String, RoleGroup<MiddleManagerConfig, JavaCommonConfig, DruidConfigOverrides>>,
     /// Merged configuration of the router role
-    pub routers: HashMap<String, RoleGroup<RouterConfig, JavaCommonConfig>>,
+    pub routers: HashMap<String, RoleGroup<RouterConfig, JavaCommonConfig, DruidConfigOverrides>>,
 }
 
 impl MergedConfig {
@@ -914,7 +968,7 @@ impl Default for v1alpha1::DruidRoleConfig {
     fn default() -> Self {
         v1alpha1::DruidRoleConfig {
             listener_class: druid_default_listener_class(),
-            common: Default::default(),
+            generic: Default::default(),
         }
     }
 }
@@ -1607,8 +1661,8 @@ pub fn build_recommended_labels<'a, T>(
 }
 
 fn extract_role_from_role_config<T>(
-    fragment: Role<T::Fragment, DruidRoleConfig, JavaCommonConfig>,
-) -> Role<T::Fragment, GenericRoleConfig, JavaCommonConfig>
+    fragment: Role<T::Fragment, DruidConfigOverrides, v1alpha1::DruidRoleConfig, JavaCommonConfig>,
+) -> Role<T::Fragment, DruidConfigOverrides, GenericRoleConfig, JavaCommonConfig>
 where
     T: FromFragment,
     T::Fragment: Clone + Merge,
@@ -1622,7 +1676,7 @@ where
             pod_overrides: fragment.config.pod_overrides,
             product_specific_common_config: fragment.config.product_specific_common_config,
         },
-        role_config: fragment.role_config.common,
+        role_config: fragment.role_config.generic,
         role_groups: fragment
             .role_groups
             .into_iter()

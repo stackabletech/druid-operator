@@ -90,7 +90,7 @@ fn build_discovery_configmap(
                 .with_context(|_| ObjectMissingMetadataForOwnerRefSnafu {
                     druid: ObjectRef::from_obj(druid),
                 })?
-                .with_recommended_labels(build_recommended_labels(
+                .with_recommended_labels(&build_recommended_labels(
                     druid,
                     DRUID_CONTROLLER_NAME,
                     &resolved_product_image.app_version_label_value,

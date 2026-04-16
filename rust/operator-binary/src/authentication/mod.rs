@@ -58,7 +58,7 @@ pub enum DruidAuthenticationConfig {
     },
     Oidc {
         provider: authentication::oidc::v1alpha1::AuthenticationProvider,
-        oidc: authentication::oidc::v1alpha1::ClientAuthenticationOptions,
+        oidc: oidc::DruidClientAuthenticationOptions,
     },
 }
 

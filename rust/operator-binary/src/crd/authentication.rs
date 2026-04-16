@@ -85,7 +85,7 @@ pub enum AuthenticationClassResolved {
     Oidc {
         auth_class_name: String,
         provider: oidc::v1alpha1::AuthenticationProvider,
-        oidc: oidc::v1alpha1::ClientAuthenticationOptions<()>,
+        oidc: crate::authentication::oidc::DruidClientAuthenticationOptions,
     },
 }
 
@@ -94,7 +94,7 @@ impl AuthenticationClassesResolved {
         cluster_config: &DruidClusterConfig,
         client: &Client,
     ) -> Result<AuthenticationClassesResolved> {
-        let resolve_auth_class = |auth_details: core::v1alpha1::ClientAuthenticationDetails| async move {
+        let resolve_auth_class = |auth_details: core::v1alpha1::ClientAuthenticationDetails<oidc::v1alpha1::ClientAuthenticationMethodOption>| async move {
             auth_details.resolve_class(client).await
         };
         AuthenticationClassesResolved::resolve(cluster_config, resolve_auth_class).await
@@ -103,7 +103,7 @@ impl AuthenticationClassesResolved {
     /// Retrieves all provided `AuthenticationClass` references and checks if the configuration (TLS settings, secret class, OIDC config, etc.) is valid.
     pub async fn resolve<R>(
         cluster_config: &DruidClusterConfig,
-        resolve_auth_class: impl Fn(core::v1alpha1::ClientAuthenticationDetails) -> R,
+        resolve_auth_class: impl Fn(core::v1alpha1::ClientAuthenticationDetails<oidc::v1alpha1::ClientAuthenticationMethodOption>) -> R,
     ) -> Result<AuthenticationClassesResolved>
     where
         R: Future<
@@ -192,7 +192,7 @@ impl AuthenticationClassesResolved {
     fn from_oidc(
         auth_class_name: &str,
         provider: &oidc::v1alpha1::AuthenticationProvider,
-        auth_details: &core::v1alpha1::ClientAuthenticationDetails,
+        auth_details: &core::v1alpha1::ClientAuthenticationDetails<oidc::v1alpha1::ClientAuthenticationMethodOption>,
     ) -> Result<AuthenticationClassResolved> {
         let oidc_provider = match &provider.provider_hint {
             None => {
@@ -239,8 +239,9 @@ mod tests {
     use std::pin::Pin;
 
     use indoc::{formatdoc, indoc};
-    use oidc::v1alpha1::ClientAuthenticationOptions;
     use stackable_operator::kube;
+
+    use crate::authentication::oidc::DruidClientAuthenticationOptions;
 
     use super::*;
     use crate::crd::{authentication::AuthenticationClassesResolved, v1alpha1::DruidClusterConfig};
@@ -340,7 +341,7 @@ zookeeperConfigMapName: zk-config-map
                         "
                     )
                     .unwrap(),
-                    oidc: serde_yaml::from_str::<ClientAuthenticationOptions>(
+                    oidc: serde_yaml::from_str::<DruidClientAuthenticationOptions>(
                         "
                         clientCredentialsSecret: oidc-client-credentials
                         "
@@ -678,7 +679,7 @@ zookeeperConfigMapName: zk-config-map
     fn create_auth_class_resolver(
         auth_classes: Vec<core::v1alpha1::AuthenticationClass>,
     ) -> impl Fn(
-        core::v1alpha1::ClientAuthenticationDetails,
+        core::v1alpha1::ClientAuthenticationDetails<oidc::v1alpha1::ClientAuthenticationMethodOption>,
     ) -> Pin<
         Box<
             dyn Future<
@@ -689,7 +690,7 @@ zookeeperConfigMapName: zk-config-map
             >,
         >,
     > {
-        move |auth_details: core::v1alpha1::ClientAuthenticationDetails| {
+        move |auth_details: core::v1alpha1::ClientAuthenticationDetails<oidc::v1alpha1::ClientAuthenticationMethodOption>| {
             let auth_classes = auth_classes.clone();
             Box::pin(async move {
                 auth_classes

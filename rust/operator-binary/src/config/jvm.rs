@@ -6,8 +6,8 @@ use stackable_operator::{
 };
 
 use crate::crd::{
-    DruidRole, JVM_SECURITY_PROPERTIES_FILE, LOG4J2_CONFIG, RW_CONFIG_DIRECTORY,
-    STACKABLE_TRUST_STORE, STACKABLE_TRUST_STORE_PASSWORD,
+    DruidConfigOverrides, DruidRole, JVM_SECURITY_PROPERTIES_FILE, LOG4J2_CONFIG,
+    RW_CONFIG_DIRECTORY, STACKABLE_TRUST_STORE, STACKABLE_TRUST_STORE_PASSWORD,
 };
 
 #[derive(Snafu, Debug)]
@@ -26,7 +26,7 @@ pub enum Error {
 /// management is far more advanced in this operator.
 pub fn construct_jvm_args<T>(
     druid_role: &DruidRole,
-    role: &Role<T, GenericRoleConfig, JavaCommonConfig>,
+    role: &Role<T, DruidConfigOverrides, GenericRoleConfig, JavaCommonConfig>,
     role_group: &str,
     heap: MemoryQuantity,
     direct_memory: Option<MemoryQuantity>,

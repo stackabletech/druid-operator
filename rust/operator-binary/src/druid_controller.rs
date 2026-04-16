@@ -436,7 +436,7 @@ pub async fn reconcile_druid(
     {
         Some(
             opa_config
-                .full_document_url_from_config_map(client, druid, Some("allow"), OpaApiVersion::V1)
+                .full_document_url_from_config_map(client, druid, Some("allow"), &OpaApiVersion::V1)
                 .await
                 .context(GetOpaConnStringSnafu {
                     cm_name: opa_config.config_map_name.clone(),
@@ -476,7 +476,7 @@ pub async fn reconcile_druid(
     let druid_auth_config = DruidAuthenticationConfig::try_from(resolved_auth_classes)
         .context(InvalidDruidAuthenticationConfigSnafu)?;
 
-    let role_config = transform_all_roles_to_config(druid, druid.build_role_properties());
+    let role_config = transform_all_roles_to_config(druid, &druid.build_role_properties());
     let validated_role_config = validate_all_roles_and_groups_config(
         &resolved_product_image.product_version,
         &role_config.context(ProductConfigTransformSnafu)?,
@@ -866,7 +866,7 @@ fn build_rolegroup_config_map(
             .name(rolegroup.object_name())
             .ownerreference_from_resource(druid, None, Some(true))
             .context(ObjectMissingMetadataForOwnerRefSnafu)?
-            .with_recommended_labels(build_recommended_labels(
+            .with_recommended_labels(&build_recommended_labels(
                 druid,
                 DRUID_CONTROLLER_NAME,
                 &resolved_product_image.app_version_label_value,
@@ -1124,7 +1124,7 @@ fn build_rolegroup_statefulset(
             .context(AddVolumeMountSnafu)?;
 
         // Used for PVC templates that cannot be modified once they are deployed
-        let unversioned_recommended_labels = Labels::recommended(build_recommended_labels(
+        let unversioned_recommended_labels = Labels::recommended(&build_recommended_labels(
             druid,
             DRUID_CONTROLLER_NAME,
             // A version value is required, and we do want to use the "recommended" format for the other desired labels
@@ -1141,7 +1141,7 @@ fn build_rolegroup_statefulset(
     }
 
     let metadata = ObjectMetaBuilder::new()
-        .with_recommended_labels(build_recommended_labels(
+        .with_recommended_labels(&build_recommended_labels(
             druid,
             DRUID_CONTROLLER_NAME,
             &resolved_product_image.app_version_label_value,
@@ -1200,7 +1200,7 @@ fn build_rolegroup_statefulset(
             .name(rolegroup_ref.object_name())
             .ownerreference_from_resource(druid, None, Some(true))
             .context(ObjectMissingMetadataForOwnerRefSnafu)?
-            .with_recommended_labels(build_recommended_labels(
+            .with_recommended_labels(&build_recommended_labels(
                 druid,
                 DRUID_CONTROLLER_NAME,
                 &resolved_product_image.app_version_label_value,
@@ -1423,7 +1423,7 @@ mod test {
             .image
             .resolve(DOCKER_IMAGE_BASE_NAME, crate::built_info::PKG_VERSION)
             .expect("test: resolved product image is always valid");
-        let role_config = transform_all_roles_to_config(&druid, druid.build_role_properties());
+        let role_config = transform_all_roles_to_config(&druid, &druid.build_role_properties());
 
         let product_config_manager =
             ProductConfigManager::from_yaml_file("test/resources/druid_controller/properties.yaml")
