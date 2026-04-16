@@ -19,7 +19,10 @@ use stackable_operator::{
         merge::Merge,
     },
     config_overrides::{KeyValueConfigOverrides, KeyValueOverridesProvider},
-    crd::{authentication::{core, oidc}, s3},
+    crd::{
+        authentication::{core, oidc},
+        s3,
+    },
     deep_merger::ObjectOverrides,
     k8s_openapi::api::core::v1::{PodTemplateSpec, Volume},
     kube::{CustomResource, ResourceExt},
@@ -281,19 +284,36 @@ pub mod versioned {
         pub image: ProductImage,
 
         // no doc - docs provided by the struct.
-        pub brokers: Role<BrokerConfigFragment, DruidConfigOverrides, DruidRoleConfig, JavaCommonConfig>,
+        pub brokers:
+            Role<BrokerConfigFragment, DruidConfigOverrides, DruidRoleConfig, JavaCommonConfig>,
 
         // no doc - docs provided by the struct.
-        pub coordinators: Role<CoordinatorConfigFragment, DruidConfigOverrides, DruidRoleConfig, JavaCommonConfig>,
+        pub coordinators: Role<
+            CoordinatorConfigFragment,
+            DruidConfigOverrides,
+            DruidRoleConfig,
+            JavaCommonConfig,
+        >,
 
         // no doc - docs provided by the struct.
-        pub historicals: Role<HistoricalConfigFragment, DruidConfigOverrides, GenericRoleConfig, JavaCommonConfig>,
+        pub historicals: Role<
+            HistoricalConfigFragment,
+            DruidConfigOverrides,
+            GenericRoleConfig,
+            JavaCommonConfig,
+        >,
 
         // no doc - docs provided by the struct.
-        pub middle_managers: Role<MiddleManagerConfigFragment, DruidConfigOverrides, GenericRoleConfig, JavaCommonConfig>,
+        pub middle_managers: Role<
+            MiddleManagerConfigFragment,
+            DruidConfigOverrides,
+            GenericRoleConfig,
+            JavaCommonConfig,
+        >,
 
         // no doc - docs provided by the struct.
-        pub routers: Role<RouterConfigFragment, DruidConfigOverrides, DruidRoleConfig, JavaCommonConfig>,
+        pub routers:
+            Role<RouterConfigFragment, DruidConfigOverrides, DruidRoleConfig, JavaCommonConfig>,
 
         // no doc - docs provided by the struct.
         #[serde(default)]
@@ -322,7 +342,11 @@ pub mod versioned {
         /// For TLS: Please note that the SecretClass used to authenticate users needs to be the same
         /// as the SecretClass used for internal communication.
         #[serde(default)]
-        pub authentication: Vec<core::v1alpha1::ClientAuthenticationDetails<oidc::v1alpha1::ClientAuthenticationMethodOption>>,
+        pub authentication: Vec<
+            core::v1alpha1::ClientAuthenticationDetails<
+                oidc::v1alpha1::ClientAuthenticationMethodOption,
+            >,
+        >,
 
         /// Authorization settings for Druid like OPA
         #[serde(skip_serializing_if = "Option::is_none")]
@@ -851,11 +875,14 @@ pub struct MergedConfig {
     /// Merged configuration of the broker role
     pub brokers: HashMap<String, RoleGroup<BrokerConfig, JavaCommonConfig, DruidConfigOverrides>>,
     /// Merged configuration of the coordinator role
-    pub coordinators: HashMap<String, RoleGroup<CoordinatorConfig, JavaCommonConfig, DruidConfigOverrides>>,
+    pub coordinators:
+        HashMap<String, RoleGroup<CoordinatorConfig, JavaCommonConfig, DruidConfigOverrides>>,
     /// Merged configuration of the historical role
-    pub historicals: HashMap<String, RoleGroup<HistoricalConfig, JavaCommonConfig, DruidConfigOverrides>>,
+    pub historicals:
+        HashMap<String, RoleGroup<HistoricalConfig, JavaCommonConfig, DruidConfigOverrides>>,
     /// Merged configuration of the middle manager role
-    pub middle_managers: HashMap<String, RoleGroup<MiddleManagerConfig, JavaCommonConfig, DruidConfigOverrides>>,
+    pub middle_managers:
+        HashMap<String, RoleGroup<MiddleManagerConfig, JavaCommonConfig, DruidConfigOverrides>>,
     /// Merged configuration of the router role
     pub routers: HashMap<String, RoleGroup<RouterConfig, JavaCommonConfig, DruidConfigOverrides>>,
 }

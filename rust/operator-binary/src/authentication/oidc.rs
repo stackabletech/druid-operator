@@ -71,7 +71,8 @@ fn add_authenticator_config(
 
     // Serialize the enum to get the snake_case string representation
     let method_string =
-        serde_json::to_value(oidc.product_specific_fields.client_authentication_method).expect("serializing ClientAuthenticationMethod to string");
+        serde_json::to_value(oidc.product_specific_fields.client_authentication_method)
+            .expect("serializing ClientAuthenticationMethod to string");
     let method_string = method_string
         .as_str()
         .expect("ClientAuthenticationMethod should serialize to a string");
@@ -207,7 +208,8 @@ mod tests {
             client_credentials_secret_ref: "nifi-keycloak-client".to_owned(),
             extra_scopes: vec![],
             product_specific_fields: oidc::v1alpha1::ClientAuthenticationMethodOption {
-                client_authentication_method: oidc::v1alpha1::ClientAuthenticationMethod::ClientSecretPost,
+                client_authentication_method:
+                    oidc::v1alpha1::ClientAuthenticationMethod::ClientSecretPost,
             },
         };
 
