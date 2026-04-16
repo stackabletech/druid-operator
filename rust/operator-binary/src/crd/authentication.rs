@@ -247,10 +247,11 @@ mod tests {
     use indoc::{formatdoc, indoc};
     use stackable_operator::kube;
 
-    use crate::authentication::oidc::DruidClientAuthenticationOptions;
-
     use super::*;
-    use crate::crd::{authentication::AuthenticationClassesResolved, v1alpha1::DruidClusterConfig};
+    use crate::{
+        authentication::oidc::DruidClientAuthenticationOptions,
+        crd::{authentication::AuthenticationClassesResolved, v1alpha1::DruidClusterConfig},
+    };
 
     const BASE_CLUSTER_CONFIG: &str = r#"
 deepStorage:
