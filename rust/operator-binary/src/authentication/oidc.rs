@@ -69,13 +69,10 @@ fn add_authenticator_config(
         Some(scopes.join(" ")),
     );
 
-    // Serialize the enum to get the snake_case string representation
-    let method_string =
-        serde_json::to_value(oidc.product_specific_fields.client_authentication_method)
-            .expect("serializing ClientAuthenticationMethod to string");
-    let method_string = method_string
-        .as_str()
-        .expect("ClientAuthenticationMethod should serialize to a string");
+    let method_string = oidc
+        .product_specific_fields
+        .client_authentication_method
+        .as_ref();
     config.insert(
         "druid.auth.pac4j.oidc.clientAuthenticationMethod".to_string(),
         Some(method_string.to_string()),
