@@ -14,8 +14,8 @@ All notable changes to this project will be documented in this file.
 - Bump `stackable-operator` to 0.110.0 and `kube` to 3.1.0 ([#813]).
 - Document Helm deployed RBAC permissions and remove unnecessary permissions ([#810]).
 
-[#813]: https://github.com/stackabletech/druid-operator/pull/813
 [#810]: https://github.com/stackabletech/druid-operator/pull/810
+[#813]: https://github.com/stackabletech/druid-operator/pull/813
 
 ## [26.3.0] - 2026-03-16
 
