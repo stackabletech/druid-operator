@@ -121,7 +121,7 @@ spec:
                                         type: string
                                     type: object
                                   custom:
-                                    description: Custom log configuration provided in a ConfigMap
+                                    description: Log configuration provided in a ConfigMap
                                     properties:
                                       configMap:
                                         description: ConfigMap containing the log configuration files
@@ -201,7 +201,7 @@ spec:
                                         type: string
                                     type: object
                                   custom:
-                                    description: Custom log configuration provided in a ConfigMap
+                                    description: Log configuration provided in a ConfigMap
                                     properties:
                                       configMap:
                                         description: ConfigMap containing the log configuration files
@@ -281,7 +281,7 @@ spec:
                                         type: string
                                     type: object
                                   custom:
-                                    description: Custom log configuration provided in a ConfigMap
+                                    description: Log configuration provided in a ConfigMap
                                     properties:
                                       configMap:
                                         description: ConfigMap containing the log configuration files
@@ -334,7 +334,7 @@ spec:
                                 type: object
                             type: object
                           enableVectorAgent:
-                            description: Wether or not to deploy a container with the Vector log agent.
+                            description: Whether or not to deploy a container with the Vector log agent.
                             nullable: true
                             type: boolean
                         type: object
@@ -403,17 +403,31 @@ spec:
                         type: object
                     type: object
                   configOverrides:
-                    additionalProperties:
-                      additionalProperties:
-                        type: string
-                      type: object
-                    default: {}
                     description: |-
                       The `configOverrides` can be used to configure properties in product config files
                       that are not exposed in the CRD. Read the
                       [config overrides documentation](https://docs.stackable.tech/home/nightly/concepts/overrides#config-overrides)
                       and consult the operator specific usage guide documentation for details on the
                       available config files and settings for the specific product.
+                    properties:
+                      jvm.config:
+                        additionalProperties:
+                          type: string
+                        description: Overrides for the `jvm.config` file.
+                        nullable: true
+                        type: object
+                      runtime.properties:
+                        additionalProperties:
+                          type: string
+                        description: Overrides for the `runtime.properties` file.
+                        nullable: true
+                        type: object
+                      security.properties:
+                        additionalProperties:
+                          type: string
+                        description: Overrides for the `security.properties` file.
+                        nullable: true
+                        type: object
                     type: object
                   envOverrides:
                     additionalProperties:
@@ -598,7 +612,7 @@ spec:
                                               type: string
                                           type: object
                                         custom:
-                                          description: Custom log configuration provided in a ConfigMap
+                                          description: Log configuration provided in a ConfigMap
                                           properties:
                                             configMap:
                                               description: ConfigMap containing the log configuration files
@@ -678,7 +692,7 @@ spec:
                                               type: string
                                           type: object
                                         custom:
-                                          description: Custom log configuration provided in a ConfigMap
+                                          description: Log configuration provided in a ConfigMap
                                           properties:
                                             configMap:
                                               description: ConfigMap containing the log configuration files
@@ -758,7 +772,7 @@ spec:
                                               type: string
                                           type: object
                                         custom:
-                                          description: Custom log configuration provided in a ConfigMap
+                                          description: Log configuration provided in a ConfigMap
                                           properties:
                                             configMap:
                                               description: ConfigMap containing the log configuration files
@@ -811,7 +825,7 @@ spec:
                                       type: object
                                   type: object
                                 enableVectorAgent:
-                                  description: Wether or not to deploy a container with the Vector log agent.
+                                  description: Whether or not to deploy a container with the Vector log agent.
                                   nullable: true
                                   type: boolean
                               type: object
@@ -880,17 +894,31 @@ spec:
                               type: object
                           type: object
                         configOverrides:
-                          additionalProperties:
-                            additionalProperties:
-                              type: string
-                            type: object
-                          default: {}
                           description: |-
                             The `configOverrides` can be used to configure properties in product config files
                             that are not exposed in the CRD. Read the
                             [config overrides documentation](https://docs.stackable.tech/home/nightly/concepts/overrides#config-overrides)
                             and consult the operator specific usage guide documentation for details on the
                             available config files and settings for the specific product.
+                          properties:
+                            jvm.config:
+                              additionalProperties:
+                                type: string
+                              description: Overrides for the `jvm.config` file.
+                              nullable: true
+                              type: object
+                            runtime.properties:
+                              additionalProperties:
+                                type: string
+                              description: Overrides for the `runtime.properties` file.
+                              nullable: true
+                              type: object
+                            security.properties:
+                              additionalProperties:
+                                type: string
+                              description: Overrides for the `security.properties` file.
+                              nullable: true
+                              type: object
                           type: object
                         envOverrides:
                           additionalProperties:
@@ -987,6 +1015,16 @@ spec:
                           description: This field contains OIDC-specific configuration. It is only required in case OIDC is used.
                           nullable: true
                           properties:
+                            clientAuthenticationMethod:
+                              default: client_secret_basic
+                              description: 'The client authentication method used when communicating with the token endpoint. Defaults to `client_secret_basic`. The required contents of `clientCredentialsSecret` depend on the chosen method: secret-based methods (`client_secret_basic`, `client_secret_post`, `client_secret_jwt`) expect a client secret, while `private_key_jwt` expects a private key.'
+                              enum:
+                              - client_secret_basic
+                              - client_secret_post
+                              - client_secret_jwt
+                              - private_key_jwt
+                              - none
+                              type: string
                             clientCredentialsSecret:
                               description: |-
                                 A reference to the OIDC client credentials secret. The secret contains
@@ -1617,7 +1655,7 @@ spec:
                                         type: string
                                     type: object
                                   custom:
-                                    description: Custom log configuration provided in a ConfigMap
+                                    description: Log configuration provided in a ConfigMap
                                     properties:
                                       configMap:
                                         description: ConfigMap containing the log configuration files
@@ -1697,7 +1735,7 @@ spec:
                                         type: string
                                     type: object
                                   custom:
-                                    description: Custom log configuration provided in a ConfigMap
+                                    description: Log configuration provided in a ConfigMap
                                     properties:
                                       configMap:
                                         description: ConfigMap containing the log configuration files
@@ -1777,7 +1815,7 @@ spec:
                                         type: string
                                     type: object
                                   custom:
-                                    description: Custom log configuration provided in a ConfigMap
+                                    description: Log configuration provided in a ConfigMap
                                     properties:
                                       configMap:
                                         description: ConfigMap containing the log configuration files
@@ -1830,7 +1868,7 @@ spec:
                                 type: object
                             type: object
                           enableVectorAgent:
-                            description: Wether or not to deploy a container with the Vector log agent.
+                            description: Whether or not to deploy a container with the Vector log agent.
                             nullable: true
                             type: boolean
                         type: object
@@ -1899,17 +1937,31 @@ spec:
                         type: object
                     type: object
                   configOverrides:
-                    additionalProperties:
-                      additionalProperties:
-                        type: string
-                      type: object
-                    default: {}
                     description: |-
                       The `configOverrides` can be used to configure properties in product config files
                       that are not exposed in the CRD. Read the
                       [config overrides documentation](https://docs.stackable.tech/home/nightly/concepts/overrides#config-overrides)
                       and consult the operator specific usage guide documentation for details on the
                       available config files and settings for the specific product.
+                    properties:
+                      jvm.config:
+                        additionalProperties:
+                          type: string
+                        description: Overrides for the `jvm.config` file.
+                        nullable: true
+                        type: object
+                      runtime.properties:
+                        additionalProperties:
+                          type: string
+                        description: Overrides for the `runtime.properties` file.
+                        nullable: true
+                        type: object
+                      security.properties:
+                        additionalProperties:
+                          type: string
+                        description: Overrides for the `security.properties` file.
+                        nullable: true
+                        type: object
                     type: object
                   envOverrides:
                     additionalProperties:
@@ -2094,7 +2146,7 @@ spec:
                                               type: string
                                           type: object
                                         custom:
-                                          description: Custom log configuration provided in a ConfigMap
+                                          description: Log configuration provided in a ConfigMap
                                           properties:
                                             configMap:
                                               description: ConfigMap containing the log configuration files
@@ -2174,7 +2226,7 @@ spec:
                                               type: string
                                           type: object
                                         custom:
-                                          description: Custom log configuration provided in a ConfigMap
+                                          description: Log configuration provided in a ConfigMap
                                           properties:
                                             configMap:
                                               description: ConfigMap containing the log configuration files
@@ -2254,7 +2306,7 @@ spec:
                                               type: string
                                           type: object
                                         custom:
-                                          description: Custom log configuration provided in a ConfigMap
+                                          description: Log configuration provided in a ConfigMap
                                           properties:
                                             configMap:
                                               description: ConfigMap containing the log configuration files
@@ -2307,7 +2359,7 @@ spec:
                                       type: object
                                   type: object
                                 enableVectorAgent:
-                                  description: Wether or not to deploy a container with the Vector log agent.
+                                  description: Whether or not to deploy a container with the Vector log agent.
                                   nullable: true
                                   type: boolean
                               type: object
@@ -2376,17 +2428,31 @@ spec:
                               type: object
                           type: object
                         configOverrides:
-                          additionalProperties:
-                            additionalProperties:
-                              type: string
-                            type: object
-                          default: {}
                           description: |-
                             The `configOverrides` can be used to configure properties in product config files
                             that are not exposed in the CRD. Read the
                             [config overrides documentation](https://docs.stackable.tech/home/nightly/concepts/overrides#config-overrides)
                             and consult the operator specific usage guide documentation for details on the
                             available config files and settings for the specific product.
+                          properties:
+                            jvm.config:
+                              additionalProperties:
+                                type: string
+                              description: Overrides for the `jvm.config` file.
+                              nullable: true
+                              type: object
+                            runtime.properties:
+                              additionalProperties:
+                                type: string
+                              description: Overrides for the `runtime.properties` file.
+                              nullable: true
+                              type: object
+                            security.properties:
+                              additionalProperties:
+                                type: string
+                              description: Overrides for the `security.properties` file.
+                              nullable: true
+                              type: object
                           type: object
                         envOverrides:
                           additionalProperties:
@@ -2546,7 +2612,7 @@ spec:
                                         type: string
                                     type: object
                                   custom:
-                                    description: Custom log configuration provided in a ConfigMap
+                                    description: Log configuration provided in a ConfigMap
                                     properties:
                                       configMap:
                                         description: ConfigMap containing the log configuration files
@@ -2626,7 +2692,7 @@ spec:
                                         type: string
                                     type: object
                                   custom:
-                                    description: Custom log configuration provided in a ConfigMap
+                                    description: Log configuration provided in a ConfigMap
                                     properties:
                                       configMap:
                                         description: ConfigMap containing the log configuration files
@@ -2706,7 +2772,7 @@ spec:
                                         type: string
                                     type: object
                                   custom:
-                                    description: Custom log configuration provided in a ConfigMap
+                                    description: Log configuration provided in a ConfigMap
                                     properties:
                                       configMap:
                                         description: ConfigMap containing the log configuration files
@@ -2759,7 +2825,7 @@ spec:
                                 type: object
                             type: object
                           enableVectorAgent:
-                            description: Wether or not to deploy a container with the Vector log agent.
+                            description: Whether or not to deploy a container with the Vector log agent.
                             nullable: true
                             type: boolean
                         type: object
@@ -2872,17 +2938,31 @@ spec:
                         type: object
                     type: object
                   configOverrides:
-                    additionalProperties:
-                      additionalProperties:
-                        type: string
-                      type: object
-                    default: {}
                     description: |-
                       The `configOverrides` can be used to configure properties in product config files
                       that are not exposed in the CRD. Read the
                       [config overrides documentation](https://docs.stackable.tech/home/nightly/concepts/overrides#config-overrides)
                       and consult the operator specific usage guide documentation for details on the
                       available config files and settings for the specific product.
+                    properties:
+                      jvm.config:
+                        additionalProperties:
+                          type: string
+                        description: Overrides for the `jvm.config` file.
+                        nullable: true
+                        type: object
+                      runtime.properties:
+                        additionalProperties:
+                          type: string
+                        description: Overrides for the `runtime.properties` file.
+                        nullable: true
+                        type: object
+                      security.properties:
+                        additionalProperties:
+                          type: string
+                        description: Overrides for the `security.properties` file.
+                        nullable: true
+                        type: object
                     type: object
                   envOverrides:
                     additionalProperties:
@@ -3063,7 +3143,7 @@ spec:
                                               type: string
                                           type: object
                                         custom:
-                                          description: Custom log configuration provided in a ConfigMap
+                                          description: Log configuration provided in a ConfigMap
                                           properties:
                                             configMap:
                                               description: ConfigMap containing the log configuration files
@@ -3143,7 +3223,7 @@ spec:
                                               type: string
                                           type: object
                                         custom:
-                                          description: Custom log configuration provided in a ConfigMap
+                                          description: Log configuration provided in a ConfigMap
                                           properties:
                                             configMap:
                                               description: ConfigMap containing the log configuration files
@@ -3223,7 +3303,7 @@ spec:
                                               type: string
                                           type: object
                                         custom:
-                                          description: Custom log configuration provided in a ConfigMap
+                                          description: Log configuration provided in a ConfigMap
                                           properties:
                                             configMap:
                                               description: ConfigMap containing the log configuration files
@@ -3276,7 +3356,7 @@ spec:
                                       type: object
                                   type: object
                                 enableVectorAgent:
-                                  description: Wether or not to deploy a container with the Vector log agent.
+                                  description: Whether or not to deploy a container with the Vector log agent.
                                   nullable: true
                                   type: boolean
                               type: object
@@ -3389,17 +3469,31 @@ spec:
                               type: object
                           type: object
                         configOverrides:
-                          additionalProperties:
-                            additionalProperties:
-                              type: string
-                            type: object
-                          default: {}
                           description: |-
                             The `configOverrides` can be used to configure properties in product config files
                             that are not exposed in the CRD. Read the
                             [config overrides documentation](https://docs.stackable.tech/home/nightly/concepts/overrides#config-overrides)
                             and consult the operator specific usage guide documentation for details on the
                             available config files and settings for the specific product.
+                          properties:
+                            jvm.config:
+                              additionalProperties:
+                                type: string
+                              description: Overrides for the `jvm.config` file.
+                              nullable: true
+                              type: object
+                            runtime.properties:
+                              additionalProperties:
+                                type: string
+                              description: Overrides for the `runtime.properties` file.
+                              nullable: true
+                              type: object
+                            security.properties:
+                              additionalProperties:
+                                type: string
+                              description: Overrides for the `security.properties` file.
+                              nullable: true
+                              type: object
                           type: object
                         envOverrides:
                           additionalProperties:
@@ -3615,7 +3709,7 @@ spec:
                                         type: string
                                     type: object
                                   custom:
-                                    description: Custom log configuration provided in a ConfigMap
+                                    description: Log configuration provided in a ConfigMap
                                     properties:
                                       configMap:
                                         description: ConfigMap containing the log configuration files
@@ -3695,7 +3789,7 @@ spec:
                                         type: string
                                     type: object
                                   custom:
-                                    description: Custom log configuration provided in a ConfigMap
+                                    description: Log configuration provided in a ConfigMap
                                     properties:
                                       configMap:
                                         description: ConfigMap containing the log configuration files
@@ -3775,7 +3869,7 @@ spec:
                                         type: string
                                     type: object
                                   custom:
-                                    description: Custom log configuration provided in a ConfigMap
+                                    description: Log configuration provided in a ConfigMap
                                     properties:
                                       configMap:
                                         description: ConfigMap containing the log configuration files
@@ -3828,7 +3922,7 @@ spec:
                                 type: object
                             type: object
                           enableVectorAgent:
-                            description: Wether or not to deploy a container with the Vector log agent.
+                            description: Whether or not to deploy a container with the Vector log agent.
                             nullable: true
                             type: boolean
                         type: object
@@ -3897,17 +3991,31 @@ spec:
                         type: object
                     type: object
                   configOverrides:
-                    additionalProperties:
-                      additionalProperties:
-                        type: string
-                      type: object
-                    default: {}
                     description: |-
                       The `configOverrides` can be used to configure properties in product config files
                       that are not exposed in the CRD. Read the
                       [config overrides documentation](https://docs.stackable.tech/home/nightly/concepts/overrides#config-overrides)
                       and consult the operator specific usage guide documentation for details on the
                       available config files and settings for the specific product.
+                    properties:
+                      jvm.config:
+                        additionalProperties:
+                          type: string
+                        description: Overrides for the `jvm.config` file.
+                        nullable: true
+                        type: object
+                      runtime.properties:
+                        additionalProperties:
+                          type: string
+                        description: Overrides for the `runtime.properties` file.
+                        nullable: true
+                        type: object
+                      security.properties:
+                        additionalProperties:
+                          type: string
+                        description: Overrides for the `security.properties` file.
+                        nullable: true
+                        type: object
                     type: object
                   envOverrides:
                     additionalProperties:
@@ -4088,7 +4196,7 @@ spec:
                                               type: string
                                           type: object
                                         custom:
-                                          description: Custom log configuration provided in a ConfigMap
+                                          description: Log configuration provided in a ConfigMap
                                           properties:
                                             configMap:
                                               description: ConfigMap containing the log configuration files
@@ -4168,7 +4276,7 @@ spec:
                                               type: string
                                           type: object
                                         custom:
-                                          description: Custom log configuration provided in a ConfigMap
+                                          description: Log configuration provided in a ConfigMap
                                           properties:
                                             configMap:
                                               description: ConfigMap containing the log configuration files
@@ -4248,7 +4356,7 @@ spec:
                                               type: string
                                           type: object
                                         custom:
-                                          description: Custom log configuration provided in a ConfigMap
+                                          description: Log configuration provided in a ConfigMap
                                           properties:
                                             configMap:
                                               description: ConfigMap containing the log configuration files
@@ -4301,7 +4409,7 @@ spec:
                                       type: object
                                   type: object
                                 enableVectorAgent:
-                                  description: Wether or not to deploy a container with the Vector log agent.
+                                  description: Whether or not to deploy a container with the Vector log agent.
                                   nullable: true
                                   type: boolean
                               type: object
@@ -4370,17 +4478,31 @@ spec:
                               type: object
                           type: object
                         configOverrides:
-                          additionalProperties:
-                            additionalProperties:
-                              type: string
-                            type: object
-                          default: {}
                           description: |-
                             The `configOverrides` can be used to configure properties in product config files
                             that are not exposed in the CRD. Read the
                             [config overrides documentation](https://docs.stackable.tech/home/nightly/concepts/overrides#config-overrides)
                             and consult the operator specific usage guide documentation for details on the
                             available config files and settings for the specific product.
+                          properties:
+                            jvm.config:
+                              additionalProperties:
+                                type: string
+                              description: Overrides for the `jvm.config` file.
+                              nullable: true
+                              type: object
+                            runtime.properties:
+                              additionalProperties:
+                                type: string
+                              description: Overrides for the `runtime.properties` file.
+                              nullable: true
+                              type: object
+                            security.properties:
+                              additionalProperties:
+                                type: string
+                              description: Overrides for the `security.properties` file.
+                              nullable: true
+                              type: object
                           type: object
                         envOverrides:
                           additionalProperties:
@@ -4554,7 +4676,7 @@ spec:
                                         type: string
                                     type: object
                                   custom:
-                                    description: Custom log configuration provided in a ConfigMap
+                                    description: Log configuration provided in a ConfigMap
                                     properties:
                                       configMap:
                                         description: ConfigMap containing the log configuration files
@@ -4634,7 +4756,7 @@ spec:
                                         type: string
                                     type: object
                                   custom:
-                                    description: Custom log configuration provided in a ConfigMap
+                                    description: Log configuration provided in a ConfigMap
                                     properties:
                                       configMap:
                                         description: ConfigMap containing the log configuration files
@@ -4714,7 +4836,7 @@ spec:
                                         type: string
                                     type: object
                                   custom:
-                                    description: Custom log configuration provided in a ConfigMap
+                                    description: Log configuration provided in a ConfigMap
                                     properties:
                                       configMap:
                                         description: ConfigMap containing the log configuration files
@@ -4767,7 +4889,7 @@ spec:
                                 type: object
                             type: object
                           enableVectorAgent:
-                            description: Wether or not to deploy a container with the Vector log agent.
+                            description: Whether or not to deploy a container with the Vector log agent.
                             nullable: true
                             type: boolean
                         type: object
@@ -4836,17 +4958,31 @@ spec:
                         type: object
                     type: object
                   configOverrides:
-                    additionalProperties:
-                      additionalProperties:
-                        type: string
-                      type: object
-                    default: {}
                     description: |-
                       The `configOverrides` can be used to configure properties in product config files
                       that are not exposed in the CRD. Read the
                       [config overrides documentation](https://docs.stackable.tech/home/nightly/concepts/overrides#config-overrides)
                       and consult the operator specific usage guide documentation for details on the
                       available config files and settings for the specific product.
+                    properties:
+                      jvm.config:
+                        additionalProperties:
+                          type: string
+                        description: Overrides for the `jvm.config` file.
+                        nullable: true
+                        type: object
+                      runtime.properties:
+                        additionalProperties:
+                          type: string
+                        description: Overrides for the `runtime.properties` file.
+                        nullable: true
+                        type: object
+                      security.properties:
+                        additionalProperties:
+                          type: string
+                        description: Overrides for the `security.properties` file.
+                        nullable: true
+                        type: object
                     type: object
                   envOverrides:
                     additionalProperties:
@@ -5031,7 +5167,7 @@ spec:
                                               type: string
                                           type: object
                                         custom:
-                                          description: Custom log configuration provided in a ConfigMap
+                                          description: Log configuration provided in a ConfigMap
                                           properties:
                                             configMap:
                                               description: ConfigMap containing the log configuration files
@@ -5111,7 +5247,7 @@ spec:
                                               type: string
                                           type: object
                                         custom:
-                                          description: Custom log configuration provided in a ConfigMap
+                                          description: Log configuration provided in a ConfigMap
                                           properties:
                                             configMap:
                                               description: ConfigMap containing the log configuration files
@@ -5191,7 +5327,7 @@ spec:
                                               type: string
                                           type: object
                                         custom:
-                                          description: Custom log configuration provided in a ConfigMap
+                                          description: Log configuration provided in a ConfigMap
                                           properties:
                                             configMap:
                                               description: ConfigMap containing the log configuration files
@@ -5244,7 +5380,7 @@ spec:
                                       type: object
                                   type: object
                                 enableVectorAgent:
-                                  description: Wether or not to deploy a container with the Vector log agent.
+                                  description: Whether or not to deploy a container with the Vector log agent.
                                   nullable: true
                                   type: boolean
                               type: object
@@ -5313,17 +5449,31 @@ spec:
                               type: object
                           type: object
                         configOverrides:
-                          additionalProperties:
-                            additionalProperties:
-                              type: string
-                            type: object
-                          default: {}
                           description: |-
                             The `configOverrides` can be used to configure properties in product config files
                             that are not exposed in the CRD. Read the
                             [config overrides documentation](https://docs.stackable.tech/home/nightly/concepts/overrides#config-overrides)
                             and consult the operator specific usage guide documentation for details on the
                             available config files and settings for the specific product.
+                          properties:
+                            jvm.config:
+                              additionalProperties:
+                                type: string
+                              description: Overrides for the `jvm.config` file.
+                              nullable: true
+                              type: object
+                            runtime.properties:
+                              additionalProperties:
+                                type: string
+                              description: Overrides for the `runtime.properties` file.
+                              nullable: true
+                              type: object
+                            security.properties:
+                              additionalProperties:
+                                type: string
+                              description: Overrides for the `security.properties` file.
+                              nullable: true
+                              type: object
                           type: object
                         envOverrides:
                           additionalProperties:
