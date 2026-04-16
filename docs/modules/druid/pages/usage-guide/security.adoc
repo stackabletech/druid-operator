@@ -102,8 +102,13 @@ The secret containing the OIDC client credentials should be structured like this
 include::example$druid-oidc-authentication.yaml[tag=secret]
 ----
 
-NOTE: OIDC authentication may fail since Druid versions `35.x.x` and `36.x.x` due to a change in how the authentication method is selected when connecting to an OIDC provider.
-If your OIDC provider (e.g. Keycloak) advertises `private_key_jwt` as a supported client authentication method, Druid may attempt to use it, which causes authentication to fail.
+==== Client authentication method
+
+The `clientAuthenticationMethod` field controls which method Druid uses when authenticating with the OIDC provider's token endpoint.
+Supported values are `client_secret_basic` (default), `client_secret_post`, `client_secret_jwt`, `private_key_jwt`, and `none`.
+
+NOTE: Since Druid versions `35.x.x` and `36.x.x`, the underlying pac4j library may auto-detect `private_key_jwt` from the OIDC provider's discovery document, causing authentication to fail.
+If you encounter this, set `clientAuthenticationMethod` explicitly to `client_secret_post` (or whichever method your provider expects).
 
 === Current Limitations and Upcoming Work
 
