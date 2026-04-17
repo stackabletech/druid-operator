@@ -37,6 +37,7 @@ spec:
     - authenticationClass: druid-oidc-auth-class-$NAMESPACE
       oidc:
         clientCredentialsSecret: druid-oidc-client
+        clientAuthenticationMethod: client_secret_post
     deepStorage:
       s3:
         bucket:

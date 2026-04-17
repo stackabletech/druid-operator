@@ -13,10 +13,15 @@ use crate::{
     internal_secret::env_var_from_secret,
 };
 
+/// Type alias for Druid's OIDC client authentication options, opting in to the
+/// `clientAuthenticationMethod` field via [`oidc::v1alpha1::ClientAuthenticationMethodOption`].
+pub type DruidClientAuthenticationOptions =
+    oidc::v1alpha1::ClientAuthenticationOptions<oidc::v1alpha1::ClientAuthenticationMethodOption>;
+
 /// Creates OIDC authenticator config using the pac4j extension for Druid: <https://druid.apache.org/docs/latest/development/extensions-core/druid-pac4j>.
 fn add_authenticator_config(
     provider: &oidc::v1alpha1::AuthenticationProvider,
-    oidc: &oidc::v1alpha1::ClientAuthenticationOptions,
+    oidc: &DruidClientAuthenticationOptions,
     config: &mut BTreeMap<String, Option<String>>,
 ) -> Result<(), Error> {
     let well_known_url = &provider
@@ -63,6 +68,16 @@ fn add_authenticator_config(
         "druid.auth.pac4j.oidc.scope".to_string(),
         Some(scopes.join(" ")),
     );
+
+    let method_string = oidc
+        .product_specific_fields
+        .client_authentication_method
+        .as_ref();
+    config.insert(
+        "druid.auth.pac4j.oidc.clientAuthenticationMethod".to_string(),
+        Some(method_string.to_string()),
+    );
+
     config.insert(
         "druid.auth.authenticatorChain".to_string(),
         Some(r#"["DruidSystemAuthenticator", "Oidc"]"#.to_string()),
@@ -87,7 +102,7 @@ fn add_authorizer_config(config: &mut BTreeMap<String, Option<String>>) {
 /// turning on OIDC will lead to problems with the communication with coordinators during data ingest.
 pub fn generate_runtime_properties_config(
     provider: &oidc::v1alpha1::AuthenticationProvider,
-    oidc: &oidc::v1alpha1::ClientAuthenticationOptions,
+    oidc: &DruidClientAuthenticationOptions,
     role: &DruidRole,
     config: &mut BTreeMap<String, Option<String>>,
 ) -> Result<(), Error> {
@@ -119,7 +134,7 @@ pub fn main_container_commands(
 /// Not necessary on middlemanagers, because OIDC is not configured on them.
 pub fn get_env_var_mounts(
     role: &DruidRole,
-    oidc: &oidc::v1alpha1::ClientAuthenticationOptions,
+    oidc: &DruidClientAuthenticationOptions,
     internal_secret_name: &str,
 ) -> Vec<EnvVar> {
     let mut envs = vec![];
@@ -184,12 +199,15 @@ mod tests {
             },
             "preferred_username".to_owned(),
             vec!["openid".to_owned()],
-            None,
+            Some(oidc::v1alpha1::IdentityProviderHint::Keycloak),
         );
-        let oidc = oidc::v1alpha1::ClientAuthenticationOptions {
+        let oidc = DruidClientAuthenticationOptions {
             client_credentials_secret_ref: "nifi-keycloak-client".to_owned(),
             extra_scopes: vec![],
-            product_specific_fields: (),
+            product_specific_fields: oidc::v1alpha1::ClientAuthenticationMethodOption {
+                client_authentication_method:
+                    oidc::v1alpha1::ClientAuthenticationMethod::ClientSecretPost,
+            },
         };
 
         add_authenticator_config(&provider, &oidc, &mut properties)
@@ -223,6 +241,10 @@ mod tests {
             ))
         );
 
+        assert_eq!(
+            properties.get("druid.auth.pac4j.oidc.clientAuthenticationMethod"),
+            Some(&Some("client_secret_post".to_owned()))
+        );
         assert!(properties.contains_key("druid.auth.pac4j.oidc.clientID"));
         assert!(properties.contains_key("druid.auth.pac4j.oidc.clientSecret"));
         assert!(properties.contains_key("druid.auth.pac4j.cookiePassphrase"));

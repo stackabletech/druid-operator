@@ -22,6 +22,9 @@ spec:
       - authenticationClass: oidc-auth
         oidc:
           clientCredentialsSecret: druid-oidc-client
+          # Optional: Override the client authentication method (default: client_secret_basic).
+          # Supported values: client_secret_basic, client_secret_post, client_secret_jwt, private_key_jwt, none.
+          clientAuthenticationMethod: client_secret_basic
   [...]
 # end::druid[]
 

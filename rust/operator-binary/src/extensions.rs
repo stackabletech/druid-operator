@@ -116,10 +116,14 @@ mod tests {
                                 vec![],
                                 None
                             ),
-                            oidc: oidc::v1alpha1::ClientAuthenticationOptions {
+                            oidc: crate::authentication::oidc::DruidClientAuthenticationOptions {
                                 client_credentials_secret_ref: "".to_string(),
                                 extra_scopes: vec![],
-                                product_specific_fields: (),
+                                product_specific_fields:
+                                    oidc::v1alpha1::ClientAuthenticationMethodOption {
+                                        client_authentication_method:
+                                            oidc::v1alpha1::ClientAuthenticationMethod::default(),
+                                    },
                             }
                         }]
                     })

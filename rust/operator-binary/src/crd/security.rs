@@ -13,6 +13,7 @@ use stackable_operator::{
             },
         },
     },
+    commons::secret_class::SecretClassVolumeProvisionParts,
     crd::listener,
     k8s_openapi::{
         api::core::v1::{ContainerPort, Probe, ServicePort, TCPSocketAction},
@@ -213,8 +214,10 @@ impl DruidTlsSecurity {
         // `ResolvedAuthenticationClasses::validate` already checked that the tls AuthenticationClass
         // uses the same SecretClass as the Druid server itself.
         if let Some(secret_class) = &self.server_and_internal_secret_class {
-            let mut secret_volume_source_builder =
-                SecretOperatorVolumeSourceBuilder::new(secret_class);
+            let mut secret_volume_source_builder = SecretOperatorVolumeSourceBuilder::new(
+                secret_class,
+                SecretClassVolumeProvisionParts::PublicPrivate,
+            );
 
             secret_volume_source_builder
                 .with_pod_scope()

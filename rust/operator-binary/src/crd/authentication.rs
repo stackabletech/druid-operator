@@ -85,7 +85,7 @@ pub enum AuthenticationClassResolved {
     Oidc {
         auth_class_name: String,
         provider: oidc::v1alpha1::AuthenticationProvider,
-        oidc: oidc::v1alpha1::ClientAuthenticationOptions<()>,
+        oidc: crate::authentication::oidc::DruidClientAuthenticationOptions,
     },
 }
 
@@ -94,16 +94,20 @@ impl AuthenticationClassesResolved {
         cluster_config: &DruidClusterConfig,
         client: &Client,
     ) -> Result<AuthenticationClassesResolved> {
-        let resolve_auth_class = |auth_details: core::v1alpha1::ClientAuthenticationDetails| async move {
-            auth_details.resolve_class(client).await
-        };
+        let resolve_auth_class = |auth_details: core::v1alpha1::ClientAuthenticationDetails<
+            oidc::v1alpha1::ClientAuthenticationMethodOption,
+        >| async move { auth_details.resolve_class(client).await };
         AuthenticationClassesResolved::resolve(cluster_config, resolve_auth_class).await
     }
 
     /// Retrieves all provided `AuthenticationClass` references and checks if the configuration (TLS settings, secret class, OIDC config, etc.) is valid.
     pub async fn resolve<R>(
         cluster_config: &DruidClusterConfig,
-        resolve_auth_class: impl Fn(core::v1alpha1::ClientAuthenticationDetails) -> R,
+        resolve_auth_class: impl Fn(
+            core::v1alpha1::ClientAuthenticationDetails<
+                oidc::v1alpha1::ClientAuthenticationMethodOption,
+            >,
+        ) -> R,
     ) -> Result<AuthenticationClassesResolved>
     where
         R: Future<
@@ -192,7 +196,9 @@ impl AuthenticationClassesResolved {
     fn from_oidc(
         auth_class_name: &str,
         provider: &oidc::v1alpha1::AuthenticationProvider,
-        auth_details: &core::v1alpha1::ClientAuthenticationDetails,
+        auth_details: &core::v1alpha1::ClientAuthenticationDetails<
+            oidc::v1alpha1::ClientAuthenticationMethodOption,
+        >,
     ) -> Result<AuthenticationClassResolved> {
         let oidc_provider = match &provider.provider_hint {
             None => {
@@ -239,11 +245,13 @@ mod tests {
     use std::pin::Pin;
 
     use indoc::{formatdoc, indoc};
-    use oidc::v1alpha1::ClientAuthenticationOptions;
     use stackable_operator::kube;
 
     use super::*;
-    use crate::crd::{authentication::AuthenticationClassesResolved, v1alpha1::DruidClusterConfig};
+    use crate::{
+        authentication::oidc::DruidClientAuthenticationOptions,
+        crd::{authentication::AuthenticationClassesResolved, v1alpha1::DruidClusterConfig},
+    };
 
     const BASE_CLUSTER_CONFIG: &str = r#"
 deepStorage:
@@ -340,7 +348,7 @@ zookeeperConfigMapName: zk-config-map
                         "
                     )
                     .unwrap(),
-                    oidc: serde_yaml::from_str::<ClientAuthenticationOptions>(
+                    oidc: serde_yaml::from_str::<DruidClientAuthenticationOptions>(
                         "
                         clientCredentialsSecret: oidc-client-credentials
                         "
@@ -675,10 +683,13 @@ zookeeperConfigMapName: zk-config-map
     /// Use this function in the tests to replace
     /// `stackable_operator::commons::authentication::ClientAuthenticationDetails`
     /// which requires a Kubernetes client.
+    #[allow(clippy::type_complexity)]
     fn create_auth_class_resolver(
         auth_classes: Vec<core::v1alpha1::AuthenticationClass>,
     ) -> impl Fn(
-        core::v1alpha1::ClientAuthenticationDetails,
+        core::v1alpha1::ClientAuthenticationDetails<
+            oidc::v1alpha1::ClientAuthenticationMethodOption,
+        >,
     ) -> Pin<
         Box<
             dyn Future<
@@ -689,7 +700,9 @@ zookeeperConfigMapName: zk-config-map
             >,
         >,
     > {
-        move |auth_details: core::v1alpha1::ClientAuthenticationDetails| {
+        move |auth_details: core::v1alpha1::ClientAuthenticationDetails<
+            oidc::v1alpha1::ClientAuthenticationMethodOption,
+        >| {
             let auth_classes = auth_classes.clone();
             Box::pin(async move {
                 auth_classes
@@ -701,12 +714,12 @@ zookeeperConfigMapName: zk-config-map
                     .cloned()
                     .ok_or_else(|| stackable_operator::client::Error::ListResources {
                         source: kube::Error::Api(Box::new(kube::core::Status {
-                            status: None,
                             code: 404,
-                            message: "AuthenticationClass not found".to_owned(),
-                            metadata: None,
-                            reason: "NotFound".to_owned(),
+                            message: "AuthenticationClass not found".into(),
+                            reason: "NotFound".into(),
+                            status: Some(kube::core::response::StatusSummary::Failure),
                             details: None,
+                            metadata: Default::default(),
                         })),
                     })
             })

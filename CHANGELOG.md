@@ -4,11 +4,18 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+
+- Support OIDC `clientAuthenticationMethod` configuration ([#813]).
+
 ### Changed
 
+- BREAKING: `configOverrides` now only accepts the supported config file names `runtime.properties`, `jvm.config` and `security.properties`. Previously arbitrary keys were silently accepted but ignored ([#813]).
+- Bump `stackable-operator` to 0.110.1 and `kube` to 3.1.0 ([#813]).
 - Document Helm deployed RBAC permissions and remove unnecessary permissions ([#810]).
 
-- [#810]: https://github.com/stackabletech/druid-operator/pull/810
+[#810]: https://github.com/stackabletech/druid-operator/pull/810
+[#813]: https://github.com/stackabletech/druid-operator/pull/813
 
 ## [26.3.0] - 2026-03-16
 
