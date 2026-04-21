@@ -29,7 +29,6 @@ use stackable_operator::{
         opa::OpaApiVersion,
         product_image_selection::{self, ResolvedProductImage},
         rbac::build_rbac_resources,
-        tls_verification::TlsClientDetailsError,
     },
     constants::RESTART_CONTROLLER_ENABLED_LABEL,
     crd::s3,
@@ -70,19 +69,18 @@ use crate::{
     authentication::DruidAuthenticationConfig,
     config::jvm::construct_jvm_args,
     crd::{
-        APP_NAME, AUTH_AUTHORIZER_OPA_URI, CREDENTIALS_SECRET_PROPERTY, CommonRoleGroupConfig,
-        Container, DB_PASSWORD_ENV, DB_USERNAME_ENV, DRUID_CONFIG_DIRECTORY, DS_BUCKET,
-        DeepStorageSpec, DruidClusterStatus, DruidRole, EXTENSIONS_LOADLIST, HDFS_CONFIG_DIRECTORY,
-        JVM_CONFIG, JVM_SECURITY_PROPERTIES_FILE, LOG_CONFIG_DIRECTORY, MAX_DRUID_LOG_FILES_SIZE,
-        METRICS_PORT, METRICS_PORT_NAME, OPERATOR_NAME, RUNTIME_PROPS, RW_CONFIG_DIRECTORY,
-        S3_ACCESS_KEY, S3_ENDPOINT_URL, S3_PATH_STYLE_ACCESS, S3_SECRET_KEY, STACKABLE_LOG_DIR,
-        ZOOKEEPER_CONNECTION_STRING, authentication::AuthenticationClassesResolved,
-        authorization::DruidAuthorization, build_recommended_labels, build_string_list,
-        security::DruidTlsSecurity, v1alpha1,
+        APP_NAME, AUTH_AUTHORIZER_OPA_URI, CommonRoleGroupConfig, Container,
+        DRUID_CONFIG_DIRECTORY, DS_BUCKET, DeepStorageSpec, DruidClusterStatus, DruidRole,
+        EXTENSIONS_LOADLIST, HDFS_CONFIG_DIRECTORY, JVM_CONFIG, JVM_SECURITY_PROPERTIES_FILE,
+        LOG_CONFIG_DIRECTORY, MAX_DRUID_LOG_FILES_SIZE, METRICS_PORT, METRICS_PORT_NAME,
+        OPERATOR_NAME, RUNTIME_PROPS, RW_CONFIG_DIRECTORY, S3_ACCESS_KEY, S3_ENDPOINT_URL,
+        S3_PATH_STYLE_ACCESS, S3_SECRET_KEY, STACKABLE_LOG_DIR, ZOOKEEPER_CONNECTION_STRING,
+        authentication::AuthenticationClassesResolved, authorization::DruidAuthorization,
+        build_recommended_labels, build_string_list, security::DruidTlsSecurity, v1alpha1,
     },
     discovery::{self, build_discovery_configmaps},
     extensions::get_extension_list,
-    internal_secret::{create_shared_internal_secret, env_var_from_secret},
+    internal_secret::create_shared_internal_secret,
     listener::{
         LISTENER_VOLUME_DIR, LISTENER_VOLUME_NAME, build_group_listener, build_group_listener_pvc,
         group_listener_name, secret_volume_listener_scope,
@@ -114,11 +112,6 @@ pub struct Ctx {
 #[strum_discriminants(derive(IntoStaticStr))]
 #[allow(clippy::enum_variant_names)]
 pub enum Error {
-    #[snafu(display("failed to apply global Service"))]
-    ApplyRoleService {
-        source: stackable_operator::cluster_resources::Error,
-    },
-
     #[snafu(display("failed to apply Service for {}", rolegroup))]
     ApplyRoleGroupService {
         source: stackable_operator::cluster_resources::Error,
@@ -183,9 +176,6 @@ pub enum Error {
     ConfigureS3 {
         source: stackable_operator::crd::s3::v1alpha1::ConnectionError,
     },
-
-    #[snafu(display("failed to configure S3 TLS client details"))]
-    ConfigureS3TlsClientDetails { source: TlsClientDetailsError },
 
     #[snafu(display("failed to get deep storage bucket"))]
     GetDeepStorageBucket {
@@ -320,16 +310,6 @@ pub enum Error {
         source: crate::operations::graceful_shutdown::Error,
     },
 
-    #[snafu(display("failed to build TLS certificate SecretClass Volume"))]
-    TlsCertSecretClassVolumeBuild {
-        source: stackable_operator::builder::pod::volume::SecretOperatorVolumeSourceBuilderError,
-    },
-
-    #[snafu(display("failed to build S3 credentials SecretClass Volume"))]
-    S3CredentialsSecretClassVolumeBuild {
-        source: stackable_operator::commons::secret_class::SecretClassVolumeError,
-    },
-
     #[snafu(display("failed to add OIDC Volumes and VolumeMounts to the Pod and containers"))]
     AuthVolumesBuild {
         source: crate::authentication::Error,
@@ -383,6 +363,11 @@ pub enum Error {
     #[snafu(display("failed to resolve product image"))]
     ResolveProductImage {
         source: product_image_selection::Error,
+    },
+
+    #[snafu(display("invalid metadata database connection"))]
+    InvalidMetadataDatabaseConnection {
+        source: stackable_operator::database_connections::Error,
     },
 }
 
@@ -726,6 +711,12 @@ fn build_rolegroup_config_map(
         })?;
     let role = druid.get_role(&druid_role);
     let mut cm_conf_data = BTreeMap::new(); // filename -> filecontent
+    let metadata_database_connection_details = druid
+        .spec
+        .cluster_config
+        .metadata_database
+        .jdbc_connection_details("METADATA")
+        .context(InvalidMetadataDatabaseConnectionSnafu)?;
 
     for (property_name_kind, config) in rolegroup_config {
         let mut conf: BTreeMap<String, Option<String>> = Default::default();
@@ -763,6 +754,47 @@ fn build_rolegroup_config_map(
                         Some(opa_str.to_string()),
                     );
                 };
+
+                conf.insert(
+                    crate::crd::database::METADATA_STORAGE_TYPE.to_string(),
+                    Some(
+                        druid
+                            .spec
+                            .cluster_config
+                            .metadata_database
+                            .as_db_type()
+                            .to_string(),
+                    ),
+                );
+
+                conf.insert(
+                    crate::crd::database::METADATA_STORAGE_CONNECTOR_CONNECT_URI.to_string(),
+                    Some(
+                        metadata_database_connection_details
+                            .connection_url
+                            .to_string(),
+                    ),
+                );
+                if let Some(EnvVar {
+                    name: username_env_name,
+                    ..
+                }) = &metadata_database_connection_details.username_env
+                {
+                    conf.insert(
+                        crate::crd::database::METADATA_STORAGE_USER.to_string(),
+                        Some(format!("${{env:{username_env_name}}}",)),
+                    );
+                }
+                if let Some(EnvVar {
+                    name: password_env_name,
+                    ..
+                }) = &metadata_database_connection_details.password_env
+                {
+                    conf.insert(
+                        crate::crd::database::METADATA_STORAGE_PASSWORD.to_string(),
+                        Some(format!("${{env:{password_env_name}}}",)),
+                    );
+                }
 
                 if let Some(s3) = s3_conn {
                     if !s3.region.is_default_config() {
@@ -940,12 +972,13 @@ fn build_rolegroup_statefulset(
     )
     .context(GracefulShutdownSnafu)?;
 
-    let credentials_secret = druid
+    let metadata_database_connection_details = druid
         .spec
         .cluster_config
-        .metadata_storage_database
-        .credentials_secret
-        .as_ref();
+        .metadata_database
+        .jdbc_connection_details("METADATA")
+        .context(InvalidMetadataDatabaseConnectionSnafu)?;
+
     let mut main_container_commands = role.main_container_prepare_commands(s3_conn);
     let mut prepare_container_commands = vec![];
     if let Some(ContainerLogConfig {
@@ -1030,33 +1063,19 @@ fn build_rolegroup_statefulset(
                 .build(),
         );
 
+    metadata_database_connection_details.add_to_container(&mut cb_druid);
+
     // rest of env
     let mut rest_env = rolegroup_config
         .get(&PropertyNameKind::Env)
         .iter()
         .flat_map(|env_vars| env_vars.iter())
-        .filter(|(k, _)| k != &&CREDENTIALS_SECRET_PROPERTY.to_string())
         .map(|(k, v)| EnvVar {
             name: k.clone(),
             value: Some(v.clone()),
             ..EnvVar::default()
         })
         .collect::<Vec<_>>();
-
-    // load database credentials to environment variables: these will be used to replace
-    // the placeholders in runtime.properties so that the operator does not "touch" the secret.
-    if let Some(credentials_secret_name) = credentials_secret {
-        rest_env.push(env_var_from_secret(
-            credentials_secret_name,
-            Some("username"),
-            DB_USERNAME_ENV,
-        ));
-        rest_env.push(env_var_from_secret(
-            credentials_secret_name,
-            Some("password"),
-            DB_PASSWORD_ENV,
-        ));
-    }
 
     if let Some(auth_config) = druid_auth_config {
         rest_env.extend(auth_config.get_env_var_mounts(druid, role))

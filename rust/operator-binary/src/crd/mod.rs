@@ -46,6 +46,7 @@ use strum::{Display, EnumDiscriminants, EnumIter, EnumString, IntoStaticStr};
 use crate::crd::{
     affinity::get_affinity,
     authorization::DruidAuthorization,
+    database::MetadataDatabaseConnection,
     resource::RoleResource,
     tls::{DruidTls, default_druid_tls},
 };
@@ -53,6 +54,7 @@ use crate::crd::{
 pub mod affinity;
 pub mod authentication;
 pub mod authorization;
+pub mod database;
 pub mod memory;
 pub mod resource;
 pub mod security;
@@ -109,21 +111,12 @@ pub const AUTH_AUTHORIZERS_VALUE: &str = "[\"OpaAuthorizer\"]";
 pub const AUTH_AUTHORIZER_OPA_TYPE: &str = "druid.auth.authorizer.OpaAuthorizer.type";
 pub const AUTH_AUTHORIZER_OPA_TYPE_VALUE: &str = "opa";
 pub const AUTH_AUTHORIZER_OPA_URI: &str = "druid.auth.authorizer.OpaAuthorizer.opaUri";
-// metadata storage config properties
-const METADATA_STORAGE_TYPE: &str = "druid.metadata.storage.type";
-const METADATA_STORAGE_URI: &str = "druid.metadata.storage.connector.connectURI";
-const METADATA_STORAGE_HOST: &str = "druid.metadata.storage.connector.host";
-const METADATA_STORAGE_PORT: &str = "druid.metadata.storage.connector.port";
-const METADATA_STORAGE_USER: &str = "druid.metadata.storage.connector.user";
-const METADATA_STORAGE_PASSWORD: &str = "druid.metadata.storage.connector.password";
 // indexer properties
 pub const INDEXER_JAVA_OPTS: &str = "druid.indexer.runner.javaOptsArray";
 // historical settings
 pub const PROCESSING_BUFFER_SIZE_BYTES: &str = "druid.processing.buffer.sizeBytes";
 pub const PROCESSING_NUM_MERGE_BUFFERS: &str = "druid.processing.numMergeBuffers";
 pub const PROCESSING_NUM_THREADS: &str = "druid.processing.numThreads";
-// extra
-pub const CREDENTIALS_SECRET_PROPERTY: &str = "credentialsSecret";
 // logs
 pub const MAX_DRUID_LOG_FILES_SIZE: MemoryQuantity = MemoryQuantity {
     value: 10.0,
@@ -135,10 +128,6 @@ pub const METRICS_PORT_NAME: &str = "metrics";
 pub const METRICS_PORT: u16 = 9090;
 
 pub const COOKIE_PASSPHRASE_ENV: &str = "OIDC_COOKIE_PASSPHRASE";
-
-// DB credentials - both of these are read from an env var by Druid with the ${env:...} syntax
-pub const DB_USERNAME_ENV: &str = "DB_USERNAME_ENV";
-pub const DB_PASSWORD_ENV: &str = "DB_PASSWORD_ENV";
 
 // Graceful shutdown timeouts
 const DEFAULT_BROKER_GRACEFUL_SHUTDOWN_TIMEOUT: Duration = Duration::from_minutes_unchecked(5);
@@ -361,7 +350,7 @@ pub mod versioned {
         pub ingestion: Option<IngestionSpec>,
 
         /// Druid requires an SQL database to store metadata into. Specify connection information here.
-        pub metadata_storage_database: DatabaseConnectionSpec,
+        pub metadata_database: MetadataDatabaseConnection,
 
         /// TLS encryption settings for Druid, more information in the
         /// [security documentation](DOCS_BASE_URL_PLACEHOLDER/druid/usage-guide/security).
@@ -420,34 +409,6 @@ impl v1alpha1::DruidCluster {
         match file {
             JVM_CONFIG => {}
             RUNTIME_PROPS => {
-                let mds = &self.spec.cluster_config.metadata_storage_database;
-                result.insert(
-                    METADATA_STORAGE_TYPE.to_string(),
-                    Some(mds.db_type.to_string()),
-                );
-                result.insert(
-                    METADATA_STORAGE_URI.to_string(),
-                    Some(mds.conn_string.to_string()),
-                );
-                result.insert(
-                    METADATA_STORAGE_HOST.to_string(),
-                    Some(mds.host.to_string()),
-                );
-                result.insert(
-                    METADATA_STORAGE_PORT.to_string(),
-                    Some(mds.port.to_string()),
-                );
-                if mds.credentials_secret.is_some() {
-                    result.insert(
-                        METADATA_STORAGE_USER.to_string(),
-                        Some(format!("${{env:{DB_USERNAME_ENV}}}")),
-                    );
-                    result.insert(
-                        METADATA_STORAGE_PASSWORD.to_string(),
-                        Some(format!("${{env:{DB_PASSWORD_ENV}}}")),
-                    );
-                }
-
                 // OPA
                 if let Some(DruidAuthorization { opa: _ }) = &self.spec.cluster_config.authorization
                 {
@@ -1153,43 +1114,6 @@ impl DruidRole {
             Self::Historical | Self::MiddleManager => None,
         }
     }
-}
-
-#[derive(Clone, Debug, Default, Deserialize, JsonSchema, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct DatabaseConnectionSpec {
-    /// The database type. Supported values are: `derby`, `mysql` and `postgres`.
-    /// Note that a Derby database created locally in the container is not persisted!
-    /// Derby is not suitable for production use.
-    pub db_type: DbType,
-    /// The connect string for the database, for Postgres this could look like:
-    /// `jdbc:postgresql://postgresql-druid/druid`
-    pub conn_string: String,
-    /// The host, i.e. `postgresql-druid`.
-    pub host: String,
-    /// The port, i.e. 5432
-    pub port: u16,
-    /// A reference to a Secret containing the database credentials.
-    /// The Secret needs to contain the keys `username` and `password`.
-    pub credentials_secret: Option<String>,
-}
-
-#[derive(
-    Clone, Debug, Default, Deserialize, Eq, JsonSchema, PartialEq, Serialize, Display, EnumString,
-)]
-pub enum DbType {
-    #[serde(rename = "derby")]
-    #[strum(serialize = "derby")]
-    #[default]
-    Derby,
-
-    #[serde(rename = "mysql")]
-    #[strum(serialize = "mysql")]
-    Mysql,
-
-    #[serde(rename = "postgresql")]
-    #[strum(serialize = "postgresql")]
-    Postgresql,
 }
 
 #[derive(Clone, Debug, Deserialize, JsonSchema, PartialEq, Eq, Serialize, Display)]

@@ -1,0 +1,63 @@
+use std::ops::Deref;
+
+use serde::{Deserialize, Serialize};
+use stackable_operator::{
+    database_connections::{
+        databases::{
+            derby::DerbyConnection, mysql::MysqlConnection, postgresql::PostgresqlConnection,
+        },
+        drivers::jdbc::JdbcDatabaseConnection,
+    },
+    schemars::{self, JsonSchema},
+};
+
+// metadata storage config properties
+pub const METADATA_STORAGE_TYPE: &str = "druid.metadata.storage.type";
+pub const METADATA_STORAGE_CONNECTOR_CONNECT_URI: &str =
+    "druid.metadata.storage.connector.connectURI";
+pub const METADATA_STORAGE_USER: &str = "druid.metadata.storage.connector.user";
+pub const METADATA_STORAGE_PASSWORD: &str = "druid.metadata.storage.connector.password";
+
+#[derive(Clone, Debug, Deserialize, JsonSchema, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum MetadataDatabaseConnection {
+    // Docs are on the struct
+    Postgresql(PostgresqlConnection),
+
+    /// Connection settings for a [MySQL](https://www.mysql.com/) database.
+    ///
+    /// Please note that - due to license issues - we don't ship the mysql driver, you need to add
+    /// it it yourself.
+    /// See <https://docs.stackable.tech/home/stable/hive/usage-guide/database-driver/> for details.
+    Mysql(MysqlConnection),
+
+    // Docs are on the struct
+    Derby(DerbyConnection),
+    // We don't support generic (yet?), as we need to tell the metastore the `--dbtype` on startup,
+    // which is not known for generic connection. We could e.g. create a new struct with
+    // #[serde(flatten)] of the GenericJdbcDatabaseConnection and an additional field
+    // `metastoreDbType` (or similar).
+}
+
+impl MetadataDatabaseConnection {
+    /// Name of the database as it should be passed using the `--db-type` CLI argument to Hive
+    pub fn as_db_type(&self) -> &str {
+        match self {
+            MetadataDatabaseConnection::Postgresql(_) => "postgresql",
+            MetadataDatabaseConnection::Mysql(_) => "mysql",
+            MetadataDatabaseConnection::Derby(_) => "derby",
+        }
+    }
+}
+
+impl Deref for MetadataDatabaseConnection {
+    type Target = dyn JdbcDatabaseConnection;
+
+    fn deref(&self) -> &Self::Target {
+        match self {
+            Self::Postgresql(p) => p,
+            Self::Mysql(m) => m,
+            Self::Derby(d) => d,
+        }
+    }
+}
