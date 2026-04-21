@@ -40,7 +40,7 @@ pub enum MetadataDatabaseConnection {
 }
 
 impl MetadataDatabaseConnection {
-    /// Name of the database as it should be passed using the `--db-type` CLI argument to Hive
+    /// Name of the database as it should be passed using `METADATA_STORAGE_TYPE` property.
     pub fn as_db_type(&self) -> &str {
         match self {
             MetadataDatabaseConnection::Postgresql(_) => "postgresql",
