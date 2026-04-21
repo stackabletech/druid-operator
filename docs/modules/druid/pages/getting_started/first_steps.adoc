@@ -78,7 +78,7 @@ This creates the actual Druid Stacklet.
 
 WARNING: This Druid instance uses Derby (`dbType: derby`) as a metadata store, which is an interal SQL database.
 It is not persisted and not suitable for production use!
-Consult the https://druid.apache.org/docs/latest/dependencies/metadata-storage.html#available-metadata-stores[Druid documentation] for a list of supported databases and setup instructions for production instances.
+Consult the https://druid.apache.org/docs/latest/design/metadata-storage#available-metadata-stores[Druid documentation{external-link-icon}^] for a list of supported databases and setup instructions for production instances.
 
 == Verify that it works
 
@@ -147,7 +147,7 @@ Now load the example data:
 image::getting_started/load_example.png[]
 
 Click through all pages of the load process.
-You can also follow the https://druid.apache.org/docs/latest/tutorials/index.html#step-4-load-data[Druid Quickstart Guide].
+You can also follow the https://druid.apache.org/docs/latest/tutorials/index.html#step-4-load-data[Druid Quickstart Guide{external-link-icon}^].
 
 Once you finished the ingestion dialog you should see the ingestion overview with the job, which eventually shows SUCCESS:
 
