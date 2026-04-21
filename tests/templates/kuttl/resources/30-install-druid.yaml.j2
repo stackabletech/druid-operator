@@ -28,7 +28,8 @@ spec:
                 port: 9000
                 accessStyle: Path
     metadataDatabase:
-      derby: {}
+      derby:
+        location: "//localhost:1527/var/druid/metadata.db"
 {% if lookup('env', 'VECTOR_AGGREGATOR') %}
     vectorAggregatorConfigMapName: vector-aggregator-discovery
 {% endif %}

@@ -41,7 +41,8 @@ spec:
         configMapName: druid-hdfs
         directory: /druid
     metadataDatabase:
-      derby: {}
+      derby:
+        location: "//localhost:1527/var/druid/metadata.db"
     vectorAggregatorConfigMapName: druid-vector-aggregator-discovery
     zookeeperConfigMapName: druid-znode
   brokers:

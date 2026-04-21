@@ -715,7 +715,7 @@ fn build_rolegroup_config_map(
         .spec
         .cluster_config
         .metadata_database
-        .jdbc_connection_details("METADATA")
+        .jdbc_connection_details("metadata")
         .context(InvalidMetadataDatabaseConnectionSnafu)?;
 
     for (property_name_kind, config) in rolegroup_config {
@@ -775,6 +775,7 @@ fn build_rolegroup_config_map(
                             .to_string(),
                     ),
                 );
+
                 if let Some(EnvVar {
                     name: username_env_name,
                     ..
@@ -785,6 +786,7 @@ fn build_rolegroup_config_map(
                         Some(format!("${{env:{username_env_name}}}",)),
                     );
                 }
+
                 if let Some(EnvVar {
                     name: password_env_name,
                     ..
@@ -976,7 +978,7 @@ fn build_rolegroup_statefulset(
         .spec
         .cluster_config
         .metadata_database
-        .jdbc_connection_details("METADATA")
+        .jdbc_connection_details("metadata")
         .context(InvalidMetadataDatabaseConnectionSnafu)?;
 
     let mut main_container_commands = role.main_container_prepare_commands(s3_conn);

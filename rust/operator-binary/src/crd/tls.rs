@@ -41,7 +41,8 @@ deepStorage:
     configMapName: druid-hdfs
     directory: /druid
 metadataDatabase:
-  derby: {}
+  derby:
+    location: "//localhost:1527/var/druid/metadata.db"
 zookeeperConfigMapName: zk-config-map
     "#;
 
