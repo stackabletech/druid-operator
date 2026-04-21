@@ -21,12 +21,11 @@ spec:
                 accessStyle: Path
                 credentials:
                   secretClass: druid-s3-credentials
-    metadataStorageDatabase:
-      dbType: postgresql
-      connString: jdbc:postgresql://druid-postgresql/druid
-      host: druid-postgresql
-      port: 5432
-      credentialsSecret: mySecret
+    metadataDatabase:
+      postgresql:
+        host: druid-postgresql
+        database: druid
+        credentialsSecretName: mySecret
     zookeeperConfigMapName: psql-druid-znode
   brokers:
     roleGroups:
