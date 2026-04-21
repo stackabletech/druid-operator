@@ -8,13 +8,15 @@ spec:
           - "/tmp/xyz"
     - unit: &unitPort
         name: "port"
-        regex: "^([0-9]{1,4}|[1-5][0-9]{4}|6[0-4][0-9]{3}|65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-5])$"
+        regex: "^([0-9]{1,4}|[1-5][0-9]{4}|6[0-4][0-9]{3}|65[0-4][0-9]{2}|655[0-2][0-9]\
+          |6553[0-5])$"
     - unit: &unitPrometheusNamespace
         name: "prometheusNamespace"
         regex: "^[a-zA-Z_:][a-zA-Z0-9_:]*$"
     - unit: &unitDuration
         name: "duration"
-        regex: "^P(?!$)(\\d+Y)?(\\d+M)?(\\d+W)?(\\d+D)?(T(?=\\d)(\\d+H)?(\\d+M)?(\\d+S)?)?$"
+        regex: "^P(?!$)(\\d+Y)?(\\d+M)?(\\d+W)?(\\d+D)?(T(?=\\d)(\\d+H)?(\\d+M)?(\\d+S)\
+          ?)?$"
         examples:
           - "PT300S"
 
@@ -213,7 +215,6 @@ properties:
       asOfVersion: "0.0.0"
       comment: "TTL for host names that cannot be resolved."
       description: "TTL for host names that cannot be resolved."
-
 
   - property: &plaintextPort
       propertyNames:
@@ -418,139 +419,6 @@ properties:
           required: true
       asOfVersion: "0.0.0"
 
-  - property: &metadataStorageType
-      propertyNames:
-        - name: "druid.metadata.storage.type"
-          kind:
-            type: "file"
-            file: "runtime.properties"
-      datatype:
-        type: "string"
-      allowedValues:
-        - "mysql"
-        - "postgresql"
-        - "derby"
-      roles:
-        - name: "broker"
-          required: true
-        - name: "coordinator"
-          required: true
-        - name: "historical"
-          required: true
-        - name: "middlemanager"
-          required: true
-        - name: "router"
-          required: true
-      asOfVersion: "0.0.0"
-
-  - property: &metadataStorageConnectURI
-      propertyNames:
-        - name: "druid.metadata.storage.connector.connectURI"
-          kind:
-            type: "file"
-            file: "runtime.properties"
-      datatype:
-        type: "string"
-      roles:
-        - name: "broker"
-          required: true
-        - name: "coordinator"
-          required: true
-        - name: "historical"
-          required: true
-        - name: "middlemanager"
-          required: true
-        - name: "router"
-          required: true
-      asOfVersion: "0.0.0"
-
-  - property: &metadataStorageHost
-      propertyNames:
-        - name: "druid.metadata.storage.connector.host"
-          kind:
-            type: "file"
-            file: "runtime.properties"
-      datatype:
-        type: "string"
-      roles:
-        - name: "broker"
-          required: true
-        - name: "coordinator"
-          required: true
-        - name: "historical"
-          required: true
-        - name: "middlemanager"
-          required: true
-        - name: "router"
-          required: true
-      asOfVersion: "0.0.0"
-
-  - property: &metadataStoragePort
-      propertyNames:
-        - name: "druid.metadata.storage.connector.port"
-          kind:
-            type: "file"
-            file: "runtime.properties"
-      datatype:
-        type: "integer"
-        min: "1024"
-        max: "65535"
-        unit: *unitPort
-      roles:
-        - name: "broker"
-          required: true
-        - name: "coordinator"
-          required: true
-        - name: "historical"
-          required: true
-        - name: "middlemanager"
-          required: true
-        - name: "router"
-          required: true
-      asOfVersion: "0.0.0"
-
-  - property: &metadataStorageUser
-      propertyNames:
-        - name: "druid.metadata.storage.connector.user"
-          kind:
-            type: "file"
-            file: "runtime.properties"
-      datatype:
-        type: "string"
-      roles:
-        - name: "broker"
-          required: false
-        - name: "coordinator"
-          required: false
-        - name: "historical"
-          required: false
-        - name: "middlemanager"
-          required: false
-        - name: "router"
-          required: false
-      asOfVersion: "0.0.0"
-
-  - property: &metadataStoragePassword
-      propertyNames:
-        - name: "druid.metadata.storage.connector.password"
-          kind:
-            type: "file"
-            file: "runtime.properties"
-      datatype:
-        type: "string"
-      roles:
-        - name: "broker"
-          required: false
-        - name: "coordinator"
-          required: false
-        - name: "historical"
-          required: false
-        - name: "middlemanager"
-          required: false
-        - name: "router"
-          required: false
-      asOfVersion: "0.0.0"
-
   - property: &indexerLogsDirectory
       propertyNames:
         - name: "druid.indexer.logs.directory"
@@ -661,7 +529,10 @@ properties:
         type: "string"
       defaultValues:
         - fromVersion: "0.0.0"
-          value: "-server -Xms256m -Xmx256m -XX:MaxDirectMemorySize=300m -Duser.timezone=UTC -Dfile.encoding=UTF-8 -XX:+ExitOnOutOfMemoryError -Djava.util.logging.manager=org.apache.logging.log4j.jul.LogManager"
+          value: "-server -Xms256m -Xmx256m -XX:MaxDirectMemorySize=300m
+            -Duser.timezone=UTC -Dfile.encoding=UTF-8
+            -XX:+ExitOnOutOfMemoryError
+            -Djava.util.logging.manager=org.apache.logging.log4j.jul.LogManager"
       roles:
         - name: "broker"
           required: false
