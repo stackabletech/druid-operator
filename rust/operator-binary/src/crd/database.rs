@@ -28,19 +28,16 @@ pub enum MetadataDatabaseConnection {
     ///
     /// Please note that - due to license issues - we don't ship the mysql driver, you need to add
     /// it it yourself.
-    /// See <https://docs.stackable.tech/home/stable/hive/usage-guide/database-driver/> for details.
     Mysql(MysqlConnection),
 
     // Docs are on the struct
     Derby(DerbyConnection),
-    // We don't support generic (yet?), as we need to tell the metastore the `--dbtype` on startup,
-    // which is not known for generic connection. We could e.g. create a new struct with
-    // #[serde(flatten)] of the GenericJdbcDatabaseConnection and an additional field
-    // `metastoreDbType` (or similar).
+    // We don't support generic as druid only offers the types mentioned above for metadata storage
+    // See <https://druid.apache.org/docs/latest/design/metadata-storage/>
 }
 
 impl MetadataDatabaseConnection {
-    /// Name of the database as it should be passed using `METADATA_STORAGE_TYPE` property.
+    /// Name of the database as it should be passed using `METADATA_STORAGE_TYPE` ("druid.metadata.storage.type") property.
     pub fn as_db_type(&self) -> &str {
         match self {
             MetadataDatabaseConnection::Postgresql(_) => "postgresql",

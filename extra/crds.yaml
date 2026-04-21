@@ -1488,7 +1488,6 @@ spec:
 
                           Please note that - due to license issues - we don't ship the mysql driver, you need to add
                           it it yourself.
-                          See <https://docs.stackable.tech/home/stable/hive/usage-guide/database-driver/> for details.
                         properties:
                           credentialsSecretName:
                             description: |-
