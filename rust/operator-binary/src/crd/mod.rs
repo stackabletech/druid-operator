@@ -796,6 +796,15 @@ impl v1alpha1::DruidCluster {
     }
 }
 
+#[cfg(test)]
+impl stackable_operator::versioned::test_utils::RoundtripTestData for v1alpha1::DruidClusterSpec {
+    fn roundtrip_test_data() -> Vec<Self> {
+        todo!(
+            "Return some test data according to https://stackabletech.github.io/operator-rs/stackable_versioned/test_utils/trait.RoundtripTestData.html"
+        )
+    }
+}
+
 #[derive(
     Clone,
     Debug,

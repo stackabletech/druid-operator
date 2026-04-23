@@ -30,8 +30,7 @@ spec:
           credentials:
             secretClass: s3-credentials-class
     metadataDatabase:
-      derby:
-        location: "//localhost:1527/var/druid/metadata.db"
+      derby: {}
 {% if lookup('env', 'VECTOR_AGGREGATOR') %}
     vectorAggregatorConfigMapName: vector-aggregator-discovery
 {% endif %}

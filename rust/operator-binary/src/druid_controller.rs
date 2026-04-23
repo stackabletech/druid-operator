@@ -32,6 +32,7 @@ use stackable_operator::{
     },
     constants::RESTART_CONTROLLER_ENABLED_LABEL,
     crd::s3,
+    database_connections::drivers::jdbc::JdbcDatabaseConnection as _,
     k8s_openapi::{
         DeepMerge,
         api::{
