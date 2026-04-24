@@ -112,12 +112,11 @@ mod tests {
               hdfs:
                 configMapName: simple-hdfs
                 directory: /druid
-            metadataStorageDatabase:
-              dbType: postgresql
-              connString: jdbc:postgresql://druid-postgresql/druid
-              host: druid-postgresql
-              port: 5432
-              credentialsSecret: mySecret
+            metadataDatabase:
+              postgresql:
+                host: druid-postgresql
+                database: druid
+                credentialsSecretName: mySecret
             zookeeperConfigMapName: simple-druid-znode
           brokers:
             roleGroups:

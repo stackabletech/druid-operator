@@ -13,12 +13,11 @@ spec:
 {% endif %}
     pullPolicy: IfNotPresent
   clusterConfig:
-    metadataStorageDatabase:
-      dbType: postgresql
-      connString: jdbc:postgresql://druid-postgresql/druid
-      host: druid-postgresql
-      port: 5432
-      credentialsSecret: druid-credentials
+    metadataDatabase:
+      postgresql:
+        host: druid-postgresql
+        database: druid
+        credentialsSecretName: druid-credentials
     deepStorage:
       hdfs:
         configMapName: druid-hdfs

@@ -1,3 +1,4 @@
+---
 runners:
   amd64:
     platform: aks-1.32

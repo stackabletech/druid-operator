@@ -83,11 +83,8 @@ spec:
                       caCert:
                         secretClass: minio-tls-certificates
         baseKey: deep-storage
-    metadataStorageDatabase:
-      dbType: derby
-      connString: jdbc:derby://localhost:1527/var/druid/metadata.db;create=true
-      host: localhost
-      port: 1527
+    metadataDatabase:
+      derby: {}
 {% if test_scenario['values']['tls-mode'] == 'internal-and-server-tls' or test_scenario['values']['tls-mode'] == 'internal-and-server-tls-and-tls-client-auth' %}
     tls:
       serverAndInternalSecretClass: druid-tls

@@ -76,10 +76,6 @@ include::example$getting_started/getting_started.sh[tag=install-druid]
 
 This creates the actual Druid Stacklet.
 
-WARNING: This Druid instance uses Derby (`dbType: derby`) as a metadata store, which is an interal SQL database.
-It is not persisted and not suitable for production use!
-Consult the https://druid.apache.org/docs/latest/dependencies/metadata-storage.html#available-metadata-stores[Druid documentation] for a list of supported databases and setup instructions for production instances.
-
 == Verify that it works
 
 Submit an ingestion job and then query the ingested data -- either through the web interface or the API.

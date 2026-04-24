@@ -40,11 +40,8 @@ deepStorage:
   hdfs:
     configMapName: druid-hdfs
     directory: /druid
-metadataStorageDatabase:
-  dbType: derby
-  connString: jdbc:derby://localhost:1527/var/druid/metadata.db;create=true
-  host: localhost
-  port: 1527
+metadataDatabase:
+  derby: {}
 zookeeperConfigMapName: zk-config-map
     "#;
 
