@@ -763,7 +763,7 @@ fn build_rolegroup_config_map(
                             .spec
                             .cluster_config
                             .metadata_database
-                            .as_db_type()
+                            .as_metadata_storage_type()
                             .to_string(),
                     ),
                 );

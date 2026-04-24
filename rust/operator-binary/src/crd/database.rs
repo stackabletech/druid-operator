@@ -37,7 +37,7 @@ pub enum MetadataDatabaseConnection {
 
 impl MetadataDatabaseConnection {
     /// Name of the database as it should be passed using `METADATA_STORAGE_TYPE` ("druid.metadata.storage.type") property.
-    pub fn as_db_type(&self) -> &str {
+    pub fn as_metadata_storage_type(&self) -> &str {
         match self {
             MetadataDatabaseConnection::Postgresql(_) => "postgresql",
             MetadataDatabaseConnection::Mysql(_) => "mysql",
