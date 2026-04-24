@@ -89,7 +89,7 @@ mod tests {
         "postgresql:
   host: druid-postgresql
   database: druid
-  credentialsSecretName: druid-credentials",
+  credentialsSecretName: druid-postgres-credentials",
         "jdbc:postgresql://druid-postgresql:5432/druid"
     )]
     #[case::derby(

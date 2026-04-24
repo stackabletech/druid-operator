@@ -17,7 +17,7 @@ spec:
       postgresql:
         host: druid-postgresql
         database: druid
-        credentialsSecretName: druid-credentials
+        credentialsSecretName: druid-postgres-credentials
     deepStorage:
       hdfs:
         configMapName: druid-hdfs
@@ -76,7 +76,7 @@ spec:
 apiVersion: v1
 kind: Secret
 metadata:
-  name: druid-credentials
+  name: druid-postgres-credentials
 type: Opaque
 stringData:
   username: druid
