@@ -71,7 +71,7 @@ impl JdbcDatabaseConnection for MetadataDatabaseConnection {
                 //
                 // It looks like Druid always starts Derby at `localhost:1527`, regardless of what we configure here,
                 // so we can hardcode it here.
-                d.jdbc_connection_details_with_host_part(unique_database_name, "localhost:1527")
+                d.jdbc_connection_details_for_network_access(unique_database_name, "localhost:1527")
             }
         }
     }
