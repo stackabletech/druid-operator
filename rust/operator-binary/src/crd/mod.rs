@@ -1735,7 +1735,79 @@ mod tests {
 
     impl RoundtripTestData for v1alpha1::DruidClusterSpec {
         fn roundtrip_test_data() -> Vec<Self> {
-            vec![]
+            stackable_operator::utils::yaml_from_str_singleton_map(indoc::indoc! {"
+              - image:
+                  productVersion: 30.0.0
+                  pullPolicy: IfNotPresent
+                clusterOperation:
+                  stopped: false
+                  reconciliationPaused: false
+                clusterConfig:
+                  metadataStorageDatabase:
+                    dbType: postgresql
+                    connString: jdbc:postgresql://druid-postgresql/druid
+                    host: druid-postgresql
+                    port: 5432
+                    credentialsSecret: druid-credentials
+                  # metadataDatabase:
+                  #   postgresql:
+                  #     host: druid-postgresql
+                  #     database: druid
+                  #     credentialsSecretName: mySecret
+                  deepStorage:
+                    hdfs:
+                      configMapName: simple-hdfs
+                      directory: /druid
+                  ingestion:
+                    s3connection:
+                      inline:
+                        host: s3-de-central.profitbricks.com
+                        credentials:
+                          secretClass: s3-credentials-class
+                  zookeeperConfigMapName: simple-druid-znode
+                  authorization:
+                    opa:
+                      configMapName: test-opa
+                      package: druid
+                  vectorAggregatorConfigMapName: vector-aggregator-discovery
+                brokers:
+                  config:
+                    gracefulShutdownTimeout: 1s
+                    logging:
+                      enableVectorAgent: true
+                      containers:
+                        druid:
+                          console:
+                            level: INFO
+                          file:
+                            level: INFO
+                          loggers:
+                            ROOT:
+                              level: INFO
+                  configOverrides:
+                    runtime.properties: &runtime-properties
+                      druid.foo: bar
+                  roleGroups:
+                    default:
+                      replicas: 1
+                coordinators:
+                  roleGroups:
+                    default:
+                      replicas: 1
+                historicals:
+                  roleGroups:
+                    default:
+                      replicas: 1
+                middleManagers:
+                  roleGroups:
+                    default:
+                      replicas: 1
+                routers:
+                  roleGroups:
+                    default:
+                      replicas: 1
+        "})
+            .expect("Failed to parse DruidClusterSpec YAML")
         }
     }
 }
