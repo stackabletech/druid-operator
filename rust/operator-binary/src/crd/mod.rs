@@ -1729,6 +1729,10 @@ where
 
 #[cfg(test)]
 mod tests {
+    use stackable_operator::versioned::test_utils::RoundtripTestData;
+
+    use crate::crd::v1alpha1;
+
     pub fn deserialize_yaml_str<'a, T: serde::de::Deserialize<'a>>(value: &'a str) -> T {
         let deserializer = serde_yaml::Deserializer::from_str(value);
         serde_yaml::with::singleton_map_recursive::deserialize(deserializer).unwrap()
@@ -1738,5 +1742,11 @@ mod tests {
         let file = std::fs::File::open(path).unwrap();
         let deserializer = serde_yaml::Deserializer::from_reader(file);
         serde_yaml::with::singleton_map_recursive::deserialize(deserializer).unwrap()
+    }
+
+    impl RoundtripTestData for v1alpha1::DruidClusterSpec {
+        fn roundtrip_test_data() -> Vec<Self> {
+            vec![]
+        }
     }
 }
