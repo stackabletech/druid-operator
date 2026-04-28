@@ -6,6 +6,7 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+- BREAKING: Add required CLI argument and env var to set the image repository used to construct final product image names: `IMAGE_REPOSITORY` (`--image-repository`), eg. `oci.example.org/my/namespace` ([#818]).
 - Support OIDC `clientAuthenticationMethod` configuration ([#813]).
 
 ### Changed
@@ -14,7 +15,6 @@ All notable changes to this project will be documented in this file.
 - BREAKING: Implement generic database connection for metadata storage ([#814]).
   The `.clusterConfig.metadataStorageDatabase` has subfields according to the supported db types: `postgresql`, `mysql` and `derby`.
 - BREAKING: The `.clusterConfig.metadataStorageDatabase` field has been renamed to `.clusterConfig.metadataDatabase` for consistency ([#814]).
-- Bump `stackable-operator` to 0.110.1 and `kube` to 3.1.0 ([#813]).
 - Document Helm deployed RBAC permissions and remove unnecessary permissions ([#810]).
 
 ### Deleted
@@ -24,6 +24,7 @@ All notable changes to this project will be documented in this file.
 [#810]: https://github.com/stackabletech/druid-operator/pull/810
 [#813]: https://github.com/stackabletech/druid-operator/pull/813
 [#814]: https://github.com/stackabletech/druid-operator/pull/814
+[#818]: https://github.com/stackabletech/druid-operator/pull/818
 
 ## [26.3.0] - 2026-03-16
 

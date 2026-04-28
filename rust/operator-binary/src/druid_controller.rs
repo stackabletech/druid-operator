@@ -24,6 +24,7 @@ use stackable_operator::{
             security::PodSecurityContextBuilder, volume::VolumeBuilder,
         },
     },
+    cli::OperatorEnvironmentOptions,
     cluster_resources::{ClusterResourceApplyStrategy, ClusterResources},
     commons::{
         opa::OpaApiVersion,
@@ -94,7 +95,7 @@ use crate::{
 pub const DRUID_CONTROLLER_NAME: &str = "druidcluster";
 pub const FULL_CONTROLLER_NAME: &str = concatcp!(DRUID_CONTROLLER_NAME, '.', OPERATOR_NAME);
 
-const DOCKER_IMAGE_BASE_NAME: &str = "druid";
+const CONTAINER_IMAGE_BASE_NAME: &str = "druid";
 
 // volume names
 const DRUID_CONFIG_VOLUME_NAME: &str = "config";
@@ -107,6 +108,7 @@ const USERDATA_MOUNTPOINT: &str = "/stackable/userdata";
 pub struct Ctx {
     pub client: stackable_operator::client::Client,
     pub product_config: ProductConfigManager,
+    pub operator_environment: OperatorEnvironmentOptions,
 }
 
 #[derive(Snafu, Debug, EnumDiscriminants)]
@@ -400,7 +402,11 @@ pub async fn reconcile_druid(
     let resolved_product_image = druid
         .spec
         .image
-        .resolve(DOCKER_IMAGE_BASE_NAME, crate::built_info::PKG_VERSION)
+        .resolve(
+            CONTAINER_IMAGE_BASE_NAME,
+            &ctx.operator_environment.image_repository,
+            crate::built_info::PKG_VERSION,
+        )
         .context(ResolveProductImageSnafu)?;
 
     let zk_confmap = druid.spec.cluster_config.zookeeper_config_map_name.clone();
@@ -1443,7 +1449,11 @@ mod test {
         let resolved_product_image: ResolvedProductImage = druid
             .spec
             .image
-            .resolve(DOCKER_IMAGE_BASE_NAME, crate::built_info::PKG_VERSION)
+            .resolve(
+                CONTAINER_IMAGE_BASE_NAME,
+                "oci.example.org",
+                crate::built_info::PKG_VERSION,
+            )
             .expect("test: resolved product image is always valid");
         let role_config = transform_all_roles_to_config(&druid, &druid.build_role_properties());
 

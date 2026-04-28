@@ -165,6 +165,7 @@ async fn main() -> anyhow::Result<()> {
                     druid_controller::error_policy,
                     Arc::new(druid_controller::Ctx {
                         client: client.clone(),
+                        operator_environment,
                         product_config,
                     }),
                 )
