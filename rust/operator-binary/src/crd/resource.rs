@@ -252,13 +252,13 @@ mod test {
         },
         k8s_openapi::apimachinery::pkg::api::resource::Quantity,
         role_utils::{CommonConfiguration, RoleGroup},
+        utils::yaml_from_str_singleton_map,
     };
 
     use super::*;
     use crate::crd::{
         MiddleManagerConfig,
         storage::{HistoricalStorage, default_free_percentage_empty_dir},
-        tests::deserialize_yaml_file,
         v1alpha1,
     };
 
@@ -406,9 +406,10 @@ mod test {
 
     #[test]
     fn test_resources() -> Result<(), Error> {
-        let cluster = deserialize_yaml_file::<v1alpha1::DruidCluster>(
-            "test/resources/crd/resource_merge/druid_cluster.yaml",
-        );
+        let cluster: v1alpha1::DruidCluster = yaml_from_str_singleton_map(include_str!(
+            "../../test/resources/crd/resource_merge/druid_cluster.yaml"
+        ))
+        .expect("failed to parse YAML");
 
         let config = cluster.merged_config().unwrap();
         if let Some(RoleGroup {
@@ -482,9 +483,10 @@ mod test {
 
     #[test]
     fn test_segment_cache() -> Result<(), Error> {
-        let cluster = deserialize_yaml_file::<v1alpha1::DruidCluster>(
-            "test/resources/crd/resource_merge/segment_cache.yaml",
-        );
+        let cluster: v1alpha1::DruidCluster = yaml_from_str_singleton_map(include_str!(
+            "../../test/resources/crd/resource_merge/segment_cache.yaml"
+        ))
+        .expect("failed to parse YAML");
 
         // ---------- default role group
         let config = cluster.merged_config().unwrap();

@@ -32,8 +32,9 @@ pub fn tls_default() -> Option<String> {
 #[cfg(test)]
 mod tests {
     use indoc::formatdoc;
+    use stackable_operator::utils::yaml_from_str_singleton_map;
 
-    use crate::crd::{tests::deserialize_yaml_str, tls::DruidTls, v1alpha1::DruidClusterConfig};
+    use crate::crd::{tls::DruidTls, v1alpha1::DruidClusterConfig};
 
     const BASE_DRUID_CONFIGURATION: &str = r#"
 deepStorage:
@@ -50,8 +51,8 @@ zookeeperConfigMapName: zk-config-map
 
     #[test]
     fn test_tls_default() {
-        let druid_cluster_config =
-            deserialize_yaml_str::<DruidClusterConfig>(BASE_DRUID_CONFIGURATION);
+        let druid_cluster_config: DruidClusterConfig =
+            yaml_from_str_singleton_map(BASE_DRUID_CONFIGURATION).expect("failed to parse YAML");
 
         assert_eq!(
             druid_cluster_config.tls,
@@ -69,8 +70,8 @@ zookeeperConfigMapName: zk-config-map
         tls:
           serverAndInternalSecretClass: druid-secret-class
         "};
-        dbg!(&input);
-        let druid_cluster_config = deserialize_yaml_str::<DruidClusterConfig>(&input);
+        let druid_cluster_config: DruidClusterConfig =
+            yaml_from_str_singleton_map(&input).expect("failed to parse YAML");
 
         assert_eq!(
             druid_cluster_config.tls,
@@ -87,8 +88,8 @@ zookeeperConfigMapName: zk-config-map
         {BASE_DRUID_CONFIGURATION}
         tls: null
         "};
-        dbg!(&input);
-        let druid_cluster_config = deserialize_yaml_str::<DruidClusterConfig>(&input);
+        let druid_cluster_config: DruidClusterConfig =
+            yaml_from_str_singleton_map(&input).expect("failed to parse YAML");
 
         assert_eq!(druid_cluster_config.tls, None,);
         assert_eq!(druid_cluster_config.authentication, vec![]);
@@ -101,8 +102,8 @@ zookeeperConfigMapName: zk-config-map
         tls:
           serverAndInternalSecretClass: null
         "};
-        dbg!(&input);
-        let druid_cluster_config = deserialize_yaml_str::<DruidClusterConfig>(&input);
+        let druid_cluster_config: DruidClusterConfig =
+            yaml_from_str_singleton_map(&input).expect("failed to parse YAML");
 
         assert_eq!(
             druid_cluster_config.tls,
@@ -122,8 +123,8 @@ zookeeperConfigMapName: zk-config-map
         authentication:
           - authenticationClass: druid-user-authentication-class
         "};
-        dbg!(&input);
-        let druid_cluster_config = deserialize_yaml_str::<DruidClusterConfig>(&input);
+        let druid_cluster_config: DruidClusterConfig =
+            yaml_from_str_singleton_map(&input).expect("failed to parse YAML");
 
         assert_eq!(
             druid_cluster_config.tls,

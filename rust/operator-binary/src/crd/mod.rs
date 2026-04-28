@@ -1729,14 +1729,85 @@ where
 
 #[cfg(test)]
 mod tests {
-    pub fn deserialize_yaml_str<'a, T: serde::de::Deserialize<'a>>(value: &'a str) -> T {
-        let deserializer = serde_yaml::Deserializer::from_str(value);
-        serde_yaml::with::singleton_map_recursive::deserialize(deserializer).unwrap()
-    }
+    use stackable_operator::versioned::test_utils::RoundtripTestData;
 
-    pub fn deserialize_yaml_file<'a, T: serde::de::Deserialize<'a>>(path: &'a str) -> T {
-        let file = std::fs::File::open(path).unwrap();
-        let deserializer = serde_yaml::Deserializer::from_reader(file);
-        serde_yaml::with::singleton_map_recursive::deserialize(deserializer).unwrap()
+    use crate::crd::v1alpha1;
+
+    impl RoundtripTestData for v1alpha1::DruidClusterSpec {
+        fn roundtrip_test_data() -> Vec<Self> {
+            stackable_operator::utils::yaml_from_str_singleton_map(indoc::indoc! {"
+              - image:
+                  productVersion: 30.0.0
+                  pullPolicy: IfNotPresent
+                clusterOperation:
+                  stopped: false
+                  reconciliationPaused: false
+                clusterConfig:
+                  metadataStorageDatabase:
+                    dbType: postgresql
+                    connString: jdbc:postgresql://druid-postgresql/druid
+                    host: druid-postgresql
+                    port: 5432
+                    credentialsSecret: druid-credentials
+                  # metadataDatabase:
+                  #   postgresql:
+                  #     host: druid-postgresql
+                  #     database: druid
+                  #     credentialsSecretName: mySecret
+                  deepStorage:
+                    hdfs:
+                      configMapName: simple-hdfs
+                      directory: /druid
+                  ingestion:
+                    s3connection:
+                      inline:
+                        host: s3-de-central.profitbricks.com
+                        credentials:
+                          secretClass: s3-credentials-class
+                  zookeeperConfigMapName: simple-druid-znode
+                  authorization:
+                    opa:
+                      configMapName: test-opa
+                      package: druid
+                  vectorAggregatorConfigMapName: vector-aggregator-discovery
+                brokers:
+                  config:
+                    gracefulShutdownTimeout: 1s
+                    logging:
+                      enableVectorAgent: true
+                      containers:
+                        druid:
+                          console:
+                            level: INFO
+                          file:
+                            level: INFO
+                          loggers:
+                            ROOT:
+                              level: INFO
+                  configOverrides:
+                    runtime.properties: &runtime-properties
+                      druid.foo: bar
+                  roleGroups:
+                    default:
+                      replicas: 1
+                coordinators:
+                  roleGroups:
+                    default:
+                      replicas: 1
+                historicals:
+                  roleGroups:
+                    default:
+                      replicas: 1
+                middleManagers:
+                  roleGroups:
+                    default:
+                      replicas: 1
+                routers:
+                  roleGroups:
+                    default:
+                      replicas: 1
+        "})
+            .expect("Failed to parse DruidClusterSpec YAML")
+        }
     }
 }
