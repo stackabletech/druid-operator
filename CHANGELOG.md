@@ -6,6 +6,7 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+- BREAKING: Add required CLI argument and env var to set the image repository used to construct final product image names: `IMAGE_REPOSITORY` (`--image-repository`), eg. `oci.example.org/my/namespace` ([#818]).
 - Support OIDC `clientAuthenticationMethod` configuration ([#813]).
 
 ### Changed
@@ -16,6 +17,7 @@ All notable changes to this project will be documented in this file.
 
 [#810]: https://github.com/stackabletech/druid-operator/pull/810
 [#813]: https://github.com/stackabletech/druid-operator/pull/813
+[#818]: https://github.com/stackabletech/druid-operator/pull/818
 
 ## [26.3.0] - 2026-03-16
 
