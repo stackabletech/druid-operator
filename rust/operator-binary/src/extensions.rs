@@ -4,7 +4,7 @@ use tracing::debug;
 
 use crate::{
     authentication::DruidAuthenticationConfig,
-    crd::{DbType, security::DruidTlsSecurity, v1alpha1},
+    crd::{database::MetadataDatabaseConnection, security::DruidTlsSecurity, v1alpha1},
 };
 
 const EXT_S3: &str = "druid-s3-extensions";
@@ -33,12 +33,12 @@ pub fn get_extension_list(
         EXT_HDFS.to_string(),
     ]);
 
-    match druid.spec.cluster_config.metadata_storage_database.db_type {
-        DbType::Derby => {} // no additional extensions required
-        DbType::Postgresql => {
+    match druid.spec.cluster_config.metadata_database {
+        MetadataDatabaseConnection::Derby(..) => {} // no additional extensions required
+        MetadataDatabaseConnection::Postgresql(..) => {
             extensions.insert(EXT_PSQL_MD_ST.to_string());
         }
-        DbType::Mysql => {
+        MetadataDatabaseConnection::Mysql(..) => {
             extensions.insert(EXT_MYSQL_MD_ST.to_string());
         }
     };

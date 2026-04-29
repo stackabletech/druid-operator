@@ -23,12 +23,11 @@ spec:
       hdfs:
         configMapName: druid-hdfs
         directory: /druid
-    metadataStorageDatabase:
-      dbType: postgresql
-      connString: jdbc:postgresql://druid-postgresql/druid
-      host: druid-postgresql
-      port: 5432
-      credentialsSecret: druid-credentials
+    metadataDatabase:
+      postgresql:
+        host: druid-postgresql
+        database: druid
+        credentialsSecretName: druid-postgres-credentials
 {% if lookup('env', 'VECTOR_AGGREGATOR') %}
     vectorAggregatorConfigMapName: vector-aggregator-discovery
 {% endif %}
@@ -77,7 +76,7 @@ spec:
 apiVersion: v1
 kind: Secret
 metadata:
-  name: druid-credentials
+  name: druid-postgres-credentials
 type: Opaque
 stringData:
   username: druid

@@ -17,11 +17,8 @@ spec:
       hdfs:
         configMapName: hdfs
         directory: /data
-    metadataStorageDatabase:
-      dbType: derby
-      connString: jdbc:derby://localhost:1527/var/druid/metadata.db;create=true
-      host: localhost
-      port: 1527
+    metadataDatabase:
+      derby: {}
     tls: null
     zookeeperConfigMapName: druid-znode
   brokers:

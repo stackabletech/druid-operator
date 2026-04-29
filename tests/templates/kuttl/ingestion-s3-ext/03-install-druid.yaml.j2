@@ -29,11 +29,8 @@ spec:
           host: s3-de-central.profitbricks.com
           credentials:
             secretClass: s3-credentials-class
-    metadataStorageDatabase:
-      dbType: derby
-      connString: jdbc:derby://localhost:1527/var/druid/metadata.db;create=true
-      host: localhost
-      port: 1527
+    metadataDatabase:
+      derby: {}
 {% if lookup('env', 'VECTOR_AGGREGATOR') %}
     vectorAggregatorConfigMapName: vector-aggregator-discovery
 {% endif %}
