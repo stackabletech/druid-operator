@@ -420,7 +420,7 @@ impl v1alpha1::DruidCluster {
                         AUTH_AUTHORIZER_OPA_TYPE.to_string(),
                         Some(AUTH_AUTHORIZER_OPA_TYPE_VALUE.to_string()),
                     );
-                    // The opaUri still needs to be set, but that requires a discovery config map and is handled in the druid_controller.rs
+                    // The opaUri still needs to be set, but that requires a discovery config map and is handled in the controller.rs
                 }
                 // deep storage
                 result.insert(
