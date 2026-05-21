@@ -1,9 +1,3 @@
-{# vector_enabled gates conditional appender lines added to role-group
-   ConfigMaps when VECTOR_AGGREGATOR is set in the environment. The five
-   role-group ConfigMaps (broker/coordinator/historical/middlemanager/router)
-   are added in a follow-up commit; the flag is declared here for forward
-   reference. #}
-{% set vector_enabled = lookup('env', 'VECTOR_AGGREGATOR') | length > 0 %}
 ---
 # Snapshot the full `.data` of each operator-managed ConfigMap.
 # Any code change that alters rendered config values will fail these diffs.
@@ -15,7 +9,7 @@
 # The heredoc is quoted (`<<'YAMLEOF'`) so shell substitution is disabled and
 # Java-properties escapes like `${env\:VAR}` survive verbatim. After the
 # heredoc, `sed` substitutes `__NAMESPACE__` (kuttl namespaces are random per
-# install). For role-group ConfigMaps (added in a follow-up commit) the
+# install). For role-group ConfigMaps the
 # *actual* side is additionally normalized with `s|/znode-[a-f0-9-]+|/znode-__ZNODE__|`
 # because the zk operator generates a new znode UUID per install. Both sides
 # are then canonicalized to JSON via `yq -o=json`; keys are already
@@ -41,6 +35,502 @@ commands:
       actual=$(kubectl -n $NAMESPACE get cm druid -o yaml | yq -o=json '.data')
       if [ "$expected" != "$actual" ]; then
         echo "ERROR: ConfigMap druid data drifted from snapshot."
+        echo "=== expected ==="
+        printf '%s\n' "$expected"
+        echo "=== actual ==="
+        printf '%s\n' "$actual"
+        exit 1
+      fi
+
+  # Role-group ConfigMap: druid-broker-default
+  - script: |
+      expected=$(cat <<'YAMLEOF' | sed "s|__NAMESPACE__|$NAMESPACE|g" | yq -o=json
+      jvm.config: |-
+        -server
+        -Xmx800m
+        -Xms800m
+        -XX:MaxDirectMemorySize=400m
+        -XX:+ExitOnOutOfMemoryError
+        -XX:+UseG1GC
+        -Djava.security.properties=/stackable/rwconfig/security.properties
+        -Duser.timezone=UTC
+        -Dfile.encoding=UTF-8
+        -Djava.io.tmpdir=/tmp
+        -Djava.util.logging.manager=org.apache.logging.log4j.jul.LogManager
+        -Dlog4j.configurationFile=/stackable/rwconfig/log4j2.properties
+        -Djavax.net.ssl.trustStore=/stackable/truststore.p12
+        -Djavax.net.ssl.trustStorePassword=changeit
+        -Djavax.net.ssl.trustStoreType=pkcs12
+      log4j2.properties: |-
+        appenders = FILE, CONSOLE
+
+        appender.CONSOLE.type = Console
+        appender.CONSOLE.name = CONSOLE
+        appender.CONSOLE.target = SYSTEM_ERR
+        appender.CONSOLE.layout.type = PatternLayout
+        appender.CONSOLE.layout.pattern = %d{ISO8601} %p [%t] %c - %m%n
+        appender.CONSOLE.filter.threshold.type = ThresholdFilter
+        appender.CONSOLE.filter.threshold.level = INFO
+
+        appender.FILE.type = RollingFile
+        appender.FILE.name = FILE
+        appender.FILE.fileName = /stackable/log/druid/druid.log4j2.xml
+        appender.FILE.filePattern = /stackable/log/druid/druid.log4j2.xml.%i
+        appender.FILE.layout.type = XMLLayout
+        appender.FILE.policies.type = Policies
+        appender.FILE.policies.size.type = SizeBasedTriggeringPolicy
+        appender.FILE.policies.size.size = 5MB
+        appender.FILE.strategy.type = DefaultRolloverStrategy
+        appender.FILE.strategy.max = 1
+        appender.FILE.filter.threshold.type = ThresholdFilter
+        appender.FILE.filter.threshold.level = INFO
+
+
+        rootLogger.level=INFO
+        rootLogger.appenderRefs = CONSOLE, FILE
+        rootLogger.appenderRef.CONSOLE.ref = CONSOLE
+        rootLogger.appenderRef.FILE.ref = FILE
+      runtime.properties: |
+        druid.auth.basic.ssl.trustStorePassword=changeit
+        druid.auth.basic.ssl.trustStorePath=/stackable/tls/truststore.p12
+        druid.auth.basic.ssl.trustStoreType=pkcs12
+        druid.client.https.trustStorePassword=changeit
+        druid.client.https.trustStorePath=/stackable/tls/truststore.p12
+        druid.client.https.trustStoreType=pkcs12
+        druid.emitter=prometheus
+        druid.emitter.prometheus.namespace=druid
+        druid.emitter.prometheus.port=9090
+        druid.emitter.prometheus.strategy=exporter
+        druid.enablePlaintextPort=false
+        druid.enableTlsPort=true
+        druid.extensions.loadList=["druid-basic-security",\ "druid-datasketches",\ "druid-hdfs-storage",\ "druid-kafka-indexing-service",\ "druid-opa-authorizer",\ "postgresql-metadata-storage",\ "prometheus-emitter",\ "simple-client-sslcontext"]
+        druid.indexer.logs.directory=/stackable/var/druid/indexing-logs
+        druid.metadata.storage.connector.connectURI=jdbc\:postgresql\://druid-postgresql\:5432/druid
+        druid.metadata.storage.connector.password=${env\:METADATA_DATABASE_PASSWORD}
+        druid.metadata.storage.connector.user=${env\:METADATA_DATABASE_USERNAME}
+        druid.metadata.storage.type=postgresql
+        druid.monitoring.monitors=["org.apache.druid.java.util.metrics.JvmMonitor"]
+        druid.processing.tmpDir=/stackable/var/druid/processing
+        druid.server.https.certAlias=1
+        druid.server.https.keyStorePassword=changeit
+        druid.server.https.keyStorePath=/stackable/tls/keystore.p12
+        druid.server.https.keyStoreType=pkcs12
+        druid.startup.logging.logProperties=true
+        druid.storage.bucket=
+        druid.storage.storageDirectory=/druid
+        druid.storage.type=hdfs
+        druid.tlsPort=8282
+        druid.zk.service.host=druid-zk-server.__NAMESPACE__.svc.cluster.local\:2282/znode-__ZNODE__
+      security.properties: |
+        networkaddress.cache.negative.ttl=0
+        networkaddress.cache.ttl=30
+      YAMLEOF
+      )
+      actual=$(kubectl -n $NAMESPACE get cm druid-broker-default -o yaml \
+        | yq -o=json '.data' \
+        | sed -E 's|/znode-[a-f0-9-]+|/znode-__ZNODE__|')
+      if [ "$expected" != "$actual" ]; then
+        echo "ERROR: ConfigMap druid-broker-default data drifted from snapshot."
+        echo "=== expected ==="
+        printf '%s\n' "$expected"
+        echo "=== actual ==="
+        printf '%s\n' "$actual"
+        exit 1
+      fi
+
+  # Role-group ConfigMap: druid-coordinator-default
+  - script: |
+      expected=$(cat <<'YAMLEOF' | sed "s|__NAMESPACE__|$NAMESPACE|g" | yq -o=json
+      jvm.config: |-
+        -server
+        -Xmx468m
+        -Xms468m
+        -XX:+ExitOnOutOfMemoryError
+        -XX:+UseG1GC
+        -Djava.security.properties=/stackable/rwconfig/security.properties
+        -Duser.timezone=UTC
+        -Dfile.encoding=UTF-8
+        -Djava.io.tmpdir=/tmp
+        -Djava.util.logging.manager=org.apache.logging.log4j.jul.LogManager
+        -Dlog4j.configurationFile=/stackable/rwconfig/log4j2.properties
+        -Djavax.net.ssl.trustStore=/stackable/truststore.p12
+        -Djavax.net.ssl.trustStorePassword=changeit
+        -Djavax.net.ssl.trustStoreType=pkcs12
+        -Dderby.stream.error.file=/stackable/var/druid/derby.log
+      log4j2.properties: |-
+        appenders = FILE, CONSOLE
+
+        appender.CONSOLE.type = Console
+        appender.CONSOLE.name = CONSOLE
+        appender.CONSOLE.target = SYSTEM_ERR
+        appender.CONSOLE.layout.type = PatternLayout
+        appender.CONSOLE.layout.pattern = %d{ISO8601} %p [%t] %c - %m%n
+        appender.CONSOLE.filter.threshold.type = ThresholdFilter
+        appender.CONSOLE.filter.threshold.level = INFO
+
+        appender.FILE.type = RollingFile
+        appender.FILE.name = FILE
+        appender.FILE.fileName = /stackable/log/druid/druid.log4j2.xml
+        appender.FILE.filePattern = /stackable/log/druid/druid.log4j2.xml.%i
+        appender.FILE.layout.type = XMLLayout
+        appender.FILE.policies.type = Policies
+        appender.FILE.policies.size.type = SizeBasedTriggeringPolicy
+        appender.FILE.policies.size.size = 5MB
+        appender.FILE.strategy.type = DefaultRolloverStrategy
+        appender.FILE.strategy.max = 1
+        appender.FILE.filter.threshold.type = ThresholdFilter
+        appender.FILE.filter.threshold.level = INFO
+
+
+        rootLogger.level=INFO
+        rootLogger.appenderRefs = CONSOLE, FILE
+        rootLogger.appenderRef.CONSOLE.ref = CONSOLE
+        rootLogger.appenderRef.FILE.ref = FILE
+      runtime.properties: |
+        druid.auth.basic.ssl.trustStorePassword=changeit
+        druid.auth.basic.ssl.trustStorePath=/stackable/tls/truststore.p12
+        druid.auth.basic.ssl.trustStoreType=pkcs12
+        druid.client.https.trustStorePassword=changeit
+        druid.client.https.trustStorePath=/stackable/tls/truststore.p12
+        druid.client.https.trustStoreType=pkcs12
+        druid.coordinator.asOverlord.enabled=true
+        druid.coordinator.asOverlord.overlordService=druid/overlord
+        druid.coordinator.period=PT20S
+        druid.coordinator.startDelay=PT20S
+        druid.emitter=prometheus
+        druid.emitter.prometheus.namespace=druid
+        druid.emitter.prometheus.port=9090
+        druid.emitter.prometheus.strategy=exporter
+        druid.enablePlaintextPort=false
+        druid.enableTlsPort=true
+        druid.extensions.loadList=["druid-basic-security",\ "druid-datasketches",\ "druid-hdfs-storage",\ "druid-kafka-indexing-service",\ "druid-opa-authorizer",\ "postgresql-metadata-storage",\ "prometheus-emitter",\ "simple-client-sslcontext"]
+        druid.indexer.logs.directory=/stackable/var/druid/indexing-logs
+        druid.indexer.queue.startDelay=PT20S
+        druid.indexer.runner.type=remote
+        druid.indexer.storage.type=metadata
+        druid.metadata.storage.connector.connectURI=jdbc\:postgresql\://druid-postgresql\:5432/druid
+        druid.metadata.storage.connector.password=${env\:METADATA_DATABASE_PASSWORD}
+        druid.metadata.storage.connector.user=${env\:METADATA_DATABASE_USERNAME}
+        druid.metadata.storage.type=postgresql
+        druid.monitoring.monitors=["org.apache.druid.java.util.metrics.JvmMonitor"]
+        druid.server.https.certAlias=1
+        druid.server.https.keyStorePassword=changeit
+        druid.server.https.keyStorePath=/stackable/tls/keystore.p12
+        druid.server.https.keyStoreType=pkcs12
+        druid.startup.logging.logProperties=true
+        druid.storage.bucket=
+        druid.storage.storageDirectory=/druid
+        druid.storage.type=hdfs
+        druid.tlsPort=8281
+        druid.zk.service.host=druid-zk-server.__NAMESPACE__.svc.cluster.local\:2282/znode-__ZNODE__
+      security.properties: |
+        networkaddress.cache.negative.ttl=0
+        networkaddress.cache.ttl=30
+      YAMLEOF
+      )
+      actual=$(kubectl -n $NAMESPACE get cm druid-coordinator-default -o yaml \
+        | yq -o=json '.data' \
+        | sed -E 's|/znode-[a-f0-9-]+|/znode-__ZNODE__|')
+      if [ "$expected" != "$actual" ]; then
+        echo "ERROR: ConfigMap druid-coordinator-default data drifted from snapshot."
+        echo "=== expected ==="
+        printf '%s\n' "$expected"
+        echo "=== actual ==="
+        printf '%s\n' "$actual"
+        exit 1
+      fi
+
+  # Role-group ConfigMap: druid-historical-default
+  - script: |
+      expected=$(cat <<'YAMLEOF' | sed "s|__NAMESPACE__|$NAMESPACE|g" | yq -o=json
+      jvm.config: |-
+        -server
+        -Xmx900m
+        -Xms900m
+        -XX:MaxDirectMemorySize=300m
+        -XX:+ExitOnOutOfMemoryError
+        -XX:+UseG1GC
+        -Djava.security.properties=/stackable/rwconfig/security.properties
+        -Duser.timezone=UTC
+        -Dfile.encoding=UTF-8
+        -Djava.io.tmpdir=/tmp
+        -Djava.util.logging.manager=org.apache.logging.log4j.jul.LogManager
+        -Dlog4j.configurationFile=/stackable/rwconfig/log4j2.properties
+        -Djavax.net.ssl.trustStore=/stackable/truststore.p12
+        -Djavax.net.ssl.trustStorePassword=changeit
+        -Djavax.net.ssl.trustStoreType=pkcs12
+      log4j2.properties: |-
+        appenders = FILE, CONSOLE
+
+        appender.CONSOLE.type = Console
+        appender.CONSOLE.name = CONSOLE
+        appender.CONSOLE.target = SYSTEM_ERR
+        appender.CONSOLE.layout.type = PatternLayout
+        appender.CONSOLE.layout.pattern = %d{ISO8601} %p [%t] %c - %m%n
+        appender.CONSOLE.filter.threshold.type = ThresholdFilter
+        appender.CONSOLE.filter.threshold.level = INFO
+
+        appender.FILE.type = RollingFile
+        appender.FILE.name = FILE
+        appender.FILE.fileName = /stackable/log/druid/druid.log4j2.xml
+        appender.FILE.filePattern = /stackable/log/druid/druid.log4j2.xml.%i
+        appender.FILE.layout.type = XMLLayout
+        appender.FILE.policies.type = Policies
+        appender.FILE.policies.size.type = SizeBasedTriggeringPolicy
+        appender.FILE.policies.size.size = 5MB
+        appender.FILE.strategy.type = DefaultRolloverStrategy
+        appender.FILE.strategy.max = 1
+        appender.FILE.filter.threshold.type = ThresholdFilter
+        appender.FILE.filter.threshold.level = INFO
+
+
+        rootLogger.level=INFO
+        rootLogger.appenderRefs = CONSOLE, FILE
+        rootLogger.appenderRef.CONSOLE.ref = CONSOLE
+        rootLogger.appenderRef.FILE.ref = FILE
+      runtime.properties: |
+        druid.auth.basic.ssl.trustStorePassword=changeit
+        druid.auth.basic.ssl.trustStorePath=/stackable/tls/truststore.p12
+        druid.auth.basic.ssl.trustStoreType=pkcs12
+        druid.client.https.trustStorePassword=changeit
+        druid.client.https.trustStorePath=/stackable/tls/truststore.p12
+        druid.client.https.trustStoreType=pkcs12
+        druid.emitter=prometheus
+        druid.emitter.prometheus.namespace=druid
+        druid.emitter.prometheus.port=9090
+        druid.emitter.prometheus.strategy=exporter
+        druid.enablePlaintextPort=false
+        druid.enableTlsPort=true
+        druid.extensions.loadList=["druid-basic-security",\ "druid-datasketches",\ "druid-hdfs-storage",\ "druid-kafka-indexing-service",\ "druid-opa-authorizer",\ "postgresql-metadata-storage",\ "prometheus-emitter",\ "simple-client-sslcontext"]
+        druid.historical.cache.populateCache=true
+        druid.historical.cache.useCache=true
+        druid.indexer.logs.directory=/stackable/var/druid/indexing-logs
+        druid.metadata.storage.connector.connectURI=jdbc\:postgresql\://druid-postgresql\:5432/druid
+        druid.metadata.storage.connector.password=${env\:METADATA_DATABASE_PASSWORD}
+        druid.metadata.storage.connector.user=${env\:METADATA_DATABASE_USERNAME}
+        druid.metadata.storage.type=postgresql
+        druid.monitoring.monitors=["org.apache.druid.java.util.metrics.JvmMonitor"]
+        druid.processing.buffer.sizeBytes=76800Ki
+        druid.processing.numMergeBuffers=2
+        druid.processing.numThreads=1
+        druid.processing.tmpDir=/stackable/var/druid/processing
+        druid.segmentCache.locations=[{"path"\:"/stackable/var/druid/segment-cache","maxSize"\:"1G","freeSpacePercent"\:"5"}]
+        druid.server.https.certAlias=1
+        druid.server.https.keyStorePassword=changeit
+        druid.server.https.keyStorePath=/stackable/tls/keystore.p12
+        druid.server.https.keyStoreType=pkcs12
+        druid.startup.logging.logProperties=true
+        druid.storage.bucket=
+        druid.storage.storageDirectory=/druid
+        druid.storage.type=hdfs
+        druid.tlsPort=8283
+        druid.zk.service.host=druid-zk-server.__NAMESPACE__.svc.cluster.local\:2282/znode-__ZNODE__
+      security.properties: |
+        networkaddress.cache.negative.ttl=0
+        networkaddress.cache.ttl=30
+      YAMLEOF
+      )
+      actual=$(kubectl -n $NAMESPACE get cm druid-historical-default -o yaml \
+        | yq -o=json '.data' \
+        | sed -E 's|/znode-[a-f0-9-]+|/znode-__ZNODE__|')
+      if [ "$expected" != "$actual" ]; then
+        echo "ERROR: ConfigMap druid-historical-default data drifted from snapshot."
+        echo "=== expected ==="
+        printf '%s\n' "$expected"
+        echo "=== actual ==="
+        printf '%s\n' "$actual"
+        exit 1
+      fi
+
+  # Role-group ConfigMap: druid-middlemanager-default
+  - script: |
+      expected=$(cat <<'YAMLEOF' | sed "s|__NAMESPACE__|$NAMESPACE|g" | yq -o=json
+      jvm.config: |-
+        -server
+        -Xmx1200m
+        -Xms1200m
+        -XX:+ExitOnOutOfMemoryError
+        -XX:+UseG1GC
+        -Djava.security.properties=/stackable/rwconfig/security.properties
+        -Duser.timezone=UTC
+        -Dfile.encoding=UTF-8
+        -Djava.io.tmpdir=/tmp
+        -Djava.util.logging.manager=org.apache.logging.log4j.jul.LogManager
+        -Dlog4j.configurationFile=/stackable/rwconfig/log4j2.properties
+        -Djavax.net.ssl.trustStore=/stackable/truststore.p12
+        -Djavax.net.ssl.trustStorePassword=changeit
+        -Djavax.net.ssl.trustStoreType=pkcs12
+      log4j2.properties: |-
+        appenders = FILE, CONSOLE
+
+        appender.CONSOLE.type = Console
+        appender.CONSOLE.name = CONSOLE
+        appender.CONSOLE.target = SYSTEM_ERR
+        appender.CONSOLE.layout.type = PatternLayout
+        appender.CONSOLE.layout.pattern = %d{ISO8601} %p [%t] %c - %m%n
+        appender.CONSOLE.filter.threshold.type = ThresholdFilter
+        appender.CONSOLE.filter.threshold.level = INFO
+
+        appender.FILE.type = RollingFile
+        appender.FILE.name = FILE
+        appender.FILE.fileName = /stackable/log/druid/druid.log4j2.xml
+        appender.FILE.filePattern = /stackable/log/druid/druid.log4j2.xml.%i
+        appender.FILE.layout.type = XMLLayout
+        appender.FILE.policies.type = Policies
+        appender.FILE.policies.size.type = SizeBasedTriggeringPolicy
+        appender.FILE.policies.size.size = 5MB
+        appender.FILE.strategy.type = DefaultRolloverStrategy
+        appender.FILE.strategy.max = 1
+        appender.FILE.filter.threshold.type = ThresholdFilter
+        appender.FILE.filter.threshold.level = INFO
+
+
+        rootLogger.level=INFO
+        rootLogger.appenderRefs = CONSOLE, FILE
+        rootLogger.appenderRef.CONSOLE.ref = CONSOLE
+        rootLogger.appenderRef.FILE.ref = FILE
+      runtime.properties: |
+        druid.auth.basic.ssl.trustStorePassword=changeit
+        druid.auth.basic.ssl.trustStorePath=/stackable/tls/truststore.p12
+        druid.auth.basic.ssl.trustStoreType=pkcs12
+        druid.client.https.trustStorePassword=changeit
+        druid.client.https.trustStorePath=/stackable/tls/truststore.p12
+        druid.client.https.trustStoreType=pkcs12
+        druid.emitter=prometheus
+        druid.emitter.prometheus.namespace=druid
+        druid.emitter.prometheus.port=9090
+        druid.emitter.prometheus.strategy=exporter
+        druid.enablePlaintextPort=false
+        druid.enableTlsPort=true
+        druid.extensions.loadList=["druid-basic-security",\ "druid-datasketches",\ "druid-hdfs-storage",\ "druid-kafka-indexing-service",\ "druid-opa-authorizer",\ "postgresql-metadata-storage",\ "prometheus-emitter",\ "simple-client-sslcontext"]
+        druid.indexer.logs.directory=/stackable/var/druid/indexing-logs
+        druid.indexer.runner.javaOpts=-server\ -Xms256m\ -Xmx256m\ -XX\:MaxDirectMemorySize\=300m\ -Duser.timezone\=UTC\ -Dfile.encoding\=UTF-8\ -XX\:+ExitOnOutOfMemoryError\ -Djava.util.logging.manager\=org.apache.logging.log4j.jul.LogManager
+        druid.indexer.runner.javaOptsArray=["-Djavax.net.ssl.trustStore\=/stackable/truststore.p12",\ "-Djavax.net.ssl.trustStorePassword\=changeit",\ "-Djavax.net.ssl.trustStoreType\=pkcs12"]
+        druid.indexer.task.baseTaskDir=/stackable/var/druid/task
+        druid.indexer.task.hadoopWorkingPath=/stackable/var/druid/hadoop-tmp
+        druid.metadata.storage.connector.connectURI=jdbc\:postgresql\://druid-postgresql\:5432/druid
+        druid.metadata.storage.connector.password=${env\:METADATA_DATABASE_PASSWORD}
+        druid.metadata.storage.connector.user=${env\:METADATA_DATABASE_USERNAME}
+        druid.metadata.storage.type=postgresql
+        druid.monitoring.monitors=["org.apache.druid.java.util.metrics.JvmMonitor"]
+        druid.server.https.certAlias=1
+        druid.server.https.keyStorePassword=changeit
+        druid.server.https.keyStorePath=/stackable/tls/keystore.p12
+        druid.server.https.keyStoreType=pkcs12
+        druid.startup.logging.logProperties=true
+        druid.storage.bucket=
+        druid.storage.storageDirectory=/druid
+        druid.storage.type=hdfs
+        druid.tlsPort=8291
+        druid.zk.service.host=druid-zk-server.__NAMESPACE__.svc.cluster.local\:2282/znode-__ZNODE__
+      security.properties: |
+        druid.indexer.runner.javaOptsArray=["-Djavax.net.ssl.trustStore\=/stackable/truststore.p12",\ "-Djavax.net.ssl.trustStorePassword\=changeit",\ "-Djavax.net.ssl.trustStoreType\=pkcs12"]
+        networkaddress.cache.negative.ttl=0
+        networkaddress.cache.ttl=30
+      YAMLEOF
+      )
+      actual=$(kubectl -n $NAMESPACE get cm druid-middlemanager-default -o yaml \
+        | yq -o=json '.data' \
+        | sed -E 's|/znode-[a-f0-9-]+|/znode-__ZNODE__|')
+      if [ "$expected" != "$actual" ]; then
+        echo "ERROR: ConfigMap druid-middlemanager-default data drifted from snapshot."
+        echo "=== expected ==="
+        printf '%s\n' "$expected"
+        echo "=== actual ==="
+        printf '%s\n' "$actual"
+        exit 1
+      fi
+
+  # Role-group ConfigMap: druid-router-default
+  - script: |
+      expected=$(cat <<'YAMLEOF' | sed "s|__NAMESPACE__|$NAMESPACE|g" | yq -o=json
+      jvm.config: |-
+        -server
+        -Xmx84m
+        -Xms84m
+        -XX:MaxDirectMemorySize=128m
+        -XX:+ExitOnOutOfMemoryError
+        -XX:+UseG1GC
+        -Djava.security.properties=/stackable/rwconfig/security.properties
+        -Duser.timezone=UTC
+        -Dfile.encoding=UTF-8
+        -Djava.io.tmpdir=/tmp
+        -Djava.util.logging.manager=org.apache.logging.log4j.jul.LogManager
+        -Dlog4j.configurationFile=/stackable/rwconfig/log4j2.properties
+        -Djavax.net.ssl.trustStore=/stackable/truststore.p12
+        -Djavax.net.ssl.trustStorePassword=changeit
+        -Djavax.net.ssl.trustStoreType=pkcs12
+      log4j2.properties: |-
+        appenders = FILE, CONSOLE
+
+        appender.CONSOLE.type = Console
+        appender.CONSOLE.name = CONSOLE
+        appender.CONSOLE.target = SYSTEM_ERR
+        appender.CONSOLE.layout.type = PatternLayout
+        appender.CONSOLE.layout.pattern = %d{ISO8601} %p [%t] %c - %m%n
+        appender.CONSOLE.filter.threshold.type = ThresholdFilter
+        appender.CONSOLE.filter.threshold.level = INFO
+
+        appender.FILE.type = RollingFile
+        appender.FILE.name = FILE
+        appender.FILE.fileName = /stackable/log/druid/druid.log4j2.xml
+        appender.FILE.filePattern = /stackable/log/druid/druid.log4j2.xml.%i
+        appender.FILE.layout.type = XMLLayout
+        appender.FILE.policies.type = Policies
+        appender.FILE.policies.size.type = SizeBasedTriggeringPolicy
+        appender.FILE.policies.size.size = 5MB
+        appender.FILE.strategy.type = DefaultRolloverStrategy
+        appender.FILE.strategy.max = 1
+        appender.FILE.filter.threshold.type = ThresholdFilter
+        appender.FILE.filter.threshold.level = INFO
+
+
+        rootLogger.level=INFO
+        rootLogger.appenderRefs = CONSOLE, FILE
+        rootLogger.appenderRef.CONSOLE.ref = CONSOLE
+        rootLogger.appenderRef.FILE.ref = FILE
+      runtime.properties: |
+        druid.auth.basic.ssl.trustStorePassword=changeit
+        druid.auth.basic.ssl.trustStorePath=/stackable/tls/truststore.p12
+        druid.auth.basic.ssl.trustStoreType=pkcs12
+        druid.client.https.trustStorePassword=changeit
+        druid.client.https.trustStorePath=/stackable/tls/truststore.p12
+        druid.client.https.trustStoreType=pkcs12
+        druid.emitter=prometheus
+        druid.emitter.prometheus.namespace=druid
+        druid.emitter.prometheus.port=9090
+        druid.emitter.prometheus.strategy=exporter
+        druid.enablePlaintextPort=false
+        druid.enableTlsPort=true
+        druid.extensions.loadList=["druid-basic-security",\ "druid-datasketches",\ "druid-hdfs-storage",\ "druid-kafka-indexing-service",\ "druid-opa-authorizer",\ "postgresql-metadata-storage",\ "prometheus-emitter",\ "simple-client-sslcontext"]
+        druid.indexer.logs.directory=/stackable/var/druid/indexing-logs
+        druid.metadata.storage.connector.connectURI=jdbc\:postgresql\://druid-postgresql\:5432/druid
+        druid.metadata.storage.connector.password=${env\:METADATA_DATABASE_PASSWORD}
+        druid.metadata.storage.connector.user=${env\:METADATA_DATABASE_USERNAME}
+        druid.metadata.storage.type=postgresql
+        druid.monitoring.monitors=["org.apache.druid.java.util.metrics.JvmMonitor"]
+        druid.router.http.numConnections=25
+        druid.router.managementProxy.enabled=true
+        druid.server.https.certAlias=1
+        druid.server.https.keyStorePassword=changeit
+        druid.server.https.keyStorePath=/stackable/tls/keystore.p12
+        druid.server.https.keyStoreType=pkcs12
+        druid.startup.logging.logProperties=true
+        druid.storage.bucket=
+        druid.storage.storageDirectory=/druid
+        druid.storage.type=hdfs
+        druid.tlsPort=9088
+        druid.zk.service.host=druid-zk-server.__NAMESPACE__.svc.cluster.local\:2282/znode-__ZNODE__
+      security.properties: |
+        networkaddress.cache.negative.ttl=0
+        networkaddress.cache.ttl=30
+      YAMLEOF
+      )
+      actual=$(kubectl -n $NAMESPACE get cm druid-router-default -o yaml \
+        | yq -o=json '.data' \
+        | sed -E 's|/znode-[a-f0-9-]+|/znode-__ZNODE__|')
+      if [ "$expected" != "$actual" ]; then
+        echo "ERROR: ConfigMap druid-router-default data drifted from snapshot."
         echo "=== expected ==="
         printf '%s\n' "$expected"
         echo "=== actual ==="
