@@ -724,10 +724,10 @@ commands:
       security.properties: |
         networkaddress.cache.negative.ttl=0
         networkaddress.cache.ttl=30
-      {% if vector_enabled -%}
+{% if vector_enabled %}
       vector.yaml: |
 {{ vector_yaml | replace("__ROLE__", "broker") | indent(8, true) }}
-      {%- endif %}
+{% endif %}
       YAMLEOF
       )
       actual=$(kubectl -n $NAMESPACE get cm druid-broker-default -o yaml \
@@ -830,10 +830,10 @@ commands:
       security.properties: |
         networkaddress.cache.negative.ttl=0
         networkaddress.cache.ttl=30
-      {% if vector_enabled -%}
+{% if vector_enabled %}
       vector.yaml: |
 {{ vector_yaml | replace("__ROLE__", "coordinator") | indent(8, true) }}
-      {%- endif %}
+{% endif %}
       YAMLEOF
       )
       actual=$(kubectl -n $NAMESPACE get cm druid-coordinator-default -o yaml \
@@ -936,10 +936,10 @@ commands:
       security.properties: |
         networkaddress.cache.negative.ttl=0
         networkaddress.cache.ttl=30
-      {% if vector_enabled -%}
+{% if vector_enabled %}
       vector.yaml: |
 {{ vector_yaml | replace("__ROLE__", "historical") | indent(8, true) }}
-      {%- endif %}
+{% endif %}
       YAMLEOF
       )
       actual=$(kubectl -n $NAMESPACE get cm druid-historical-default -o yaml \
@@ -1039,10 +1039,10 @@ commands:
         druid.indexer.runner.javaOptsArray=["-Djavax.net.ssl.trustStore\=/stackable/truststore.p12",\ "-Djavax.net.ssl.trustStorePassword\=changeit",\ "-Djavax.net.ssl.trustStoreType\=pkcs12"]
         networkaddress.cache.negative.ttl=0
         networkaddress.cache.ttl=30
-      {% if vector_enabled -%}
+{% if vector_enabled %}
       vector.yaml: |
 {{ vector_yaml | replace("__ROLE__", "middlemanager") | indent(8, true) }}
-      {%- endif %}
+{% endif %}
       YAMLEOF
       )
       actual=$(kubectl -n $NAMESPACE get cm druid-middlemanager-default -o yaml \
@@ -1140,10 +1140,10 @@ commands:
       security.properties: |
         networkaddress.cache.negative.ttl=0
         networkaddress.cache.ttl=30
-      {% if vector_enabled -%}
+{% if vector_enabled %}
       vector.yaml: |
 {{ vector_yaml | replace("__ROLE__", "router") | indent(8, true) }}
-      {%- endif %}
+{% endif %}
       YAMLEOF
       )
       actual=$(kubectl -n $NAMESPACE get cm druid-router-default -o yaml \
