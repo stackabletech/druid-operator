@@ -1,7 +1,3 @@
-{# vector_enabled is consumed by 53-assert.yaml.j2 conditionals; declared here
-   too so future container-level (vector sidecar) assertions can use it without
-   adding the lookup again. #}
-{% set vector_enabled = lookup('env', 'VECTOR_AGGREGATOR') | length > 0 %}
 ---
 # Declarative shape assertions for every druid-managed resource in the smoke
 # test except ConfigMap *.data* (covered in 53-assert.yaml.j2) and the
