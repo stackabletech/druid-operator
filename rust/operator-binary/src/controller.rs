@@ -27,7 +27,7 @@ use stackable_operator::{
     cli::OperatorEnvironmentOptions,
     cluster_resources::{ClusterResourceApplyStrategy, ClusterResources},
     commons::{
-        product_image_selection::{self, ResolvedProductImage},
+        product_image_selection::ResolvedProductImage,
         rbac::build_rbac_resources,
     },
     constants::RESTART_CONTROLLER_ENABLED_LABEL,
@@ -48,7 +48,6 @@ use stackable_operator::{
     },
     kvp::{KeyValuePairError, LabelError, LabelValueError, Labels},
     logging::controller::ReconcilerError,
-    product_config_utils::{transform_all_roles_to_config, validate_all_roles_and_groups_config},
     product_logging::{
         self,
         framework::LoggingError,
@@ -91,11 +90,12 @@ use crate::{
 };
 
 mod dereference;
+mod validate;
 
 pub const DRUID_CONTROLLER_NAME: &str = "druidcluster";
 pub const FULL_CONTROLLER_NAME: &str = concatcp!(DRUID_CONTROLLER_NAME, '.', OPERATOR_NAME);
 
-const CONTAINER_IMAGE_BASE_NAME: &str = "druid";
+pub(super) const CONTAINER_IMAGE_BASE_NAME: &str = "druid";
 
 // volume names
 const DRUID_CONFIG_VOLUME_NAME: &str = "config";
@@ -139,16 +139,6 @@ pub enum Error {
         rolegroup: RoleGroupRef<v1alpha1::DruidCluster>,
     },
 
-    #[snafu(display("invalid product configuration"))]
-    InvalidProductConfig {
-        source: stackable_operator::product_config_utils::Error,
-    },
-
-    #[snafu(display("invalid authentication configuration"))]
-    InvalidDruidAuthenticationConfig {
-        source: crate::authentication::Error,
-    },
-
     #[snafu(display("object is missing metadata to build owner reference"))]
     ObjectMissingMetadataForOwnerRef {
         source: stackable_operator::builder::meta::Error,
@@ -160,11 +150,6 @@ pub enum Error {
     #[snafu(display("failed to configure S3 connection"))]
     ConfigureS3 {
         source: stackable_operator::crd::s3::v1alpha1::ConnectionError,
-    },
-
-    #[snafu(display("failed to transform configs"))]
-    ProductConfigTransform {
-        source: stackable_operator::product_config_utils::Error,
     },
 
     #[snafu(display("failed to format runtime properties"))]
@@ -326,10 +311,8 @@ pub enum Error {
     #[snafu(display("failed to configure service"))]
     ServiceConfiguration { source: crate::service::Error },
 
-    #[snafu(display("failed to resolve product image"))]
-    ResolveProductImage {
-        source: product_image_selection::Error,
-    },
+    #[snafu(display("failed to validate cluster"))]
+    ValidateCluster { source: validate::Error },
 
     #[snafu(display("invalid metadata database connection"))]
     InvalidMetadataDatabaseConnection {
@@ -362,36 +345,13 @@ pub async fn reconcile_druid(
         .await
         .context(DereferenceSnafu)?;
 
-    let resolved_product_image = druid
-        .spec
-        .image
-        .resolve(
-            CONTAINER_IMAGE_BASE_NAME,
-            &ctx.operator_environment.image_repository,
-            crate::built_info::PKG_VERSION,
-        )
-        .context(ResolveProductImageSnafu)?;
-
-    let druid_tls_security = DruidTlsSecurity::new_from_druid_cluster(
+    let validated = validate::validate(
         druid,
-        &dereferenced_objects.resolved_authentication_classes,
-    );
-
-    let druid_auth_config =
-        DruidAuthenticationConfig::try_from(
-            dereferenced_objects.resolved_authentication_classes.clone(),
-        )
-        .context(InvalidDruidAuthenticationConfigSnafu)?;
-
-    let role_config = transform_all_roles_to_config(druid, &druid.build_role_properties());
-    let validated_role_config = validate_all_roles_and_groups_config(
-        &resolved_product_image.product_version,
-        &role_config.context(ProductConfigTransformSnafu)?,
+        &dereferenced_objects,
+        &ctx.operator_environment,
         &ctx.product_config,
-        false,
-        false,
     )
-    .context(InvalidProductConfigSnafu)?;
+    .context(ValidateClusterSnafu)?;
 
     let mut cluster_resources = ClusterResources::new(
         APP_NAME,
@@ -425,7 +385,7 @@ pub async fn reconcile_druid(
 
     let mut ss_cond_builder = StatefulSetConditionBuilder::default();
 
-    for (role_name, role_config) in validated_role_config.iter() {
+    for (role_name, role_config) in validated.validated_role_config.iter() {
         let druid_role = DruidRole::from_str(role_name).context(UnidentifiedDruidRoleSnafu {
             role: role_name.to_string(),
         })?;
@@ -448,7 +408,7 @@ pub async fn reconcile_druid(
             let role_group_service_recommended_labels = build_recommended_labels(
                 druid,
                 DRUID_CONTROLLER_NAME,
-                &resolved_product_image.app_version_label_value,
+                &validated.resolved_product_image.app_version_label_value,
                 &rolegroup.role,
                 &rolegroup.role_group,
             );
@@ -463,7 +423,7 @@ pub async fn reconcile_druid(
 
             let rg_headless_service = build_rolegroup_headless_service(
                 druid,
-                &druid_tls_security,
+                &validated.druid_tls_security,
                 &druid_role,
                 &rolegroup,
                 role_group_service_recommended_labels.clone(),
@@ -480,7 +440,7 @@ pub async fn reconcile_druid(
 
             let rg_configmap = build_rolegroup_config_map(
                 druid,
-                &resolved_product_image,
+                &validated.resolved_product_image,
                 &rolegroup,
                 rolegroup_config,
                 &merged_rolegroup_config,
@@ -488,19 +448,19 @@ pub async fn reconcile_druid(
                 dereferenced_objects.opa_connection_string.as_deref(),
                 dereferenced_objects.s3_connection.as_ref(),
                 dereferenced_objects.deep_storage_bucket_name.as_deref(),
-                &druid_tls_security,
-                &druid_auth_config,
+                &validated.druid_tls_security,
+                &validated.druid_auth_config,
             )?;
             let rg_statefulset = build_rolegroup_statefulset(
                 druid,
-                &resolved_product_image,
+                &validated.resolved_product_image,
                 &druid_role,
                 &rolegroup,
                 rolegroup_config,
                 &merged_rolegroup_config,
                 dereferenced_objects.s3_connection.as_ref(),
-                &druid_tls_security,
-                &druid_auth_config,
+                &validated.druid_tls_security,
+                &validated.druid_auth_config,
                 &rbac_sa,
             )?;
 
@@ -543,14 +503,14 @@ pub async fn reconcile_druid(
                     build_recommended_labels(
                         druid,
                         DRUID_CONTROLLER_NAME,
-                        &resolved_product_image.app_version_label_value,
+                        &validated.resolved_product_image.app_version_label_value,
                         role_name,
                         "none",
                     ),
                     listener_class.to_string(),
                     listener_group_name,
                     &druid_role,
-                    &druid_tls_security,
+                    &validated.druid_tls_security,
                 )
                 .context(ListenerConfigurationSnafu)?;
 
@@ -564,8 +524,8 @@ pub async fn reconcile_druid(
                     for discovery_cm in build_discovery_configmaps(
                         druid,
                         druid,
-                        &resolved_product_image,
-                        &druid_tls_security,
+                        &validated.resolved_product_image,
+                        &validated.druid_tls_security,
                         listener,
                     )
                     .await
@@ -1302,6 +1262,9 @@ pub fn error_policy(
 mod test {
     use product_config::{ProductConfigManager, writer};
     use rstest::*;
+    use stackable_operator::product_config_utils::{
+        transform_all_roles_to_config, validate_all_roles_and_groups_config,
+    };
 
     use super::*;
     use crate::crd::{PROP_SEGMENT_CACHE_LOCATIONS, authentication::AuthenticationClassesResolved};
