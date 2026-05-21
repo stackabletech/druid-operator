@@ -1,4 +1,6 @@
-{# Templating flag used throughout this file. #}
+{# vector_enabled is consumed by 53-assert.yaml.j2 conditionals; declared here
+   too so future container-level (vector sidecar) assertions can use it without
+   adding the lookup again. #}
 {% set vector_enabled = lookup('env', 'VECTOR_AGGREGATOR') | length > 0 %}
 ---
 # Declarative shape assertions for every druid-managed resource in the smoke
@@ -133,7 +135,11 @@ spec:
         - name: rwconfig
           emptyDir: {}
         - name: log-config
+          configMap:
+            name: druid-historical-default
         - name: log
+          emptyDir:
+            sizeLimit: 30Mi
         - name: hdfs
           configMap:
             name: druid-hdfs
@@ -272,6 +278,11 @@ spec:
       protocol: TCP
       targetPort: 8282
   publishNotReadyAddresses: true
+  selector:
+    app.kubernetes.io/component: broker
+    app.kubernetes.io/instance: druid
+    app.kubernetes.io/name: druid
+    app.kubernetes.io/role-group: default
   type: ClusterIP
 ---
 apiVersion: v1
@@ -292,6 +303,11 @@ spec:
       protocol: TCP
       targetPort: 8281
   publishNotReadyAddresses: true
+  selector:
+    app.kubernetes.io/component: coordinator
+    app.kubernetes.io/instance: druid
+    app.kubernetes.io/name: druid
+    app.kubernetes.io/role-group: default
   type: ClusterIP
 ---
 apiVersion: v1
@@ -312,6 +328,11 @@ spec:
       protocol: TCP
       targetPort: 8283
   publishNotReadyAddresses: true
+  selector:
+    app.kubernetes.io/component: historical
+    app.kubernetes.io/instance: druid
+    app.kubernetes.io/name: druid
+    app.kubernetes.io/role-group: default
   type: ClusterIP
 ---
 apiVersion: v1
@@ -332,6 +353,11 @@ spec:
       protocol: TCP
       targetPort: 8291
   publishNotReadyAddresses: true
+  selector:
+    app.kubernetes.io/component: middlemanager
+    app.kubernetes.io/instance: druid
+    app.kubernetes.io/name: druid
+    app.kubernetes.io/role-group: default
   type: ClusterIP
 ---
 apiVersion: v1
@@ -352,6 +378,11 @@ spec:
       protocol: TCP
       targetPort: 9088
   publishNotReadyAddresses: true
+  selector:
+    app.kubernetes.io/component: router
+    app.kubernetes.io/instance: druid
+    app.kubernetes.io/name: druid
+    app.kubernetes.io/role-group: default
   type: ClusterIP
 ---
 # ----- Listeners (broker / coordinator / router) -----
