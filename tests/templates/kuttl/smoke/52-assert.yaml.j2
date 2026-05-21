@@ -1,0 +1,492 @@
+{# Templating flag used throughout this file. #}
+{% set vector_enabled = lookup('env', 'VECTOR_AGGREGATOR') | length > 0 %}
+---
+# Declarative shape assertions for every druid-managed resource in the smoke
+# test except ConfigMap *.data* (covered in 53-assert.yaml.j2) and the
+# duplicative *-metrics Services.
+#
+# kuttl performs subset matching: any field omitted here is not checked, and
+# the live object may carry additional keys/labels. We therefore omit fields
+# that are random per install (uids, resourceVersion, clusterIP) and per-
+# container `resources`/`env` (kuttl matches array elements positionally and
+# these are mostly default values).
+apiVersion: kuttl.dev/v1beta1
+kind: TestAssert
+timeout: 600
+---
+# ----- StatefulSets (5) -----
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: druid-broker-default
+  labels:
+    app.kubernetes.io/component: broker
+    app.kubernetes.io/instance: druid
+    app.kubernetes.io/managed-by: druid.stackable.tech_druidcluster
+    app.kubernetes.io/name: druid
+    app.kubernetes.io/role-group: default
+    restarter.stackable.tech/enabled: "true"
+    stackable.tech/vendor: Stackable
+  ownerReferences:
+    - apiVersion: druid.stackable.tech/v1alpha1
+      controller: true
+      kind: DruidCluster
+      name: druid
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: broker
+      app.kubernetes.io/instance: druid
+      app.kubernetes.io/name: druid
+      app.kubernetes.io/role-group: default
+  serviceName: druid-broker-default-headless
+  template:
+    spec:
+      serviceAccount: druid-serviceaccount
+      serviceAccountName: druid-serviceaccount
+      terminationGracePeriodSeconds: 1
+status:
+  readyReplicas: 1
+  replicas: 1
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: druid-coordinator-default
+  labels:
+    app.kubernetes.io/component: coordinator
+    app.kubernetes.io/instance: druid
+    app.kubernetes.io/managed-by: druid.stackable.tech_druidcluster
+    app.kubernetes.io/name: druid
+    app.kubernetes.io/role-group: default
+    restarter.stackable.tech/enabled: "true"
+    stackable.tech/vendor: Stackable
+  ownerReferences:
+    - apiVersion: druid.stackable.tech/v1alpha1
+      controller: true
+      kind: DruidCluster
+      name: druid
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: coordinator
+      app.kubernetes.io/instance: druid
+      app.kubernetes.io/name: druid
+      app.kubernetes.io/role-group: default
+  serviceName: druid-coordinator-default-headless
+  template:
+    spec:
+      serviceAccount: druid-serviceaccount
+      serviceAccountName: druid-serviceaccount
+      terminationGracePeriodSeconds: 1
+status:
+  readyReplicas: 1
+  replicas: 1
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: druid-historical-default
+  labels:
+    app.kubernetes.io/component: historical
+    app.kubernetes.io/instance: druid
+    app.kubernetes.io/managed-by: druid.stackable.tech_druidcluster
+    app.kubernetes.io/name: druid
+    app.kubernetes.io/role-group: default
+    restarter.stackable.tech/enabled: "true"
+    stackable.tech/vendor: Stackable
+  ownerReferences:
+    - apiVersion: druid.stackable.tech/v1alpha1
+      controller: true
+      kind: DruidCluster
+      name: druid
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: historical
+      app.kubernetes.io/instance: druid
+      app.kubernetes.io/name: druid
+      app.kubernetes.io/role-group: default
+  serviceName: druid-historical-default-headless
+  template:
+    spec:
+      serviceAccount: druid-serviceaccount
+      serviceAccountName: druid-serviceaccount
+      terminationGracePeriodSeconds: 1
+      volumes:
+        - name: tls-mount
+          ephemeral:
+            volumeClaimTemplate:
+              metadata:
+                annotations:
+                  secrets.stackable.tech/class: tls
+              spec:
+                storageClassName: secrets.stackable.tech
+        - name: tls
+          emptyDir: {}
+        - name: config
+          configMap:
+            name: druid-historical-default
+        - name: rwconfig
+          emptyDir: {}
+        - name: log-config
+        - name: log
+        - name: hdfs
+          configMap:
+            name: druid-hdfs
+        - name: segment-cache
+          emptyDir:
+            sizeLimit: 1G
+status:
+  readyReplicas: 1
+  replicas: 1
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: druid-middlemanager-default
+  labels:
+    app.kubernetes.io/component: middlemanager
+    app.kubernetes.io/instance: druid
+    app.kubernetes.io/managed-by: druid.stackable.tech_druidcluster
+    app.kubernetes.io/name: druid
+    app.kubernetes.io/role-group: default
+    restarter.stackable.tech/enabled: "true"
+    stackable.tech/vendor: Stackable
+  ownerReferences:
+    - apiVersion: druid.stackable.tech/v1alpha1
+      controller: true
+      kind: DruidCluster
+      name: druid
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: middlemanager
+      app.kubernetes.io/instance: druid
+      app.kubernetes.io/name: druid
+      app.kubernetes.io/role-group: default
+  serviceName: druid-middlemanager-default-headless
+  template:
+    spec:
+      serviceAccount: druid-serviceaccount
+      serviceAccountName: druid-serviceaccount
+      terminationGracePeriodSeconds: 1
+status:
+  readyReplicas: 1
+  replicas: 1
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: druid-router-default
+  labels:
+    app.kubernetes.io/component: router
+    app.kubernetes.io/instance: druid
+    app.kubernetes.io/managed-by: druid.stackable.tech_druidcluster
+    app.kubernetes.io/name: druid
+    app.kubernetes.io/role-group: default
+    restarter.stackable.tech/enabled: "true"
+    stackable.tech/vendor: Stackable
+  ownerReferences:
+    - apiVersion: druid.stackable.tech/v1alpha1
+      controller: true
+      kind: DruidCluster
+      name: druid
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: router
+      app.kubernetes.io/instance: druid
+      app.kubernetes.io/name: druid
+      app.kubernetes.io/role-group: default
+  serviceName: druid-router-default-headless
+  template:
+    spec:
+      serviceAccount: druid-serviceaccount
+      serviceAccountName: druid-serviceaccount
+      terminationGracePeriodSeconds: 1
+status:
+  readyReplicas: 1
+  replicas: 1
+---
+# ----- ClusterIP Services (broker / coordinator / router) -----
+# These are owned by the Listener (not DruidCluster), so ownerReferences are
+# intentionally omitted here to avoid false-negative subset-match failures.
+apiVersion: v1
+kind: Service
+metadata:
+  name: druid-broker
+spec:
+  ports:
+    - name: https
+      port: 8282
+      protocol: TCP
+      targetPort: 8282
+  type: ClusterIP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: druid-coordinator
+spec:
+  ports:
+    - name: https
+      port: 8281
+      protocol: TCP
+      targetPort: 8281
+  type: ClusterIP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: druid-router
+spec:
+  ports:
+    - name: https
+      port: 9088
+      protocol: TCP
+      targetPort: 9088
+  type: ClusterIP
+---
+# ----- Headless Services (one per role-group) -----
+apiVersion: v1
+kind: Service
+metadata:
+  name: druid-broker-default-headless
+  labels:
+    app.kubernetes.io/component: broker
+    app.kubernetes.io/instance: druid
+    app.kubernetes.io/managed-by: druid.stackable.tech_druidcluster
+    app.kubernetes.io/name: druid
+    app.kubernetes.io/role-group: default
+spec:
+  clusterIP: None
+  ports:
+    - name: https
+      port: 8282
+      protocol: TCP
+      targetPort: 8282
+  publishNotReadyAddresses: true
+  type: ClusterIP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: druid-coordinator-default-headless
+  labels:
+    app.kubernetes.io/component: coordinator
+    app.kubernetes.io/instance: druid
+    app.kubernetes.io/managed-by: druid.stackable.tech_druidcluster
+    app.kubernetes.io/name: druid
+    app.kubernetes.io/role-group: default
+spec:
+  clusterIP: None
+  ports:
+    - name: https
+      port: 8281
+      protocol: TCP
+      targetPort: 8281
+  publishNotReadyAddresses: true
+  type: ClusterIP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: druid-historical-default-headless
+  labels:
+    app.kubernetes.io/component: historical
+    app.kubernetes.io/instance: druid
+    app.kubernetes.io/managed-by: druid.stackable.tech_druidcluster
+    app.kubernetes.io/name: druid
+    app.kubernetes.io/role-group: default
+spec:
+  clusterIP: None
+  ports:
+    - name: https
+      port: 8283
+      protocol: TCP
+      targetPort: 8283
+  publishNotReadyAddresses: true
+  type: ClusterIP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: druid-middlemanager-default-headless
+  labels:
+    app.kubernetes.io/component: middlemanager
+    app.kubernetes.io/instance: druid
+    app.kubernetes.io/managed-by: druid.stackable.tech_druidcluster
+    app.kubernetes.io/name: druid
+    app.kubernetes.io/role-group: default
+spec:
+  clusterIP: None
+  ports:
+    - name: https
+      port: 8291
+      protocol: TCP
+      targetPort: 8291
+  publishNotReadyAddresses: true
+  type: ClusterIP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: druid-router-default-headless
+  labels:
+    app.kubernetes.io/component: router
+    app.kubernetes.io/instance: druid
+    app.kubernetes.io/managed-by: druid.stackable.tech_druidcluster
+    app.kubernetes.io/name: druid
+    app.kubernetes.io/role-group: default
+spec:
+  clusterIP: None
+  ports:
+    - name: https
+      port: 9088
+      protocol: TCP
+      targetPort: 9088
+  publishNotReadyAddresses: true
+  type: ClusterIP
+---
+# ----- Listeners (broker / coordinator / router) -----
+apiVersion: listeners.stackable.tech/v1alpha1
+kind: Listener
+metadata:
+  name: druid-broker
+  ownerReferences:
+    - apiVersion: druid.stackable.tech/v1alpha1
+      controller: true
+      kind: DruidCluster
+      name: druid
+spec:
+  className: cluster-internal
+  ports:
+    - name: https
+      port: 8282
+      protocol: TCP
+---
+apiVersion: listeners.stackable.tech/v1alpha1
+kind: Listener
+metadata:
+  name: druid-coordinator
+  ownerReferences:
+    - apiVersion: druid.stackable.tech/v1alpha1
+      controller: true
+      kind: DruidCluster
+      name: druid
+spec:
+  className: cluster-internal
+  ports:
+    - name: https
+      port: 8281
+      protocol: TCP
+---
+apiVersion: listeners.stackable.tech/v1alpha1
+kind: Listener
+metadata:
+  name: druid-router
+  ownerReferences:
+    - apiVersion: druid.stackable.tech/v1alpha1
+      controller: true
+      kind: DruidCluster
+      name: druid
+spec:
+  className: cluster-internal
+  ports:
+    - name: https
+      port: 9088
+      protocol: TCP
+---
+# ----- PodDisruptionBudgets (5) -----
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: druid-broker
+status:
+  expectedPods: 1
+  currentHealthy: 1
+  disruptionsAllowed: 1
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: druid-coordinator
+status:
+  expectedPods: 1
+  currentHealthy: 1
+  disruptionsAllowed: 1
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: druid-historical
+status:
+  expectedPods: 1
+  currentHealthy: 1
+  disruptionsAllowed: 1
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: druid-middlemanager
+status:
+  expectedPods: 1
+  currentHealthy: 1
+  disruptionsAllowed: 1
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: druid-router
+status:
+  expectedPods: 1
+  currentHealthy: 1
+  disruptionsAllowed: 1
+---
+# ----- Secret / ServiceAccount / RoleBinding -----
+apiVersion: v1
+kind: Secret
+metadata:
+  name: druid-shared-internal-secret
+  ownerReferences:
+    - apiVersion: druid.stackable.tech/v1alpha1
+      controller: true
+      kind: DruidCluster
+      name: druid
+type: Opaque
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: druid-serviceaccount
+  labels:
+    app.kubernetes.io/instance: druid
+    app.kubernetes.io/managed-by: druid.stackable.tech_druidcluster
+    app.kubernetes.io/name: druid
+  ownerReferences:
+    - apiVersion: druid.stackable.tech/v1alpha1
+      controller: true
+      kind: DruidCluster
+      name: druid
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: druid-rolebinding
+  labels:
+    app.kubernetes.io/instance: druid
+    app.kubernetes.io/managed-by: druid.stackable.tech_druidcluster
+    app.kubernetes.io/name: druid
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: druid-clusterrole
+subjects:
+  - kind: ServiceAccount
+    name: druid-serviceaccount
