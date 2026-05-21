@@ -26,10 +26,7 @@ use stackable_operator::{
     },
     cli::OperatorEnvironmentOptions,
     cluster_resources::{ClusterResourceApplyStrategy, ClusterResources},
-    commons::{
-        product_image_selection::ResolvedProductImage,
-        rbac::build_rbac_resources,
-    },
+    commons::{product_image_selection::ResolvedProductImage, rbac::build_rbac_resources},
     constants::RESTART_CONTROLLER_ENABLED_LABEL,
     crd::s3,
     database_connections::drivers::jdbc::JdbcDatabaseConnection as _,

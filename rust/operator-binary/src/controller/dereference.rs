@@ -9,10 +9,7 @@
 
 use snafu::{OptionExt, ResultExt, Snafu};
 use stackable_operator::{
-    client::Client,
-    commons::opa::OpaApiVersion,
-    crd::s3,
-    k8s_openapi::api::core::v1::ConfigMap,
+    client::Client, commons::opa::OpaApiVersion, crd::s3, k8s_openapi::api::core::v1::ConfigMap,
 };
 
 use crate::crd::{
