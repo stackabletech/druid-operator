@@ -6,7 +6,7 @@ use std::sync::Arc;
 
 use anyhow::anyhow;
 use clap::Parser;
-use druid_controller::{DRUID_CONTROLLER_NAME, FULL_CONTROLLER_NAME};
+use controller::{DRUID_CONTROLLER_NAME, FULL_CONTROLLER_NAME};
 use futures::{FutureExt, StreamExt, TryFutureExt};
 use stackable_operator::{
     YamlSchema,
@@ -41,7 +41,7 @@ mod authentication;
 mod config;
 mod crd;
 mod discovery;
-mod druid_controller;
+mod controller;
 mod extensions;
 mod internal_secret;
 mod listener;
@@ -161,9 +161,9 @@ async fn main() -> anyhow::Result<()> {
                 )
                 .graceful_shutdown_on(sigterm_watcher.handle())
                 .run(
-                    druid_controller::reconcile_druid,
-                    druid_controller::error_policy,
-                    Arc::new(druid_controller::Ctx {
+                    controller::reconcile_druid,
+                    controller::error_policy,
+                    Arc::new(controller::Ctx {
                         client: client.clone(),
                         operator_environment,
                         product_config,
