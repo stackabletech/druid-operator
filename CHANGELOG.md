@@ -16,6 +16,7 @@ All notable changes to this project will be documented in this file.
   The `.clusterConfig.metadataStorageDatabase` has subfields according to the supported db types: `postgresql`, `mysql` and `derby`.
 - BREAKING: The `.clusterConfig.metadataStorageDatabase` field has been renamed to `.clusterConfig.metadataDatabase` for consistency ([#814]).
 - Document Helm deployed RBAC permissions and remove unnecessary permissions ([#810]).
+- Internal operator refactoring: introduce dereference() and validate() steps in the reconciler ([#824]).
 
 ### Deleted
 
@@ -25,6 +26,7 @@ All notable changes to this project will be documented in this file.
 [#813]: https://github.com/stackabletech/druid-operator/pull/813
 [#814]: https://github.com/stackabletech/druid-operator/pull/814
 [#818]: https://github.com/stackabletech/druid-operator/pull/818
+[#824]: https://github.com/stackabletech/druid-operator/pull/824
 
 ## [26.3.0] - 2026-03-16
 
