@@ -633,14 +633,16 @@ commands:
       YAMLEOF
       )
       actual=$(kubectl -n $NAMESPACE get cm druid -o yaml | yq -o=json '.data')
-      if [ "$expected" != "$actual" ]; then
+      expected_file=$(mktemp) && actual_file=$(mktemp)
+      printf '%s\n' "$expected" > "$expected_file"
+      printf '%s\n' "$actual" > "$actual_file"
+      if ! diff_out=$(diff -u "$expected_file" "$actual_file"); then
         echo "ERROR: ConfigMap druid data drifted from snapshot."
-        echo "=== expected ==="
-        printf '%s\n' "$expected"
-        echo "=== actual ==="
-        printf '%s\n' "$actual"
+        printf '%s\n' "$diff_out"
+        rm -f "$expected_file" "$actual_file"
         exit 1
       fi
+      rm -f "$expected_file" "$actual_file"
 
   # Role-group ConfigMap: druid-broker-default
   - script: |
@@ -733,14 +735,16 @@ commands:
       actual=$(kubectl -n $NAMESPACE get cm druid-broker-default -o yaml \
         | yq -o=json '.data' \
         | sed -E 's|/znode-[a-f0-9-]+|/znode-__ZNODE__|')
-      if [ "$expected" != "$actual" ]; then
+      expected_file=$(mktemp) && actual_file=$(mktemp)
+      printf '%s\n' "$expected" > "$expected_file"
+      printf '%s\n' "$actual" > "$actual_file"
+      if ! diff_out=$(diff -u "$expected_file" "$actual_file"); then
         echo "ERROR: ConfigMap druid-broker-default data drifted from snapshot."
-        echo "=== expected ==="
-        printf '%s\n' "$expected"
-        echo "=== actual ==="
-        printf '%s\n' "$actual"
+        printf '%s\n' "$diff_out"
+        rm -f "$expected_file" "$actual_file"
         exit 1
       fi
+      rm -f "$expected_file" "$actual_file"
 
   # Role-group ConfigMap: druid-coordinator-default
   - script: |
@@ -839,14 +843,16 @@ commands:
       actual=$(kubectl -n $NAMESPACE get cm druid-coordinator-default -o yaml \
         | yq -o=json '.data' \
         | sed -E 's|/znode-[a-f0-9-]+|/znode-__ZNODE__|')
-      if [ "$expected" != "$actual" ]; then
+      expected_file=$(mktemp) && actual_file=$(mktemp)
+      printf '%s\n' "$expected" > "$expected_file"
+      printf '%s\n' "$actual" > "$actual_file"
+      if ! diff_out=$(diff -u "$expected_file" "$actual_file"); then
         echo "ERROR: ConfigMap druid-coordinator-default data drifted from snapshot."
-        echo "=== expected ==="
-        printf '%s\n' "$expected"
-        echo "=== actual ==="
-        printf '%s\n' "$actual"
+        printf '%s\n' "$diff_out"
+        rm -f "$expected_file" "$actual_file"
         exit 1
       fi
+      rm -f "$expected_file" "$actual_file"
 
   # Role-group ConfigMap: druid-historical-default
   - script: |
@@ -945,14 +951,16 @@ commands:
       actual=$(kubectl -n $NAMESPACE get cm druid-historical-default -o yaml \
         | yq -o=json '.data' \
         | sed -E 's|/znode-[a-f0-9-]+|/znode-__ZNODE__|')
-      if [ "$expected" != "$actual" ]; then
+      expected_file=$(mktemp) && actual_file=$(mktemp)
+      printf '%s\n' "$expected" > "$expected_file"
+      printf '%s\n' "$actual" > "$actual_file"
+      if ! diff_out=$(diff -u "$expected_file" "$actual_file"); then
         echo "ERROR: ConfigMap druid-historical-default data drifted from snapshot."
-        echo "=== expected ==="
-        printf '%s\n' "$expected"
-        echo "=== actual ==="
-        printf '%s\n' "$actual"
+        printf '%s\n' "$diff_out"
+        rm -f "$expected_file" "$actual_file"
         exit 1
       fi
+      rm -f "$expected_file" "$actual_file"
 
   # Role-group ConfigMap: druid-middlemanager-default
   - script: |
@@ -1048,14 +1056,16 @@ commands:
       actual=$(kubectl -n $NAMESPACE get cm druid-middlemanager-default -o yaml \
         | yq -o=json '.data' \
         | sed -E 's|/znode-[a-f0-9-]+|/znode-__ZNODE__|')
-      if [ "$expected" != "$actual" ]; then
+      expected_file=$(mktemp) && actual_file=$(mktemp)
+      printf '%s\n' "$expected" > "$expected_file"
+      printf '%s\n' "$actual" > "$actual_file"
+      if ! diff_out=$(diff -u "$expected_file" "$actual_file"); then
         echo "ERROR: ConfigMap druid-middlemanager-default data drifted from snapshot."
-        echo "=== expected ==="
-        printf '%s\n' "$expected"
-        echo "=== actual ==="
-        printf '%s\n' "$actual"
+        printf '%s\n' "$diff_out"
+        rm -f "$expected_file" "$actual_file"
         exit 1
       fi
+      rm -f "$expected_file" "$actual_file"
 
   # Role-group ConfigMap: druid-router-default
   - script: |
@@ -1149,11 +1159,13 @@ commands:
       actual=$(kubectl -n $NAMESPACE get cm druid-router-default -o yaml \
         | yq -o=json '.data' \
         | sed -E 's|/znode-[a-f0-9-]+|/znode-__ZNODE__|')
-      if [ "$expected" != "$actual" ]; then
+      expected_file=$(mktemp) && actual_file=$(mktemp)
+      printf '%s\n' "$expected" > "$expected_file"
+      printf '%s\n' "$actual" > "$actual_file"
+      if ! diff_out=$(diff -u "$expected_file" "$actual_file"); then
         echo "ERROR: ConfigMap druid-router-default data drifted from snapshot."
-        echo "=== expected ==="
-        printf '%s\n' "$expected"
-        echo "=== actual ==="
-        printf '%s\n' "$actual"
+        printf '%s\n' "$diff_out"
+        rm -f "$expected_file" "$actual_file"
         exit 1
       fi
+      rm -f "$expected_file" "$actual_file"
