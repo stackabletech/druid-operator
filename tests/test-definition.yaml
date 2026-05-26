@@ -121,7 +121,7 @@ tests:
     dimensions:
       - druid
       - zookeeper-latest
-      - opa
+      - opa-latest
       - hadoop-latest
       - ldap-use-tls
       - ldap-no-bind-credentials
