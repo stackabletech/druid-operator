@@ -73,7 +73,7 @@ tests:
     dimensions:
       - druid
       - zookeeper-latest
-      - opa
+      - opa-latest
       - hadoop
       - openshift
   - name: ingestion-no-s3-ext
