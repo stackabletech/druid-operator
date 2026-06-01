@@ -457,7 +457,7 @@ impl v1alpha1::DruidCluster {
         (
             Vec<PropertyNameKind>,
             Role<
-                impl Configuration<Configurable = v1alpha1::DruidCluster>,
+                impl Configuration<Configurable = v1alpha1::DruidCluster> + use<>,
                 DruidConfigOverrides,
                 GenericRoleConfig,
                 JavaCommonConfig,
@@ -725,7 +725,7 @@ impl v1alpha1::DruidCluster {
         &self,
         druid_role: &DruidRole,
     ) -> Role<
-        impl Configuration<Configurable = v1alpha1::DruidCluster>,
+        impl Configuration<Configurable = v1alpha1::DruidCluster> + use<>,
         DruidConfigOverrides,
         GenericRoleConfig,
         JavaCommonConfig,
@@ -1043,10 +1043,10 @@ impl DruidRole {
     ) -> Vec<String> {
         let mut commands = vec![];
 
-        if let Some(s3) = s3 {
-            if let Some(ca_cert_file) = s3.tls.tls_ca_cert_mount_path() {
-                commands.extend(add_cert_to_jvm_trust_store_cmd(&ca_cert_file));
-            }
+        if let Some(s3) = s3
+            && let Some(ca_cert_file) = s3.tls.tls_ca_cert_mount_path()
+        {
+            commands.extend(add_cert_to_jvm_trust_store_cmd(&ca_cert_file));
         }
 
         // copy druid config to rw config

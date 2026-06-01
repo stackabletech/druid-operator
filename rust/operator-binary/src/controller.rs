@@ -493,46 +493,46 @@ pub async fn reconcile_druid(
             );
         }
 
-        if let Some(listener_class) = druid_role.listener_class_name(druid) {
-            if let Some(listener_group_name) = group_listener_name(druid, &druid_role) {
-                let role_group_listener = build_group_listener(
+        if let Some(listener_class) = druid_role.listener_class_name(druid)
+            && let Some(listener_group_name) = group_listener_name(druid, &druid_role)
+        {
+            let role_group_listener = build_group_listener(
+                druid,
+                build_recommended_labels(
                     druid,
-                    build_recommended_labels(
-                        druid,
-                        DRUID_CONTROLLER_NAME,
-                        &validated.resolved_product_image.app_version_label_value,
-                        role_name,
-                        "none",
-                    ),
-                    listener_class.to_string(),
-                    listener_group_name,
-                    &druid_role,
+                    DRUID_CONTROLLER_NAME,
+                    &validated.resolved_product_image.app_version_label_value,
+                    role_name,
+                    "none",
+                ),
+                listener_class.to_string(),
+                listener_group_name,
+                &druid_role,
+                &validated.druid_tls_security,
+            )
+            .context(ListenerConfigurationSnafu)?;
+
+            let listener = cluster_resources
+                .add(client, role_group_listener)
+                .await
+                .context(ApplyGroupListenerSnafu)?;
+
+            if druid_role == DruidRole::Router {
+                // discovery
+                for discovery_cm in build_discovery_configmaps(
+                    druid,
+                    druid,
+                    &validated.resolved_product_image,
                     &validated.druid_tls_security,
+                    listener,
                 )
-                .context(ListenerConfigurationSnafu)?;
-
-                let listener = cluster_resources
-                    .add(client, role_group_listener)
-                    .await
-                    .context(ApplyGroupListenerSnafu)?;
-
-                if druid_role == DruidRole::Router {
-                    // discovery
-                    for discovery_cm in build_discovery_configmaps(
-                        druid,
-                        druid,
-                        &validated.resolved_product_image,
-                        &validated.druid_tls_security,
-                        listener,
-                    )
-                    .await
-                    .context(BuildDiscoveryConfigSnafu)?
-                    {
-                        cluster_resources
-                            .add(client, discovery_cm)
-                            .await
-                            .context(ApplyDiscoveryConfigSnafu)?;
-                    }
+                .await
+                .context(BuildDiscoveryConfigSnafu)?
+                {
+                    cluster_resources
+                        .add(client, discovery_cm)
+                        .await
+                        .context(ApplyDiscoveryConfigSnafu)?;
                 }
             }
         }
