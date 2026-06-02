@@ -8,6 +8,7 @@ use snafu::{ResultExt, Snafu};
 use stackable_operator::{
     cli::OperatorEnvironmentOptions,
     commons::product_image_selection::{self, ResolvedProductImage},
+    crd::s3,
     product_config_utils::{
         ValidatedRoleConfigByPropertyKind, transform_all_roles_to_config,
         validate_all_roles_and_groups_config,
@@ -48,6 +49,10 @@ type Result<T, E = Error> = std::result::Result<T, E>;
 
 /// Synchronous inputs the rest of `reconcile_druid` needs after dereferencing.
 pub struct ValidatedInputs {
+    pub zookeeper_connection_string: String,
+    pub opa_connection_string: Option<String>,
+    pub s3_connection: Option<s3::v1alpha1::ConnectionSpec>,
+    pub deep_storage_bucket_name: Option<String>,
     pub resolved_product_image: ResolvedProductImage,
     pub druid_tls_security: DruidTlsSecurity,
     pub druid_auth_config: Option<DruidAuthenticationConfig>,
@@ -93,6 +98,10 @@ pub fn validate(
     .context(InvalidProductConfigSnafu)?;
 
     Ok(ValidatedInputs {
+        zookeeper_connection_string: dereferenced_objects.zookeeper_connection_string.clone(),
+        opa_connection_string: dereferenced_objects.opa_connection_string.clone(),
+        s3_connection: dereferenced_objects.s3_connection.clone(),
+        deep_storage_bucket_name: dereferenced_objects.deep_storage_bucket_name.clone(),
         resolved_product_image,
         druid_tls_security,
         druid_auth_config,
