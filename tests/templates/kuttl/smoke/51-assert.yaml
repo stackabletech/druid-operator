@@ -4,8 +4,8 @@ apiVersion: kuttl.dev/v1beta1
 kind: TestAssert
 timeout: 600
 commands:
+  - script: kubectl exec -n $NAMESPACE --container druid druid-broker-default-0 -- cat /stackable/log/containerdebug-state.json | jq --exit-status '"valid JSON"'
   - script: kubectl exec -n $NAMESPACE --container druid druid-coordinator-default-0 -- cat /stackable/log/containerdebug-state.json | jq --exit-status '"valid JSON"'
-  - script: kubectl exec -n $NAMESPACE --container druid druid-router-default-0 -- cat /stackable/log/containerdebug-state.json | jq --exit-status '"valid JSON"'
+  - script: kubectl exec -n $NAMESPACE --container druid druid-historical-default-0 -- cat /stackable/log/containerdebug-state.json | jq --exit-status '"valid JSON"'
   - script: kubectl exec -n $NAMESPACE --container druid druid-middlemanager-default-0 -- cat /stackable/log/containerdebug-state.json | jq --exit-status '"valid JSON"'
   - script: kubectl exec -n $NAMESPACE --container druid druid-router-default-0 -- cat /stackable/log/containerdebug-state.json | jq --exit-status '"valid JSON"'
-  - script: kubectl exec -n $NAMESPACE --container druid druid-historical-default-0 -- cat /stackable/log/containerdebug-state.json | jq --exit-status '"valid JSON"'

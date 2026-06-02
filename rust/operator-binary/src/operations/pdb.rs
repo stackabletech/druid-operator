@@ -5,8 +5,8 @@ use stackable_operator::{
 };
 
 use crate::{
+    controller::DRUID_CONTROLLER_NAME,
     crd::{APP_NAME, DruidRole, OPERATOR_NAME, v1alpha1},
-    druid_controller::DRUID_CONTROLLER_NAME,
 };
 
 #[derive(Snafu, Debug)]
