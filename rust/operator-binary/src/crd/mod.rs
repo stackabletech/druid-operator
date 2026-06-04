@@ -1,4 +1,4 @@
-use std::collections::{BTreeMap, HashMap, HashSet};
+use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 
 use indoc::formatdoc;
 use product_config::types::PropertyNameKind;
@@ -818,6 +818,7 @@ pub enum Container {
 }
 
 /// Common configuration for all role groups
+#[derive(Clone)]
 pub struct CommonRoleGroupConfig {
     pub resources: RoleResource,
     pub logging: Logging<Container>,
@@ -950,6 +951,39 @@ impl MergedConfig {
             }
         }
     }
+
+    /// Returns the (sorted) role group names defined for the given role.
+    pub fn role_group_names(&self, role: &DruidRole) -> BTreeSet<String> {
+        match role {
+            DruidRole::Broker => self.brokers.keys().cloned().collect(),
+            DruidRole::Coordinator => self.coordinators.keys().cloned().collect(),
+            DruidRole::Historical => self.historicals.keys().cloned().collect(),
+            DruidRole::MiddleManager => self.middle_managers.keys().cloned().collect(),
+            DruidRole::Router => self.routers.keys().cloned().collect(),
+        }
+    }
+
+    /// Returns the rolegroup-level config and env overrides for the given role and rolegroup.
+    pub fn role_group_overrides(
+        &self,
+        role: &DruidRole,
+        rolegroup_name: &str,
+    ) -> Option<(&DruidConfigOverrides, &HashMap<String, String>)> {
+        macro_rules! get {
+            ($field:expr) => {
+                $field
+                    .get(rolegroup_name)
+                    .map(|rg| (&rg.config.config_overrides, &rg.config.env_overrides))
+            };
+        }
+        match role {
+            DruidRole::Broker => get!(self.brokers),
+            DruidRole::Coordinator => get!(self.coordinators),
+            DruidRole::Historical => get!(self.historicals),
+            DruidRole::MiddleManager => get!(self.middle_managers),
+            DruidRole::Router => get!(self.routers),
+        }
+    }
 }
 
 impl Default for v1alpha1::DruidRoleConfig {
@@ -974,7 +1008,9 @@ fn druid_default_listener_class() -> String {
     Eq,
     Hash,
     JsonSchema,
+    Ord,
     PartialEq,
+    PartialOrd,
     Serialize,
     EnumString,
 )]

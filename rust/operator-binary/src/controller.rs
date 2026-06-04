@@ -1,23 +1,14 @@
 //! Ensures that `Pod`s are configured and running for each [`DruidCluster`][v1alpha1]
 //!
 //! [v1alpha1]: v1alpha1::DruidCluster
-use std::{
-    collections::{BTreeMap, HashMap},
-    str::FromStr,
-    sync::Arc,
-};
+use std::sync::Arc;
 
 use const_format::concatcp;
-use product_config::{
-    ProductConfigManager,
-    types::PropertyNameKind,
-    writer::{PropertiesWriterError, to_java_properties_string},
-};
+use product_config::{ProductConfigManager, writer::PropertiesWriterError};
 use snafu::{ResultExt, Snafu};
 use stackable_operator::{
     builder::{
         self,
-        configmap::ConfigMapBuilder,
         meta::ObjectMetaBuilder,
         pod::{
             PodBuilder, container::ContainerBuilder, resources::ResourceRequirementsBuilder,
@@ -34,7 +25,7 @@ use stackable_operator::{
         DeepMerge,
         api::{
             apps::v1::{StatefulSet, StatefulSetSpec},
-            core::v1::{ConfigMap, EnvVar, PersistentVolumeClaim, ServiceAccount},
+            core::v1::{EnvVar, PersistentVolumeClaim, ServiceAccount},
         },
         apimachinery::pkg::apis::meta::v1::LabelSelector,
     },
@@ -64,31 +55,28 @@ use strum::{EnumDiscriminants, IntoStaticStr};
 
 use crate::{
     authentication::DruidAuthenticationConfig,
-    config::jvm::construct_jvm_args,
     crd::{
-        APP_NAME, AUTH_AUTHORIZER_OPA_URI, CommonRoleGroupConfig, Container,
-        DRUID_CONFIG_DIRECTORY, DS_BUCKET, DeepStorageSpec, DruidClusterStatus, DruidRole,
-        EXTENSIONS_LOADLIST, HDFS_CONFIG_DIRECTORY, JVM_CONFIG, JVM_SECURITY_PROPERTIES_FILE,
+        APP_NAME, CommonRoleGroupConfig, Container, DRUID_CONFIG_DIRECTORY, DeepStorageSpec,
+        DruidClusterStatus, DruidRole, HDFS_CONFIG_DIRECTORY, JVM_SECURITY_PROPERTIES_FILE,
         LOG_CONFIG_DIRECTORY, MAX_DRUID_LOG_FILES_SIZE, METRICS_PORT, METRICS_PORT_NAME,
-        OPERATOR_NAME, RUNTIME_PROPS, RW_CONFIG_DIRECTORY, S3_ACCESS_KEY, S3_ENDPOINT_URL,
-        S3_PATH_STYLE_ACCESS, S3_SECRET_KEY, STACKABLE_LOG_DIR, ZOOKEEPER_CONNECTION_STRING,
-        build_recommended_labels, build_string_list, security::DruidTlsSecurity, v1alpha1,
+        OPERATOR_NAME, RW_CONFIG_DIRECTORY, STACKABLE_LOG_DIR, build_recommended_labels,
+        security::DruidTlsSecurity, v1alpha1,
     },
     discovery::{self, build_discovery_configmaps},
-    extensions::get_extension_list,
     internal_secret::create_shared_internal_secret,
     listener::{
         LISTENER_VOLUME_DIR, LISTENER_VOLUME_NAME, build_group_listener, build_group_listener_pvc,
         group_listener_name, secret_volume_listener_scope,
     },
     operations::{graceful_shutdown::add_graceful_shutdown_config, pdb::add_pdbs},
-    product_logging::extend_role_group_config_map,
     service::{build_rolegroup_headless_service, build_rolegroup_metrics_service},
 };
 
 mod build;
 mod dereference;
 mod validate;
+
+use validate::DruidRoleGroupConfig;
 
 pub const DRUID_CONTROLLER_NAME: &str = "druidcluster";
 pub const FULL_CONTROLLER_NAME: &str = concatcp!(DRUID_CONTROLLER_NAME, '.', OPERATOR_NAME);
@@ -105,6 +93,9 @@ const USERDATA_MOUNTPOINT: &str = "/stackable/userdata";
 
 pub struct Ctx {
     pub client: stackable_operator::client::Client,
+    // Still constructed in `main.rs` but no longer consumed after the product-config removal in
+    // the validate/build steps. Removing it entirely is a follow-up task.
+    #[allow(dead_code)]
     pub product_config: ProductConfigManager,
     pub operator_environment: OperatorEnvironmentOptions,
 }
@@ -312,6 +303,9 @@ pub enum Error {
     #[snafu(display("failed to validate cluster"))]
     ValidateCluster { source: validate::Error },
 
+    #[snafu(display("failed to build rolegroup ConfigMap"))]
+    BuildConfigMap { source: build::config_map::Error },
+
     #[snafu(display("invalid metadata database connection"))]
     InvalidMetadataDatabaseConnection {
         source: stackable_operator::database_connections::Error,
@@ -343,13 +337,8 @@ pub async fn reconcile_druid(
         .await
         .context(DereferenceSnafu)?;
 
-    let validated = validate::validate(
-        druid,
-        &dereferenced_objects,
-        &ctx.operator_environment,
-        &ctx.product_config,
-    )
-    .context(ValidateClusterSnafu)?;
+    let validated = validate::validate(druid, &dereferenced_objects, &ctx.operator_environment)
+        .context(ValidateClusterSnafu)?;
 
     let mut cluster_resources = ClusterResources::new(
         APP_NAME,
@@ -360,8 +349,6 @@ pub async fn reconcile_druid(
         &druid.spec.object_overrides,
     )
     .context(CreateClusterResourcesSnafu)?;
-
-    let merged_config = druid.merged_config().context(FailedToResolveConfigSnafu)?;
 
     let (rbac_sa, rbac_rolebinding) = build_rbac_resources(
         druid,
@@ -383,30 +370,24 @@ pub async fn reconcile_druid(
 
     let mut ss_cond_builder = StatefulSetConditionBuilder::default();
 
-    for (role_name, role_config) in validated.validated_role_config.iter() {
-        let druid_role = DruidRole::from_str(role_name).context(UnidentifiedDruidRoleSnafu {
-            role: role_name.to_string(),
-        })?;
+    for (druid_role, groups) in validated.role_group_configs.iter() {
+        let role_name = druid_role.to_string();
 
         create_shared_internal_secret(druid, client, DRUID_CONTROLLER_NAME)
             .await
             .context(FailedInternalSecretCreationSnafu)?;
 
-        for (rolegroup_name, rolegroup_config) in role_config.iter() {
+        for (rolegroup_name, rg) in groups.iter() {
             let rolegroup = RoleGroupRef {
                 cluster: ObjectRef::from_obj(druid),
-                role: role_name.into(),
+                role: role_name.clone(),
                 role_group: rolegroup_name.into(),
             };
-
-            let merged_rolegroup_config = merged_config
-                .common_config(&druid_role, rolegroup_name)
-                .context(FailedToResolveConfigSnafu)?;
 
             let role_group_service_recommended_labels = build_recommended_labels(
                 druid,
                 DRUID_CONTROLLER_NAME,
-                &validated.resolved_product_image.app_version_label_value,
+                &validated.image.app_version_label_value,
                 &rolegroup.role,
                 &rolegroup.role_group,
             );
@@ -421,8 +402,8 @@ pub async fn reconcile_druid(
 
             let rg_headless_service = build_rolegroup_headless_service(
                 druid,
-                &validated.druid_tls_security,
-                &druid_role,
+                &validated.cluster_config.druid_tls_security,
+                druid_role,
                 &rolegroup,
                 role_group_service_recommended_labels.clone(),
                 role_group_service_selector.clone().into(),
@@ -436,29 +417,24 @@ pub async fn reconcile_druid(
             )
             .context(ServiceConfigurationSnafu)?;
 
-            let rg_configmap = build_rolegroup_config_map(
-                druid,
-                &validated.resolved_product_image,
+            let rg_configmap = build::config_map::build_rolegroup_config_map(
+                &validated,
+                druid_role,
                 &rolegroup,
-                rolegroup_config,
-                &merged_rolegroup_config,
-                &validated.zookeeper_connection_string,
-                validated.opa_connection_string.as_deref(),
-                validated.s3_connection.as_ref(),
-                validated.deep_storage_bucket_name.as_deref(),
-                &validated.druid_tls_security,
-                &validated.druid_auth_config,
-            )?;
+                rg,
+                &validated.image,
+                druid,
+            )
+            .context(BuildConfigMapSnafu)?;
             let rg_statefulset = build_rolegroup_statefulset(
                 druid,
-                &validated.resolved_product_image,
-                &druid_role,
+                &validated.image,
+                druid_role,
                 &rolegroup,
-                rolegroup_config,
-                &merged_rolegroup_config,
-                validated.s3_connection.as_ref(),
-                &validated.druid_tls_security,
-                &validated.druid_auth_config,
+                rg,
+                validated.cluster_config.s3_connection.as_ref(),
+                &validated.cluster_config.druid_tls_security,
+                &validated.cluster_config.druid_auth_config,
                 &rbac_sa,
             )?;
 
@@ -495,20 +471,20 @@ pub async fn reconcile_druid(
         }
 
         if let Some(listener_class) = druid_role.listener_class_name(druid) {
-            if let Some(listener_group_name) = group_listener_name(druid, &druid_role) {
+            if let Some(listener_group_name) = group_listener_name(druid, druid_role) {
                 let role_group_listener = build_group_listener(
                     druid,
                     build_recommended_labels(
                         druid,
                         DRUID_CONTROLLER_NAME,
-                        &validated.resolved_product_image.app_version_label_value,
-                        role_name,
+                        &validated.image.app_version_label_value,
+                        &role_name,
                         "none",
                     ),
                     listener_class.to_string(),
                     listener_group_name,
-                    &druid_role,
-                    &validated.druid_tls_security,
+                    druid_role,
+                    &validated.cluster_config.druid_tls_security,
                 )
                 .context(ListenerConfigurationSnafu)?;
 
@@ -517,13 +493,13 @@ pub async fn reconcile_druid(
                     .await
                     .context(ApplyGroupListenerSnafu)?;
 
-                if druid_role == DruidRole::Router {
+                if *druid_role == DruidRole::Router {
                     // discovery
                     for discovery_cm in build_discovery_configmaps(
                         druid,
                         druid,
-                        &validated.resolved_product_image,
-                        &validated.druid_tls_security,
+                        &validated.image,
+                        &validated.cluster_config.druid_tls_security,
                         listener,
                     )
                     .await
@@ -538,12 +514,12 @@ pub async fn reconcile_druid(
             }
         }
 
-        let role_config = druid.generic_role_config(&druid_role);
+        let role_config = druid.generic_role_config(druid_role);
 
         add_pdbs(
             &role_config.pod_disruption_budget,
             druid,
-            &druid_role,
+            druid_role,
             client,
             &mut cluster_resources,
         )
@@ -571,247 +547,6 @@ pub async fn reconcile_druid(
 }
 
 #[allow(clippy::too_many_arguments)]
-/// The rolegroup [`ConfigMap`] configures the rolegroup based on the configuration given by the administrator
-fn build_rolegroup_config_map(
-    druid: &v1alpha1::DruidCluster,
-    resolved_product_image: &ResolvedProductImage,
-    rolegroup: &RoleGroupRef<v1alpha1::DruidCluster>,
-    rolegroup_config: &HashMap<PropertyNameKind, BTreeMap<String, String>>,
-    merged_rolegroup_config: &CommonRoleGroupConfig,
-    zk_connstr: &str,
-    opa_connstr: Option<&str>,
-    s3_conn: Option<&s3::v1alpha1::ConnectionSpec>,
-    deep_storage_bucket_name: Option<&str>,
-    druid_tls_security: &DruidTlsSecurity,
-    druid_auth_config: &Option<DruidAuthenticationConfig>,
-) -> Result<ConfigMap> {
-    let druid_role =
-        DruidRole::from_str(&rolegroup.role).with_context(|_| UnidentifiedDruidRoleSnafu {
-            role: &rolegroup.role,
-        })?;
-    let role = druid.get_role(&druid_role);
-    let mut cm_conf_data = BTreeMap::new(); // filename -> filecontent
-    let metadata_database_connection_details = druid
-        .spec
-        .cluster_config
-        .metadata_database
-        .jdbc_connection_details("metadata")
-        .context(InvalidMetadataDatabaseConnectionSnafu)?;
-
-    for (property_name_kind, config) in rolegroup_config {
-        let mut conf: BTreeMap<String, Option<String>> = Default::default();
-
-        match property_name_kind {
-            PropertyNameKind::File(file_name) if file_name == RUNTIME_PROPS => {
-                // Add any properties derived from storage manifests, such as segment cache locations.
-                // This has to be done here since there is no other suitable place for it.
-                // Previously such properties were added in the compute_files() function,
-                // but that code path is now incompatible with the design of fragment merging.
-                merged_rolegroup_config
-                    .resources
-                    .update_druid_config_file(&mut conf)
-                    .context(UpdateDruidConfigFromResourcesSnafu)?;
-                // NOTE: druid.host can be set manually - if it isn't, the canonical host name of
-                // the local host is used.  This should work with the agent and k8s host networking
-                // but might need to be revisited in the future
-                conf.insert(
-                    ZOOKEEPER_CONNECTION_STRING.to_string(),
-                    Some(zk_connstr.to_string()),
-                );
-
-                conf.insert(
-                    EXTENSIONS_LOADLIST.to_string(),
-                    Some(build_string_list(&get_extension_list(
-                        druid,
-                        druid_tls_security,
-                        druid_auth_config,
-                    ))),
-                );
-
-                if let Some(opa_str) = opa_connstr {
-                    conf.insert(
-                        AUTH_AUTHORIZER_OPA_URI.to_string(),
-                        Some(opa_str.to_string()),
-                    );
-                };
-
-                conf.insert(
-                    crate::crd::database::METADATA_STORAGE_TYPE.to_string(),
-                    Some(
-                        druid
-                            .spec
-                            .cluster_config
-                            .metadata_database
-                            .as_metadata_storage_type()
-                            .to_string(),
-                    ),
-                );
-
-                conf.insert(
-                    crate::crd::database::METADATA_STORAGE_CONNECTOR_CONNECT_URI.to_string(),
-                    Some(
-                        metadata_database_connection_details
-                            .connection_url
-                            .to_string(),
-                    ),
-                );
-
-                if let Some(EnvVar {
-                    name: username_env_name,
-                    ..
-                }) = &metadata_database_connection_details.username_env
-                {
-                    conf.insert(
-                        crate::crd::database::METADATA_STORAGE_USER.to_string(),
-                        Some(format!("${{env:{username_env_name}}}",)),
-                    );
-                }
-
-                if let Some(EnvVar {
-                    name: password_env_name,
-                    ..
-                }) = &metadata_database_connection_details.password_env
-                {
-                    conf.insert(
-                        crate::crd::database::METADATA_STORAGE_PASSWORD.to_string(),
-                        Some(format!("${{env:{password_env_name}}}",)),
-                    );
-                }
-
-                if let Some(s3) = s3_conn {
-                    if !s3.region.is_default_config() {
-                        // Raising this as warning instead of returning an error, better safe than sorry.
-                        // It might still work out for the user.
-                        tracing::warn!(
-                            region = ?s3.region,
-                            "You configured a non-default region on the S3Connection.
-                            The S3Connection region field is ignored because Druid uses the AWS SDK v1, which ignores the region if the endpoint is set. \
-                            The host is a required field, therefore the endpoint will always be set."
-                        )
-                    }
-
-                    conf.insert(
-                        S3_ENDPOINT_URL.to_string(),
-                        Some(s3.endpoint().context(ConfigureS3Snafu)?.to_string()),
-                    );
-
-                    if let Some((access_key_file, secret_key_file)) = s3.credentials_mount_paths() {
-                        conf.insert(
-                            S3_ACCESS_KEY.to_string(),
-                            Some(format!("${{file:UTF-8:{access_key_file}}}")),
-                        );
-                        conf.insert(
-                            S3_SECRET_KEY.to_string(),
-                            Some(format!("${{file:UTF-8:{secret_key_file}}}")),
-                        );
-                    }
-
-                    conf.insert(
-                        S3_PATH_STYLE_ACCESS.to_string(),
-                        Some((s3.access_style == s3::v1alpha1::S3AccessStyle::Path).to_string()),
-                    );
-                }
-                conf.insert(
-                    DS_BUCKET.to_string(),
-                    deep_storage_bucket_name.map(str::to_string),
-                );
-
-                // add tls encryption / auth properties
-                druid_tls_security.add_tls_config_properties(&mut conf, &druid_role);
-
-                if let Some(auth_config) = druid_auth_config {
-                    conf.extend(
-                        auth_config
-                            .generate_runtime_properties_config(&druid_role)
-                            .context(GenerateAuthenticationRuntimeSettingsSnafu)?,
-                    );
-                };
-
-                let transformed_config: BTreeMap<String, Option<String>> = config
-                    .iter()
-                    .map(|(k, v)| (k.clone(), Some(v.clone())))
-                    .collect();
-                // extend the config to respect overrides
-                conf.extend(transformed_config);
-
-                let runtime_properties =
-                    to_java_properties_string(conf.iter()).context(PropertiesWriteSnafu)?;
-                cm_conf_data.insert(RUNTIME_PROPS.to_string(), runtime_properties);
-            }
-
-            PropertyNameKind::File(file_name) if file_name == JVM_CONFIG => {
-                let (heap, direct) = merged_rolegroup_config
-                    .resources
-                    .get_memory_sizes(&druid_role)
-                    .context(DeriveMemorySettingsSnafu)?;
-                let jvm_config =
-                    construct_jvm_args(&druid_role, &role, &rolegroup.role_group, heap, direct)
-                        .context(GetJvmConfigSnafu)?;
-                cm_conf_data.insert(JVM_CONFIG.to_string(), jvm_config);
-            }
-
-            PropertyNameKind::File(file_name) if file_name == JVM_SECURITY_PROPERTIES_FILE => {
-                let jvm_sec_props: BTreeMap<String, Option<String>> = rolegroup_config
-                    .get(&PropertyNameKind::File(
-                        JVM_SECURITY_PROPERTIES_FILE.to_string(),
-                    ))
-                    .cloned()
-                    .unwrap_or_default()
-                    .into_iter()
-                    .map(|(k, v)| (k, Some(v)))
-                    .collect();
-                cm_conf_data.insert(
-                    JVM_SECURITY_PROPERTIES_FILE.to_string(),
-                    to_java_properties_string(jvm_sec_props.iter()).with_context(|_| {
-                        JvmSecurityPropertiesSnafu {
-                            rolegroup: rolegroup.role_group.clone(),
-                        }
-                    })?,
-                );
-            }
-            _ => {}
-        }
-    }
-
-    let mut config_map_builder = ConfigMapBuilder::new();
-    config_map_builder.metadata(
-        ObjectMetaBuilder::new()
-            .name_and_namespace(druid)
-            .name(rolegroup.object_name())
-            .ownerreference_from_resource(druid, None, Some(true))
-            .context(ObjectMissingMetadataForOwnerRefSnafu)?
-            .with_recommended_labels(&build_recommended_labels(
-                druid,
-                DRUID_CONTROLLER_NAME,
-                &resolved_product_image.app_version_label_value,
-                &rolegroup.role,
-                &rolegroup.role_group,
-            ))
-            .context(MetadataBuildSnafu)?
-            .build(),
-    );
-
-    for (filename, file_content) in cm_conf_data.iter() {
-        config_map_builder.add_data(filename, file_content);
-    }
-
-    extend_role_group_config_map(
-        rolegroup,
-        &merged_rolegroup_config.logging,
-        &mut config_map_builder,
-    )
-    .context(InvalidLoggingConfigSnafu {
-        cm_name: rolegroup.object_name(),
-    })?;
-
-    config_map_builder
-        .build()
-        .with_context(|_| BuildRoleGroupConfigSnafu {
-            rolegroup: rolegroup.clone(),
-        })
-}
-
-#[allow(clippy::too_many_arguments)]
 /// The rolegroup [`StatefulSet`] runs the rolegroup, as configured by the administrator.
 ///
 /// The [`Pod`](`stackable_operator::k8s_openapi::api::core::v1::Pod`)s are accessible through the
@@ -821,13 +556,13 @@ fn build_rolegroup_statefulset(
     resolved_product_image: &ResolvedProductImage,
     role: &DruidRole,
     rolegroup_ref: &RoleGroupRef<v1alpha1::DruidCluster>,
-    rolegroup_config: &HashMap<PropertyNameKind, BTreeMap<String, String>>,
-    merged_rolegroup_config: &CommonRoleGroupConfig,
+    rg: &DruidRoleGroupConfig,
     s3_conn: Option<&s3::v1alpha1::ConnectionSpec>,
     druid_tls_security: &DruidTlsSecurity,
     druid_auth_config: &Option<DruidAuthenticationConfig>,
     service_account: &ServiceAccount,
 ) -> Result<StatefulSet> {
+    let merged_rolegroup_config = &rg.merged_config;
     // prepare container builder
     let prepare_container_name = Container::Prepare.to_string();
     let mut cb_prepare = ContainerBuilder::new(&prepare_container_name).context(
@@ -948,10 +683,9 @@ fn build_rolegroup_statefulset(
     metadata_database_connection_details.add_to_container(&mut cb_druid);
 
     // rest of env
-    let mut rest_env = rolegroup_config
-        .get(&PropertyNameKind::Env)
+    let mut rest_env = rg
+        .env
         .iter()
-        .flat_map(|env_vars| env_vars.iter())
         .map(|(k, v)| EnvVar {
             name: k.clone(),
             value: Some(v.clone()),
@@ -1258,46 +992,22 @@ pub fn error_policy(
 
 #[cfg(test)]
 mod test {
-    use product_config::{ProductConfigManager, writer};
+    use std::collections::BTreeMap;
+
     use rstest::*;
-    use stackable_operator::product_config_utils::{
-        transform_all_roles_to_config, validate_all_roles_and_groups_config,
-    };
 
     use super::*;
-    use crate::crd::{PROP_SEGMENT_CACHE_LOCATIONS, authentication::AuthenticationClassesResolved};
-
-    #[derive(Snafu, Debug, EnumDiscriminants)]
-    #[strum_discriminants(derive(IntoStaticStr))]
-    #[allow(clippy::enum_variant_names)]
-    pub enum Error {
-        #[snafu(display("controller error"))]
-        Controller {
-            #[snafu(source(from(super::Error, Box::new)))]
-            source: Box<super::Error>,
+    use crate::controller::build::properties::writer;
+    use crate::{
+        controller::{
+            build::{config_map::build_rolegroup_config_map, properties::runtime_properties},
+            validate::{DruidRoleGroupConfig, ValidatedCluster, ValidatedClusterConfig},
         },
-
-        #[snafu(display("product config error"))]
-        ProductConfig {
-            source: product_config::error::Error,
+        crd::{
+            PROP_SEGMENT_CACHE_LOCATIONS, RUNTIME_PROPS,
+            authentication::AuthenticationClassesResolved,
         },
-
-        #[snafu(display("product config utils error"))]
-        ProductConfigUtils {
-            source: stackable_operator::product_config_utils::Error,
-        },
-
-        #[snafu(display("operator framework error"))]
-        OperatorFramework {
-            source: stackable_operator::product_config_utils::Error,
-        },
-
-        #[snafu(display("failed to resolve and merge config for role and role group"))]
-        FailedToResolveConfig { source: crate::crd::Error },
-
-        #[snafu(display("invalid configuration"))]
-        InvalidConfiguration { source: crate::crd::Error },
-    }
+    };
 
     #[rstest]
     #[case(
@@ -1314,7 +1024,7 @@ mod test {
         #[case] druid_manifest: &str,
         #[case] tested_rolegroup_name: &str,
         #[case] expected_druid_segment_cache_property: &str,
-    ) -> Result<(), Box<Error>> {
+    ) {
         let cluster_cr =
             std::fs::File::open(format!("test/resources/druid_controller/{druid_manifest}"))
                 .unwrap();
@@ -1331,20 +1041,6 @@ mod test {
                 crate::built_info::PKG_VERSION,
             )
             .expect("test: resolved product image is always valid");
-        let role_config = transform_all_roles_to_config(&druid, &druid.build_role_properties());
-
-        let product_config_manager =
-            ProductConfigManager::from_yaml_file("test/resources/druid_controller/properties.yaml")
-                .context(ProductConfigSnafu)?;
-
-        let validated_role_config = validate_all_roles_and_groups_config(
-            &resolved_product_image.product_version,
-            &role_config.context(ProductConfigUtilsSnafu)?,
-            &product_config_manager,
-            false,
-            false,
-        )
-        .context(OperatorFrameworkSnafu)?;
 
         let druid_tls_security = DruidTlsSecurity::new(
             &AuthenticationClassesResolved {
@@ -1353,53 +1049,58 @@ mod test {
             Some("tls".to_string()),
         );
 
-        let mut druid_segment_cache_property = "invalid".to_string();
+        let merged = druid.merged_config().expect("merged config");
+        let merged_config = merged
+            .common_config(&DruidRole::Historical, tested_rolegroup_name)
+            .expect("common config for tested rolegroup");
 
-        let config = druid.merged_config().context(FailedToResolveConfigSnafu)?;
+        // The segment cache property is injected dynamically by the config_map builder from the
+        // merged resources, independent of the precomputed runtime_config. We still populate the
+        // runtime_config with the static role defaults to mirror the production path.
+        let rg = DruidRoleGroupConfig {
+            merged_config,
+            runtime_config: runtime_properties::defaults(&DruidRole::Historical),
+            security_config: BTreeMap::new(),
+            env: BTreeMap::new(),
+        };
 
-        for (role_name, role_config) in validated_role_config.iter() {
-            for (rolegroup_name, rolegroup_config) in role_config.iter() {
-                if rolegroup_name == tested_rolegroup_name
-                    && role_name == &DruidRole::Historical.to_string()
-                {
-                    let rolegroup_ref = RoleGroupRef {
-                        cluster: ObjectRef::from_obj(&druid),
-                        role: role_name.into(),
-                        role_group: rolegroup_name.clone(),
-                    };
+        let cluster = ValidatedCluster {
+            name: druid.name_any(),
+            image: resolved_product_image.clone(),
+            cluster_config: ValidatedClusterConfig {
+                zookeeper_connection_string: "zookeeper-connection-string".to_string(),
+                opa_connection_string: None,
+                s3_connection: None,
+                deep_storage_bucket_name: None,
+                druid_tls_security,
+                druid_auth_config: None,
+            },
+            role_group_configs: BTreeMap::new(),
+        };
 
-                    let merged_rolegroup_config = config
-                        .common_config(&DruidRole::Historical, rolegroup_name)
-                        .context(InvalidConfigurationSnafu)?;
+        let rolegroup_ref = RoleGroupRef {
+            cluster: ObjectRef::from_obj(&druid),
+            role: DruidRole::Historical.to_string(),
+            role_group: tested_rolegroup_name.to_string(),
+        };
 
-                    let auth_settings: Option<DruidAuthenticationConfig> = None;
+        let rg_configmap = build_rolegroup_config_map(
+            &cluster,
+            &DruidRole::Historical,
+            &rolegroup_ref,
+            &rg,
+            &resolved_product_image,
+            &druid,
+        )
+        .expect("build rolegroup config map");
 
-                    let rg_configmap = build_rolegroup_config_map(
-                        &druid,
-                        &resolved_product_image,
-                        &rolegroup_ref,
-                        rolegroup_config,
-                        &merged_rolegroup_config,
-                        "zookeeper-connection-string",
-                        None,
-                        None,
-                        None,
-                        &druid_tls_security,
-                        &auth_settings,
-                    )
-                    .context(ControllerSnafu)?;
+        let druid_segment_cache_property = rg_configmap
+            .data
+            .unwrap()
+            .get(RUNTIME_PROPS)
+            .unwrap()
+            .to_string();
 
-                    druid_segment_cache_property = rg_configmap
-                        .data
-                        .unwrap()
-                        .get(RUNTIME_PROPS)
-                        .unwrap()
-                        .to_string();
-
-                    break;
-                }
-            }
-        }
         let escaped_segment_cache_property = writer::to_java_properties_string(
             vec![(
                 &PROP_SEGMENT_CACHE_LOCATIONS.to_string(),
@@ -1411,10 +1112,7 @@ mod test {
 
         assert!(
             druid_segment_cache_property.contains(&escaped_segment_cache_property),
-            "role group {}",
-            tested_rolegroup_name
+            "role group {tested_rolegroup_name}"
         );
-
-        Ok(())
     }
 }

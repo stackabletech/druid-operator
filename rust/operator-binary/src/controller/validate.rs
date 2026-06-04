@@ -1,24 +1,31 @@
 //! The validate step in the DruidCluster controller
 //!
 //! Synchronously validates inputs that don't require a Kubernetes client. Produces
-//! [`ValidatedInputs`], consumed by the rest of `reconcile_druid`.
+//! [`ValidatedCluster`], consumed by the rest of `reconcile_druid`.
 
-use product_config::ProductConfigManager;
+use std::collections::BTreeMap;
+
 use snafu::{ResultExt, Snafu};
 use stackable_operator::{
     cli::OperatorEnvironmentOptions,
     commons::product_image_selection::{self, ResolvedProductImage},
+    config_overrides::KeyValueOverridesProvider,
     crd::s3,
-    product_config_utils::{
-        ValidatedRoleConfigByPropertyKind, transform_all_roles_to_config,
-        validate_all_roles_and_groups_config,
-    },
+    kube::ResourceExt,
 };
+use strum::IntoEnumIterator;
 
 use crate::{
     authentication::DruidAuthenticationConfig,
-    controller::dereference::DereferencedObjects,
-    crd::{security::DruidTlsSecurity, v1alpha1},
+    controller::{
+        build::properties::{runtime_properties, security_properties},
+        dereference::DereferencedObjects,
+    },
+    crd::{
+        CommonRoleGroupConfig, DruidRole, INDEXER_JAVA_OPTS, JVM_SECURITY_PROPERTIES_FILE,
+        RUNTIME_PROPS, STACKABLE_TRUST_STORE, STACKABLE_TRUST_STORE_PASSWORD, build_string_list,
+        security::DruidTlsSecurity, v1alpha1,
+    },
 };
 
 #[derive(Snafu, Debug)]
@@ -34,29 +41,66 @@ pub enum Error {
         source: crate::authentication::Error,
     },
 
-    #[snafu(display("failed to transform configs"))]
-    ProductConfigTransform {
-        source: stackable_operator::product_config_utils::Error,
-    },
+    #[snafu(display("failed to resolve and merge config for role and role group"))]
+    FailedToResolveConfig { source: crate::crd::Error },
 
-    #[snafu(display("invalid product configuration"))]
-    InvalidProductConfig {
+    #[snafu(display("failed to compute the runtime.properties compute_files for role [{role}]"))]
+    ComputeRuntimeProperties {
         source: stackable_operator::product_config_utils::Error,
+        role: String,
     },
 }
 
 type Result<T, E = Error> = std::result::Result<T, E>;
 
-/// Synchronous inputs the rest of `reconcile_druid` needs after dereferencing.
-pub struct ValidatedInputs {
+pub type RoleGroupName = String;
+
+/// The merged config plus the per-file "validated config" maps that used to be produced by
+/// product-config. These are computed from first principles so that rendered config stays
+/// byte-identical.
+#[derive(Clone)]
+pub struct DruidRoleGroupConfig {
+    pub merged_config: CommonRoleGroupConfig,
+    /// The runtime.properties "validated config" (compute_files + recommended defaults + merged overrides).
+    pub runtime_config: BTreeMap<String, Option<String>>,
+    /// The security.properties "validated config".
+    pub security_config: BTreeMap<String, Option<String>>,
+    /// Merged env overrides (role <- rolegroup). compute_env is empty for druid.
+    pub env: BTreeMap<String, String>,
+}
+
+/// Cluster-wide resolved fields that are not role/rolegroup specific.
+pub struct ValidatedClusterConfig {
     pub zookeeper_connection_string: String,
     pub opa_connection_string: Option<String>,
     pub s3_connection: Option<s3::v1alpha1::ConnectionSpec>,
     pub deep_storage_bucket_name: Option<String>,
-    pub resolved_product_image: ResolvedProductImage,
     pub druid_tls_security: DruidTlsSecurity,
     pub druid_auth_config: Option<DruidAuthenticationConfig>,
-    pub validated_role_config: ValidatedRoleConfigByPropertyKind,
+}
+
+/// Synchronous inputs the rest of `reconcile_druid` needs after dereferencing.
+pub struct ValidatedCluster {
+    // Currently unused by the build steps, but part of the documented `ValidatedCluster` shape;
+    // consumed by later tasks.
+    #[allow(dead_code)]
+    pub name: String,
+    pub image: ResolvedProductImage,
+    pub cluster_config: ValidatedClusterConfig,
+    pub role_group_configs: BTreeMap<DruidRole, BTreeMap<RoleGroupName, DruidRoleGroupConfig>>,
+}
+
+/// The `druid.indexer.runner.javaOptsArray` entry that `MiddleManagerConfigFragment::compute_files`
+/// adds for *every* file (runtime.properties and security.properties).
+fn middlemanager_indexer_java_opts() -> (String, Option<String>) {
+    (
+        INDEXER_JAVA_OPTS.to_string(),
+        Some(build_string_list(&[
+            format!("-Djavax.net.ssl.trustStore={STACKABLE_TRUST_STORE}"),
+            format!("-Djavax.net.ssl.trustStorePassword={STACKABLE_TRUST_STORE_PASSWORD}"),
+            "-Djavax.net.ssl.trustStoreType=pkcs12".to_owned(),
+        ])),
+    )
 }
 
 /// Validates the cluster spec and the dereferenced inputs.
@@ -64,9 +108,8 @@ pub fn validate(
     druid: &v1alpha1::DruidCluster,
     dereferenced_objects: &DereferencedObjects,
     operator_environment: &OperatorEnvironmentOptions,
-    product_config: &ProductConfigManager,
-) -> Result<ValidatedInputs> {
-    let resolved_product_image = druid
+) -> Result<ValidatedCluster> {
+    let image = druid
         .spec
         .image
         .resolve(
@@ -86,25 +129,96 @@ pub fn validate(
     )
     .context(InvalidDruidAuthenticationConfigSnafu)?;
 
-    let role_config = transform_all_roles_to_config(druid, &druid.build_role_properties())
-        .context(ProductConfigTransformSnafu)?;
-    let validated_role_config = validate_all_roles_and_groups_config(
-        &resolved_product_image.product_version,
-        &role_config,
-        product_config,
-        false,
-        false,
-    )
-    .context(InvalidProductConfigSnafu)?;
+    let merged = druid.merged_config().context(FailedToResolveConfigSnafu)?;
 
-    Ok(ValidatedInputs {
-        zookeeper_connection_string: dereferenced_objects.zookeeper_connection_string.clone(),
-        opa_connection_string: dereferenced_objects.opa_connection_string.clone(),
-        s3_connection: dereferenced_objects.s3_connection.clone(),
-        deep_storage_bucket_name: dereferenced_objects.deep_storage_bucket_name.clone(),
-        resolved_product_image,
-        druid_tls_security,
-        druid_auth_config,
-        validated_role_config,
+    let mut role_group_configs: BTreeMap<DruidRole, BTreeMap<RoleGroupName, DruidRoleGroupConfig>> =
+        BTreeMap::new();
+
+    for druid_role in DruidRole::iter() {
+        // The role-level overrides (role <- rolegroup precedence starts here).
+        let role = druid.get_role(&druid_role);
+        let role_runtime_overrides = role
+            .config
+            .config_overrides
+            .get_key_value_overrides(RUNTIME_PROPS);
+        let role_security_overrides = role
+            .config
+            .config_overrides
+            .get_key_value_overrides(JVM_SECURITY_PROPERTIES_FILE);
+        let role_env_overrides = role.config.env_overrides.clone();
+
+        let rolegroups = merged.role_group_names(&druid_role);
+
+        let mut group_map: BTreeMap<RoleGroupName, DruidRoleGroupConfig> = BTreeMap::new();
+        for rg_name in rolegroups {
+            let merged_config = merged
+                .common_config(&druid_role, &rg_name)
+                .context(FailedToResolveConfigSnafu)?;
+            // The rolegroup-level config/env overrides (rolegroup wins over role).
+            // The rolegroup is guaranteed to exist because `rg_name` comes from
+            // `role_group_names` and `common_config` above already resolved it.
+            let (rg_config_overrides, rg_env_overrides) = merged
+                .role_group_overrides(&druid_role, &rg_name)
+                .expect("role group resolved by common_config must exist");
+
+            // ----- runtime.properties -----
+            let mut runtime_config = druid.common_compute_files(RUNTIME_PROPS).context(
+                ComputeRuntimePropertiesSnafu {
+                    role: druid_role.to_string(),
+                },
+            )?;
+            if druid_role == DruidRole::MiddleManager {
+                let (k, v) = middlemanager_indexer_java_opts();
+                runtime_config.insert(k, v);
+            }
+            runtime_config.extend(runtime_properties::defaults(&druid_role));
+            // merged user overrides (role <- rolegroup; rolegroup wins)
+            let mut runtime_overrides = role_runtime_overrides.clone();
+            runtime_overrides.extend(rg_config_overrides.get_key_value_overrides(RUNTIME_PROPS));
+            runtime_config.extend(runtime_overrides);
+
+            // ----- security.properties -----
+            let mut security_config: BTreeMap<String, Option<String>> = BTreeMap::new();
+            if druid_role == DruidRole::MiddleManager {
+                let (k, v) = middlemanager_indexer_java_opts();
+                security_config.insert(k, v);
+            }
+            let mut security_overrides = role_security_overrides.clone();
+            security_overrides
+                .extend(rg_config_overrides.get_key_value_overrides(JVM_SECURITY_PROPERTIES_FILE));
+            security_config.extend(security_properties::build(&security_overrides));
+
+            // ----- env -----
+            let mut env: BTreeMap<String, String> = role_env_overrides
+                .iter()
+                .map(|(k, v)| (k.clone(), v.clone()))
+                .collect();
+            env.extend(rg_env_overrides.iter().map(|(k, v)| (k.clone(), v.clone())));
+
+            group_map.insert(
+                rg_name,
+                DruidRoleGroupConfig {
+                    merged_config,
+                    runtime_config,
+                    security_config,
+                    env,
+                },
+            );
+        }
+        role_group_configs.insert(druid_role, group_map);
+    }
+
+    Ok(ValidatedCluster {
+        name: druid.name_any(),
+        image,
+        cluster_config: ValidatedClusterConfig {
+            zookeeper_connection_string: dereferenced_objects.zookeeper_connection_string.clone(),
+            opa_connection_string: dereferenced_objects.opa_connection_string.clone(),
+            s3_connection: dereferenced_objects.s3_connection.clone(),
+            deep_storage_bucket_name: dereferenced_objects.deep_storage_bucket_name.clone(),
+            druid_tls_security,
+            druid_auth_config,
+        },
+        role_group_configs,
     })
 }
