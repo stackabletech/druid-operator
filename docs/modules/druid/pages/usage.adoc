@@ -6,11 +6,11 @@ Druid requires a Zookeeper to run, as well as a database. If HDFS is used as the
 
 === Zookeeper operator
 
-Please refer to the https://github.com/stackabletech/zookeeper-operator[Zookeeper] operator and https://docs.stackable.tech/zookeeper/index.html[docs].
+Please refer to the https://github.com/stackabletech/zookeeper-operator[Zookeeper] operator and xref:zookeeper:index.adoc[docs].
 
 === HDFS operator (optional)
 
-Please refer to the https://github.com/stackabletech/hdfs-operator[HDFS] operator and https://docs.stackable.tech/hdfs/index.html[docs].
+Please refer to the https://github.com/stackabletech/hdfs-operator[HDFS] operator and xref:hdfs:index.adoc[docs].
 
 === SQL Database
 
