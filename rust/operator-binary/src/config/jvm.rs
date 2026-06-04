@@ -6,9 +6,13 @@ use stackable_operator::{
 };
 
 use crate::crd::{
-    DruidConfigOverrides, DruidRole, JVM_SECURITY_PROPERTIES_FILE, LOG4J2_CONFIG,
-    RW_CONFIG_DIRECTORY, STACKABLE_TRUST_STORE, STACKABLE_TRUST_STORE_PASSWORD,
+    DruidConfigOverrides, DruidRole, RW_CONFIG_DIRECTORY, STACKABLE_TRUST_STORE,
+    STACKABLE_TRUST_STORE_PASSWORD,
 };
+
+// File names not exported from crd/mod.rs (see ConfigFileName for the properties-builder files).
+const SECURITY_PROPERTIES_FILE: &str = "security.properties";
+const LOG4J2_CONFIG_FILE: &str = "log4j2.properties";
 
 #[derive(Snafu, Debug)]
 pub enum Error {
@@ -54,12 +58,12 @@ pub fn construct_jvm_args<T>(
     jvm_args.extend([
         "-XX:+ExitOnOutOfMemoryError".to_owned(),
         "-XX:+UseG1GC".to_owned(),
-        format!("-Djava.security.properties={RW_CONFIG_DIRECTORY}/{JVM_SECURITY_PROPERTIES_FILE}"),
+        format!("-Djava.security.properties={RW_CONFIG_DIRECTORY}/{SECURITY_PROPERTIES_FILE}"),
         "-Duser.timezone=UTC".to_owned(),
         "-Dfile.encoding=UTF-8".to_owned(),
         "-Djava.io.tmpdir=/tmp".to_owned(),
         "-Djava.util.logging.manager=org.apache.logging.log4j.jul.LogManager".to_owned(),
-        format!("-Dlog4j.configurationFile={RW_CONFIG_DIRECTORY}/{LOG4J2_CONFIG}"),
+        format!("-Dlog4j.configurationFile={RW_CONFIG_DIRECTORY}/{LOG4J2_CONFIG_FILE}"),
         format!("-Djavax.net.ssl.trustStore={STACKABLE_TRUST_STORE}"),
         format!("-Djavax.net.ssl.trustStorePassword={STACKABLE_TRUST_STORE_PASSWORD}"),
         "-Djavax.net.ssl.trustStoreType=pkcs12".to_owned(),

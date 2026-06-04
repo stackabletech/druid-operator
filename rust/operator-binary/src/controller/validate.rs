@@ -3,13 +3,12 @@
 //! Synchronously validates inputs that don't require a Kubernetes client. Produces
 //! [`ValidatedCluster`], consumed by the rest of `reconcile_druid`.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 
 use snafu::{ResultExt, Snafu};
 use stackable_operator::{
     cli::OperatorEnvironmentOptions,
     commons::product_image_selection::{self, ResolvedProductImage},
-    config_overrides::KeyValueOverridesProvider,
     crd::s3,
     kube::ResourceExt,
 };
@@ -18,12 +17,12 @@ use strum::IntoEnumIterator;
 use crate::{
     authentication::DruidAuthenticationConfig,
     controller::{
-        build::properties::{runtime_properties, security_properties},
+        build::properties::{ConfigFileName, runtime_properties, security_properties},
         dereference::DereferencedObjects,
     },
     crd::{
-        CommonRoleGroupConfig, DruidRole, INDEXER_JAVA_OPTS, JVM_SECURITY_PROPERTIES_FILE,
-        RUNTIME_PROPS, STACKABLE_TRUST_STORE, STACKABLE_TRUST_STORE_PASSWORD, build_string_list,
+        CommonRoleGroupConfig, DruidConfigOverrides, DruidRole, INDEXER_JAVA_OPTS,
+        STACKABLE_TRUST_STORE, STACKABLE_TRUST_STORE_PASSWORD, build_string_list,
         security::DruidTlsSecurity, v1alpha1,
     },
 };
@@ -84,6 +83,79 @@ pub struct ValidatedCluster {
     pub role_group_configs: BTreeMap<DruidRole, BTreeMap<RoleGroupName, DruidRoleGroupConfig>>,
 }
 
+/// Returns the user-supplied key/value overrides for the given config file from a
+/// [`DruidConfigOverrides`], as a product-config style map.
+fn key_value_overrides(
+    overrides: &DruidConfigOverrides,
+    file: ConfigFileName,
+) -> BTreeMap<String, Option<String>> {
+    let kv = match file {
+        ConfigFileName::RuntimeProperties => overrides.runtime_properties.as_ref(),
+        ConfigFileName::SecurityProperties => overrides.security_properties.as_ref(),
+    };
+    kv.map(
+        stackable_operator::config_overrides::KeyValueConfigOverrides::as_product_config_overrides,
+    )
+    .unwrap_or_default()
+}
+
+/// Builds the precomputed per-file config for a single rolegroup. Pure assembly: combines the
+/// role-level overrides with the rolegroup-level overrides (rolegroup wins) on top of the
+/// computed defaults. No behavior change vs. the inline loop body it was extracted from.
+#[allow(clippy::too_many_arguments)]
+fn build_role_group_config(
+    druid: &v1alpha1::DruidCluster,
+    druid_role: &DruidRole,
+    merged_config: CommonRoleGroupConfig,
+    role_runtime_overrides: &BTreeMap<String, Option<String>>,
+    role_security_overrides: &BTreeMap<String, Option<String>>,
+    role_env_overrides: &HashMap<String, String>,
+    rg_config_overrides: &DruidConfigOverrides,
+    rg_env_overrides: &HashMap<String, String>,
+) -> DruidRoleGroupConfig {
+    // ----- runtime.properties -----
+    let mut runtime_config = druid.compute_runtime_properties();
+    if *druid_role == DruidRole::MiddleManager {
+        let (k, v) = middlemanager_indexer_java_opts();
+        runtime_config.insert(k, v);
+    }
+    runtime_config.extend(runtime_properties::defaults(druid_role));
+    // merged user overrides (role <- rolegroup; rolegroup wins)
+    let mut runtime_overrides = role_runtime_overrides.clone();
+    runtime_overrides.extend(key_value_overrides(
+        rg_config_overrides,
+        ConfigFileName::RuntimeProperties,
+    ));
+    runtime_config.extend(runtime_overrides);
+
+    // ----- security.properties -----
+    let mut security_config: BTreeMap<String, Option<String>> = BTreeMap::new();
+    if *druid_role == DruidRole::MiddleManager {
+        let (k, v) = middlemanager_indexer_java_opts();
+        security_config.insert(k, v);
+    }
+    let mut security_overrides = role_security_overrides.clone();
+    security_overrides.extend(key_value_overrides(
+        rg_config_overrides,
+        ConfigFileName::SecurityProperties,
+    ));
+    security_config.extend(security_properties::build(&security_overrides));
+
+    // ----- env -----
+    let mut env: BTreeMap<String, String> = role_env_overrides
+        .iter()
+        .map(|(k, v)| (k.clone(), v.clone()))
+        .collect();
+    env.extend(rg_env_overrides.iter().map(|(k, v)| (k.clone(), v.clone())));
+
+    DruidRoleGroupConfig {
+        merged_config,
+        runtime_config,
+        security_config,
+        env,
+    }
+}
+
 /// The `druid.indexer.runner.javaOptsArray` entry that `MiddleManagerConfigFragment::compute_files`
 /// adds for *every* file (runtime.properties and security.properties).
 fn middlemanager_indexer_java_opts() -> (String, Option<String>) {
@@ -131,14 +203,14 @@ pub fn validate(
     for druid_role in DruidRole::iter() {
         // The role-level overrides (role <- rolegroup precedence starts here).
         let role = druid.get_role(&druid_role);
-        let role_runtime_overrides = role
-            .config
-            .config_overrides
-            .get_key_value_overrides(RUNTIME_PROPS);
-        let role_security_overrides = role
-            .config
-            .config_overrides
-            .get_key_value_overrides(JVM_SECURITY_PROPERTIES_FILE);
+        let role_runtime_overrides = key_value_overrides(
+            &role.config.config_overrides,
+            ConfigFileName::RuntimeProperties,
+        );
+        let role_security_overrides = key_value_overrides(
+            &role.config.config_overrides,
+            ConfigFileName::SecurityProperties,
+        );
         let role_env_overrides = role.config.env_overrides.clone();
 
         let rolegroups = merged.role_group_names(&druid_role);
@@ -155,44 +227,18 @@ pub fn validate(
                 .role_group_overrides(&druid_role, &rg_name)
                 .expect("role group resolved by common_config must exist");
 
-            // ----- runtime.properties -----
-            let mut runtime_config = druid.common_compute_files(RUNTIME_PROPS);
-            if druid_role == DruidRole::MiddleManager {
-                let (k, v) = middlemanager_indexer_java_opts();
-                runtime_config.insert(k, v);
-            }
-            runtime_config.extend(runtime_properties::defaults(&druid_role));
-            // merged user overrides (role <- rolegroup; rolegroup wins)
-            let mut runtime_overrides = role_runtime_overrides.clone();
-            runtime_overrides.extend(rg_config_overrides.get_key_value_overrides(RUNTIME_PROPS));
-            runtime_config.extend(runtime_overrides);
-
-            // ----- security.properties -----
-            let mut security_config: BTreeMap<String, Option<String>> = BTreeMap::new();
-            if druid_role == DruidRole::MiddleManager {
-                let (k, v) = middlemanager_indexer_java_opts();
-                security_config.insert(k, v);
-            }
-            let mut security_overrides = role_security_overrides.clone();
-            security_overrides
-                .extend(rg_config_overrides.get_key_value_overrides(JVM_SECURITY_PROPERTIES_FILE));
-            security_config.extend(security_properties::build(&security_overrides));
-
-            // ----- env -----
-            let mut env: BTreeMap<String, String> = role_env_overrides
-                .iter()
-                .map(|(k, v)| (k.clone(), v.clone()))
-                .collect();
-            env.extend(rg_env_overrides.iter().map(|(k, v)| (k.clone(), v.clone())));
-
             group_map.insert(
                 rg_name,
-                DruidRoleGroupConfig {
+                build_role_group_config(
+                    druid,
+                    &druid_role,
                     merged_config,
-                    runtime_config,
-                    security_config,
-                    env,
-                },
+                    &role_runtime_overrides,
+                    &role_security_overrides,
+                    &role_env_overrides,
+                    rg_config_overrides,
+                    rg_env_overrides,
+                ),
             );
         }
         role_group_configs.insert(druid_role, group_map);

@@ -17,7 +17,7 @@ use stackable_operator::{
         fragment::{self, Fragment, FromFragment, ValidationError},
         merge::Merge,
     },
-    config_overrides::{KeyValueConfigOverrides, KeyValueOverridesProvider},
+    config_overrides::KeyValueConfigOverrides,
     crd::{
         authentication::{core, oidc},
         s3,
@@ -68,12 +68,6 @@ pub const DRUID_CONFIG_DIRECTORY: &str = "/stackable/config";
 pub const HDFS_CONFIG_DIRECTORY: &str = "/stackable/hdfs";
 pub const LOG_CONFIG_DIRECTORY: &str = "/stackable/log_config";
 pub const RW_CONFIG_DIRECTORY: &str = "/stackable/rwconfig";
-
-// config file names
-pub const JVM_CONFIG: &str = "jvm.config";
-pub const RUNTIME_PROPS: &str = "runtime.properties";
-pub const LOG4J2_CONFIG: &str = "log4j2.properties";
-pub const JVM_SECURITY_PROPERTIES_FILE: &str = "security.properties";
 
 // store directories
 pub const STACKABLE_TRUST_STORE: &str = "/stackable/truststore.p12";
@@ -147,6 +141,7 @@ const DEFAULT_HISTORICAL_SECRET_LIFETIME: Duration = Duration::from_days_uncheck
 #[serde(rename_all = "camelCase")]
 pub struct DruidConfigOverrides {
     /// Overrides for the `runtime.properties` file.
+    // File name defined in [`crate::controller::build::properties::ConfigFileName`]
     #[serde(
         default,
         rename = "runtime.properties",
@@ -155,6 +150,7 @@ pub struct DruidConfigOverrides {
     pub runtime_properties: Option<KeyValueConfigOverrides>,
 
     /// Overrides for the `jvm.config` file.
+    // File name defined in [`crate::controller::build::properties::ConfigFileName`]
     #[serde(
         default,
         rename = "jvm.config",
@@ -163,35 +159,13 @@ pub struct DruidConfigOverrides {
     pub jvm_config: Option<KeyValueConfigOverrides>,
 
     /// Overrides for the `security.properties` file.
+    // File name defined in [`crate::controller::build::properties::ConfigFileName`]
     #[serde(
         default,
         rename = "security.properties",
         skip_serializing_if = "Option::is_none"
     )]
     pub security_properties: Option<KeyValueConfigOverrides>,
-}
-
-impl KeyValueOverridesProvider for DruidConfigOverrides {
-    fn get_key_value_overrides(&self, file: &str) -> BTreeMap<String, Option<String>> {
-        match file {
-            RUNTIME_PROPS => self
-                .runtime_properties
-                .as_ref()
-                .map(KeyValueConfigOverrides::as_product_config_overrides)
-                .unwrap_or_default(),
-            JVM_CONFIG => self
-                .jvm_config
-                .as_ref()
-                .map(KeyValueConfigOverrides::as_product_config_overrides)
-                .unwrap_or_default(),
-            JVM_SECURITY_PROPERTIES_FILE => self
-                .security_properties
-                .as_ref()
-                .map(KeyValueConfigOverrides::as_product_config_overrides)
-                .unwrap_or_default(),
-            _ => BTreeMap::new(),
-        }
-    }
 }
 
 #[derive(Snafu, Debug, EnumDiscriminants)]
@@ -399,47 +373,40 @@ impl HasStatusCondition for v1alpha1::DruidCluster {
 }
 
 impl v1alpha1::DruidCluster {
-    pub fn common_compute_files(&self, file: &str) -> BTreeMap<String, Option<String>> {
+    pub fn compute_runtime_properties(&self) -> BTreeMap<String, Option<String>> {
         let mut result = BTreeMap::new();
-        match file {
-            JVM_CONFIG => {}
-            RUNTIME_PROPS => {
-                // OPA
-                if let Some(DruidAuthorization { opa: _ }) = &self.spec.cluster_config.authorization
-                {
-                    result.insert(
-                        AUTH_AUTHORIZERS.to_string(),
-                        Some(AUTH_AUTHORIZERS_VALUE.to_string()),
-                    );
-                    result.insert(
-                        AUTH_AUTHORIZER_OPA_TYPE.to_string(),
-                        Some(AUTH_AUTHORIZER_OPA_TYPE_VALUE.to_string()),
-                    );
-                    // The opaUri still needs to be set, but that requires a discovery config map and is handled in the controller.rs
-                }
-                // deep storage
-                result.insert(
-                    DS_TYPE.to_string(),
-                    Some(self.spec.cluster_config.deep_storage.to_string()),
-                );
-                match self.spec.cluster_config.deep_storage.clone() {
-                    DeepStorageSpec::Hdfs(hdfs) => {
-                        result.insert(DS_DIRECTORY.to_string(), Some(hdfs.directory));
-                    }
-                    DeepStorageSpec::S3(s3_spec) => {
-                        if let Some(key) = &s3_spec.base_key {
-                            result.insert(DS_BASE_KEY.to_string(), Some(key.to_string()));
-                        }
-                        // bucket information (name, connection) needs to be resolved first,
-                        // that is done directly in the controller
-                    }
-                }
-
-                // metrics
-                result.insert(PROMETHEUS_PORT.to_string(), Some(METRICS_PORT.to_string()));
-            }
-            _ => {}
+        // OPA
+        if let Some(DruidAuthorization { opa: _ }) = &self.spec.cluster_config.authorization {
+            result.insert(
+                AUTH_AUTHORIZERS.to_string(),
+                Some(AUTH_AUTHORIZERS_VALUE.to_string()),
+            );
+            result.insert(
+                AUTH_AUTHORIZER_OPA_TYPE.to_string(),
+                Some(AUTH_AUTHORIZER_OPA_TYPE_VALUE.to_string()),
+            );
+            // The opaUri still needs to be set, but that requires a discovery config map and is handled in the controller.rs
         }
+        // deep storage
+        result.insert(
+            DS_TYPE.to_string(),
+            Some(self.spec.cluster_config.deep_storage.to_string()),
+        );
+        match self.spec.cluster_config.deep_storage.clone() {
+            DeepStorageSpec::Hdfs(hdfs) => {
+                result.insert(DS_DIRECTORY.to_string(), Some(hdfs.directory));
+            }
+            DeepStorageSpec::S3(s3_spec) => {
+                if let Some(key) = &s3_spec.base_key {
+                    result.insert(DS_BASE_KEY.to_string(), Some(key.to_string()));
+                }
+                // bucket information (name, connection) needs to be resolved first,
+                // that is done directly in the controller
+            }
+        }
+
+        // metrics
+        result.insert(PROMETHEUS_PORT.to_string(), Some(METRICS_PORT.to_string()));
 
         result
     }

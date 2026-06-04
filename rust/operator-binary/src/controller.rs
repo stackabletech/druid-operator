@@ -948,13 +948,13 @@ mod test {
     use crate::controller::build::properties::writer;
     use crate::{
         controller::{
-            build::{config_map::build_rolegroup_config_map, properties::runtime_properties},
+            build::{
+                config_map::build_rolegroup_config_map,
+                properties::{ConfigFileName, runtime_properties},
+            },
             validate::{DruidRoleGroupConfig, ValidatedCluster, ValidatedClusterConfig},
         },
-        crd::{
-            PROP_SEGMENT_CACHE_LOCATIONS, RUNTIME_PROPS,
-            authentication::AuthenticationClassesResolved,
-        },
+        crd::{PROP_SEGMENT_CACHE_LOCATIONS, authentication::AuthenticationClassesResolved},
     };
 
     #[rstest]
@@ -1045,7 +1045,7 @@ mod test {
         let druid_segment_cache_property = rg_configmap
             .data
             .unwrap()
-            .get(RUNTIME_PROPS)
+            .get(&ConfigFileName::RuntimeProperties.to_string())
             .unwrap()
             .to_string();
 

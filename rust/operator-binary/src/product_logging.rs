@@ -10,8 +10,12 @@ use stackable_operator::{
 };
 
 use crate::crd::{
-    Container, DRUID_LOG_FILE, LOG4J2_CONFIG, MAX_DRUID_LOG_FILES_SIZE, STACKABLE_LOG_DIR, v1alpha1,
+    Container, DRUID_LOG_FILE, MAX_DRUID_LOG_FILES_SIZE, STACKABLE_LOG_DIR, v1alpha1,
 };
+
+// log4j2.properties is written by the logging framework, not a properties builder, so it is
+// not part of ConfigFileName. File name not exported from crd/mod.rs.
+const LOG4J2_CONFIG: &str = "log4j2.properties";
 
 #[derive(Snafu, Debug)]
 pub enum Error {

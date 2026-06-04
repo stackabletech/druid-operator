@@ -24,20 +24,23 @@ use stackable_operator::{
 
 use crate::{
     config::jvm::construct_jvm_args,
-    controller::build::properties::writer::to_java_properties_string,
+    controller::build::properties::{ConfigFileName, writer::to_java_properties_string},
     controller::{
         DRUID_CONTROLLER_NAME,
         validate::{DruidRoleGroupConfig, ValidatedCluster},
     },
     crd::{
-        AUTH_AUTHORIZER_OPA_URI, DS_BUCKET, DruidRole, EXTENSIONS_LOADLIST, JVM_CONFIG,
-        JVM_SECURITY_PROPERTIES_FILE, RUNTIME_PROPS, S3_ACCESS_KEY, S3_ENDPOINT_URL,
-        S3_PATH_STYLE_ACCESS, S3_SECRET_KEY, ZOOKEEPER_CONNECTION_STRING, build_recommended_labels,
-        build_string_list, v1alpha1,
+        AUTH_AUTHORIZER_OPA_URI, DS_BUCKET, DruidRole, EXTENSIONS_LOADLIST, S3_ACCESS_KEY,
+        S3_ENDPOINT_URL, S3_PATH_STYLE_ACCESS, S3_SECRET_KEY, ZOOKEEPER_CONNECTION_STRING,
+        build_recommended_labels, build_string_list, v1alpha1,
     },
     extensions::get_extension_list,
     product_logging::extend_role_group_config_map,
 };
+
+// jvm.config is built by `config::jvm`, not a properties builder, so it is not part
+// of `ConfigFileName`.
+const JVM_CONFIG: &str = "jvm.config";
 
 #[derive(Snafu, Debug)]
 #[allow(clippy::enum_variant_names)]
@@ -58,12 +61,12 @@ pub enum Error {
         source: stackable_operator::crd::s3::v1alpha1::ConnectionError,
     },
 
-    #[snafu(display("failed to format runtime properties"))]
-    PropertiesWriteError {
+    #[snafu(display("failed to serialize [runtime.properties]"))]
+    SerializeRuntimeProperties {
         source: crate::controller::build::properties::writer::PropertiesWriterError,
     },
 
-    #[snafu(display("failed to serialize [{JVM_SECURITY_PROPERTIES_FILE}] for {rolegroup}"))]
+    #[snafu(display("failed to serialize [security.properties] for {rolegroup}"))]
     JvmSecurityProperties {
         source: crate::controller::build::properties::writer::PropertiesWriterError,
         rolegroup: String,
@@ -260,8 +263,11 @@ pub fn build_rolegroup_config_map(
         conf.extend(rg.runtime_config.clone());
 
         let runtime_properties =
-            to_java_properties_string(conf.iter()).context(PropertiesWriteSnafu)?;
-        cm_conf_data.insert(RUNTIME_PROPS.to_string(), runtime_properties);
+            to_java_properties_string(conf.iter()).context(SerializeRuntimePropertiesSnafu)?;
+        cm_conf_data.insert(
+            ConfigFileName::RuntimeProperties.to_string(),
+            runtime_properties,
+        );
     }
 
     // ----- jvm.config -----
@@ -279,7 +285,7 @@ pub fn build_rolegroup_config_map(
     // ----- security.properties -----
     {
         cm_conf_data.insert(
-            JVM_SECURITY_PROPERTIES_FILE.to_string(),
+            ConfigFileName::SecurityProperties.to_string(),
             to_java_properties_string(rg.security_config.iter()).with_context(|_| {
                 JvmSecurityPropertiesSnafu {
                     rolegroup: rolegroup.role_group.clone(),
