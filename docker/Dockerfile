@@ -191,6 +191,8 @@ COPY LICENSE /licenses/LICENSE
 
 COPY --from=builder --chown=${STACKABLE_USER_UID}:0 /app/* /usr/local/bin/
 
+COPY deploy/config-spec/properties.yaml /etc/stackable/druid-operator/config-spec/properties.yaml
+
 USER ${STACKABLE_USER_UID}
 
 ENTRYPOINT ["stackable-druid-operator"]
