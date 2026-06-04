@@ -2978,6 +2978,7 @@ dependencies = [
  "fnv",
  "futures 0.3.32",
  "indoc",
+ "java-properties",
  "openssl",
  "pin-project",
  "product-config",

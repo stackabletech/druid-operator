@@ -86,6 +86,7 @@ use crate::{
     service::{build_rolegroup_headless_service, build_rolegroup_metrics_service},
 };
 
+mod build;
 mod dereference;
 mod validate;
 
