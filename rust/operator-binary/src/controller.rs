@@ -4,7 +4,7 @@
 use std::sync::Arc;
 
 use const_format::concatcp;
-use product_config::{ProductConfigManager, writer::PropertiesWriterError};
+use product_config::ProductConfigManager;
 use snafu::{ResultExt, Snafu};
 use stackable_operator::{
     builder::{
@@ -57,9 +57,9 @@ use crate::{
     authentication::DruidAuthenticationConfig,
     crd::{
         APP_NAME, CommonRoleGroupConfig, Container, DRUID_CONFIG_DIRECTORY, DeepStorageSpec,
-        DruidClusterStatus, DruidRole, HDFS_CONFIG_DIRECTORY, JVM_SECURITY_PROPERTIES_FILE,
-        LOG_CONFIG_DIRECTORY, MAX_DRUID_LOG_FILES_SIZE, METRICS_PORT, METRICS_PORT_NAME,
-        OPERATOR_NAME, RW_CONFIG_DIRECTORY, STACKABLE_LOG_DIR, build_recommended_labels,
+        DruidClusterStatus, DruidRole, HDFS_CONFIG_DIRECTORY, LOG_CONFIG_DIRECTORY,
+        MAX_DRUID_LOG_FILES_SIZE, METRICS_PORT, METRICS_PORT_NAME, OPERATOR_NAME,
+        RW_CONFIG_DIRECTORY, STACKABLE_LOG_DIR, build_recommended_labels,
         security::DruidTlsSecurity, v1alpha1,
     },
     discovery::{self, build_discovery_configmaps},
@@ -110,12 +110,6 @@ pub enum Error {
         rolegroup: RoleGroupRef<v1alpha1::DruidCluster>,
     },
 
-    #[snafu(display("failed to build ConfigMap for {}", rolegroup))]
-    BuildRoleGroupConfig {
-        source: stackable_operator::builder::configmap::Error,
-        rolegroup: RoleGroupRef<v1alpha1::DruidCluster>,
-    },
-
     #[snafu(display("failed to apply ConfigMap for {}", rolegroup))]
     ApplyRoleGroupConfig {
         source: stackable_operator::cluster_resources::Error,
@@ -141,9 +135,6 @@ pub enum Error {
         source: stackable_operator::crd::s3::v1alpha1::ConnectionError,
     },
 
-    #[snafu(display("failed to format runtime properties"))]
-    PropertiesWriteError { source: PropertiesWriterError },
-
     #[snafu(display("failed to build discovery ConfigMap"))]
     BuildDiscoveryConfig { source: discovery::Error },
 
@@ -161,18 +152,6 @@ pub enum Error {
         "Druid does not support skipping the verification of the tls enabled S3 server"
     ))]
     S3TlsNoVerificationNotSupported,
-
-    #[snafu(display("could not parse Druid role [{role}]"))]
-    UnidentifiedDruidRole {
-        source: strum::ParseError,
-        role: String,
-    },
-
-    #[snafu(display("failed to resolve and merge config for role and role group"))]
-    FailedToResolveConfig { source: crate::crd::Error },
-
-    #[snafu(display("invalid configuration"))]
-    InvalidConfiguration { source: crate::crd::Error },
 
     #[snafu(display("failed to create cluster resources"))]
     CreateClusterResources {
@@ -193,12 +172,6 @@ pub enum Error {
     #[snafu(display("failed to initialize security context"))]
     FailedToInitializeSecurityContext { source: crate::crd::security::Error },
 
-    #[snafu(display("failed to get JVM config"))]
-    GetJvmConfig { source: crate::config::jvm::Error },
-
-    #[snafu(display("failed to derive Druid memory settings from resources"))]
-    DeriveMemorySettings { source: crate::crd::resource::Error },
-
     #[snafu(display("failed to update Druid config from resources"))]
     UpdateDruidConfigFromResources { source: crate::crd::resource::Error },
 
@@ -209,12 +182,6 @@ pub enum Error {
 
     #[snafu(display("vector agent is enabled but vector aggregator ConfigMap is missing"))]
     VectorAggregatorConfigMapMissing,
-
-    #[snafu(display("failed to add the logging configuration to the ConfigMap [{cm_name}]"))]
-    InvalidLoggingConfig {
-        source: crate::product_logging::Error,
-        cm_name: String,
-    },
 
     #[snafu(display("failed to create RBAC service account"))]
     ApplyServiceAccount {
@@ -229,15 +196,6 @@ pub enum Error {
     #[snafu(display("failed to build RBAC resources"))]
     BuildRbacResources {
         source: stackable_operator::commons::rbac::Error,
-    },
-
-    #[snafu(display(
-        "failed to serialize [{JVM_SECURITY_PROPERTIES_FILE}] for {}",
-        rolegroup
-    ))]
-    JvmSecurityProperties {
-        source: PropertiesWriterError,
-        rolegroup: String,
     },
 
     #[snafu(display("failed to create PodDisruptionBudget"))]
@@ -266,11 +224,6 @@ pub enum Error {
     #[snafu(display("failed to get required labels"))]
     GetRequiredLabels {
         source: KeyValuePairError<LabelValueError>,
-    },
-
-    #[snafu(display("there was an error generating the authentication runtime settings"))]
-    GenerateAuthenticationRuntimeSettings {
-        source: crate::authentication::Error,
     },
 
     #[snafu(display("failed to build vector container"))]
