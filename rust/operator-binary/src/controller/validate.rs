@@ -43,12 +43,6 @@ pub enum Error {
 
     #[snafu(display("failed to resolve and merge config for role and role group"))]
     FailedToResolveConfig { source: crate::crd::Error },
-
-    #[snafu(display("failed to compute the runtime.properties compute_files for role [{role}]"))]
-    ComputeRuntimeProperties {
-        source: stackable_operator::product_config_utils::Error,
-        role: String,
-    },
 }
 
 type Result<T, E = Error> = std::result::Result<T, E>;
@@ -162,11 +156,7 @@ pub fn validate(
                 .expect("role group resolved by common_config must exist");
 
             // ----- runtime.properties -----
-            let mut runtime_config = druid.common_compute_files(RUNTIME_PROPS).context(
-                ComputeRuntimePropertiesSnafu {
-                    role: druid_role.to_string(),
-                },
-            )?;
+            let mut runtime_config = druid.common_compute_files(RUNTIME_PROPS);
             if druid_role == DruidRole::MiddleManager {
                 let (k, v) = middlemanager_indexer_java_opts();
                 runtime_config.insert(k, v);

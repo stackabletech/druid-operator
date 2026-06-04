@@ -2981,7 +2981,6 @@ dependencies = [
  "java-properties",
  "openssl",
  "pin-project",
- "product-config",
  "rstest",
  "semver",
  "serde",

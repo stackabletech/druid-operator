@@ -70,7 +70,7 @@ async fn main() -> anyhow::Result<()> {
         Command::Run(RunArguments {
             operator_environment,
             watch_namespace,
-            product_config,
+            product_config: _,
             maintenance,
             common,
         }) => {
@@ -117,11 +117,6 @@ async fn main() -> anyhow::Result<()> {
                 .run(sigterm_watcher.handle())
                 .map_err(|err| anyhow!(err).context("failed to run webhook server"));
 
-            let product_config = product_config.load(&[
-                "deploy/config-spec/properties.yaml",
-                "/etc/stackable/druid-operator/config-spec/properties.yaml",
-            ])?;
-
             let event_recorder = Arc::new(Recorder::new(
                 client.as_kube_client(),
                 Reporter {
@@ -166,7 +161,6 @@ async fn main() -> anyhow::Result<()> {
                     Arc::new(controller::Ctx {
                         client: client.clone(),
                         operator_environment,
-                        product_config,
                     }),
                 )
                 // We can let the reporting happen in the background

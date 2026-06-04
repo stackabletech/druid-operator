@@ -4,7 +4,6 @@
 use std::sync::Arc;
 
 use const_format::concatcp;
-use product_config::ProductConfigManager;
 use snafu::{ResultExt, Snafu};
 use stackable_operator::{
     builder::{
@@ -93,10 +92,6 @@ const USERDATA_MOUNTPOINT: &str = "/stackable/userdata";
 
 pub struct Ctx {
     pub client: stackable_operator::client::Client,
-    // Still constructed in `main.rs` but no longer consumed after the product-config removal in
-    // the validate/build steps. Removing it entirely is a follow-up task.
-    #[allow(dead_code)]
-    pub product_config: ProductConfigManager,
     pub operator_environment: OperatorEnvironmentOptions,
 }
 

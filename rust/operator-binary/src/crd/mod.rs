@@ -1,7 +1,6 @@
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 
 use indoc::formatdoc;
-use product_config::types::PropertyNameKind;
 use security::add_cert_to_jvm_trust_store_cmd;
 use serde::{Deserialize, Serialize};
 use snafu::{OptionExt, ResultExt, Snafu};
@@ -28,7 +27,6 @@ use stackable_operator::{
     kube::{CustomResource, ResourceExt},
     kvp::ObjectLabels,
     memory::{BinaryMultiple, MemoryQuantity},
-    product_config_utils::{Configuration, Error as ConfigError},
     product_logging::{
         self,
         framework::{create_vector_shutdown_file_command, remove_vector_shutdown_file_command},
@@ -401,10 +399,7 @@ impl HasStatusCondition for v1alpha1::DruidCluster {
 }
 
 impl v1alpha1::DruidCluster {
-    pub fn common_compute_files(
-        &self,
-        file: &str,
-    ) -> Result<BTreeMap<String, Option<String>>, ConfigError> {
+    pub fn common_compute_files(&self, file: &str) -> BTreeMap<String, Option<String>> {
         let mut result = BTreeMap::new();
         match file {
             JVM_CONFIG => {}
@@ -446,72 +441,7 @@ impl v1alpha1::DruidCluster {
             _ => {}
         }
 
-        Ok(result)
-    }
-
-    #[allow(clippy::type_complexity)]
-    pub fn build_role_properties(
-        &self,
-    ) -> HashMap<
-        String,
-        (
-            Vec<PropertyNameKind>,
-            Role<
-                impl Configuration<Configurable = v1alpha1::DruidCluster>,
-                DruidConfigOverrides,
-                GenericRoleConfig,
-                JavaCommonConfig,
-            >,
-        ),
-    > {
-        let config_files = vec![
-            PropertyNameKind::Env,
-            PropertyNameKind::File(JVM_CONFIG.to_string()),
-            PropertyNameKind::File(RUNTIME_PROPS.to_string()),
-            PropertyNameKind::File(JVM_SECURITY_PROPERTIES_FILE.to_string()),
-        ];
-
-        vec![
-            (
-                DruidRole::Broker.to_string(),
-                (
-                    config_files.clone(),
-                    extract_role_from_role_config::<BrokerConfig>(self.spec.brokers.clone())
-                        .erase(),
-                ),
-            ),
-            (
-                DruidRole::Coordinator.to_string(),
-                (
-                    config_files.clone(),
-                    extract_role_from_role_config::<CoordinatorConfig>(
-                        self.spec.coordinators.clone(),
-                    )
-                    .erase(),
-                ),
-            ),
-            (
-                DruidRole::Historical.to_string(),
-                (config_files.clone(), self.spec.historicals.clone().erase()),
-            ),
-            (
-                DruidRole::MiddleManager.to_string(),
-                (
-                    config_files.clone(),
-                    self.spec.middle_managers.clone().erase(),
-                ),
-            ),
-            (
-                DruidRole::Router.to_string(),
-                (
-                    config_files,
-                    extract_role_from_role_config::<RouterConfig>(self.spec.routers.clone())
-                        .erase(),
-                ),
-            ),
-        ]
-        .into_iter()
-        .collect()
+        result
     }
 
     /// If an s3 connection for ingestion is given, as well as an s3 connection for deep storage, they need to be the same.
@@ -724,25 +654,19 @@ impl v1alpha1::DruidCluster {
     pub fn get_role(
         &self,
         druid_role: &DruidRole,
-    ) -> Role<
-        impl Configuration<Configurable = v1alpha1::DruidCluster>,
-        DruidConfigOverrides,
-        GenericRoleConfig,
-        JavaCommonConfig,
-    > {
+    ) -> Role<(), DruidConfigOverrides, GenericRoleConfig, JavaCommonConfig> {
         match druid_role {
-            DruidRole::Broker => {
-                extract_role_from_role_config::<BrokerConfig>(self.spec.brokers.clone()).erase()
-            }
-            DruidRole::Coordinator => {
-                extract_role_from_role_config::<CoordinatorConfig>(self.spec.coordinators.clone())
-                    .erase()
-            }
-            DruidRole::Historical => self.spec.historicals.clone().erase(),
-            DruidRole::MiddleManager => self.spec.middle_managers.clone().erase(),
-            DruidRole::Router => {
-                extract_role_from_role_config::<RouterConfig>(self.spec.routers.clone()).erase()
-            }
+            DruidRole::Broker => erase_config(extract_role_from_role_config::<BrokerConfig>(
+                self.spec.brokers.clone(),
+            )),
+            DruidRole::Coordinator => erase_config(extract_role_from_role_config::<
+                CoordinatorConfig,
+            >(self.spec.coordinators.clone())),
+            DruidRole::Historical => erase_config(self.spec.historicals.clone()),
+            DruidRole::MiddleManager => erase_config(self.spec.middle_managers.clone()),
+            DruidRole::Router => erase_config(extract_role_from_role_config::<RouterConfig>(
+                self.spec.routers.clone(),
+            )),
         }
     }
 
@@ -1454,165 +1378,6 @@ impl HistoricalConfig {
     }
 }
 
-impl Configuration for BrokerConfigFragment {
-    type Configurable = v1alpha1::DruidCluster;
-
-    fn compute_env(
-        &self,
-        _resource: &Self::Configurable,
-        _role_name: &str,
-    ) -> Result<BTreeMap<String, Option<String>>, ConfigError> {
-        let mut _result = BTreeMap::new();
-        Ok(_result)
-    }
-
-    fn compute_cli(
-        &self,
-        _resource: &Self::Configurable,
-        _role_name: &str,
-    ) -> Result<BTreeMap<String, Option<String>>, ConfigError> {
-        Ok(BTreeMap::new())
-    }
-
-    fn compute_files(
-        &self,
-        resource: &Self::Configurable,
-        _role_name: &str,
-        file: &str,
-    ) -> Result<BTreeMap<String, Option<String>>, ConfigError> {
-        resource.common_compute_files(file)
-    }
-}
-
-impl Configuration for HistoricalConfigFragment {
-    type Configurable = v1alpha1::DruidCluster;
-
-    fn compute_env(
-        &self,
-        _resource: &Self::Configurable,
-        _role_name: &str,
-    ) -> Result<BTreeMap<String, Option<String>>, ConfigError> {
-        let mut _result = BTreeMap::new();
-        Ok(_result)
-    }
-
-    fn compute_cli(
-        &self,
-        _resource: &Self::Configurable,
-        _role_name: &str,
-    ) -> Result<BTreeMap<String, Option<String>>, ConfigError> {
-        Ok(BTreeMap::new())
-    }
-
-    fn compute_files(
-        &self,
-        resource: &Self::Configurable,
-        _role_name: &str,
-        file: &str,
-    ) -> Result<BTreeMap<String, Option<String>>, ConfigError> {
-        resource.common_compute_files(file)
-    }
-}
-
-impl Configuration for RouterConfigFragment {
-    type Configurable = v1alpha1::DruidCluster;
-
-    fn compute_env(
-        &self,
-        _resource: &Self::Configurable,
-        _role_name: &str,
-    ) -> Result<BTreeMap<String, Option<String>>, ConfigError> {
-        let mut _result = BTreeMap::new();
-        Ok(_result)
-    }
-
-    fn compute_cli(
-        &self,
-        _resource: &Self::Configurable,
-        _role_name: &str,
-    ) -> Result<BTreeMap<String, Option<String>>, ConfigError> {
-        Ok(BTreeMap::new())
-    }
-
-    fn compute_files(
-        &self,
-        resource: &Self::Configurable,
-        _role_name: &str,
-        file: &str,
-    ) -> Result<BTreeMap<String, Option<String>>, ConfigError> {
-        resource.common_compute_files(file)
-    }
-}
-
-impl Configuration for MiddleManagerConfigFragment {
-    type Configurable = v1alpha1::DruidCluster;
-
-    fn compute_env(
-        &self,
-        _resource: &Self::Configurable,
-        _role_name: &str,
-    ) -> Result<BTreeMap<String, Option<String>>, ConfigError> {
-        let mut _result = BTreeMap::new();
-        Ok(_result)
-    }
-
-    fn compute_cli(
-        &self,
-        _resource: &Self::Configurable,
-        _role_name: &str,
-    ) -> Result<BTreeMap<String, Option<String>>, ConfigError> {
-        Ok(BTreeMap::new())
-    }
-
-    fn compute_files(
-        &self,
-        resource: &Self::Configurable,
-        _role_name: &str,
-        file: &str,
-    ) -> Result<BTreeMap<String, Option<String>>, ConfigError> {
-        let mut result = resource.common_compute_files(file)?;
-        result.insert(
-            INDEXER_JAVA_OPTS.to_string(),
-            Some(build_string_list(&[
-                format!("-Djavax.net.ssl.trustStore={STACKABLE_TRUST_STORE}"),
-                format!("-Djavax.net.ssl.trustStorePassword={STACKABLE_TRUST_STORE_PASSWORD}"),
-                "-Djavax.net.ssl.trustStoreType=pkcs12".to_owned(),
-            ])),
-        );
-        Ok(result)
-    }
-}
-
-impl Configuration for CoordinatorConfigFragment {
-    type Configurable = v1alpha1::DruidCluster;
-
-    fn compute_env(
-        &self,
-        _resource: &Self::Configurable,
-        _role_name: &str,
-    ) -> Result<BTreeMap<String, Option<String>>, ConfigError> {
-        let mut _result = BTreeMap::new();
-        Ok(_result)
-    }
-
-    fn compute_cli(
-        &self,
-        _resource: &Self::Configurable,
-        _role_name: &str,
-    ) -> Result<BTreeMap<String, Option<String>>, ConfigError> {
-        Ok(BTreeMap::new())
-    }
-
-    fn compute_files(
-        &self,
-        resource: &Self::Configurable,
-        _role_name: &str,
-        file: &str,
-    ) -> Result<BTreeMap<String, Option<String>>, ConfigError> {
-        resource.common_compute_files(file)
-    }
-}
-
 #[derive(Clone, Debug, Default, Deserialize, JsonSchema, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DruidClusterStatus {
@@ -1673,6 +1438,48 @@ where
                     RoleGroup {
                         config: CommonConfiguration {
                             config: v.config.config,
+                            config_overrides: v.config.config_overrides,
+                            env_overrides: v.config.env_overrides,
+                            cli_overrides: v.config.cli_overrides,
+                            pod_overrides: v.config.pod_overrides,
+                            product_specific_common_config: v.config.product_specific_common_config,
+                        },
+                        replicas: v.replicas,
+                    },
+                )
+            })
+            .collect(),
+    }
+}
+
+/// Discards the typed `config` of a [`Role`], replacing it with `()`.
+///
+/// `get_role` needs to return a single concrete type across all roles, but each role has a
+/// different config fragment. Callers only read the role/role-group level overrides
+/// (`config_overrides`, `env_overrides`, `product_specific_common_config`), never the typed config
+/// itself, so erasing it to `()` yields a uniform return type without needing a trait object.
+fn erase_config<C>(
+    role: Role<C, DruidConfigOverrides, GenericRoleConfig, JavaCommonConfig>,
+) -> Role<(), DruidConfigOverrides, GenericRoleConfig, JavaCommonConfig> {
+    Role {
+        config: CommonConfiguration {
+            config: (),
+            config_overrides: role.config.config_overrides,
+            env_overrides: role.config.env_overrides,
+            cli_overrides: role.config.cli_overrides,
+            pod_overrides: role.config.pod_overrides,
+            product_specific_common_config: role.config.product_specific_common_config,
+        },
+        role_config: role.role_config,
+        role_groups: role
+            .role_groups
+            .into_iter()
+            .map(|(k, v)| {
+                (
+                    k,
+                    RoleGroup {
+                        config: CommonConfiguration {
+                            config: (),
                             config_overrides: v.config.config_overrides,
                             env_overrides: v.config.env_overrides,
                             cli_overrides: v.config.cli_overrides,
