@@ -284,8 +284,9 @@ pub async fn reconcile_druid(
         .await
         .context(DereferenceSnafu)?;
 
-    let validated = validate::validate(druid, &dereferenced_objects, &ctx.operator_environment)
-        .context(ValidateClusterSnafu)?;
+    let validated_cluster =
+        validate::validate(druid, &dereferenced_objects, &ctx.operator_environment)
+            .context(ValidateClusterSnafu)?;
 
     let mut cluster_resources = ClusterResources::new(
         APP_NAME,
@@ -317,7 +318,7 @@ pub async fn reconcile_druid(
 
     let mut ss_cond_builder = StatefulSetConditionBuilder::default();
 
-    for (druid_role, groups) in validated.role_group_configs.iter() {
+    for (druid_role, groups) in validated_cluster.role_group_configs.iter() {
         let role_name = druid_role.to_string();
 
         create_shared_internal_secret(druid, client, DRUID_CONTROLLER_NAME)
@@ -334,7 +335,7 @@ pub async fn reconcile_druid(
             let role_group_service_recommended_labels = build_recommended_labels(
                 druid,
                 DRUID_CONTROLLER_NAME,
-                &validated.image.app_version_label_value,
+                &validated_cluster.image.app_version_label_value,
                 &rolegroup.role,
                 &rolegroup.role_group,
             );
@@ -349,7 +350,7 @@ pub async fn reconcile_druid(
 
             let rg_headless_service = build_rolegroup_headless_service(
                 druid,
-                &validated.cluster_config.druid_tls_security,
+                &validated_cluster.cluster_config.druid_tls_security,
                 druid_role,
                 &rolegroup,
                 role_group_service_recommended_labels.clone(),
@@ -365,23 +366,23 @@ pub async fn reconcile_druid(
             .context(ServiceConfigurationSnafu)?;
 
             let rg_configmap = build::config_map::build_rolegroup_config_map(
-                &validated,
+                &validated_cluster,
                 druid_role,
                 &rolegroup,
                 rg,
-                &validated.image,
+                &validated_cluster.image,
                 druid,
             )
             .context(BuildConfigMapSnafu)?;
             let rg_statefulset = build_rolegroup_statefulset(
                 druid,
-                &validated.image,
+                &validated_cluster.image,
                 druid_role,
                 &rolegroup,
                 rg,
-                validated.cluster_config.s3_connection.as_ref(),
-                &validated.cluster_config.druid_tls_security,
-                &validated.cluster_config.druid_auth_config,
+                validated_cluster.cluster_config.s3_connection.as_ref(),
+                &validated_cluster.cluster_config.druid_tls_security,
+                &validated_cluster.cluster_config.druid_auth_config,
                 &rbac_sa,
             )?;
 
@@ -424,14 +425,14 @@ pub async fn reconcile_druid(
                     build_recommended_labels(
                         druid,
                         DRUID_CONTROLLER_NAME,
-                        &validated.image.app_version_label_value,
+                        &validated_cluster.image.app_version_label_value,
                         &role_name,
                         "none",
                     ),
                     listener_class.to_string(),
                     listener_group_name,
                     druid_role,
-                    &validated.cluster_config.druid_tls_security,
+                    &validated_cluster.cluster_config.druid_tls_security,
                 )
                 .context(ListenerConfigurationSnafu)?;
 
@@ -445,8 +446,8 @@ pub async fn reconcile_druid(
                     for discovery_cm in build_discovery_configmaps(
                         druid,
                         druid,
-                        &validated.image,
-                        &validated.cluster_config.druid_tls_security,
+                        &validated_cluster.image,
+                        &validated_cluster.cluster_config.druid_tls_security,
                         listener,
                     )
                     .await
