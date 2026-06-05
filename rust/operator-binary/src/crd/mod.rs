@@ -26,7 +26,6 @@ use stackable_operator::{
     k8s_openapi::api::core::v1::{PodTemplateSpec, Volume},
     kube::{CustomResource, ResourceExt},
     kvp::ObjectLabels,
-    memory::{BinaryMultiple, MemoryQuantity},
     product_logging::{
         self,
         framework::{create_vector_shutdown_file_command, remove_vector_shutdown_file_command},
@@ -74,46 +73,21 @@ pub const STACKABLE_TRUST_STORE: &str = "/stackable/truststore.p12";
 pub const STACKABLE_TRUST_STORE_PASSWORD: &str = "changeit";
 pub const STACKABLE_LOG_DIR: &str = "/stackable/log";
 
-// store file names
-pub const DRUID_LOG_FILE: &str = "druid.log4j2.xml";
-
 pub const PROP_SEGMENT_CACHE_LOCATIONS: &str = "druid.segmentCache.locations";
 pub const PATH_SEGMENT_CACHE: &str = "/stackable/var/druid/segment-cache";
 
 /////////////////////////////
 //    CONFIG PROPERTIES    //
 /////////////////////////////
-// extensions
-pub const EXTENSIONS_LOADLIST: &str = "druid.extensions.loadList";
-// zookeeper
-pub const ZOOKEEPER_CONNECTION_STRING: &str = "druid.zk.service.host";
 // deep storage
 pub const DS_TYPE: &str = "druid.storage.type";
 pub const DS_DIRECTORY: &str = "druid.storage.storageDirectory";
-// S3
-pub const DS_BUCKET: &str = "druid.storage.bucket";
 pub const DS_BASE_KEY: &str = "druid.storage.baseKey";
-pub const S3_ENDPOINT_URL: &str = "druid.s3.endpoint.url";
-pub const S3_ACCESS_KEY: &str = "druid.s3.accessKey";
-pub const S3_SECRET_KEY: &str = "druid.s3.secretKey";
-pub const S3_PATH_STYLE_ACCESS: &str = "druid.s3.enablePathStyleAccess";
 // OPA
 pub const AUTH_AUTHORIZERS: &str = "druid.auth.authorizers";
 pub const AUTH_AUTHORIZERS_VALUE: &str = "[\"OpaAuthorizer\"]";
 pub const AUTH_AUTHORIZER_OPA_TYPE: &str = "druid.auth.authorizer.OpaAuthorizer.type";
 pub const AUTH_AUTHORIZER_OPA_TYPE_VALUE: &str = "opa";
-pub const AUTH_AUTHORIZER_OPA_URI: &str = "druid.auth.authorizer.OpaAuthorizer.opaUri";
-// indexer properties
-pub const INDEXER_JAVA_OPTS: &str = "druid.indexer.runner.javaOptsArray";
-// historical settings
-pub const PROCESSING_BUFFER_SIZE_BYTES: &str = "druid.processing.buffer.sizeBytes";
-pub const PROCESSING_NUM_MERGE_BUFFERS: &str = "druid.processing.numMergeBuffers";
-pub const PROCESSING_NUM_THREADS: &str = "druid.processing.numThreads";
-// logs
-pub const MAX_DRUID_LOG_FILES_SIZE: MemoryQuantity = MemoryQuantity {
-    value: 10.0,
-    unit: BinaryMultiple::Mebi,
-};
 // metrics
 pub const PROMETHEUS_PORT: &str = "druid.emitter.prometheus.port";
 pub const METRICS_PORT_NAME: &str = "metrics";

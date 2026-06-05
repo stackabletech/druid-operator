@@ -7,10 +7,12 @@ use stackable_operator::{
     memory::{BinaryMultiple, MemoryQuantity},
 };
 
-use crate::crd::{
-    PROCESSING_BUFFER_SIZE_BYTES, PROCESSING_NUM_MERGE_BUFFERS, PROCESSING_NUM_THREADS,
-    storage::HistoricalStorage,
-};
+use crate::crd::storage::HistoricalStorage;
+
+// Druid historical processing config-property keys, only used for the memory calculations here.
+const PROCESSING_BUFFER_SIZE_BYTES: &str = "druid.processing.buffer.sizeBytes";
+const PROCESSING_NUM_MERGE_BUFFERS: &str = "druid.processing.numMergeBuffers";
+const PROCESSING_NUM_THREADS: &str = "druid.processing.numThreads";
 
 static MIN_HEAP_RATIO: f32 = 0.75;
 

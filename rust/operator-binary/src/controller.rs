@@ -56,12 +56,10 @@ use crate::{
     authentication::DruidAuthenticationConfig,
     crd::{
         APP_NAME, CommonRoleGroupConfig, Container, DRUID_CONFIG_DIRECTORY, DeepStorageSpec,
-        DruidClusterStatus, DruidRole, HDFS_CONFIG_DIRECTORY, LOG_CONFIG_DIRECTORY,
-        MAX_DRUID_LOG_FILES_SIZE, METRICS_PORT, METRICS_PORT_NAME, OPERATOR_NAME,
-        RW_CONFIG_DIRECTORY, STACKABLE_LOG_DIR, build_recommended_labels,
-        security::DruidTlsSecurity, v1alpha1,
+        DruidClusterStatus, DruidRole, HDFS_CONFIG_DIRECTORY, LOG_CONFIG_DIRECTORY, METRICS_PORT,
+        METRICS_PORT_NAME, OPERATOR_NAME, RW_CONFIG_DIRECTORY, STACKABLE_LOG_DIR,
+        build_recommended_labels, security::DruidTlsSecurity, v1alpha1,
     },
-    discovery::{self, build_discovery_configmaps},
     internal_secret::create_shared_internal_secret,
     listener::{
         LISTENER_VOLUME_DIR, LISTENER_VOLUME_NAME, build_group_listener, build_group_listener_pvc,
@@ -74,6 +72,9 @@ use crate::{
 mod build;
 mod dereference;
 mod validate;
+
+use build::discovery::{self, build_discovery_configmaps};
+use build::properties::logging::MAX_DRUID_LOG_FILES_SIZE;
 
 use validate::DruidRoleGroupConfig;
 
@@ -442,15 +443,10 @@ pub async fn reconcile_druid(
 
                 if *druid_role == DruidRole::Router {
                     // discovery
-                    for discovery_cm in build_discovery_configmaps(
-                        druid,
-                        druid,
-                        &validated_cluster.image,
-                        &validated_cluster.cluster_config.druid_tls_security,
-                        listener,
-                    )
-                    .await
-                    .context(BuildDiscoveryConfigSnafu)?
+                    for discovery_cm in
+                        build_discovery_configmaps(&validated_cluster, druid, listener)
+                            .await
+                            .context(BuildDiscoveryConfigSnafu)?
                     {
                         cluster_resources
                             .add(client, discovery_cm)

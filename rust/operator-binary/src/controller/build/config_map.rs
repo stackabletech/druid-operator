@@ -18,6 +18,7 @@ use stackable_operator::{
     crd::s3,
     database_connections::drivers::jdbc::JdbcDatabaseConnection as _,
     k8s_openapi::api::core::v1::{ConfigMap, EnvVar},
+    product_logging::framework::VECTOR_CONFIG_FILE,
     role_utils::RoleGroupRef,
 };
 
@@ -25,21 +26,30 @@ use crate::{
     config::jvm::construct_jvm_args,
     controller::{
         DRUID_CONTROLLER_NAME,
-        build::properties::{ConfigFileName, writer::to_java_properties_string},
+        build::properties::{
+            ConfigFileName,
+            logging::{build_log4j2_config, build_vector_config},
+            writer::to_java_properties_string,
+        },
         validate::{DruidRoleGroupConfig, ValidatedCluster},
     },
-    crd::{
-        AUTH_AUTHORIZER_OPA_URI, DS_BUCKET, DruidRole, EXTENSIONS_LOADLIST, S3_ACCESS_KEY,
-        S3_ENDPOINT_URL, S3_PATH_STYLE_ACCESS, S3_SECRET_KEY, ZOOKEEPER_CONNECTION_STRING,
-        build_recommended_labels, build_string_list, v1alpha1,
-    },
+    crd::{DruidRole, build_recommended_labels, build_string_list, v1alpha1},
     extensions::get_extension_list,
-    product_logging::extend_role_group_config_map,
 };
 
 // jvm.config is built by `config::jvm`, not a properties builder, so it is not part
 // of `ConfigFileName`.
 const JVM_CONFIG: &str = "jvm.config";
+
+// Druid `runtime.properties` config-property keys assembled into the rolegroup ConfigMap here.
+const EXTENSIONS_LOADLIST: &str = "druid.extensions.loadList";
+const ZOOKEEPER_CONNECTION_STRING: &str = "druid.zk.service.host";
+const DS_BUCKET: &str = "druid.storage.bucket";
+const S3_ENDPOINT_URL: &str = "druid.s3.endpoint.url";
+const S3_ACCESS_KEY: &str = "druid.s3.accessKey";
+const S3_SECRET_KEY: &str = "druid.s3.secretKey";
+const S3_PATH_STYLE_ACCESS: &str = "druid.s3.enablePathStyleAccess";
+const AUTH_AUTHORIZER_OPA_URI: &str = "druid.auth.authorizer.OpaAuthorizer.opaUri";
 
 #[derive(Snafu, Debug)]
 #[allow(clippy::enum_variant_names)]
@@ -88,12 +98,6 @@ pub enum Error {
     #[snafu(display("there was an error generating the authentication runtime settings"))]
     GenerateAuthenticationRuntimeSettings {
         source: crate::authentication::Error,
-    },
-
-    #[snafu(display("failed to add the logging configuration to the ConfigMap [{cm_name}]"))]
-    InvalidLoggingConfig {
-        source: crate::product_logging::Error,
-        cm_name: String,
     },
 
     #[snafu(display("invalid metadata database connection"))]
@@ -314,14 +318,13 @@ pub fn build_rolegroup_config_map(
         config_map_builder.add_data(filename, file_content);
     }
 
-    extend_role_group_config_map(
-        rolegroup,
-        &rg.merged_config.logging,
-        &mut config_map_builder,
-    )
-    .context(InvalidLoggingConfigSnafu {
-        cm_name: rolegroup.object_name(),
-    })?;
+    if let Some(log4j2_config) = build_log4j2_config(&rg.merged_config.logging) {
+        config_map_builder.add_data(ConfigFileName::Log4j2Properties.to_string(), log4j2_config);
+    }
+
+    if let Some(vector_config) = build_vector_config(rolegroup, &rg.merged_config.logging) {
+        config_map_builder.add_data(VECTOR_CONFIG_FILE, vector_config);
+    }
 
     config_map_builder
         .build()

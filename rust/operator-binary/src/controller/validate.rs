@@ -21,9 +21,8 @@ use crate::{
         dereference::DereferencedObjects,
     },
     crd::{
-        CommonRoleGroupConfig, DruidConfigOverrides, DruidRole, INDEXER_JAVA_OPTS,
-        STACKABLE_TRUST_STORE, STACKABLE_TRUST_STORE_PASSWORD, build_string_list,
-        security::DruidTlsSecurity, v1alpha1,
+        CommonRoleGroupConfig, DruidConfigOverrides, DruidRole, STACKABLE_TRUST_STORE,
+        STACKABLE_TRUST_STORE_PASSWORD, build_string_list, security::DruidTlsSecurity, v1alpha1,
     },
 };
 
@@ -92,6 +91,8 @@ fn key_value_overrides(
     let kv = match file {
         ConfigFileName::RuntimeProperties => overrides.runtime_properties.as_ref(),
         ConfigFileName::SecurityProperties => overrides.security_properties.as_ref(),
+        // log4j2.properties is rendered by the logging framework and accepts no key/value overrides.
+        ConfigFileName::Log4j2Properties => None,
     };
     kv.map(
         stackable_operator::config_overrides::KeyValueConfigOverrides::as_product_config_overrides,
@@ -155,6 +156,8 @@ fn build_role_group_config(
         env,
     }
 }
+
+const INDEXER_JAVA_OPTS: &str = "druid.indexer.runner.javaOptsArray";
 
 /// The `druid.indexer.runner.javaOptsArray` entry that `MiddleManagerConfigFragment::compute_files`
 /// adds for *every* file (runtime.properties and security.properties).

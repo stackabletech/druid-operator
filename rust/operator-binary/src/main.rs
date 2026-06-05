@@ -41,12 +41,10 @@ mod authentication;
 mod config;
 mod controller;
 mod crd;
-mod discovery;
 mod extensions;
 mod internal_secret;
 mod listener;
 mod operations;
-mod product_logging;
 mod service;
 mod webhooks;
 

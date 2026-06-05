@@ -4,24 +4,23 @@
 use snafu::{ResultExt, Snafu};
 use stackable_operator::{
     builder::{configmap::ConfigMapBuilder, meta::ObjectMetaBuilder},
-    commons::product_image_selection::ResolvedProductImage,
     crd::listener::v1alpha1::Listener,
     k8s_openapi::api::core::v1::ConfigMap,
-    kube::{Resource, ResourceExt, runtime::reflector::ObjectRef},
+    kube::{Resource, ResourceExt},
 };
 
 use crate::{
     DRUID_CONTROLLER_NAME,
-    crd::{DruidRole, build_recommended_labels, security::DruidTlsSecurity, v1alpha1},
+    controller::validate::ValidatedCluster,
+    crd::{DruidRole, build_recommended_labels},
     listener::build_listener_connection_string,
 };
 
 #[derive(Snafu, Debug)]
 pub enum Error {
-    #[snafu(display("object {} is missing metadata to build owner reference", druid))]
+    #[snafu(display("object is missing metadata to build owner reference"))]
     ObjectMissingMetadataForOwnerRef {
         source: stackable_operator::builder::meta::Error,
-        druid: ObjectRef<v1alpha1::DruidCluster>,
     },
 
     #[snafu(display("failed to get service FQDN"))]
@@ -41,37 +40,28 @@ pub enum Error {
     ListenerConfiguration { source: crate::listener::Error },
 }
 
-/// Builds discovery [`ConfigMap`]s for connecting to a [`v1alpha1::DruidCluster`].
+/// Builds discovery [`ConfigMap`]s for connecting to a Druid cluster.
 pub async fn build_discovery_configmaps(
-    druid: &v1alpha1::DruidCluster,
+    cluster: &ValidatedCluster,
     owner: &impl Resource<DynamicType = ()>,
-    resolved_product_image: &ResolvedProductImage,
-    druid_tls_security: &DruidTlsSecurity,
     listener: Listener,
 ) -> Result<Vec<ConfigMap>, Error> {
     let name = owner.name_unchecked();
     Ok(vec![build_discovery_configmap(
-        druid,
-        owner,
-        resolved_product_image,
-        druid_tls_security,
-        &name,
-        listener,
+        cluster, owner, &name, listener,
     )?])
 }
 
-/// Build a discovery [`ConfigMap`] containing information about how to connect to a certain [`v1alpha1::DruidCluster`].
+/// Build a discovery [`ConfigMap`] containing information about how to connect to a certain Druid cluster.
 fn build_discovery_configmap(
-    druid: &v1alpha1::DruidCluster,
+    cluster: &ValidatedCluster,
     owner: &impl Resource<DynamicType = ()>,
-    resolved_product_image: &ResolvedProductImage,
-    druid_tls_security: &DruidTlsSecurity,
     name: &str,
     listener: Listener,
 ) -> Result<ConfigMap, Error> {
     let router_host = build_listener_connection_string(
         listener,
-        druid_tls_security,
+        &cluster.cluster_config.druid_tls_security,
         &DruidRole::Router.to_string(),
     )
     .context(ListenerConfigurationSnafu)?;
@@ -84,16 +74,14 @@ fn build_discovery_configmap(
     ConfigMapBuilder::new()
         .metadata(
             ObjectMetaBuilder::new()
-                .name_and_namespace(druid)
+                .name_and_namespace(owner)
                 .name(name)
                 .ownerreference_from_resource(owner, None, Some(true))
-                .with_context(|_| ObjectMissingMetadataForOwnerRefSnafu {
-                    druid: ObjectRef::from_obj(druid),
-                })?
+                .context(ObjectMissingMetadataForOwnerRefSnafu)?
                 .with_recommended_labels(&build_recommended_labels(
-                    druid,
+                    owner,
                     DRUID_CONTROLLER_NAME,
-                    &resolved_product_image.app_version_label_value,
+                    &cluster.image.app_version_label_value,
                     &DruidRole::Router.to_string(),
                     "discovery",
                 ))
