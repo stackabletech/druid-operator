@@ -17,7 +17,6 @@ use stackable_operator::{
         fragment::{self, Fragment, FromFragment, ValidationError},
         merge::Merge,
     },
-    config_overrides::KeyValueConfigOverrides,
     crd::{
         authentication::{core, oidc},
         s3,
@@ -36,6 +35,7 @@ use stackable_operator::{
     shared::time::Duration,
     status::condition::{ClusterCondition, HasStatusCondition},
     utils::{COMMON_BASH_TRAP_FUNCTIONS, crds::raw_object_list_schema},
+    v2::config_overrides::KeyValueConfigOverrides,
     versioned::versioned,
 };
 use strum::{Display, EnumDiscriminants, EnumIter, EnumString, IntoStaticStr};
@@ -116,30 +116,18 @@ const DEFAULT_HISTORICAL_SECRET_LIFETIME: Duration = Duration::from_days_uncheck
 pub struct DruidConfigOverrides {
     /// Overrides for the `runtime.properties` file.
     // File name defined in [`crate::controller::build::properties::ConfigFileName`]
-    #[serde(
-        default,
-        rename = "runtime.properties",
-        skip_serializing_if = "Option::is_none"
-    )]
-    pub runtime_properties: Option<KeyValueConfigOverrides>,
+    #[serde(default, rename = "runtime.properties")]
+    pub runtime_properties: KeyValueConfigOverrides,
 
     /// Overrides for the `jvm.config` file.
     // File name defined in [`crate::controller::build::properties::ConfigFileName`]
-    #[serde(
-        default,
-        rename = "jvm.config",
-        skip_serializing_if = "Option::is_none"
-    )]
-    pub jvm_config: Option<KeyValueConfigOverrides>,
+    #[serde(default, rename = "jvm.config")]
+    pub jvm_config: KeyValueConfigOverrides,
 
     /// Overrides for the `security.properties` file.
     // File name defined in [`crate::controller::build::properties::ConfigFileName`]
-    #[serde(
-        default,
-        rename = "security.properties",
-        skip_serializing_if = "Option::is_none"
-    )]
-    pub security_properties: Option<KeyValueConfigOverrides>,
+    #[serde(default, rename = "security.properties")]
+    pub security_properties: KeyValueConfigOverrides,
 }
 
 #[derive(Snafu, Debug, EnumDiscriminants)]

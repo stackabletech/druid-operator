@@ -88,16 +88,12 @@ fn key_value_overrides(
     overrides: &DruidConfigOverrides,
     file: ConfigFileName,
 ) -> BTreeMap<String, Option<String>> {
-    let kv = match file {
-        ConfigFileName::RuntimeProperties => overrides.runtime_properties.as_ref(),
-        ConfigFileName::SecurityProperties => overrides.security_properties.as_ref(),
+    match file {
+        ConfigFileName::RuntimeProperties => overrides.runtime_properties.overrides.clone(),
+        ConfigFileName::SecurityProperties => overrides.security_properties.overrides.clone(),
         // log4j2.properties is rendered by the logging framework and accepts no key/value overrides.
-        ConfigFileName::Log4j2Properties => None,
-    };
-    kv.map(
-        stackable_operator::config_overrides::KeyValueConfigOverrides::as_product_config_overrides,
-    )
-    .unwrap_or_default()
+        ConfigFileName::Log4j2Properties => BTreeMap::new(),
+    }
 }
 
 /// Builds the precomputed per-file config for a single rolegroup. Pure assembly: combines the
