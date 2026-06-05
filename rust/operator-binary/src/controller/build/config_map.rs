@@ -15,7 +15,6 @@ use std::collections::BTreeMap;
 use snafu::{ResultExt, Snafu};
 use stackable_operator::{
     builder::{configmap::ConfigMapBuilder, meta::ObjectMetaBuilder},
-    commons::product_image_selection::ResolvedProductImage,
     crd::s3,
     database_connections::drivers::jdbc::JdbcDatabaseConnection as _,
     k8s_openapi::api::core::v1::{ConfigMap, EnvVar},
@@ -24,9 +23,9 @@ use stackable_operator::{
 
 use crate::{
     config::jvm::construct_jvm_args,
-    controller::build::properties::{ConfigFileName, writer::to_java_properties_string},
     controller::{
         DRUID_CONTROLLER_NAME,
+        build::properties::{ConfigFileName, writer::to_java_properties_string},
         validate::{DruidRoleGroupConfig, ValidatedCluster},
     },
     crd::{
@@ -111,7 +110,6 @@ pub fn build_rolegroup_config_map(
     role: &DruidRole,
     rolegroup: &RoleGroupRef<v1alpha1::DruidCluster>,
     rg: &DruidRoleGroupConfig,
-    resolved_product_image: &ResolvedProductImage,
     owner: &v1alpha1::DruidCluster,
 ) -> Result<ConfigMap> {
     let cluster_config = &cluster.cluster_config;
@@ -304,7 +302,7 @@ pub fn build_rolegroup_config_map(
             .with_recommended_labels(&build_recommended_labels(
                 owner,
                 DRUID_CONTROLLER_NAME,
-                &resolved_product_image.app_version_label_value,
+                &cluster.image.app_version_label_value,
                 &rolegroup.role,
                 &rolegroup.role_group,
             ))

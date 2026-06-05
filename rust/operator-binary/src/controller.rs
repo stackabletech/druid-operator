@@ -370,7 +370,6 @@ pub async fn reconcile_druid(
                 druid_role,
                 &rolegroup,
                 rg,
-                &validated_cluster.image,
                 druid,
             )
             .context(BuildConfigMapSnafu)?;
