@@ -97,7 +97,6 @@ pub struct Ctx {
 
 #[derive(Snafu, Debug, EnumDiscriminants)]
 #[strum_discriminants(derive(IntoStaticStr))]
-#[allow(clippy::enum_variant_names)]
 pub enum Error {
     #[snafu(display("failed to apply Service for {}", rolegroup))]
     ApplyRoleGroupService {
@@ -945,12 +944,11 @@ mod test {
     use rstest::*;
 
     use super::*;
-    use crate::controller::build::properties::writer;
     use crate::{
         controller::{
             build::{
                 config_map::build_rolegroup_config_map,
-                properties::{ConfigFileName, runtime_properties},
+                properties::{ConfigFileName, runtime_properties, writer},
             },
             validate::{DruidRoleGroupConfig, ValidatedCluster, ValidatedClusterConfig},
         },
