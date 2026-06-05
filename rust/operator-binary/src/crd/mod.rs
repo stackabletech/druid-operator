@@ -5,7 +5,6 @@ use security::add_cert_to_jvm_trust_store_cmd;
 use serde::{Deserialize, Serialize};
 use snafu::{OptionExt, ResultExt, Snafu};
 use stackable_operator::{
-    builder::pod::volume::ListenerOperatorVolumeSourceBuilderError,
     client::Client,
     commons::{
         affinity::StackableAffinity,
@@ -111,7 +110,7 @@ const DEFAULT_ROUTER_SECRET_LIFETIME: Duration = Duration::from_days_unchecked(1
 const DEFAULT_HISTORICAL_SECRET_LIFETIME: Duration = Duration::from_days_unchecked(1);
 
 /// Typed config override strategies for Druid config files.
-#[derive(Clone, Debug, Default, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Eq, JsonSchema, Merge, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DruidConfigOverrides {
     /// Overrides for the `runtime.properties` file.
@@ -158,21 +157,6 @@ pub enum Error {
 
     #[snafu(display("fragment validation failure"))]
     FragmentValidationFailure { source: ValidationError },
-
-    #[snafu(display("failed to build Labels"))]
-    LabelBuild {
-        source: stackable_operator::kvp::LabelError,
-    },
-
-    #[snafu(display("failed to build listener volume"))]
-    BuildListenerVolume {
-        source: ListenerOperatorVolumeSourceBuilderError,
-    },
-
-    #[snafu(display("failed to apply group listener"))]
-    ApplyGroupListener {
-        source: stackable_operator::cluster_resources::Error,
-    },
 }
 
 #[versioned(

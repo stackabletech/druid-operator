@@ -9,6 +9,7 @@ use snafu::{ResultExt, Snafu};
 use stackable_operator::{
     cli::OperatorEnvironmentOptions,
     commons::product_image_selection::{self, ResolvedProductImage},
+    config::merge::Merge,
     crd::s3,
     kube::ResourceExt,
 };
@@ -99,17 +100,19 @@ fn key_value_overrides(
 /// Builds the precomputed per-file config for a single rolegroup. Pure assembly: combines the
 /// role-level overrides with the rolegroup-level overrides (rolegroup wins) on top of the
 /// computed defaults. No behavior change vs. the inline loop body it was extracted from.
-#[allow(clippy::too_many_arguments)]
 fn build_role_group_config(
     druid: &v1alpha1::DruidCluster,
     druid_role: &DruidRole,
     merged_config: CommonRoleGroupConfig,
-    role_runtime_overrides: &BTreeMap<String, Option<String>>,
-    role_security_overrides: &BTreeMap<String, Option<String>>,
+    role_config_overrides: &DruidConfigOverrides,
     role_env_overrides: &HashMap<String, String>,
     rg_config_overrides: &DruidConfigOverrides,
     rg_env_overrides: &HashMap<String, String>,
 ) -> DruidRoleGroupConfig {
+    // Merge the role-level and rolegroup-level config overrides (rolegroup wins over role).
+    let mut config_overrides = rg_config_overrides.clone();
+    config_overrides.merge(role_config_overrides);
+
     // ----- runtime.properties -----
     let mut runtime_config = druid.compute_runtime_properties();
     if *druid_role == DruidRole::MiddleManager {
@@ -117,13 +120,10 @@ fn build_role_group_config(
         runtime_config.insert(k, v);
     }
     runtime_config.extend(runtime_properties::defaults(druid_role));
-    // merged user overrides (role <- rolegroup; rolegroup wins)
-    let mut runtime_overrides = role_runtime_overrides.clone();
-    runtime_overrides.extend(key_value_overrides(
-        rg_config_overrides,
+    runtime_config.extend(key_value_overrides(
+        &config_overrides,
         ConfigFileName::RuntimeProperties,
     ));
-    runtime_config.extend(runtime_overrides);
 
     // ----- security.properties -----
     let mut security_config: BTreeMap<String, Option<String>> = BTreeMap::new();
@@ -131,11 +131,8 @@ fn build_role_group_config(
         let (k, v) = middlemanager_indexer_java_opts();
         security_config.insert(k, v);
     }
-    let mut security_overrides = role_security_overrides.clone();
-    security_overrides.extend(key_value_overrides(
-        rg_config_overrides,
-        ConfigFileName::SecurityProperties,
-    ));
+    let security_overrides =
+        key_value_overrides(&config_overrides, ConfigFileName::SecurityProperties);
     security_config.extend(security_properties::build(&security_overrides));
 
     // ----- env -----
@@ -202,14 +199,7 @@ pub fn validate(
     for druid_role in DruidRole::iter() {
         // The role-level overrides (role <- rolegroup precedence starts here).
         let role = druid.get_role(&druid_role);
-        let role_runtime_overrides = key_value_overrides(
-            &role.config.config_overrides,
-            ConfigFileName::RuntimeProperties,
-        );
-        let role_security_overrides = key_value_overrides(
-            &role.config.config_overrides,
-            ConfigFileName::SecurityProperties,
-        );
+        let role_config_overrides = &role.config.config_overrides;
         let role_env_overrides = role.config.env_overrides.clone();
 
         let rolegroups = merged.role_group_names(&druid_role);
@@ -232,8 +222,7 @@ pub fn validate(
                     druid,
                     &druid_role,
                     merged_config,
-                    &role_runtime_overrides,
-                    &role_security_overrides,
+                    role_config_overrides,
                     &role_env_overrides,
                     rg_config_overrides,
                     rg_env_overrides,
