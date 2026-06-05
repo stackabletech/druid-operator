@@ -1035,7 +1035,6 @@ mod test {
             &DruidRole::Historical,
             &rolegroup_ref,
             &rg,
-            &resolved_product_image,
             &druid,
         )
         .expect("build rolegroup config map");
