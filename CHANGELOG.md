@@ -18,6 +18,8 @@ All notable changes to this project will be documented in this file.
 - Document Helm deployed RBAC permissions and remove unnecessary permissions ([#810]).
 - Internal operator refactoring: introduce dereference() and validate() steps in the reconciler ([#824]).
 - test: Bump vector-aggregator to 0.55.0, replace /graphql call with gRPC calls ([#826]).
+- BREAKING: Removed product-config machinery. This is a breaking change in terms of configuration.
+  Users relying on the product-config `properties.yaml` file have to set these properties via the CRD ([#830]).
 
 ### Deleted
 
@@ -29,6 +31,7 @@ All notable changes to this project will be documented in this file.
 [#818]: https://github.com/stackabletech/druid-operator/pull/818
 [#824]: https://github.com/stackabletech/druid-operator/pull/824
 [#826]: https://github.com/stackabletech/druid-operator/pull/826
+[#830]: https://github.com/stackabletech/druid-operator/pull/830
 
 ## [26.3.0] - 2026-03-16
 
