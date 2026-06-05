@@ -20,6 +20,7 @@ use stackable_operator::{
     k8s_openapi::api::core::v1::{ConfigMap, EnvVar},
     product_logging::framework::VECTOR_CONFIG_FILE,
     role_utils::RoleGroupRef,
+    v2::config_file_writer::to_java_properties_string,
 };
 
 use crate::{
@@ -29,7 +30,6 @@ use crate::{
         build::properties::{
             ConfigFileName,
             logging::{build_log4j2_config, build_vector_config},
-            writer::to_java_properties_string,
         },
         validate::{DruidRoleGroupConfig, ValidatedCluster},
     },
@@ -72,12 +72,12 @@ pub enum Error {
 
     #[snafu(display("failed to serialize [runtime.properties]"))]
     SerializeRuntimeProperties {
-        source: crate::controller::build::properties::writer::PropertiesWriterError,
+        source: stackable_operator::v2::config_file_writer::PropertiesWriterError,
     },
 
     #[snafu(display("failed to serialize [security.properties] for {rolegroup}"))]
     JvmSecurityProperties {
-        source: crate::controller::build::properties::writer::PropertiesWriterError,
+        source: stackable_operator::v2::config_file_writer::PropertiesWriterError,
         rolegroup: String,
     },
 

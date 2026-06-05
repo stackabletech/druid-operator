@@ -73,9 +73,10 @@ mod build;
 mod dereference;
 mod validate;
 
-use build::discovery::{self, build_discovery_configmaps};
-use build::properties::logging::MAX_DRUID_LOG_FILES_SIZE;
-
+use build::{
+    discovery::{self, build_discovery_configmaps},
+    properties::logging::MAX_DRUID_LOG_FILES_SIZE,
+};
 use validate::DruidRoleGroupConfig;
 
 pub const DRUID_CONTROLLER_NAME: &str = "druidcluster";
@@ -944,7 +945,7 @@ mod test {
         controller::{
             build::{
                 config_map::build_rolegroup_config_map,
-                properties::{ConfigFileName, runtime_properties, writer},
+                properties::{ConfigFileName, runtime_properties},
             },
             validate::{DruidRoleGroupConfig, ValidatedCluster, ValidatedClusterConfig},
         },
@@ -1042,14 +1043,15 @@ mod test {
             .unwrap()
             .to_string();
 
-        let escaped_segment_cache_property = writer::to_java_properties_string(
-            vec![(
-                &PROP_SEGMENT_CACHE_LOCATIONS.to_string(),
-                &Some(expected_druid_segment_cache_property.to_string()),
-            )]
-            .into_iter(),
-        )
-        .unwrap();
+        let escaped_segment_cache_property =
+            stackable_operator::v2::config_file_writer::to_java_properties_string(
+                vec![(
+                    &PROP_SEGMENT_CACHE_LOCATIONS.to_string(),
+                    &Some(expected_druid_segment_cache_property.to_string()),
+                )]
+                .into_iter(),
+            )
+            .unwrap();
 
         assert!(
             druid_segment_cache_property.contains(&escaped_segment_cache_property),
