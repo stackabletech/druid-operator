@@ -9780,7 +9780,7 @@ rec {
       "stackable-druid-operator" = rec {
         crateName = "stackable-druid-operator";
         version = "0.0.0-dev";
-        edition = "2021";
+        edition = "2024";
         crateBin = [
           {
             name = "stackable-druid-operator";
