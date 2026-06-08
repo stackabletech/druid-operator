@@ -4,11 +4,14 @@
 //! from the [`DruidRoleGroupConfig`] precomputed in the validate step; product-config is no
 //! longer involved.
 //!
+//! Metadata, owner reference and recommended labels are derived entirely from `ValidatedCluster`
+//! (which carries the validated name/namespace/uid and implements `Resource`).
+//!
 //! Residual reads from the owning [`v1alpha1::DruidCluster`] remain for things that are not yet
-//! modelled on `ValidatedCluster`: the owner reference + recommended labels, the extensions load
-//! list (`get_extension_list`), the metadata-database connection
-//! (`spec.cluster_config.metadata_database` / `as_metadata_storage_type`), and `get_role` for the
-//! jvm.config. Fully removing these is a follow-up.
+//! modelled on `ValidatedCluster`: the extensions load list (`get_extension_list`), the
+//! metadata-database connection (`spec.cluster_config.metadata_database` /
+//! `as_metadata_storage_type`), and `get_role` for the jvm.config. Fully removing these is a
+//! follow-up.
 
 use std::collections::BTreeMap;
 
@@ -20,7 +23,9 @@ use stackable_operator::{
     k8s_openapi::api::core::v1::{ConfigMap, EnvVar},
     product_logging::framework::VECTOR_CONFIG_FILE,
     role_utils::RoleGroupRef,
-    v2::config_file_writer::to_java_properties_string,
+    v2::{
+        builder::meta::ownerreference_from_resource, config_file_writer::to_java_properties_string,
+    },
 };
 
 use crate::{
@@ -54,11 +59,6 @@ const AUTH_AUTHORIZER_OPA_URI: &str = "druid.auth.authorizer.OpaAuthorizer.opaUr
 #[derive(Snafu, Debug)]
 #[allow(clippy::enum_variant_names)]
 pub enum Error {
-    #[snafu(display("object is missing metadata to build owner reference"))]
-    ObjectMissingMetadataForOwnerRef {
-        source: stackable_operator::builder::meta::Error,
-    },
-
     #[snafu(display("failed to build ConfigMap for {}", rolegroup))]
     BuildRoleGroupConfig {
         source: stackable_operator::builder::configmap::Error,
@@ -299,12 +299,11 @@ pub fn build_rolegroup_config_map(
     let mut config_map_builder = ConfigMapBuilder::new();
     config_map_builder.metadata(
         ObjectMetaBuilder::new()
-            .name_and_namespace(owner)
+            .name_and_namespace(cluster)
             .name(rolegroup.object_name())
-            .ownerreference_from_resource(owner, None, Some(true))
-            .context(ObjectMissingMetadataForOwnerRefSnafu)?
+            .ownerreference(ownerreference_from_resource(cluster, None, Some(true)))
             .with_recommended_labels(&build_recommended_labels(
-                owner,
+                cluster,
                 DRUID_CONTROLLER_NAME,
                 &cluster.image.app_version_label_value,
                 &rolegroup.role,

@@ -444,10 +444,9 @@ pub async fn reconcile_druid(
 
                 if *druid_role == DruidRole::Router {
                     // discovery
-                    for discovery_cm in
-                        build_discovery_configmaps(&validated_cluster, druid, listener)
-                            .await
-                            .context(BuildDiscoveryConfigSnafu)?
+                    for discovery_cm in build_discovery_configmaps(&validated_cluster, listener)
+                        .await
+                        .context(BuildDiscoveryConfigSnafu)?
                     {
                         cluster_resources
                             .add(client, discovery_cm)
@@ -936,9 +935,13 @@ pub fn error_policy(
 
 #[cfg(test)]
 mod test {
-    use std::collections::BTreeMap;
+    use std::{collections::BTreeMap, str::FromStr};
 
     use rstest::*;
+    use stackable_operator::v2::types::{
+        kubernetes::{NamespaceName, Uid},
+        operator::ClusterName,
+    };
 
     use super::*;
     use crate::{
@@ -1007,10 +1010,12 @@ mod test {
             env: BTreeMap::new(),
         };
 
-        let cluster = ValidatedCluster {
-            name: druid.name_any(),
-            image: resolved_product_image.clone(),
-            cluster_config: ValidatedClusterConfig {
+        let cluster = ValidatedCluster::new(
+            ClusterName::from_str(&druid.name_any()).expect("test: valid cluster name"),
+            NamespaceName::from_str("default").expect("test: valid namespace"),
+            Uid::from_str("c27b3971-ca72-42c1-80a4-abdfc1db0ddd").expect("test: valid uid"),
+            resolved_product_image.clone(),
+            ValidatedClusterConfig {
                 zookeeper_connection_string: "zookeeper-connection-string".to_string(),
                 opa_connection_string: None,
                 s3_connection: None,
@@ -1018,8 +1023,8 @@ mod test {
                 druid_tls_security,
                 druid_auth_config: None,
             },
-            role_group_configs: BTreeMap::new(),
-        };
+            BTreeMap::new(),
+        );
 
         let rolegroup_ref = RoleGroupRef {
             cluster: ObjectRef::from_obj(&druid),

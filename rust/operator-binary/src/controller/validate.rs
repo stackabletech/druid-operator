@@ -3,7 +3,10 @@
 //! Synchronously validates inputs that don't require a Kubernetes client. Produces
 //! [`ValidatedCluster`], consumed by the rest of `reconcile_druid`.
 
-use std::collections::{BTreeMap, HashMap};
+use std::{
+    borrow::Cow,
+    collections::{BTreeMap, HashMap},
+};
 
 use snafu::{ResultExt, Snafu};
 use stackable_operator::{
@@ -11,7 +14,15 @@ use stackable_operator::{
     commons::product_image_selection::{self, ResolvedProductImage},
     config::merge::Merge,
     crd::s3,
-    kube::ResourceExt,
+    kube::{Resource, api::ObjectMeta},
+    v2::{
+        HasName, HasUid,
+        controller_utils::{get_cluster_name, get_namespace, get_uid},
+        types::{
+            kubernetes::{NamespaceName, Uid},
+            operator::ClusterName,
+        },
+    },
 };
 use strum::IntoEnumIterator;
 
@@ -42,6 +53,11 @@ pub enum Error {
 
     #[snafu(display("failed to resolve and merge config for role and role group"))]
     FailedToResolveConfig { source: crate::crd::Error },
+
+    #[snafu(display("failed to determine the cluster's name, namespace, or uid"))]
+    ClusterIdentity {
+        source: stackable_operator::v2::controller_utils::Error,
+    },
 }
 
 type Result<T, E = Error> = std::result::Result<T, E>;
@@ -74,13 +90,90 @@ pub struct ValidatedClusterConfig {
 
 /// Synchronous inputs the rest of `reconcile_druid` needs after dereferencing.
 pub struct ValidatedCluster {
-    // Currently unused by the build steps, but part of the documented `ValidatedCluster` shape;
-    // consumed by later tasks.
+    /// Mirrors `name`/`namespace`/`uid` below so that `ValidatedCluster` can implement
+    /// [`Resource`] and be passed directly to the metadata/owner-reference builders.
+    metadata: ObjectMeta,
+    pub name: ClusterName,
+    // Read from the mirrored `metadata` in the configmap path (via `name_and_namespace`); the typed
+    // field is consumed directly when the service/statefulset builders move onto `ValidatedCluster`.
     #[allow(dead_code)]
-    pub name: String,
+    pub namespace: NamespaceName,
+    pub uid: Uid,
     pub image: ResolvedProductImage,
     pub cluster_config: ValidatedClusterConfig,
     pub role_group_configs: BTreeMap<DruidRole, BTreeMap<RoleGroupName, DruidRoleGroupConfig>>,
+}
+
+impl ValidatedCluster {
+    pub(crate) fn new(
+        name: ClusterName,
+        namespace: NamespaceName,
+        uid: Uid,
+        image: ResolvedProductImage,
+        cluster_config: ValidatedClusterConfig,
+        role_group_configs: BTreeMap<DruidRole, BTreeMap<RoleGroupName, DruidRoleGroupConfig>>,
+    ) -> Self {
+        let metadata = ObjectMeta {
+            name: Some(name.to_string()),
+            namespace: Some(namespace.to_string()),
+            uid: Some(uid.to_string()),
+            ..ObjectMeta::default()
+        };
+        Self {
+            metadata,
+            name,
+            namespace,
+            uid,
+            image,
+            cluster_config,
+            role_group_configs,
+        }
+    }
+}
+
+// Implementing `Resource` (plus `HasName`/`HasUid`) lets `ValidatedCluster` stand in for the raw
+// `DruidCluster` when building child-object metadata and owner references. The identity-bearing
+// methods are backed by the `metadata` built in `new`, while kind/group/version/plural delegate to
+// the CRD so produced owner references are byte-identical to the previous raw-cluster ones.
+impl Resource for ValidatedCluster {
+    type DynamicType = <v1alpha1::DruidCluster as Resource>::DynamicType;
+    type Scope = <v1alpha1::DruidCluster as Resource>::Scope;
+
+    fn kind(dt: &Self::DynamicType) -> Cow<'_, str> {
+        v1alpha1::DruidCluster::kind(dt)
+    }
+
+    fn group(dt: &Self::DynamicType) -> Cow<'_, str> {
+        v1alpha1::DruidCluster::group(dt)
+    }
+
+    fn version(dt: &Self::DynamicType) -> Cow<'_, str> {
+        v1alpha1::DruidCluster::version(dt)
+    }
+
+    fn plural(dt: &Self::DynamicType) -> Cow<'_, str> {
+        v1alpha1::DruidCluster::plural(dt)
+    }
+
+    fn meta(&self) -> &ObjectMeta {
+        &self.metadata
+    }
+
+    fn meta_mut(&mut self) -> &mut ObjectMeta {
+        &mut self.metadata
+    }
+}
+
+impl HasName for ValidatedCluster {
+    fn to_name(&self) -> String {
+        self.name.to_string()
+    }
+}
+
+impl HasUid for ValidatedCluster {
+    fn to_uid(&self) -> Uid {
+        self.uid.clone()
+    }
 }
 
 /// Returns the user-supplied key/value overrides for the given config file from a
@@ -232,10 +325,16 @@ pub fn validate(
         role_group_configs.insert(druid_role, group_map);
     }
 
-    Ok(ValidatedCluster {
-        name: druid.name_any(),
+    let name = get_cluster_name(druid).context(ClusterIdentitySnafu)?;
+    let namespace = get_namespace(druid).context(ClusterIdentitySnafu)?;
+    let uid = get_uid(druid).context(ClusterIdentitySnafu)?;
+
+    Ok(ValidatedCluster::new(
+        name,
+        namespace,
+        uid,
         image,
-        cluster_config: ValidatedClusterConfig {
+        ValidatedClusterConfig {
             zookeeper_connection_string: dereferenced_objects.zookeeper_connection_string.clone(),
             opa_connection_string: dereferenced_objects.opa_connection_string.clone(),
             s3_connection: dereferenced_objects.s3_connection.clone(),
@@ -244,5 +343,5 @@ pub fn validate(
             druid_auth_config,
         },
         role_group_configs,
-    })
+    ))
 }

@@ -6,7 +6,7 @@ use stackable_operator::{
     builder::{configmap::ConfigMapBuilder, meta::ObjectMetaBuilder},
     crd::listener::v1alpha1::Listener,
     k8s_openapi::api::core::v1::ConfigMap,
-    kube::{Resource, ResourceExt},
+    v2::builder::meta::ownerreference_from_resource,
 };
 
 use crate::{
@@ -18,11 +18,6 @@ use crate::{
 
 #[derive(Snafu, Debug)]
 pub enum Error {
-    #[snafu(display("object is missing metadata to build owner reference"))]
-    ObjectMissingMetadataForOwnerRef {
-        source: stackable_operator::builder::meta::Error,
-    },
-
     #[snafu(display("failed to get service FQDN"))]
     NoServiceFqdn,
 
@@ -43,20 +38,14 @@ pub enum Error {
 /// Builds discovery [`ConfigMap`]s for connecting to a Druid cluster.
 pub async fn build_discovery_configmaps(
     cluster: &ValidatedCluster,
-    owner: &impl Resource<DynamicType = ()>,
     listener: Listener,
 ) -> Result<Vec<ConfigMap>, Error> {
-    let name = owner.name_unchecked();
-    Ok(vec![build_discovery_configmap(
-        cluster, owner, &name, listener,
-    )?])
+    Ok(vec![build_discovery_configmap(cluster, listener)?])
 }
 
 /// Build a discovery [`ConfigMap`] containing information about how to connect to a certain Druid cluster.
 fn build_discovery_configmap(
     cluster: &ValidatedCluster,
-    owner: &impl Resource<DynamicType = ()>,
-    name: &str,
     listener: Listener,
 ) -> Result<ConfigMap, Error> {
     let router_host = build_listener_connection_string(
@@ -74,12 +63,10 @@ fn build_discovery_configmap(
     ConfigMapBuilder::new()
         .metadata(
             ObjectMetaBuilder::new()
-                .name_and_namespace(owner)
-                .name(name)
-                .ownerreference_from_resource(owner, None, Some(true))
-                .context(ObjectMissingMetadataForOwnerRefSnafu)?
+                .name_and_namespace(cluster)
+                .ownerreference(ownerreference_from_resource(cluster, None, Some(true)))
                 .with_recommended_labels(&build_recommended_labels(
-                    owner,
+                    cluster,
                     DRUID_CONTROLLER_NAME,
                     &cluster.image.app_version_label_value,
                     &DruidRole::Router.to_string(),
