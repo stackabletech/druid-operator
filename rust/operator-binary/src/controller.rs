@@ -372,7 +372,6 @@ pub async fn reconcile_druid(
                 druid_role,
                 &rolegroup,
                 rg,
-                druid,
             )
             .context(BuildConfigMapSnafu)?;
             let rg_statefulset = build_rolegroup_statefulset(
@@ -938,9 +937,12 @@ mod test {
     use std::{collections::BTreeMap, str::FromStr};
 
     use rstest::*;
-    use stackable_operator::v2::types::{
-        kubernetes::{NamespaceName, Uid},
-        operator::ClusterName,
+    use stackable_operator::{
+        database_connections::drivers::jdbc::JdbcDatabaseConnection,
+        v2::types::{
+            kubernetes::{NamespaceName, Uid},
+            operator::ClusterName,
+        },
     };
 
     use super::*;
@@ -953,6 +955,7 @@ mod test {
             validate::{DruidRoleGroupConfig, ValidatedCluster, ValidatedClusterConfig},
         },
         crd::{PROP_SEGMENT_CACHE_LOCATIONS, authentication::AuthenticationClassesResolved},
+        extensions::get_extension_list,
     };
 
     #[rstest]
@@ -1008,7 +1011,23 @@ mod test {
             runtime_config: runtime_properties::defaults(&DruidRole::Historical),
             security_config: BTreeMap::new(),
             env: BTreeMap::new(),
+            // The test only asserts on runtime.properties, so the rendered jvm.config is irrelevant.
+            jvm_config: String::new(),
         };
+
+        let extensions = get_extension_list(&druid, &druid_tls_security, &None);
+        let metadata_storage_type = druid
+            .spec
+            .cluster_config
+            .metadata_database
+            .as_metadata_storage_type()
+            .to_string();
+        let metadata_db_connection = druid
+            .spec
+            .cluster_config
+            .metadata_database
+            .jdbc_connection_details("metadata")
+            .expect("test: valid metadata db connection");
 
         let cluster = ValidatedCluster::new(
             ClusterName::from_str(&druid.name_any()).expect("test: valid cluster name"),
@@ -1022,6 +1041,9 @@ mod test {
                 deep_storage_bucket_name: None,
                 druid_tls_security,
                 druid_auth_config: None,
+                extensions,
+                metadata_storage_type,
+                metadata_db_connection,
             },
             BTreeMap::new(),
         );
@@ -1037,7 +1059,6 @@ mod test {
             &DruidRole::Historical,
             &rolegroup_ref,
             &rg,
-            &druid,
         )
         .expect("build rolegroup config map");
 

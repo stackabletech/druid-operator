@@ -7,11 +7,9 @@
 //! Metadata, owner reference and recommended labels are derived entirely from `ValidatedCluster`
 //! (which carries the validated name/namespace/uid and implements `Resource`).
 //!
-//! Residual reads from the owning [`v1alpha1::DruidCluster`] remain for things that are not yet
-//! modelled on `ValidatedCluster`: the extensions load list (`get_extension_list`), the
-//! metadata-database connection (`spec.cluster_config.metadata_database` /
-//! `as_metadata_storage_type`), and `get_role` for the jvm.config. Fully removing these is a
-//! follow-up.
+//! The builder no longer reads the raw [`v1alpha1::DruidCluster`] at all: the extensions load
+//! list, the metadata-database connection / storage type and the rendered `jvm.config` are all
+//! precomputed on `ValidatedCluster` during the validate step.
 
 use std::collections::BTreeMap;
 
@@ -19,7 +17,6 @@ use snafu::{ResultExt, Snafu};
 use stackable_operator::{
     builder::{configmap::ConfigMapBuilder, meta::ObjectMetaBuilder},
     crd::s3,
-    database_connections::drivers::jdbc::JdbcDatabaseConnection as _,
     k8s_openapi::api::core::v1::{ConfigMap, EnvVar},
     product_logging::framework::VECTOR_CONFIG_FILE,
     role_utils::RoleGroupRef,
@@ -29,7 +26,6 @@ use stackable_operator::{
 };
 
 use crate::{
-    config::jvm::construct_jvm_args,
     controller::{
         DRUID_CONTROLLER_NAME,
         build::properties::{
@@ -39,7 +35,6 @@ use crate::{
         validate::{DruidRoleGroupConfig, ValidatedCluster},
     },
     crd::{DruidRole, build_recommended_labels, build_string_list, v1alpha1},
-    extensions::get_extension_list,
 };
 
 // jvm.config is built by `config::jvm`, not a properties builder, so it is not part
@@ -81,12 +76,6 @@ pub enum Error {
         rolegroup: String,
     },
 
-    #[snafu(display("failed to get JVM config"))]
-    GetJvmConfig { source: crate::config::jvm::Error },
-
-    #[snafu(display("failed to derive Druid memory settings from resources"))]
-    DeriveMemorySettings { source: crate::crd::resource::Error },
-
     #[snafu(display("failed to update Druid config from resources"))]
     UpdateDruidConfigFromResources { source: crate::crd::resource::Error },
 
@@ -99,11 +88,6 @@ pub enum Error {
     GenerateAuthenticationRuntimeSettings {
         source: crate::authentication::Error,
     },
-
-    #[snafu(display("invalid metadata database connection"))]
-    InvalidMetadataDatabaseConnection {
-        source: stackable_operator::database_connections::Error,
-    },
 }
 
 type Result<T, E = Error> = std::result::Result<T, E>;
@@ -114,7 +98,6 @@ pub fn build_rolegroup_config_map(
     role: &DruidRole,
     rolegroup: &RoleGroupRef<v1alpha1::DruidCluster>,
     rg: &DruidRoleGroupConfig,
-    owner: &v1alpha1::DruidCluster,
 ) -> Result<ConfigMap> {
     let cluster_config = &cluster.cluster_config;
     let druid_tls_security = &cluster_config.druid_tls_security;
@@ -124,14 +107,8 @@ pub fn build_rolegroup_config_map(
     let s3_conn = cluster_config.s3_connection.as_ref();
     let deep_storage_bucket_name = cluster_config.deep_storage_bucket_name.as_deref();
 
-    let role_obj = owner.get_role(role);
     let mut cm_conf_data = BTreeMap::new(); // filename -> filecontent
-    let metadata_database_connection_details = owner
-        .spec
-        .cluster_config
-        .metadata_database
-        .jdbc_connection_details("metadata")
-        .context(InvalidMetadataDatabaseConnectionSnafu)?;
+    let metadata_database_connection_details = &cluster_config.metadata_db_connection;
 
     // ----- runtime.properties -----
     {
@@ -155,11 +132,7 @@ pub fn build_rolegroup_config_map(
 
         conf.insert(
             EXTENSIONS_LOADLIST.to_string(),
-            build_string_list(&get_extension_list(
-                owner,
-                druid_tls_security,
-                druid_auth_config,
-            )),
+            build_string_list(&cluster_config.extensions),
         );
 
         if let Some(opa_str) = opa_connstr {
@@ -168,12 +141,7 @@ pub fn build_rolegroup_config_map(
 
         conf.insert(
             crate::crd::database::METADATA_STORAGE_TYPE.to_string(),
-            owner
-                .spec
-                .cluster_config
-                .metadata_database
-                .as_metadata_storage_type()
-                .to_string(),
+            cluster_config.metadata_storage_type.clone(),
         );
 
         conf.insert(
@@ -268,16 +236,8 @@ pub fn build_rolegroup_config_map(
     }
 
     // ----- jvm.config -----
-    {
-        let (heap, direct) = rg
-            .merged_config
-            .resources
-            .get_memory_sizes(role)
-            .context(DeriveMemorySettingsSnafu)?;
-        let jvm_config = construct_jvm_args(role, &role_obj, &rolegroup.role_group, heap, direct)
-            .context(GetJvmConfigSnafu)?;
-        cm_conf_data.insert(JVM_CONFIG.to_string(), jvm_config);
-    }
+    // Precomputed during validation; see `DruidRoleGroupConfig::jvm_config`.
+    cm_conf_data.insert(JVM_CONFIG.to_string(), rg.jvm_config.clone());
 
     // ----- security.properties -----
     {

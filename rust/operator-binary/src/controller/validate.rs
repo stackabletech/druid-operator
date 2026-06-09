@@ -14,6 +14,7 @@ use stackable_operator::{
     commons::product_image_selection::{self, ResolvedProductImage},
     config::merge::Merge,
     crd::s3,
+    database_connections::drivers::jdbc::{JdbcDatabaseConnection, JdbcDatabaseConnectionDetails},
     kube::{Resource, api::ObjectMeta},
     v2::{
         HasName, HasUid,
@@ -28,6 +29,7 @@ use strum::IntoEnumIterator;
 
 use crate::{
     authentication::DruidAuthenticationConfig,
+    config::jvm::construct_jvm_args,
     controller::{
         build::properties::{ConfigFileName, runtime_properties, security_properties},
         dereference::DereferencedObjects,
@@ -36,6 +38,7 @@ use crate::{
         CommonRoleGroupConfig, DruidConfigOverrides, DruidRole, STACKABLE_TRUST_STORE,
         STACKABLE_TRUST_STORE_PASSWORD, build_string_list, security::DruidTlsSecurity, v1alpha1,
     },
+    extensions::get_extension_list,
 };
 
 #[derive(Snafu, Debug)]
@@ -58,6 +61,17 @@ pub enum Error {
     ClusterIdentity {
         source: stackable_operator::v2::controller_utils::Error,
     },
+
+    #[snafu(display("failed to get JVM config"))]
+    GetJvmConfig { source: crate::config::jvm::Error },
+
+    #[snafu(display("failed to derive Druid memory settings from resources"))]
+    DeriveMemorySettings { source: crate::crd::resource::Error },
+
+    #[snafu(display("invalid metadata database connection"))]
+    InvalidMetadataDatabaseConnection {
+        source: stackable_operator::database_connections::Error,
+    },
 }
 
 type Result<T, E = Error> = std::result::Result<T, E>;
@@ -76,6 +90,10 @@ pub struct DruidRoleGroupConfig {
     pub security_config: BTreeMap<String, String>,
     /// Merged env overrides (role <- rolegroup). compute_env is empty for druid.
     pub env: BTreeMap<String, String>,
+    /// The fully rendered `jvm.config` (operator defaults merged with the role/rolegroup JVM
+    /// argument overrides). Precomputed here so the config-map builder no longer needs the raw
+    /// cluster's `get_role`.
+    pub jvm_config: String,
 }
 
 /// Cluster-wide resolved fields that are not role/rolegroup specific.
@@ -86,6 +104,13 @@ pub struct ValidatedClusterConfig {
     pub deep_storage_bucket_name: Option<String>,
     pub druid_tls_security: DruidTlsSecurity,
     pub druid_auth_config: Option<DruidAuthenticationConfig>,
+    /// The `druid.extensions.loadList` entries, resolved from the metadata database, TLS, S3 and
+    /// authentication settings during validation.
+    pub extensions: Vec<String>,
+    /// The `druid.metadata.storage.type` value derived from the configured metadata database.
+    pub metadata_storage_type: String,
+    /// The JDBC connection details (URL plus credential env vars) for the metadata database.
+    pub metadata_db_connection: JdbcDatabaseConnectionDetails,
 }
 
 /// Synchronous inputs the rest of `reconcile_druid` needs after dereferencing.
@@ -201,15 +226,17 @@ fn key_value_overrides(
 /// Builds the precomputed per-file config for a single rolegroup. Pure assembly: combines the
 /// role-level overrides with the rolegroup-level overrides (rolegroup wins) on top of the
 /// computed defaults. No behavior change vs. the inline loop body it was extracted from.
+#[allow(clippy::too_many_arguments)]
 fn build_role_group_config(
     druid: &v1alpha1::DruidCluster,
     druid_role: &DruidRole,
+    rg_name: &str,
     merged_config: CommonRoleGroupConfig,
     role_config_overrides: &DruidConfigOverrides,
     role_env_overrides: &HashMap<String, String>,
     rg_config_overrides: &DruidConfigOverrides,
     rg_env_overrides: &HashMap<String, String>,
-) -> DruidRoleGroupConfig {
+) -> Result<DruidRoleGroupConfig> {
     // Merge the role-level and rolegroup-level config overrides (rolegroup wins over role).
     let mut config_overrides = rg_config_overrides.clone();
     config_overrides.merge(role_config_overrides);
@@ -243,12 +270,27 @@ fn build_role_group_config(
         .collect();
     env.extend(rg_env_overrides.iter().map(|(k, v)| (k.clone(), v.clone())));
 
-    DruidRoleGroupConfig {
+    // ----- jvm.config -----
+    let (heap, direct) = merged_config
+        .resources
+        .get_memory_sizes(druid_role)
+        .context(DeriveMemorySettingsSnafu)?;
+    let jvm_config = construct_jvm_args(
+        druid_role,
+        &druid.get_role(druid_role),
+        rg_name,
+        heap,
+        direct,
+    )
+    .context(GetJvmConfigSnafu)?;
+
+    Ok(DruidRoleGroupConfig {
         merged_config,
         runtime_config,
         security_config,
         env,
-    }
+        jvm_config,
+    })
 }
 
 const INDEXER_JAVA_OPTS: &str = "druid.indexer.runner.javaOptsArray";
@@ -317,18 +359,17 @@ pub fn validate(
                 .role_group_overrides(&druid_role, &rg_name)
                 .expect("role group resolved by common_config must exist");
 
-            group_map.insert(
-                rg_name,
-                build_role_group_config(
-                    druid,
-                    &druid_role,
-                    merged_config,
-                    role_config_overrides,
-                    &role_env_overrides,
-                    rg_config_overrides,
-                    rg_env_overrides,
-                ),
-            );
+            let rg_config = build_role_group_config(
+                druid,
+                &druid_role,
+                &rg_name,
+                merged_config,
+                role_config_overrides,
+                &role_env_overrides,
+                rg_config_overrides,
+                rg_env_overrides,
+            )?;
+            group_map.insert(rg_name, rg_config);
         }
         role_group_configs.insert(druid_role, group_map);
     }
@@ -336,6 +377,20 @@ pub fn validate(
     let name = get_cluster_name(druid).context(ClusterIdentitySnafu)?;
     let namespace = get_namespace(druid).context(ClusterIdentitySnafu)?;
     let uid = get_uid(druid).context(ClusterIdentitySnafu)?;
+
+    let extensions = get_extension_list(druid, &druid_tls_security, &druid_auth_config);
+    let metadata_storage_type = druid
+        .spec
+        .cluster_config
+        .metadata_database
+        .as_metadata_storage_type()
+        .to_string();
+    let metadata_db_connection = druid
+        .spec
+        .cluster_config
+        .metadata_database
+        .jdbc_connection_details("metadata")
+        .context(InvalidMetadataDatabaseConnectionSnafu)?;
 
     Ok(ValidatedCluster::new(
         name,
@@ -349,6 +404,9 @@ pub fn validate(
             deep_storage_bucket_name: dereferenced_objects.deep_storage_bucket_name.clone(),
             druid_tls_security,
             druid_auth_config,
+            extensions,
+            metadata_storage_type,
+            metadata_db_connection,
         },
         role_group_configs,
     ))
