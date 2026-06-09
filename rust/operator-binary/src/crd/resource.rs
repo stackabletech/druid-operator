@@ -17,10 +17,12 @@ use stackable_operator::{
 use strum::{EnumDiscriminants, IntoStaticStr};
 
 use crate::crd::{
-    DruidRole, PATH_SEGMENT_CACHE, PROP_SEGMENT_CACHE_LOCATIONS,
+    DruidRole, PROP_SEGMENT_CACHE_LOCATIONS,
     memory::{HistoricalDerivedSettings, RESERVED_OS_MEMORY},
     storage::{self, default_free_percentage_empty_dir_fragment},
 };
+
+const PATH_SEGMENT_CACHE: &str = "/stackable/var/druid/segment-cache";
 
 // volume names
 const SEGMENT_CACHE_VOLUME_NAME: &str = "segment-cache";
@@ -172,7 +174,7 @@ impl RoleResource {
     }
 }
 
-pub static MIDDLE_MANAGER_RESOURCES: LazyLock<
+pub(crate) static MIDDLE_MANAGER_RESOURCES: LazyLock<
     ResourcesFragment<storage::DruidStorage, NoRuntimeLimits>,
 > = LazyLock::new(|| ResourcesFragment {
     cpu: CpuLimitsFragment {
@@ -186,20 +188,21 @@ pub static MIDDLE_MANAGER_RESOURCES: LazyLock<
     storage: storage::DruidStorageFragment {},
 });
 
-pub static BROKER_RESOURCES: LazyLock<ResourcesFragment<storage::DruidStorage, NoRuntimeLimits>> =
-    LazyLock::new(|| ResourcesFragment {
-        cpu: CpuLimitsFragment {
-            min: Some(Quantity("300m".to_owned())),
-            max: Some(Quantity("1200m".to_owned())),
-        },
-        memory: MemoryLimitsFragment {
-            limit: Some(Quantity("1500Mi".to_owned())),
-            runtime_limits: NoRuntimeLimitsFragment {},
-        },
-        storage: storage::DruidStorageFragment {},
-    });
+pub(crate) static BROKER_RESOURCES: LazyLock<
+    ResourcesFragment<storage::DruidStorage, NoRuntimeLimits>,
+> = LazyLock::new(|| ResourcesFragment {
+    cpu: CpuLimitsFragment {
+        min: Some(Quantity("300m".to_owned())),
+        max: Some(Quantity("1200m".to_owned())),
+    },
+    memory: MemoryLimitsFragment {
+        limit: Some(Quantity("1500Mi".to_owned())),
+        runtime_limits: NoRuntimeLimitsFragment {},
+    },
+    storage: storage::DruidStorageFragment {},
+});
 
-pub static HISTORICAL_RESOURCES: LazyLock<
+pub(crate) static HISTORICAL_RESOURCES: LazyLock<
     ResourcesFragment<storage::HistoricalStorage, NoRuntimeLimits>,
 > = LazyLock::new(|| ResourcesFragment {
     cpu: CpuLimitsFragment {
@@ -215,7 +218,7 @@ pub static HISTORICAL_RESOURCES: LazyLock<
     },
 });
 
-pub static COORDINATOR_RESOURCES: LazyLock<
+pub(crate) static COORDINATOR_RESOURCES: LazyLock<
     ResourcesFragment<storage::DruidStorage, NoRuntimeLimits>,
 > = LazyLock::new(|| ResourcesFragment {
     cpu: CpuLimitsFragment {
@@ -229,18 +232,19 @@ pub static COORDINATOR_RESOURCES: LazyLock<
     storage: storage::DruidStorageFragment {},
 });
 
-pub static ROUTER_RESOURCES: LazyLock<ResourcesFragment<storage::DruidStorage, NoRuntimeLimits>> =
-    LazyLock::new(|| ResourcesFragment {
-        cpu: CpuLimitsFragment {
-            min: Some(Quantity("300m".to_owned())),
-            max: Some(Quantity("1200m".to_owned())),
-        },
-        memory: MemoryLimitsFragment {
-            limit: Some(Quantity("512Mi".to_owned())),
-            runtime_limits: NoRuntimeLimitsFragment {},
-        },
-        storage: storage::DruidStorageFragment {},
-    });
+pub(crate) static ROUTER_RESOURCES: LazyLock<
+    ResourcesFragment<storage::DruidStorage, NoRuntimeLimits>,
+> = LazyLock::new(|| ResourcesFragment {
+    cpu: CpuLimitsFragment {
+        min: Some(Quantity("300m".to_owned())),
+        max: Some(Quantity("1200m".to_owned())),
+    },
+    memory: MemoryLimitsFragment {
+        limit: Some(Quantity("512Mi".to_owned())),
+        runtime_limits: NoRuntimeLimitsFragment {},
+    },
+    storage: storage::DruidStorageFragment {},
+});
 
 #[cfg(test)]
 mod test {

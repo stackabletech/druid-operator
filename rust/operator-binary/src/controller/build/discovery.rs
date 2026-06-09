@@ -18,9 +18,6 @@ use crate::{
 
 #[derive(Snafu, Debug)]
 pub enum Error {
-    #[snafu(display("failed to get service FQDN"))]
-    NoServiceFqdn,
-
     #[snafu(display("failed to build ConfigMap"))]
     BuildConfigMap {
         source: stackable_operator::builder::configmap::Error,

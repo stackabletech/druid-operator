@@ -65,7 +65,7 @@ pub fn build_group_listener(
             .build(),
         spec: listener::v1alpha1::ListenerSpec {
             class_name: Some(listener_class),
-            ports: druid_tls_security.listener_ports(druid_role),
+            ports: Some(druid_tls_security.listener_ports(druid_role)),
             ..listener::v1alpha1::ListenerSpec::default()
         },
         status: None,

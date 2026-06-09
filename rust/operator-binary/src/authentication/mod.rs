@@ -11,7 +11,7 @@ use crate::{
     crd::{
         DruidRole,
         authentication::{AuthenticationClassResolved, AuthenticationClassesResolved},
-        security::{ESCALATOR_INTERNAL_CLIENT_PASSWORD_ENV, INTERNAL_INITIAL_CLIENT_PASSWORD_ENV},
+        security::INTERNAL_INITIAL_CLIENT_PASSWORD_ENV,
         v1alpha1,
     },
     internal_secret::{build_shared_internal_secret_name, env_var_from_secret},
@@ -19,6 +19,9 @@ use crate::{
 
 pub mod ldap;
 pub mod oidc;
+
+// It seems this needs to be the same password for Druid to work, so we re-use the existing env variable.
+const ESCALATOR_INTERNAL_CLIENT_PASSWORD_ENV: &str = INTERNAL_INITIAL_CLIENT_PASSWORD_ENV;
 
 type Result<T, E = Error> = std::result::Result<T, E>;
 

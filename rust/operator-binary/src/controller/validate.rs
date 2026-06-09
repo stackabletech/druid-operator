@@ -88,11 +88,11 @@ pub type RoleGroupName = String;
 #[derive(Clone)]
 pub struct DruidRoleGroupConfig {
     pub merged_config: CommonRoleGroupConfig,
-    /// The runtime.properties "validated config" (compute_files + recommended defaults + merged overrides).
+    /// The runtime.properties config: recommended defaults plus merged overrides.
     pub runtime_config: BTreeMap<String, String>,
     /// The security.properties "validated config".
     pub security_config: BTreeMap<String, String>,
-    /// Merged env overrides (role <- rolegroup). compute_env is empty for druid.
+    /// Merged env overrides (role <- rolegroup). Druid has no computed env vars.
     pub env: BTreeMap<String, String>,
     /// The fully rendered `jvm.config` (operator defaults merged with the role/rolegroup JVM
     /// argument overrides). Precomputed here so the config-map builder no longer needs the raw
@@ -300,8 +300,8 @@ fn build_role_group_config(
 
 const INDEXER_JAVA_OPTS: &str = "druid.indexer.runner.javaOptsArray";
 
-/// The `druid.indexer.runner.javaOptsArray` entry that `MiddleManagerConfigFragment::compute_files`
-/// adds for *every* file (runtime.properties and security.properties).
+/// The `druid.indexer.runner.javaOptsArray` entry that must be present in *every* rendered file
+/// (runtime.properties and security.properties) for MiddleManagers.
 fn middlemanager_indexer_java_opts() -> (String, String) {
     (
         INDEXER_JAVA_OPTS.to_string(),

@@ -97,7 +97,7 @@ fn add_authorizer_config(config: &mut BTreeMap<String, String>) {
 /// Creates the OIDC parts of the runtime.properties config file.
 /// OIDC authentication is not configured on middlemanagers, because end users don't interact with them directly using the web console and
 /// turning on OIDC will lead to problems with the communication with coordinators during data ingest.
-pub fn generate_runtime_properties_config(
+pub(super) fn generate_runtime_properties_config(
     provider: &oidc::v1alpha1::AuthenticationProvider,
     oidc: &DruidClientAuthenticationOptions,
     role: &DruidRole,
@@ -118,7 +118,7 @@ pub fn generate_runtime_properties_config(
     Ok(())
 }
 
-pub fn main_container_commands(
+pub(super) fn main_container_commands(
     provider: &oidc::v1alpha1::AuthenticationProvider,
     command: &mut Vec<String>,
 ) {
@@ -129,7 +129,7 @@ pub fn main_container_commands(
 
 /// Mounts the OIDC credentials secret and the auto-generated internal secret containing the cookie passphrase.
 /// Not necessary on middlemanagers, because OIDC is not configured on them.
-pub fn get_env_var_mounts(
+pub(super) fn get_env_var_mounts(
     role: &DruidRole,
     oidc: &DruidClientAuthenticationOptions,
     internal_secret_name: &str,
@@ -153,7 +153,7 @@ pub fn get_env_var_mounts(
     envs
 }
 
-pub fn add_volumes_and_mounts(
+pub(super) fn add_volumes_and_mounts(
     provider: &oidc::v1alpha1::AuthenticationProvider,
     pb: &mut PodBuilder,
     cb_druid: &mut ContainerBuilder,

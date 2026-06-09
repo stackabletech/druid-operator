@@ -83,7 +83,7 @@ fn add_authorizer_config(config: &mut BTreeMap<String, String>) {
     );
 }
 
-pub fn generate_runtime_properties_config(
+pub(super) fn generate_runtime_properties_config(
     provider: &ldap::v1alpha1::AuthenticationProvider,
     config: &mut BTreeMap<String, String>,
 ) -> Result<(), Error> {
@@ -93,7 +93,7 @@ pub fn generate_runtime_properties_config(
     Ok(())
 }
 
-pub fn prepare_container_commands(
+pub(super) fn prepare_container_commands(
     provider: &ldap::v1alpha1::AuthenticationProvider,
     command: &mut Vec<String>,
 ) {
@@ -106,7 +106,7 @@ pub fn prepare_container_commands(
     }
 }
 
-pub fn add_volumes_and_mounts(
+pub(super) fn add_volumes_and_mounts(
     provider: &ldap::v1alpha1::AuthenticationProvider,
     pb: &mut PodBuilder,
     cb_druid: &mut ContainerBuilder,

@@ -21,7 +21,7 @@ pub static RESERVED_OS_MEMORY: LazyLock<MemoryQuantity> =
 
 /// Max size for direct access buffers. This is defined in Druid to be 2GB:
 /// <https://druid.apache.org/docs/latest/configuration/index.html#processing-1>
-pub static MAX_DIRECT_BUFFER_SIZE: LazyLock<MemoryQuantity> =
+static MAX_DIRECT_BUFFER_SIZE: LazyLock<MemoryQuantity> =
     LazyLock::new(|| MemoryQuantity::from_gibi(2.));
 
 #[derive(Snafu, Debug)]
@@ -55,7 +55,7 @@ pub struct HistoricalDerivedSettings {
 }
 
 impl HistoricalDerivedSettings {
-    pub fn new(total_memory: MemoryQuantity, cpu_millis: CpuQuantity) -> Self {
+    fn new(total_memory: MemoryQuantity, cpu_millis: CpuQuantity) -> Self {
         Self {
             total_memory,
             cpu_millis,

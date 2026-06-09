@@ -59,7 +59,6 @@ pub mod tls;
 
 pub const APP_NAME: &str = "druid";
 pub const OPERATOR_NAME: &str = "druid.stackable.tech";
-pub const FIELD_MANAGER: &str = "druid-operator";
 
 // config directories
 pub const DRUID_CONFIG_DIRECTORY: &str = "/stackable/config";
@@ -73,22 +72,21 @@ pub const STACKABLE_TRUST_STORE_PASSWORD: &str = "changeit";
 pub const STACKABLE_LOG_DIR: &str = "/stackable/log";
 
 pub const PROP_SEGMENT_CACHE_LOCATIONS: &str = "druid.segmentCache.locations";
-pub const PATH_SEGMENT_CACHE: &str = "/stackable/var/druid/segment-cache";
 
 /////////////////////////////
 //    CONFIG PROPERTIES    //
 /////////////////////////////
 // deep storage
-pub const DS_TYPE: &str = "druid.storage.type";
-pub const DS_DIRECTORY: &str = "druid.storage.storageDirectory";
-pub const DS_BASE_KEY: &str = "druid.storage.baseKey";
+const DS_TYPE: &str = "druid.storage.type";
+const DS_DIRECTORY: &str = "druid.storage.storageDirectory";
+const DS_BASE_KEY: &str = "druid.storage.baseKey";
 // OPA
-pub const AUTH_AUTHORIZERS: &str = "druid.auth.authorizers";
-pub const AUTH_AUTHORIZERS_VALUE: &str = "[\"OpaAuthorizer\"]";
-pub const AUTH_AUTHORIZER_OPA_TYPE: &str = "druid.auth.authorizer.OpaAuthorizer.type";
-pub const AUTH_AUTHORIZER_OPA_TYPE_VALUE: &str = "opa";
+const AUTH_AUTHORIZERS: &str = "druid.auth.authorizers";
+const AUTH_AUTHORIZERS_VALUE: &str = "[\"OpaAuthorizer\"]";
+const AUTH_AUTHORIZER_OPA_TYPE: &str = "druid.auth.authorizer.OpaAuthorizer.type";
+const AUTH_AUTHORIZER_OPA_TYPE_VALUE: &str = "opa";
 // metrics
-pub const PROMETHEUS_PORT: &str = "druid.emitter.prometheus.port";
+const PROMETHEUS_PORT: &str = "druid.emitter.prometheus.port";
 pub const METRICS_PORT_NAME: &str = "metrics";
 pub const METRICS_PORT: u16 = 9090;
 
@@ -546,7 +544,7 @@ impl v1alpha1::DruidCluster {
     }
 
     /// Merges and validates the given role group, role, and default configurations
-    pub fn merged_rolegroup_config<T>(
+    pub(crate) fn merged_rolegroup_config<T>(
         rolegroup_config: &T::Fragment,
         role_config: &T::Fragment,
         default_config: &T::Fragment,
@@ -900,7 +898,7 @@ impl DruidRole {
     }
 
     /// Return the default graceful shutdown timeout
-    pub fn default_graceful_shutdown_timeout(&self) -> Duration {
+    fn default_graceful_shutdown_timeout(&self) -> Duration {
         match &self {
             DruidRole::Coordinator => DEFAULT_COORDINATOR_GRACEFUL_SHUTDOWN_TIMEOUT,
             DruidRole::Broker => DEFAULT_BROKER_GRACEFUL_SHUTDOWN_TIMEOUT,
@@ -1003,11 +1001,7 @@ pub enum DeepStorageSpec {
 }
 
 impl DeepStorageSpec {
-    pub fn is_hdfs(&self) -> bool {
-        matches!(self, DeepStorageSpec::Hdfs(_))
-    }
-
-    pub fn is_s3(&self) -> bool {
+    fn is_s3(&self) -> bool {
         matches!(self, DeepStorageSpec::S3(_))
     }
 }

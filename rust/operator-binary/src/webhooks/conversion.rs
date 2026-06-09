@@ -8,7 +8,9 @@ use stackable_operator::{
     },
 };
 
-use crate::crd::{DruidCluster, DruidClusterVersion, FIELD_MANAGER};
+use crate::crd::{DruidCluster, DruidClusterVersion};
+
+const FIELD_MANAGER: &str = "druid-operator";
 
 /// Contains errors which can be encountered when creating the conversion webhook server and the
 /// CRD maintainer.

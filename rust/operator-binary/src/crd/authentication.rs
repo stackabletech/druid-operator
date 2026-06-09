@@ -13,7 +13,7 @@ use crate::crd::v1alpha1::DruidClusterConfig;
 type Result<T, E = Error> = std::result::Result<T, E>;
 
 // The assumed OIDC provider if no hint is given in the AuthClass
-pub const DEFAULT_OIDC_PROVIDER: oidc::v1alpha1::IdentityProviderHint =
+const DEFAULT_OIDC_PROVIDER: oidc::v1alpha1::IdentityProviderHint =
     oidc::v1alpha1::IdentityProviderHint::Keycloak;
 
 const SUPPORTED_OIDC_PROVIDERS: &[oidc::v1alpha1::IdentityProviderHint] =
@@ -101,7 +101,7 @@ impl AuthenticationClassesResolved {
     }
 
     /// Retrieves all provided `AuthenticationClass` references and checks if the configuration (TLS settings, secret class, OIDC config, etc.) is valid.
-    pub async fn resolve<R>(
+    async fn resolve<R>(
         cluster_config: &DruidClusterConfig,
         resolve_auth_class: impl Fn(
             core::v1alpha1::ClientAuthenticationDetails<

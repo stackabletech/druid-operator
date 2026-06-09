@@ -144,7 +144,7 @@ pub async fn create_shared_internal_secret(
     Ok(())
 }
 
-pub fn build_shared_internal_secret(druid: &v1alpha1::DruidCluster) -> Result<Secret, Error> {
+fn build_shared_internal_secret(druid: &v1alpha1::DruidCluster) -> Result<Secret, Error> {
     let mut internal_secret = BTreeMap::new();
     internal_secret.insert(
         INTERNAL_INITIAL_CLIENT_PASSWORD_ENV.to_string(),
@@ -164,7 +164,7 @@ pub fn build_shared_internal_secret(druid: &v1alpha1::DruidCluster) -> Result<Se
     })
 }
 
-pub fn build_immutable_shared_internal_secret_name(druid: &v1alpha1::DruidCluster) -> String {
+fn build_immutable_shared_internal_secret_name(druid: &v1alpha1::DruidCluster) -> String {
     format!("{}-internal-secret", druid.name_any())
 }
 

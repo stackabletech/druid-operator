@@ -23,16 +23,12 @@ use stackable_operator::{
 };
 
 use crate::crd::{
-    DruidRole, STACKABLE_TRUST_STORE_PASSWORD,
-    authentication::{self, AuthenticationClassesResolved},
+    DruidRole, STACKABLE_TRUST_STORE_PASSWORD, authentication::AuthenticationClassesResolved,
     v1alpha1,
 };
 
 #[derive(Snafu, Debug)]
 pub enum Error {
-    #[snafu(display("failed to process authentication class"))]
-    InvalidAuthenticationClassConfiguration { source: authentication::Error },
-
     #[snafu(display("failed to build the Secret operator Volume"))]
     SecretVolumeBuild {
         source: SecretOperatorVolumeSourceBuilderError,
@@ -86,12 +82,12 @@ const SERVER_HTTPS_REQUIRE_CLIENT_CERTIFICATE: &str = "druid.server.https.requir
 /// All secret-op generated keystores have one entry with the alias "1".
 /// (side node: I think technically they don't have an alias and the JVm counts them, but not sure)
 const TLS_ALIAS_NAME: &str = "1";
-pub const AUTH_TRUST_STORE_PATH: &str = "druid.auth.basic.ssl.trustStorePath";
-pub const AUTH_TRUST_STORE_TYPE: &str = "druid.auth.basic.ssl.trustStoreType";
-pub const AUTH_TRUST_STORE_PASSWORD: &str = "druid.auth.basic.ssl.trustStorePassword";
+const AUTH_TRUST_STORE_PATH: &str = "druid.auth.basic.ssl.trustStorePath";
+const AUTH_TRUST_STORE_TYPE: &str = "druid.auth.basic.ssl.trustStoreType";
+const AUTH_TRUST_STORE_PASSWORD: &str = "druid.auth.basic.ssl.trustStorePassword";
 // Misc TLS
 pub const TLS_STORE_PASSWORD: &str = "changeit";
-pub const TLS_STORE_TYPE: &str = "pkcs12";
+const TLS_STORE_TYPE: &str = "pkcs12";
 
 // directories
 const STACKABLE_MOUNT_TLS_DIR: &str = "/stackable/mount_tls";
@@ -102,12 +98,10 @@ const TLS_VOLUME_NAME: &str = "tls";
 const TLS_MOUNT_VOLUME_NAME: &str = "tls-mount";
 
 pub const INTERNAL_INITIAL_CLIENT_PASSWORD_ENV: &str = "INTERNAL_INITIAL_CLIENT_PASSWORD";
-// It seems this needs to be the same password for Druid to work, so we re-use the existing env variable from above.
-pub const ESCALATOR_INTERNAL_CLIENT_PASSWORD_ENV: &str = INTERNAL_INITIAL_CLIENT_PASSWORD_ENV;
 
 impl DruidTlsSecurity {
     #[cfg(test)]
-    pub fn new(
+    pub(crate) fn new(
         auth_classes: &AuthenticationClassesResolved,
         server_and_internal_secret_class: Option<String>,
     ) -> Self {
@@ -148,7 +142,7 @@ impl DruidTlsSecurity {
     }
 
     /// Retrieve an optional TLS secret class for external client -> server and server <-> server communications.
-    pub fn tls_server_and_internal_secret_class(&self) -> Option<&str> {
+    fn tls_server_and_internal_secret_class(&self) -> Option<&str> {
         self.server_and_internal_secret_class.as_deref()
     }
 
@@ -176,21 +170,15 @@ impl DruidTlsSecurity {
             .collect()
     }
 
-    pub fn listener_ports(
-        &self,
-        role: &DruidRole,
-    ) -> Option<Vec<listener::v1alpha1::ListenerPort>> {
-        let listener_ports = self
-            .exposed_ports(role)
+    pub fn listener_ports(&self, role: &DruidRole) -> Vec<listener::v1alpha1::ListenerPort> {
+        self.exposed_ports(role)
             .into_iter()
             .map(|(name, val)| listener::v1alpha1::ListenerPort {
                 name,
                 port: val.into(),
                 protocol: Some("TCP".to_string()),
             })
-            .collect();
-
-        Some(listener_ports)
+            .collect()
     }
 
     fn exposed_ports(&self, role: &DruidRole) -> Vec<(String, u16)> {
