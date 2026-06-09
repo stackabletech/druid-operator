@@ -89,8 +89,8 @@ impl DruidAuthenticationConfig {
     pub fn generate_runtime_properties_config(
         &self,
         role: &DruidRole,
-    ) -> Result<BTreeMap<String, Option<String>>, Error> {
-        let mut config: BTreeMap<String, Option<String>> = BTreeMap::new();
+    ) -> Result<BTreeMap<String, String>, Error> {
+        let mut config: BTreeMap<String, String> = BTreeMap::new();
 
         match self {
             DruidAuthenticationConfig::Ldap { provider, .. } => {
@@ -107,16 +107,13 @@ impl DruidAuthenticationConfig {
     }
 
     /// Creates authentication config that is required by LDAP and OIDC and doesn't depend on user input.
-    fn generate_common_runtime_properties_config(
-        &self,
-        config: &mut BTreeMap<String, Option<String>>,
-    ) {
+    fn generate_common_runtime_properties_config(&self, config: &mut BTreeMap<String, String>) {
         self.add_druid_system_authenticator_config(config);
         self.add_escalator_config(config);
 
         config.insert(
             "druid.auth.authorizer.DruidSystemAuthorizer.type".to_string(),
-            Some(r#"allowAll"#.to_string()),
+            r#"allowAll"#.to_string(),
         );
     }
 
@@ -176,50 +173,47 @@ impl DruidAuthenticationConfig {
     /// When using LDAP or OIDC the DruidSystemAuthenticator is always tried first and skipped if no basic auth credentials were supplied.
     /// We don't want to create an admin user for the internal authentication, so this line is left out of the config:
     /// # druid.auth.authenticator.DruidSystemAuthenticator.initialAdminPassword: XXX
-    fn add_druid_system_authenticator_config(&self, config: &mut BTreeMap<String, Option<String>>) {
+    fn add_druid_system_authenticator_config(&self, config: &mut BTreeMap<String, String>) {
         config.insert(
             "druid.auth.authenticator.DruidSystemAuthenticator.type".to_string(),
-            Some("basic".to_string()),
+            "basic".to_string(),
         );
         config.insert(
             "druid.auth.authenticator.DruidSystemAuthenticator.credentialsValidator.type"
                 .to_string(),
-            Some("metadata".to_string()),
+            "metadata".to_string(),
         );
 
         config.insert(
             "druid.auth.authenticator.DruidSystemAuthenticator.initialInternalClientPassword"
                 .to_string(),
-            Some(format!("${{env:{INTERNAL_INITIAL_CLIENT_PASSWORD_ENV}}}").to_string()),
+            format!("${{env:{INTERNAL_INITIAL_CLIENT_PASSWORD_ENV}}}").to_string(),
         );
         config.insert(
             "druid.auth.authenticator.DruidSystemAuthenticator.authorizerName".to_string(),
-            Some("DruidSystemAuthorizer".to_string()),
+            "DruidSystemAuthorizer".to_string(),
         );
         config.insert(
             "druid.auth.authenticator.DruidSystemAuthenticator.skipOnFailure".to_string(),
-            Some("true".to_string()),
+            "true".to_string(),
         );
     }
 
     /// Creates the escalator config: <https://druid.apache.org/docs/latest/operations/auth/#escalator>.
     /// This configures Druid processes to use the basic auth authentication added in `add_druid_system_authenticator_config` for internal communication.
-    fn add_escalator_config(&self, config: &mut BTreeMap<String, Option<String>>) {
-        config.insert(
-            "druid.escalator.type".to_string(),
-            Some("basic".to_string()),
-        );
+    fn add_escalator_config(&self, config: &mut BTreeMap<String, String>) {
+        config.insert("druid.escalator.type".to_string(), "basic".to_string());
         config.insert(
             "druid.escalator.internalClientUsername".to_string(),
-            Some("druid_system".to_string()),
+            "druid_system".to_string(),
         );
         config.insert(
             "druid.escalator.internalClientPassword".to_string(),
-            Some(format!("${{env:{ESCALATOR_INTERNAL_CLIENT_PASSWORD_ENV}}}").to_string()),
+            format!("${{env:{ESCALATOR_INTERNAL_CLIENT_PASSWORD_ENV}}}").to_string(),
         );
         config.insert(
             "druid.escalator.authorizerName".to_string(),
-            Some("DruidSystemAuthorizer".to_string()),
+            "DruidSystemAuthorizer".to_string(),
         );
     }
 }

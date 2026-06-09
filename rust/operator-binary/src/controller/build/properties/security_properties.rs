@@ -13,15 +13,15 @@ const DEFAULT_NETWORKADDRESS_CACHE_NEGATIVE_TTL: &str = "0";
 /// `overrides` are the user's merged (role <- rolegroup) `security.properties`
 /// config overrides, as returned by `DruidConfigOverrides::get_key_value_overrides`.
 /// Override values win.
-pub fn build(overrides: &BTreeMap<String, Option<String>>) -> BTreeMap<String, Option<String>> {
-    let mut props: BTreeMap<String, Option<String>> = BTreeMap::new();
+pub fn build(overrides: &BTreeMap<String, String>) -> BTreeMap<String, String> {
+    let mut props: BTreeMap<String, String> = BTreeMap::new();
     props.insert(
         NETWORKADDRESS_CACHE_TTL.to_string(),
-        Some(DEFAULT_NETWORKADDRESS_CACHE_TTL.to_string()),
+        DEFAULT_NETWORKADDRESS_CACHE_TTL.to_string(),
     );
     props.insert(
         NETWORKADDRESS_CACHE_NEGATIVE_TTL.to_string(),
-        Some(DEFAULT_NETWORKADDRESS_CACHE_NEGATIVE_TTL.to_string()),
+        DEFAULT_NETWORKADDRESS_CACHE_NEGATIVE_TTL.to_string(),
     );
     props.extend(overrides.iter().map(|(k, v)| (k.clone(), v.clone())));
     props
@@ -38,21 +38,15 @@ mod tests {
     #[test]
     fn defaults_match_snapshot() {
         let props = build(&BTreeMap::new());
-        assert_eq!(props["networkaddress.cache.ttl"], Some("30".to_string()));
-        assert_eq!(
-            props["networkaddress.cache.negative.ttl"],
-            Some("0".to_string())
-        );
+        assert_eq!(props["networkaddress.cache.ttl"], "30".to_string());
+        assert_eq!(props["networkaddress.cache.negative.ttl"], "0".to_string());
         assert_eq!(props.len(), 2);
     }
 
     #[test]
     fn override_wins() {
-        let ov = BTreeMap::from([(
-            "networkaddress.cache.ttl".to_string(),
-            Some("60".to_string()),
-        )]);
+        let ov = BTreeMap::from([("networkaddress.cache.ttl".to_string(), "60".to_string())]);
         let props = build(&ov);
-        assert_eq!(props["networkaddress.cache.ttl"], Some("60".to_string()));
+        assert_eq!(props["networkaddress.cache.ttl"], "60".to_string());
     }
 }

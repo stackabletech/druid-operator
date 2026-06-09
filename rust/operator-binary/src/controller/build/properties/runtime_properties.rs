@@ -68,8 +68,8 @@ const ROUTER: &[(&str, &str)] = &[
     ("druid.router.http.numConnections", "25"),
 ];
 
-/// Static `recommendedValues` defaults for a role, as `key -> Some(value)`.
-pub fn defaults(role: &DruidRole) -> BTreeMap<String, Option<String>> {
+/// Static `recommendedValues` defaults for a role, as `key -> value`.
+pub fn defaults(role: &DruidRole) -> BTreeMap<String, String> {
     let role_specific: &[(&str, &str)] = match role {
         DruidRole::Broker => BROKER,
         DruidRole::Coordinator => COORDINATOR,
@@ -80,7 +80,7 @@ pub fn defaults(role: &DruidRole) -> BTreeMap<String, Option<String>> {
     ALL_ROLES
         .iter()
         .chain(role_specific.iter())
-        .map(|(k, v)| (k.to_string(), Some(v.to_string())))
+        .map(|(k, v)| (k.to_string(), v.to_string()))
         .collect()
 }
 
@@ -101,27 +101,21 @@ mod tests {
             DruidRole::Router,
         ] {
             let p = defaults(&role);
-            assert_eq!(p["druid.emitter"], Some("prometheus".to_string()));
-            assert_eq!(
-                p["druid.emitter.prometheus.namespace"],
-                Some("druid".to_string())
-            );
+            assert_eq!(p["druid.emitter"], "prometheus".to_string());
+            assert_eq!(p["druid.emitter.prometheus.namespace"], "druid".to_string());
             assert_eq!(
                 p["druid.emitter.prometheus.strategy"],
-                Some("exporter".to_string())
+                "exporter".to_string()
             );
             assert_eq!(
                 p["druid.monitoring.monitors"],
-                Some("[\"org.apache.druid.java.util.metrics.JvmMonitor\"]".to_string())
+                "[\"org.apache.druid.java.util.metrics.JvmMonitor\"]".to_string()
             );
             assert_eq!(
                 p["druid.indexer.logs.directory"],
-                Some("/stackable/var/druid/indexing-logs".to_string())
+                "/stackable/var/druid/indexing-logs".to_string()
             );
-            assert_eq!(
-                p["druid.startup.logging.logProperties"],
-                Some("true".to_string())
-            );
+            assert_eq!(p["druid.startup.logging.logProperties"], "true".to_string());
         }
     }
 
@@ -140,35 +134,26 @@ mod tests {
         let p = defaults(&DruidRole::Coordinator);
         assert_eq!(
             p["druid.coordinator.asOverlord.enabled"],
-            Some("true".to_string())
+            "true".to_string()
         );
         assert_eq!(
             p["druid.coordinator.asOverlord.overlordService"],
-            Some("druid/overlord".to_string())
+            "druid/overlord".to_string()
         );
-        assert_eq!(p["druid.coordinator.period"], Some("PT20S".to_string()));
-        assert_eq!(p["druid.coordinator.startDelay"], Some("PT20S".to_string()));
-        assert_eq!(
-            p["druid.indexer.queue.startDelay"],
-            Some("PT20S".to_string())
-        );
-        assert_eq!(p["druid.indexer.runner.type"], Some("remote".to_string()));
-        assert_eq!(
-            p["druid.indexer.storage.type"],
-            Some("metadata".to_string())
-        );
+        assert_eq!(p["druid.coordinator.period"], "PT20S".to_string());
+        assert_eq!(p["druid.coordinator.startDelay"], "PT20S".to_string());
+        assert_eq!(p["druid.indexer.queue.startDelay"], "PT20S".to_string());
+        assert_eq!(p["druid.indexer.runner.type"], "remote".to_string());
+        assert_eq!(p["druid.indexer.storage.type"], "metadata".to_string());
     }
 
     #[test]
     fn historical_defaults_match_snapshot() {
         let p = defaults(&DruidRole::Historical);
-        assert_eq!(
-            p["druid.historical.cache.useCache"],
-            Some("true".to_string())
-        );
+        assert_eq!(p["druid.historical.cache.useCache"], "true".to_string());
         assert_eq!(
             p["druid.historical.cache.populateCache"],
-            Some("true".to_string())
+            "true".to_string()
         );
     }
 
@@ -176,18 +161,16 @@ mod tests {
     fn middlemanager_javaopts_exact() {
         let p = defaults(&DruidRole::MiddleManager);
         assert_eq!(
-            p["druid.indexer.runner.javaOpts"].as_deref(),
-            Some(
-                "-server -Xms256m -Xmx256m -XX:MaxDirectMemorySize=300m -Duser.timezone=UTC -Dfile.encoding=UTF-8 -XX:+ExitOnOutOfMemoryError -Djava.util.logging.manager=org.apache.logging.log4j.jul.LogManager"
-            )
+            p["druid.indexer.runner.javaOpts"],
+            "-server -Xms256m -Xmx256m -XX:MaxDirectMemorySize=300m -Duser.timezone=UTC -Dfile.encoding=UTF-8 -XX:+ExitOnOutOfMemoryError -Djava.util.logging.manager=org.apache.logging.log4j.jul.LogManager"
         );
         assert_eq!(
             p["druid.indexer.task.baseTaskDir"],
-            Some("/stackable/var/druid/task".to_string())
+            "/stackable/var/druid/task".to_string()
         );
         assert_eq!(
             p["druid.indexer.task.hadoopWorkingPath"],
-            Some("/stackable/var/druid/hadoop-tmp".to_string())
+            "/stackable/var/druid/hadoop-tmp".to_string()
         );
     }
 
@@ -196,11 +179,8 @@ mod tests {
         let p = defaults(&DruidRole::Router);
         assert_eq!(
             p["druid.router.managementProxy.enabled"],
-            Some("true".to_string())
+            "true".to_string()
         );
-        assert_eq!(
-            p["druid.router.http.numConnections"],
-            Some("25".to_string())
-        );
+        assert_eq!(p["druid.router.http.numConnections"], "25".to_string());
     }
 }

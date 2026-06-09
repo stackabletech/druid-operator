@@ -1052,7 +1052,7 @@ mod test {
             stackable_operator::v2::config_file_writer::to_java_properties_string(
                 vec![(
                     &PROP_SEGMENT_CACHE_LOCATIONS.to_string(),
-                    &Some(expected_druid_segment_cache_property.to_string()),
+                    &expected_druid_segment_cache_property.to_string(),
                 )]
                 .into_iter(),
             )

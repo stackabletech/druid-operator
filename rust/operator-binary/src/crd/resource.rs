@@ -78,7 +78,7 @@ impl RoleResource {
     /// Currently it only adds historical-specific configs for direct memory buffers, thread counts and segment cache.
     pub fn update_druid_config_file(
         &self,
-        config: &mut BTreeMap<String, Option<String>>,
+        config: &mut BTreeMap<String, String>,
     ) -> Result<(), Error> {
         match self {
             Self::Historical(r) => {
@@ -87,10 +87,10 @@ impl RoleResource {
                 config
                     .entry(PROP_SEGMENT_CACHE_LOCATIONS.to_string())
                     .or_insert_with(|| {
-                        Some(format!(
+                        format!(
                             r#"[{{"path":"{}","maxSize":"{}","freeSpacePercent":"{}"}}]"#,
                             PATH_SEGMENT_CACHE, capacity.0, free_percentage
-                        ))
+                        )
                     });
 
                 let settings =
@@ -500,7 +500,7 @@ mod test {
         assert!(got.contains_key(PROP_SEGMENT_CACHE_LOCATIONS));
 
         let value = got.get(PROP_SEGMENT_CACHE_LOCATIONS).unwrap();
-        let expected = Some(r#"[{"path":"/stackable/var/druid/segment-cache","maxSize":"5g","freeSpacePercent":"3"}]"#.to_string());
+        let expected = r#"[{"path":"/stackable/var/druid/segment-cache","maxSize":"5g","freeSpacePercent":"3"}]"#.to_string();
         assert_eq!(value, &expected, "primary");
 
         // ---------- secondary role group
@@ -514,7 +514,7 @@ mod test {
         assert!(got.contains_key(PROP_SEGMENT_CACHE_LOCATIONS));
 
         let value = got.get(PROP_SEGMENT_CACHE_LOCATIONS).unwrap();
-        let expected = Some(r#"[{"path":"/stackable/var/druid/segment-cache","maxSize":"2g","freeSpacePercent":"7"}]"#.to_string());
+        let expected = r#"[{"path":"/stackable/var/druid/segment-cache","maxSize":"2g","freeSpacePercent":"7"}]"#.to_string();
         assert_eq!(value, &expected, "secondary");
 
         Ok(())

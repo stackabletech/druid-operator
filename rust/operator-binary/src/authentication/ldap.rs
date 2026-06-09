@@ -13,28 +13,26 @@ use crate::crd::security::{STACKABLE_TLS_DIR, TLS_STORE_PASSWORD, add_cert_to_tr
 
 fn add_authenticator_config(
     provider: &ldap::v1alpha1::AuthenticationProvider,
-    config: &mut BTreeMap<String, Option<String>>,
+    config: &mut BTreeMap<String, String>,
 ) -> Result<(), Error> {
     config.insert(
         "druid.auth.authenticator.Ldap.type".to_string(),
-        Some("basic".to_string()),
+        "basic".to_string(),
     );
     config.insert(
         "druid.auth.authenticator.Ldap.enableCacheNotifications".to_string(),
-        Some("true".to_string()),
+        "true".to_string(),
     );
     config.insert(
         "druid.auth.authenticator.Ldap.credentialsValidator.type".to_string(),
-        Some("ldap".to_string()),
+        "ldap".to_string(),
     );
     config.insert(
         "druid.auth.authenticator.Ldap.credentialsValidator.url".to_string(),
-        Some(
-            provider
-                .endpoint_url()
-                .context(ConstructLdapEndpointUrlSnafu)?
-                .into(),
-        ),
+        provider
+            .endpoint_url()
+            .context(ConstructLdapEndpointUrlSnafu)?
+            .into(),
     );
 
     if let Some((ldap_bind_user_path, ldap_bind_password_path)) =
@@ -42,52 +40,52 @@ fn add_authenticator_config(
     {
         config.insert(
             "druid.auth.authenticator.Ldap.credentialsValidator.bindUser".to_string(),
-            Some(format!("${{file:UTF-8:{ldap_bind_user_path}}}").to_string()),
+            format!("${{file:UTF-8:{ldap_bind_user_path}}}").to_string(),
         );
         config.insert(
             "druid.auth.authenticator.Ldap.credentialsValidator.bindPassword".to_string(),
-            Some(format!("${{file:UTF-8:{ldap_bind_password_path}}}").to_string()),
+            format!("${{file:UTF-8:{ldap_bind_password_path}}}").to_string(),
         );
     }
 
     config.insert(
         "druid.auth.authenticator.Ldap.credentialsValidator.baseDn".to_string(),
-        Some(provider.search_base.to_string()),
+        provider.search_base.to_string(),
     );
     config.insert(
         "druid.auth.authenticator.Ldap.credentialsValidator.userAttribute".to_string(),
-        Some(provider.ldap_field_names.uid.to_string()),
+        provider.ldap_field_names.uid.to_string(),
     );
     config.insert(
         "druid.auth.authenticator.Ldap.credentialsValidator.userSearch".to_string(),
-        Some(provider.search_filter.to_string()),
+        provider.search_filter.to_string(),
     );
     config.insert(
         "druid.auth.authenticator.Ldap.authorizerName".to_string(),
-        Some("LdapAuthorizer".to_string()),
+        "LdapAuthorizer".to_string(),
     );
     config.insert(
         "druid.auth.authenticatorChain".to_string(),
-        Some(r#"["DruidSystemAuthenticator", "Ldap"]"#.to_string()),
+        r#"["DruidSystemAuthenticator", "Ldap"]"#.to_string(),
     );
 
     Ok(())
 }
 
-fn add_authorizer_config(config: &mut BTreeMap<String, Option<String>>) {
+fn add_authorizer_config(config: &mut BTreeMap<String, String>) {
     config.insert(
         "druid.auth.authorizers".to_string(),
-        Some(r#"["LdapAuthorizer", "DruidSystemAuthorizer"]"#.to_string()),
+        r#"["LdapAuthorizer", "DruidSystemAuthorizer"]"#.to_string(),
     );
     config.insert(
         "druid.auth.authorizer.LdapAuthorizer.type".to_string(),
-        Some(r#"allowAll"#.to_string()),
+        r#"allowAll"#.to_string(),
     );
 }
 
 pub fn generate_runtime_properties_config(
     provider: &ldap::v1alpha1::AuthenticationProvider,
-    config: &mut BTreeMap<String, Option<String>>,
+    config: &mut BTreeMap<String, String>,
 ) -> Result<(), Error> {
     add_authenticator_config(provider, config)?;
     add_authorizer_config(config);

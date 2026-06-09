@@ -71,9 +71,9 @@ pub type RoleGroupName = String;
 pub struct DruidRoleGroupConfig {
     pub merged_config: CommonRoleGroupConfig,
     /// The runtime.properties "validated config" (compute_files + recommended defaults + merged overrides).
-    pub runtime_config: BTreeMap<String, Option<String>>,
+    pub runtime_config: BTreeMap<String, String>,
     /// The security.properties "validated config".
-    pub security_config: BTreeMap<String, Option<String>>,
+    pub security_config: BTreeMap<String, String>,
     /// Merged env overrides (role <- rolegroup). compute_env is empty for druid.
     pub env: BTreeMap<String, String>,
 }
@@ -177,17 +177,25 @@ impl HasUid for ValidatedCluster {
 }
 
 /// Returns the user-supplied key/value overrides for the given config file from a
-/// [`DruidConfigOverrides`], as a product-config style map.
+/// [`DruidConfigOverrides`].
+///
+/// The CRD override map allows a value-less key (`someKey:` / null in YAML), modelled as
+/// `Option<String>`. We flatten `None` to an empty string here, matching how the Java
+/// properties writer rendered a missing value (`key=`), so the rest of the pipeline can work
+/// with plain `String` values.
 fn key_value_overrides(
     overrides: &DruidConfigOverrides,
     file: ConfigFileName,
-) -> BTreeMap<String, Option<String>> {
-    match file {
+) -> BTreeMap<String, String> {
+    let raw = match file {
         ConfigFileName::RuntimeProperties => overrides.runtime_properties.overrides.clone(),
         ConfigFileName::SecurityProperties => overrides.security_properties.overrides.clone(),
         // log4j2.properties is rendered by the logging framework and accepts no key/value overrides.
         ConfigFileName::Log4j2Properties => BTreeMap::new(),
-    }
+    };
+    raw.into_iter()
+        .map(|(k, v)| (k, v.unwrap_or_default()))
+        .collect()
 }
 
 /// Builds the precomputed per-file config for a single rolegroup. Pure assembly: combines the
@@ -219,7 +227,7 @@ fn build_role_group_config(
     ));
 
     // ----- security.properties -----
-    let mut security_config: BTreeMap<String, Option<String>> = BTreeMap::new();
+    let mut security_config: BTreeMap<String, String> = BTreeMap::new();
     if *druid_role == DruidRole::MiddleManager {
         let (k, v) = middlemanager_indexer_java_opts();
         security_config.insert(k, v);
@@ -247,14 +255,14 @@ const INDEXER_JAVA_OPTS: &str = "druid.indexer.runner.javaOptsArray";
 
 /// The `druid.indexer.runner.javaOptsArray` entry that `MiddleManagerConfigFragment::compute_files`
 /// adds for *every* file (runtime.properties and security.properties).
-fn middlemanager_indexer_java_opts() -> (String, Option<String>) {
+fn middlemanager_indexer_java_opts() -> (String, String) {
     (
         INDEXER_JAVA_OPTS.to_string(),
-        Some(build_string_list(&[
+        build_string_list(&[
             format!("-Djavax.net.ssl.trustStore={STACKABLE_TRUST_STORE}"),
             format!("-Djavax.net.ssl.trustStorePassword={STACKABLE_TRUST_STORE_PASSWORD}"),
             "-Djavax.net.ssl.trustStoreType=pkcs12".to_owned(),
-        ])),
+        ]),
     )
 }
 

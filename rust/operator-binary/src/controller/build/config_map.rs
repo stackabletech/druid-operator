@@ -135,7 +135,7 @@ pub fn build_rolegroup_config_map(
 
     // ----- runtime.properties -----
     {
-        let mut conf: BTreeMap<String, Option<String>> = Default::default();
+        let mut conf: BTreeMap<String, String> = Default::default();
 
         // Add any properties derived from storage manifests, such as segment cache locations.
         // This has to be done here since there is no other suitable place for it.
@@ -150,44 +150,37 @@ pub fn build_rolegroup_config_map(
         // but might need to be revisited in the future
         conf.insert(
             ZOOKEEPER_CONNECTION_STRING.to_string(),
-            Some(zk_connstr.to_string()),
+            zk_connstr.to_string(),
         );
 
         conf.insert(
             EXTENSIONS_LOADLIST.to_string(),
-            Some(build_string_list(&get_extension_list(
+            build_string_list(&get_extension_list(
                 owner,
                 druid_tls_security,
                 druid_auth_config,
-            ))),
+            )),
         );
 
         if let Some(opa_str) = opa_connstr {
-            conf.insert(
-                AUTH_AUTHORIZER_OPA_URI.to_string(),
-                Some(opa_str.to_string()),
-            );
+            conf.insert(AUTH_AUTHORIZER_OPA_URI.to_string(), opa_str.to_string());
         };
 
         conf.insert(
             crate::crd::database::METADATA_STORAGE_TYPE.to_string(),
-            Some(
-                owner
-                    .spec
-                    .cluster_config
-                    .metadata_database
-                    .as_metadata_storage_type()
-                    .to_string(),
-            ),
+            owner
+                .spec
+                .cluster_config
+                .metadata_database
+                .as_metadata_storage_type()
+                .to_string(),
         );
 
         conf.insert(
             crate::crd::database::METADATA_STORAGE_CONNECTOR_CONNECT_URI.to_string(),
-            Some(
-                metadata_database_connection_details
-                    .connection_url
-                    .to_string(),
-            ),
+            metadata_database_connection_details
+                .connection_url
+                .to_string(),
         );
 
         if let Some(EnvVar {
@@ -197,7 +190,7 @@ pub fn build_rolegroup_config_map(
         {
             conf.insert(
                 crate::crd::database::METADATA_STORAGE_USER.to_string(),
-                Some(format!("${{env:{username_env_name}}}",)),
+                format!("${{env:{username_env_name}}}",),
             );
         }
 
@@ -208,7 +201,7 @@ pub fn build_rolegroup_config_map(
         {
             conf.insert(
                 crate::crd::database::METADATA_STORAGE_PASSWORD.to_string(),
-                Some(format!("${{env:{password_env_name}}}",)),
+                format!("${{env:{password_env_name}}}",),
             );
         }
 
@@ -226,28 +219,30 @@ pub fn build_rolegroup_config_map(
 
             conf.insert(
                 S3_ENDPOINT_URL.to_string(),
-                Some(s3.endpoint().context(ConfigureS3Snafu)?.to_string()),
+                s3.endpoint().context(ConfigureS3Snafu)?.to_string(),
             );
 
             if let Some((access_key_file, secret_key_file)) = s3.credentials_mount_paths() {
                 conf.insert(
                     S3_ACCESS_KEY.to_string(),
-                    Some(format!("${{file:UTF-8:{access_key_file}}}")),
+                    format!("${{file:UTF-8:{access_key_file}}}"),
                 );
                 conf.insert(
                     S3_SECRET_KEY.to_string(),
-                    Some(format!("${{file:UTF-8:{secret_key_file}}}")),
+                    format!("${{file:UTF-8:{secret_key_file}}}"),
                 );
             }
 
             conf.insert(
                 S3_PATH_STYLE_ACCESS.to_string(),
-                Some((s3.access_style == s3::v1alpha1::S3AccessStyle::Path).to_string()),
+                (s3.access_style == s3::v1alpha1::S3AccessStyle::Path).to_string(),
             );
         }
+        // When no deep-storage bucket is set (e.g. HDFS deep storage) this renders an empty
+        // `druid.storage.bucket=`, matching the previous `None` -> empty-value behavior.
         conf.insert(
             DS_BUCKET.to_string(),
-            deep_storage_bucket_name.map(str::to_string),
+            deep_storage_bucket_name.unwrap_or_default().to_string(),
         );
 
         // add tls encryption / auth properties

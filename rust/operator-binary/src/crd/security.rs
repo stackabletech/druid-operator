@@ -265,33 +265,27 @@ impl DruidTlsSecurity {
 
     fn add_tls_port_config_properties(
         &self,
-        config: &mut BTreeMap<String, Option<String>>,
+        config: &mut BTreeMap<String, String>,
         role: &DruidRole,
     ) {
         // no secure communication
         if !self.tls_enabled() {
-            config.insert(ENABLE_PLAINTEXT_PORT.to_string(), Some("true".to_string()));
-            config.insert(ENABLE_TLS_PORT.to_string(), Some("false".to_string()));
-            config.insert(
-                PLAINTEXT_PORT.to_string(),
-                Some(role.get_http_port().to_string()),
-            );
+            config.insert(ENABLE_PLAINTEXT_PORT.to_string(), "true".to_string());
+            config.insert(ENABLE_TLS_PORT.to_string(), "false".to_string());
+            config.insert(PLAINTEXT_PORT.to_string(), role.get_http_port().to_string());
         }
         // only allow secure communication
         else {
-            config.insert(ENABLE_PLAINTEXT_PORT.to_string(), Some("false".to_string()));
-            config.insert(ENABLE_TLS_PORT.to_string(), Some("true".to_string()));
-            config.insert(
-                TLS_PORT.to_string(),
-                Some(role.get_https_port().to_string()),
-            );
+            config.insert(ENABLE_PLAINTEXT_PORT.to_string(), "false".to_string());
+            config.insert(ENABLE_TLS_PORT.to_string(), "true".to_string());
+            config.insert(TLS_PORT.to_string(), role.get_https_port().to_string());
         }
     }
 
     /// Add required TLS ports, trust/key store properties
     pub fn add_tls_config_properties(
         &self,
-        config: &mut BTreeMap<String, Option<String>>,
+        config: &mut BTreeMap<String, String>,
         role: &DruidRole,
     ) {
         self.add_tls_port_config_properties(config, role);
@@ -306,7 +300,7 @@ impl DruidTlsSecurity {
     }
 
     fn add_tls_encryption_config_properties(
-        config: &mut BTreeMap<String, Option<String>>,
+        config: &mut BTreeMap<String, String>,
         store_directory: &str,
         store_alias: &str,
     ) {
@@ -314,66 +308,63 @@ impl DruidTlsSecurity {
         // can only be enabled/disabled together
         config.insert(
             CLIENT_HTTPS_TRUST_STORE_PATH.to_string(),
-            Some(format!("{}/truststore.p12", store_directory)),
+            format!("{}/truststore.p12", store_directory),
         );
         config.insert(
             CLIENT_HTTPS_TRUST_STORE_TYPE.to_string(),
-            Some(TLS_STORE_TYPE.to_string()),
+            TLS_STORE_TYPE.to_string(),
         );
         config.insert(
             CLIENT_HTTPS_TRUST_STORE_PASSWORD.to_string(),
-            Some(TLS_STORE_PASSWORD.to_string()),
+            TLS_STORE_PASSWORD.to_string(),
         );
 
         config.insert(
             SERVER_HTTPS_KEY_STORE_PATH.to_string(),
-            Some(format!("{}/keystore.p12", store_directory)),
+            format!("{}/keystore.p12", store_directory),
         );
         config.insert(
             SERVER_HTTPS_KEY_STORE_TYPE.to_string(),
-            Some(TLS_STORE_TYPE.to_string()),
+            TLS_STORE_TYPE.to_string(),
         );
         config.insert(
             SERVER_HTTPS_KEY_STORE_PASSWORD.to_string(),
-            Some(TLS_STORE_PASSWORD.to_string()),
+            TLS_STORE_PASSWORD.to_string(),
         );
-        config.insert(
-            SERVER_HTTPS_CERT_ALIAS.to_string(),
-            Some(store_alias.to_string()),
-        );
+        config.insert(SERVER_HTTPS_CERT_ALIAS.to_string(), store_alias.to_string());
 
         // We also need to configure the truststore for authentication related stuff,
         // such as verifying the LDAP server
         config.insert(
             AUTH_TRUST_STORE_PATH.to_string(),
-            Some(format!("{}/truststore.p12", store_directory)),
+            format!("{}/truststore.p12", store_directory),
         );
         config.insert(
             AUTH_TRUST_STORE_TYPE.to_string(),
-            Some(TLS_STORE_TYPE.to_string()),
+            TLS_STORE_TYPE.to_string(),
         );
         config.insert(
             AUTH_TRUST_STORE_PASSWORD.to_string(),
-            Some(TLS_STORE_PASSWORD.to_string()),
+            TLS_STORE_PASSWORD.to_string(),
         );
     }
 
     fn add_tls_auth_config_properties(
-        config: &mut BTreeMap<String, Option<String>>,
+        config: &mut BTreeMap<String, String>,
         store_directory: &str,
         store_alias: &str,
     ) {
         config.insert(
             CLIENT_HTTPS_KEY_STORE_PATH.to_string(),
-            Some(format!("{store_directory}/keystore.p12")),
+            format!("{store_directory}/keystore.p12"),
         );
         config.insert(
             CLIENT_HTTPS_KEY_STORE_TYPE.to_string(),
-            Some(TLS_STORE_TYPE.to_string()),
+            TLS_STORE_TYPE.to_string(),
         );
         config.insert(
             CLIENT_HTTPS_KEY_STORE_PASSWORD.to_string(),
-            Some(TLS_STORE_PASSWORD.to_string()),
+            TLS_STORE_PASSWORD.to_string(),
         );
         // This is required because PKCS12 does not use any key passwords but it will
         // be checked and would lead to an exception:
@@ -382,36 +373,33 @@ impl DruidTlsSecurity {
         // javax.crypto.BadPaddingException: Given final block not properly padded. Such issues can arise if a bad key is used during decryption.
         config.insert(
             CLIENT_HTTPS_KEY_MANAGER_PASSWORD.to_string(),
-            Some(TLS_STORE_PASSWORD.to_string()),
+            TLS_STORE_PASSWORD.to_string(),
         );
-        config.insert(
-            CLIENT_HTTPS_CERT_ALIAS.to_string(),
-            Some(store_alias.to_string()),
-        );
+        config.insert(CLIENT_HTTPS_CERT_ALIAS.to_string(), store_alias.to_string());
         // FIXME: https://github.com/stackabletech/druid-operator/issues/372
         // This is required because the server will send its pod ip which is not in the SANs of the certificates
         config.insert(
             CLIENT_HTTPS_VALIDATE_HOST_NAMES.to_string(),
-            Some("false".to_string()),
+            "false".to_string(),
         );
 
         // This will enforce the client to authenticate itself
         config.insert(
             SERVER_HTTPS_REQUIRE_CLIENT_CERTIFICATE.to_string(),
-            Some("true".to_string()),
+            "true".to_string(),
         );
 
         config.insert(
             SERVER_HTTPS_TRUST_STORE_PATH.to_string(),
-            Some(format!("{store_directory}/truststore.p12")),
+            format!("{store_directory}/truststore.p12"),
         );
         config.insert(
             SERVER_HTTPS_TRUST_STORE_TYPE.to_string(),
-            Some(TLS_STORE_TYPE.to_string()),
+            TLS_STORE_TYPE.to_string(),
         );
         config.insert(
             SERVER_HTTPS_TRUST_STORE_PASSWORD.to_string(),
-            Some(TLS_STORE_PASSWORD.to_string()),
+            TLS_STORE_PASSWORD.to_string(),
         );
         // This is required because PKCS12 does not use any key passwords but it will
         // be checked and would lead to an exception:
@@ -420,13 +408,13 @@ impl DruidTlsSecurity {
         // javax.crypto.BadPaddingException: Given final block not properly padded. Such issues can arise if a bad key is used during decryption.
         config.insert(
             SERVER_HTTPS_KEY_MANAGER_PASSWORD.to_string(),
-            Some(TLS_STORE_PASSWORD.to_string()),
+            TLS_STORE_PASSWORD.to_string(),
         );
         // FIXME: https://github.com/stackabletech/druid-operator/issues/372
         // This is required because the client will send its pod ip which is not in the SANs of the certificates
         config.insert(
             SERVER_HTTPS_VALIDATE_HOST_NAMES.to_string(),
-            Some("false".to_string()),
+            "false".to_string(),
         );
     }
 

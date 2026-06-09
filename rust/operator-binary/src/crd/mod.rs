@@ -319,32 +319,32 @@ impl HasStatusCondition for v1alpha1::DruidCluster {
 }
 
 impl v1alpha1::DruidCluster {
-    pub fn compute_runtime_properties(&self) -> BTreeMap<String, Option<String>> {
+    pub fn compute_runtime_properties(&self) -> BTreeMap<String, String> {
         let mut result = BTreeMap::new();
         // OPA
         if let Some(DruidAuthorization { opa: _ }) = &self.spec.cluster_config.authorization {
             result.insert(
                 AUTH_AUTHORIZERS.to_string(),
-                Some(AUTH_AUTHORIZERS_VALUE.to_string()),
+                AUTH_AUTHORIZERS_VALUE.to_string(),
             );
             result.insert(
                 AUTH_AUTHORIZER_OPA_TYPE.to_string(),
-                Some(AUTH_AUTHORIZER_OPA_TYPE_VALUE.to_string()),
+                AUTH_AUTHORIZER_OPA_TYPE_VALUE.to_string(),
             );
             // The opaUri still needs to be set, but that requires a discovery config map and is handled in the controller.rs
         }
         // deep storage
         result.insert(
             DS_TYPE.to_string(),
-            Some(self.spec.cluster_config.deep_storage.to_string()),
+            self.spec.cluster_config.deep_storage.to_string(),
         );
         match self.spec.cluster_config.deep_storage.clone() {
             DeepStorageSpec::Hdfs(hdfs) => {
-                result.insert(DS_DIRECTORY.to_string(), Some(hdfs.directory));
+                result.insert(DS_DIRECTORY.to_string(), hdfs.directory);
             }
             DeepStorageSpec::S3(s3_spec) => {
                 if let Some(key) = &s3_spec.base_key {
-                    result.insert(DS_BASE_KEY.to_string(), Some(key.to_string()));
+                    result.insert(DS_BASE_KEY.to_string(), key.to_string());
                 }
                 // bucket information (name, connection) needs to be resolved first,
                 // that is done directly in the controller
@@ -352,7 +352,7 @@ impl v1alpha1::DruidCluster {
         }
 
         // metrics
-        result.insert(PROMETHEUS_PORT.to_string(), Some(METRICS_PORT.to_string()));
+        result.insert(PROMETHEUS_PORT.to_string(), METRICS_PORT.to_string());
 
         result
     }

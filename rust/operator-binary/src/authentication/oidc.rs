@@ -22,7 +22,7 @@ pub type DruidClientAuthenticationOptions =
 fn add_authenticator_config(
     provider: &oidc::v1alpha1::AuthenticationProvider,
     oidc: &DruidClientAuthenticationOptions,
-    config: &mut BTreeMap<String, Option<String>>,
+    config: &mut BTreeMap<String, String>,
 ) -> Result<(), Error> {
     let well_known_url = &provider
         .well_known_config_url()
@@ -38,36 +38,33 @@ fn add_authenticator_config(
 
     config.insert(
         "druid.auth.authenticator.Oidc.type".to_string(),
-        Some(r#"pac4j"#.to_string()),
+        r#"pac4j"#.to_string(),
     );
     config.insert(
         "druid.auth.authenticator.Oidc.authorizerName".to_string(),
-        Some(r#"OidcAuthorizer"#.to_string()),
+        r#"OidcAuthorizer"#.to_string(),
     );
     config.insert(
         "druid.auth.pac4j.cookiePassphrase".to_string(),
-        Some(format!("${{env:{COOKIE_PASSPHRASE_ENV}}}").to_string()),
+        format!("${{env:{COOKIE_PASSPHRASE_ENV}}}").to_string(),
     );
     config.insert(
         "druid.auth.pac4j.oidc.clientID".to_string(),
-        Some(format!("${{env:{oidc_client_id_env}}}").to_string()),
+        format!("${{env:{oidc_client_id_env}}}").to_string(),
     );
     config.insert(
         "druid.auth.pac4j.oidc.clientSecret".to_string(),
-        Some(format!("${{env:{oidc_client_secret_env}}}").to_string()),
+        format!("${{env:{oidc_client_secret_env}}}").to_string(),
     );
     config.insert(
         "druid.auth.pac4j.oidc.discoveryURI".to_string(),
-        Some(well_known_url.to_string()),
+        well_known_url.to_string(),
     );
     config.insert(
         "druid.auth.pac4j.oidc.oidcClaim".to_string(),
-        Some(provider.principal_claim.to_string()),
+        provider.principal_claim.to_string(),
     );
-    config.insert(
-        "druid.auth.pac4j.oidc.scope".to_string(),
-        Some(scopes.join(" ")),
-    );
+    config.insert("druid.auth.pac4j.oidc.scope".to_string(), scopes.join(" "));
 
     let method_string = oidc
         .product_specific_fields
@@ -75,25 +72,25 @@ fn add_authenticator_config(
         .as_ref();
     config.insert(
         "druid.auth.pac4j.oidc.clientAuthenticationMethod".to_string(),
-        Some(method_string.to_string()),
+        method_string.to_string(),
     );
 
     config.insert(
         "druid.auth.authenticatorChain".to_string(),
-        Some(r#"["DruidSystemAuthenticator", "Oidc"]"#.to_string()),
+        r#"["DruidSystemAuthenticator", "Oidc"]"#.to_string(),
     );
 
     Ok(())
 }
 
-fn add_authorizer_config(config: &mut BTreeMap<String, Option<String>>) {
+fn add_authorizer_config(config: &mut BTreeMap<String, String>) {
     config.insert(
         "druid.auth.authorizers".to_string(),
-        Some(r#"["OidcAuthorizer", "DruidSystemAuthorizer"]"#.to_string()),
+        r#"["OidcAuthorizer", "DruidSystemAuthorizer"]"#.to_string(),
     );
     config.insert(
         "druid.auth.authorizer.OidcAuthorizer.type".to_string(),
-        Some(r#"allowAll"#.to_string()),
+        r#"allowAll"#.to_string(),
     );
 }
 
@@ -104,13 +101,13 @@ pub fn generate_runtime_properties_config(
     provider: &oidc::v1alpha1::AuthenticationProvider,
     oidc: &DruidClientAuthenticationOptions,
     role: &DruidRole,
-    config: &mut BTreeMap<String, Option<String>>,
+    config: &mut BTreeMap<String, String>,
 ) -> Result<(), Error> {
     match role {
         DruidRole::MiddleManager => {
             config.insert(
                 "druid.auth.authenticatorChain".to_string(),
-                Some(r#"["DruidSystemAuthenticator"]"#.to_string()),
+                r#"["DruidSystemAuthenticator"]"#.to_string(),
             );
         }
         _ => {
@@ -215,35 +212,35 @@ mod tests {
 
         assert_eq!(
             properties.get("druid.auth.authenticator.Oidc.type"),
-            Some(&Some("pac4j".to_owned()))
+            Some(&"pac4j".to_owned())
         );
         assert_eq!(
             properties.get("druid.auth.pac4j.oidc.oidcClaim"),
-            Some(&Some("preferred_username".to_owned()))
+            Some(&"preferred_username".to_owned())
         );
         assert_eq!(
             properties.get("druid.auth.pac4j.oidc.scope"),
-            Some(&Some("openid".to_owned()))
+            Some(&"openid".to_owned())
         );
         assert_eq!(
             properties.get("druid.auth.authenticator.Oidc.authorizerName"),
-            Some(&Some("OidcAuthorizer".to_owned()))
+            Some(&"OidcAuthorizer".to_owned())
         );
         assert_eq!(
             properties.get("druid.auth.authenticatorChain"),
-            Some(&Some("[\"DruidSystemAuthenticator\", \"Oidc\"]".to_owned()))
+            Some(&"[\"DruidSystemAuthenticator\", \"Oidc\"]".to_owned())
         );
         assert_eq!(
             properties.get("druid.auth.pac4j.oidc.discoveryURI"),
-            Some(&Some(
-                "https://keycloak.mycorp.org/realms/sdp/.well-known/openid-configuration"
+            Some(
+                &"https://keycloak.mycorp.org/realms/sdp/.well-known/openid-configuration"
                     .to_owned()
-            ))
+            )
         );
 
         assert_eq!(
             properties.get("druid.auth.pac4j.oidc.clientAuthenticationMethod"),
-            Some(&Some("client_secret_post".to_owned()))
+            Some(&"client_secret_post".to_owned())
         );
         assert!(properties.contains_key("druid.auth.pac4j.oidc.clientID"));
         assert!(properties.contains_key("druid.auth.pac4j.oidc.clientSecret"));

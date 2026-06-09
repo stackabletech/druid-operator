@@ -122,18 +122,18 @@ impl HistoricalDerivedSettings {
     }
 
     /// Adds derived runtime settings to the given config
-    pub fn add_settings(&self, config: &mut BTreeMap<String, Option<String>>) {
+    pub fn add_settings(&self, config: &mut BTreeMap<String, String>) {
         config.insert(
             PROCESSING_NUM_THREADS.to_owned(),
-            Some(self.num_threads().to_string()),
+            self.num_threads().to_string(),
         );
         config.insert(
             PROCESSING_NUM_MERGE_BUFFERS.to_owned(),
-            Some(self.num_merge_buffers().to_string()),
+            self.num_merge_buffers().to_string(),
         );
         config.insert(
             PROCESSING_BUFFER_SIZE_BYTES.to_owned(),
-            Some(format_for_druid(&self.buffer_size())),
+            format_for_druid(&self.buffer_size()),
         );
     }
 }
