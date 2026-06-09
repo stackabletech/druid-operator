@@ -1054,13 +1054,9 @@ mod test {
             role_group: tested_rolegroup_name.to_string(),
         };
 
-        let rg_configmap = build_rolegroup_config_map(
-            &cluster,
-            &DruidRole::Historical,
-            &rolegroup_ref,
-            &rg,
-        )
-        .expect("build rolegroup config map");
+        let rg_configmap =
+            build_rolegroup_config_map(&cluster, &DruidRole::Historical, &rolegroup_ref, &rg)
+                .expect("build rolegroup config map");
 
         let druid_segment_cache_property = rg_configmap
             .data

@@ -38,7 +38,6 @@ use crate::{
 };
 
 mod authentication;
-mod config;
 mod controller;
 mod crd;
 mod extensions;

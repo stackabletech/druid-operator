@@ -29,9 +29,11 @@ use strum::IntoEnumIterator;
 
 use crate::{
     authentication::DruidAuthenticationConfig,
-    config::jvm::construct_jvm_args,
     controller::{
-        build::properties::{ConfigFileName, runtime_properties, security_properties},
+        build::{
+            jvm::construct_jvm_args,
+            properties::{ConfigFileName, runtime_properties, security_properties},
+        },
         dereference::DereferencedObjects,
     },
     crd::{
@@ -63,7 +65,9 @@ pub enum Error {
     },
 
     #[snafu(display("failed to get JVM config"))]
-    GetJvmConfig { source: crate::config::jvm::Error },
+    GetJvmConfig {
+        source: crate::controller::build::jvm::Error,
+    },
 
     #[snafu(display("failed to derive Druid memory settings from resources"))]
     DeriveMemorySettings { source: crate::crd::resource::Error },
@@ -215,8 +219,9 @@ fn key_value_overrides(
     let raw = match file {
         ConfigFileName::RuntimeProperties => overrides.runtime_properties.overrides.clone(),
         ConfigFileName::SecurityProperties => overrides.security_properties.overrides.clone(),
-        // log4j2.properties is rendered by the logging framework and accepts no key/value overrides.
-        ConfigFileName::Log4j2Properties => BTreeMap::new(),
+        // log4j2.properties is rendered by the logging framework, and jvm.config is rendered from
+        // JVM argument overrides; neither is assembled from key/value overrides here.
+        ConfigFileName::Log4j2Properties | ConfigFileName::JvmConfig => BTreeMap::new(),
     };
     raw.into_iter()
         .map(|(k, v)| (k, v.unwrap_or_default()))

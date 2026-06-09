@@ -37,10 +37,6 @@ use crate::{
     crd::{DruidRole, build_recommended_labels, build_string_list, v1alpha1},
 };
 
-// jvm.config is built by `config::jvm`, not a properties builder, so it is not part
-// of `ConfigFileName`.
-const JVM_CONFIG: &str = "jvm.config";
-
 // Druid `runtime.properties` config-property keys assembled into the rolegroup ConfigMap here.
 const EXTENSIONS_LOADLIST: &str = "druid.extensions.loadList";
 const ZOOKEEPER_CONNECTION_STRING: &str = "druid.zk.service.host";
@@ -237,7 +233,7 @@ pub fn build_rolegroup_config_map(
 
     // ----- jvm.config -----
     // Precomputed during validation; see `DruidRoleGroupConfig::jvm_config`.
-    cm_conf_data.insert(JVM_CONFIG.to_string(), rg.jvm_config.clone());
+    cm_conf_data.insert(ConfigFileName::JvmConfig.to_string(), rg.jvm_config.clone());
 
     // ----- security.properties -----
     {
