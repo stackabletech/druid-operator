@@ -92,6 +92,18 @@ pub const METRICS_PORT: u16 = 9090;
 
 pub const COOKIE_PASSPHRASE_ENV: &str = "OIDC_COOKIE_PASSPHRASE";
 
+/// Formats a Druid [dynamic config](https://druid.apache.org/docs/latest/operations/dynamic-config-provider)
+/// reference to an environment variable, i.e. `${env:NAME}`.
+pub(crate) fn env_var_reference(name: impl std::fmt::Display) -> String {
+    format!("${{env:{name}}}")
+}
+
+/// Formats a Druid [dynamic config](https://druid.apache.org/docs/latest/operations/dynamic-config-provider)
+/// reference to the UTF-8 contents of a file, i.e. `${file:UTF-8:PATH}`.
+pub(crate) fn file_reference(path: impl std::fmt::Display) -> String {
+    format!("${{file:UTF-8:{path}}}")
+}
+
 // Graceful shutdown timeouts
 const DEFAULT_BROKER_GRACEFUL_SHUTDOWN_TIMEOUT: Duration = Duration::from_minutes_unchecked(5);
 const DEFAULT_COORDINATOR_GRACEFUL_SHUTDOWN_TIMEOUT: Duration = Duration::from_minutes_unchecked(5);
@@ -596,37 +608,21 @@ impl v1alpha1::DruidCluster {
         role: &DruidRole,
         role_group: &str,
     ) -> Option<&PodTemplateSpec> {
+        macro_rules! pod_overrides {
+            ($field:ident) => {
+                self.spec
+                    .$field
+                    .role_groups
+                    .get(role_group)
+                    .map(|rg| &rg.config.pod_overrides)
+            };
+        }
         match role {
-            DruidRole::Broker => self
-                .spec
-                .brokers
-                .role_groups
-                .get(role_group)
-                .map(|rg| &rg.config.pod_overrides),
-            DruidRole::Coordinator => self
-                .spec
-                .coordinators
-                .role_groups
-                .get(role_group)
-                .map(|rg| &rg.config.pod_overrides),
-            DruidRole::Historical => self
-                .spec
-                .historicals
-                .role_groups
-                .get(role_group)
-                .map(|rg| &rg.config.pod_overrides),
-            DruidRole::MiddleManager => self
-                .spec
-                .middle_managers
-                .role_groups
-                .get(role_group)
-                .map(|rg| &rg.config.pod_overrides),
-            DruidRole::Router => self
-                .spec
-                .routers
-                .role_groups
-                .get(role_group)
-                .map(|rg| &rg.config.pod_overrides),
+            DruidRole::Broker => pod_overrides!(brokers),
+            DruidRole::Coordinator => pod_overrides!(coordinators),
+            DruidRole::Historical => pod_overrides!(historicals),
+            DruidRole::MiddleManager => pod_overrides!(middle_managers),
+            DruidRole::Router => pod_overrides!(routers),
         }
     }
 }
@@ -691,99 +687,34 @@ impl MergedConfig {
         role: &DruidRole,
         rolegroup_name: &str,
     ) -> Result<CommonRoleGroupConfig, Error> {
+        // All roles build an identical `CommonRoleGroupConfig`; only the role-group map and the
+        // `RoleResource` variant (historicals carry typed storage) differ.
+        macro_rules! common_config {
+            ($field:ident, $resource:path) => {{
+                let rolegroup = self
+                    .$field
+                    .get(rolegroup_name)
+                    .context(CannotRetrieveRoleGroupSnafu { rolegroup_name })?;
+                Ok(CommonRoleGroupConfig {
+                    resources: $resource(rolegroup.config.config.resources.to_owned()),
+                    logging: rolegroup.config.config.logging.to_owned(),
+                    replicas: rolegroup.replicas,
+                    affinity: rolegroup.config.config.affinity.clone(),
+                    graceful_shutdown_timeout: rolegroup.config.config.graceful_shutdown_timeout,
+                    requested_secret_lifetime: rolegroup
+                        .config
+                        .config
+                        .requested_secret_lifetime
+                        .context(MissingSecretLifetimeSnafu)?,
+                })
+            }};
+        }
         match role {
-            DruidRole::Broker => {
-                let rolegroup = self
-                    .brokers
-                    .get(rolegroup_name)
-                    .context(CannotRetrieveRoleGroupSnafu { rolegroup_name })?;
-                Ok(CommonRoleGroupConfig {
-                    resources: RoleResource::Druid(rolegroup.config.config.resources.to_owned()),
-                    logging: rolegroup.config.config.logging.to_owned(),
-                    replicas: rolegroup.replicas,
-                    affinity: rolegroup.config.config.affinity.clone(),
-                    graceful_shutdown_timeout: rolegroup.config.config.graceful_shutdown_timeout,
-                    requested_secret_lifetime: rolegroup
-                        .config
-                        .config
-                        .requested_secret_lifetime
-                        .context(MissingSecretLifetimeSnafu)?,
-                })
-            }
-            DruidRole::Coordinator => {
-                let rolegroup = self
-                    .coordinators
-                    .get(rolegroup_name)
-                    .context(CannotRetrieveRoleGroupSnafu { rolegroup_name })?;
-                Ok(CommonRoleGroupConfig {
-                    resources: RoleResource::Druid(rolegroup.config.config.resources.to_owned()),
-                    logging: rolegroup.config.config.logging.to_owned(),
-                    replicas: rolegroup.replicas,
-                    affinity: rolegroup.config.config.affinity.clone(),
-                    graceful_shutdown_timeout: rolegroup.config.config.graceful_shutdown_timeout,
-                    requested_secret_lifetime: rolegroup
-                        .config
-                        .config
-                        .requested_secret_lifetime
-                        .context(MissingSecretLifetimeSnafu)?,
-                })
-            }
-            DruidRole::Historical => {
-                let rolegroup = self
-                    .historicals
-                    .get(rolegroup_name)
-                    .context(CannotRetrieveRoleGroupSnafu { rolegroup_name })?;
-                Ok(CommonRoleGroupConfig {
-                    resources: RoleResource::Historical(
-                        rolegroup.config.config.resources.to_owned(),
-                    ),
-                    logging: rolegroup.config.config.logging.to_owned(),
-                    replicas: rolegroup.replicas,
-                    affinity: rolegroup.config.config.affinity.clone(),
-                    graceful_shutdown_timeout: rolegroup.config.config.graceful_shutdown_timeout,
-                    requested_secret_lifetime: rolegroup
-                        .config
-                        .config
-                        .requested_secret_lifetime
-                        .context(MissingSecretLifetimeSnafu)?,
-                })
-            }
-            DruidRole::MiddleManager => {
-                let rolegroup = self
-                    .middle_managers
-                    .get(rolegroup_name)
-                    .context(CannotRetrieveRoleGroupSnafu { rolegroup_name })?;
-                Ok(CommonRoleGroupConfig {
-                    resources: RoleResource::Druid(rolegroup.config.config.resources.to_owned()),
-                    logging: rolegroup.config.config.logging.to_owned(),
-                    replicas: rolegroup.replicas,
-                    affinity: rolegroup.config.config.affinity.clone(),
-                    graceful_shutdown_timeout: rolegroup.config.config.graceful_shutdown_timeout,
-                    requested_secret_lifetime: rolegroup
-                        .config
-                        .config
-                        .requested_secret_lifetime
-                        .context(MissingSecretLifetimeSnafu)?,
-                })
-            }
-            DruidRole::Router => {
-                let rolegroup = self
-                    .routers
-                    .get(rolegroup_name)
-                    .context(CannotRetrieveRoleGroupSnafu { rolegroup_name })?;
-                Ok(CommonRoleGroupConfig {
-                    resources: RoleResource::Druid(rolegroup.config.config.resources.to_owned()),
-                    logging: rolegroup.config.config.logging.to_owned(),
-                    replicas: rolegroup.replicas,
-                    affinity: rolegroup.config.config.affinity.clone(),
-                    graceful_shutdown_timeout: rolegroup.config.config.graceful_shutdown_timeout,
-                    requested_secret_lifetime: rolegroup
-                        .config
-                        .config
-                        .requested_secret_lifetime
-                        .context(MissingSecretLifetimeSnafu)?,
-                })
-            }
+            DruidRole::Broker => common_config!(brokers, RoleResource::Druid),
+            DruidRole::Coordinator => common_config!(coordinators, RoleResource::Druid),
+            DruidRole::Historical => common_config!(historicals, RoleResource::Historical),
+            DruidRole::MiddleManager => common_config!(middle_managers, RoleResource::Druid),
+            DruidRole::Router => common_config!(routers, RoleResource::Druid),
         }
     }
 
@@ -1040,250 +971,102 @@ pub struct IngestionSpec {
     pub s3connection: Option<s3::v1alpha1::InlineConnectionOrReference>,
 }
 
-#[derive(Clone, Debug, Default, Fragment, JsonSchema, PartialEq)]
-#[fragment_attrs(
-    derive(
-        Clone,
-        Debug,
-        Default,
-        Deserialize,
-        Merge,
-        JsonSchema,
-        PartialEq,
-        Serialize
-    ),
-    serde(rename_all = "camelCase")
-)]
-pub struct BrokerConfig {
-    #[fragment_attrs(serde(default))]
-    resources: Resources<storage::DruidStorage, NoRuntimeLimits>,
-    #[fragment_attrs(serde(default))]
-    pub logging: Logging<Container>,
-    #[fragment_attrs(serde(default))]
-    pub affinity: StackableAffinity,
-    /// The time period Pods have to gracefully shut down, e.g. `30m`, `1h` or `2d`.
-    /// Read more about graceful shutdown in the
-    /// [graceful shutdown documentation](DOCS_BASE_URL_PLACEHOLDER/druid/usage-guide/operations/graceful-shutdown).
-    #[fragment_attrs(serde(default))]
-    pub graceful_shutdown_timeout: Option<Duration>,
+/// Generates a per-role config struct and its `default_config`. The four non-historical roles share
+/// an identical shape; only the storage type, default [`resource`] profile and default secret
+/// lifetime differ. The `Fragment` type (named `<name>Fragment` by the [`Fragment`] derive) is
+/// passed explicitly because `macro_rules!` cannot synthesize identifiers.
+macro_rules! role_group_config {
+    ($name:ident, $fragment:ident, $storage:ty, $resources:expr, $secret_lifetime:expr $(,)?) => {
+        #[derive(Clone, Debug, Default, Fragment, JsonSchema, PartialEq)]
+        #[fragment_attrs(
+            derive(
+                Clone,
+                Debug,
+                Default,
+                Deserialize,
+                Merge,
+                JsonSchema,
+                PartialEq,
+                Serialize
+            ),
+            serde(rename_all = "camelCase")
+        )]
+        pub struct $name {
+            #[fragment_attrs(serde(default))]
+            resources: Resources<$storage, NoRuntimeLimits>,
+            #[fragment_attrs(serde(default))]
+            pub logging: Logging<Container>,
+            #[fragment_attrs(serde(default))]
+            pub affinity: StackableAffinity,
+            /// The time period Pods have to gracefully shut down, e.g. `30m`, `1h` or `2d`.
+            /// Read more about graceful shutdown in the
+            /// [graceful shutdown documentation](DOCS_BASE_URL_PLACEHOLDER/druid/usage-guide/operations/graceful-shutdown).
+            #[fragment_attrs(serde(default))]
+            pub graceful_shutdown_timeout: Option<Duration>,
 
-    /// Request secret (currently only autoTls certificates) lifetime from the secret operator, e.g. `7d`, or `30d`.
-    /// This can be shortened by the `maxCertificateLifetime` setting on the SecretClass issuing the TLS certificate.
-    #[fragment_attrs(serde(default))]
-    pub requested_secret_lifetime: Option<Duration>,
-}
-
-impl BrokerConfig {
-    fn default_config(
-        cluster_name: &str,
-        role: &DruidRole,
-        deep_storage: &DeepStorageSpec,
-    ) -> BrokerConfigFragment {
-        BrokerConfigFragment {
-            resources: resource::BROKER_RESOURCES.to_owned(),
-            logging: product_logging::spec::default_logging(),
-            affinity: get_affinity(cluster_name, role, deep_storage),
-            graceful_shutdown_timeout: Some(role.default_graceful_shutdown_timeout()),
-            requested_secret_lifetime: Some(DEFAULT_BROKER_SECRET_LIFETIME),
+            /// Request secret (currently only autoTls certificates) lifetime from the secret operator, e.g. `7d`, or `30d`.
+            /// This can be shortened by the `maxCertificateLifetime` setting on the SecretClass issuing the TLS certificate.
+            #[fragment_attrs(serde(default))]
+            pub requested_secret_lifetime: Option<Duration>,
         }
-    }
-}
 
-#[derive(Clone, Debug, Default, Fragment, JsonSchema, PartialEq)]
-#[fragment_attrs(
-    derive(
-        Clone,
-        Debug,
-        Default,
-        Deserialize,
-        Merge,
-        JsonSchema,
-        PartialEq,
-        Serialize
-    ),
-    serde(rename_all = "camelCase")
-)]
-pub struct CoordinatorConfig {
-    #[fragment_attrs(serde(default))]
-    resources: Resources<storage::DruidStorage, NoRuntimeLimits>,
-    #[fragment_attrs(serde(default))]
-    pub logging: Logging<Container>,
-    #[fragment_attrs(serde(default))]
-    pub affinity: StackableAffinity,
-    /// The time period Pods have to gracefully shut down, e.g. `30m`, `1h` or `2d`.
-    /// Read more about graceful shutdown in the
-    /// [graceful shutdown documentation](DOCS_BASE_URL_PLACEHOLDER/druid/usage-guide/operations/graceful-shutdown).
-    #[fragment_attrs(serde(default))]
-    pub graceful_shutdown_timeout: Option<Duration>,
-
-    /// Request secret (currently only autoTls certificates) lifetime from the secret operator, e.g. `7d`, or `30d`.
-    /// This can be shortened by the `maxCertificateLifetime` setting on the SecretClass issuing the TLS certificate.
-    #[fragment_attrs(serde(default))]
-    pub requested_secret_lifetime: Option<Duration>,
-}
-
-impl CoordinatorConfig {
-    fn default_config(
-        cluster_name: &str,
-        role: &DruidRole,
-        deep_storage: &DeepStorageSpec,
-    ) -> CoordinatorConfigFragment {
-        CoordinatorConfigFragment {
-            resources: resource::COORDINATOR_RESOURCES.to_owned(),
-            logging: product_logging::spec::default_logging(),
-            affinity: get_affinity(cluster_name, role, deep_storage),
-            graceful_shutdown_timeout: Some(role.default_graceful_shutdown_timeout()),
-            requested_secret_lifetime: Some(DEFAULT_COORDINATOR_SECRET_LIFETIME),
+        impl $name {
+            fn default_config(
+                cluster_name: &str,
+                role: &DruidRole,
+                deep_storage: &DeepStorageSpec,
+            ) -> $fragment {
+                $fragment {
+                    resources: $resources.to_owned(),
+                    logging: product_logging::spec::default_logging(),
+                    affinity: get_affinity(cluster_name, role, deep_storage),
+                    graceful_shutdown_timeout: Some(role.default_graceful_shutdown_timeout()),
+                    requested_secret_lifetime: Some($secret_lifetime),
+                }
+            }
         }
-    }
+    };
 }
 
-#[derive(Clone, Debug, Default, Fragment, JsonSchema, PartialEq)]
-#[fragment_attrs(
-    derive(
-        Clone,
-        Debug,
-        Default,
-        Deserialize,
-        Merge,
-        JsonSchema,
-        PartialEq,
-        Serialize
-    ),
-    serde(rename_all = "camelCase")
-)]
-pub struct MiddleManagerConfig {
-    #[fragment_attrs(serde(default))]
-    resources: Resources<storage::DruidStorage, NoRuntimeLimits>,
-    #[fragment_attrs(serde(default))]
-    pub logging: Logging<Container>,
-    #[fragment_attrs(serde(default))]
-    pub affinity: StackableAffinity,
-    /// The time period Pods have to gracefully shut down, e.g. `30m`, `1h` or `2d`.
-    /// Read more about graceful shutdown in the
-    /// [graceful shutdown documentation](DOCS_BASE_URL_PLACEHOLDER/druid/usage-guide/operations/graceful-shutdown).
-    #[fragment_attrs(serde(default))]
-    pub graceful_shutdown_timeout: Option<Duration>,
+role_group_config!(
+    BrokerConfig,
+    BrokerConfigFragment,
+    storage::DruidStorage,
+    resource::BROKER_RESOURCES,
+    DEFAULT_BROKER_SECRET_LIFETIME,
+);
 
-    /// Request secret (currently only autoTls certificates) lifetime from the secret operator, e.g. `7d`, or `30d`.
-    /// This can be shortened by the `maxCertificateLifetime` setting on the SecretClass issuing the TLS certificate.
-    #[fragment_attrs(serde(default))]
-    pub requested_secret_lifetime: Option<Duration>,
-}
+role_group_config!(
+    CoordinatorConfig,
+    CoordinatorConfigFragment,
+    storage::DruidStorage,
+    resource::COORDINATOR_RESOURCES,
+    DEFAULT_COORDINATOR_SECRET_LIFETIME,
+);
 
-impl MiddleManagerConfig {
-    fn default_config(
-        cluster_name: &str,
-        role: &DruidRole,
-        deep_storage: &DeepStorageSpec,
-    ) -> MiddleManagerConfigFragment {
-        MiddleManagerConfigFragment {
-            resources: resource::MIDDLE_MANAGER_RESOURCES.to_owned(),
-            logging: product_logging::spec::default_logging(),
-            affinity: get_affinity(cluster_name, role, deep_storage),
-            graceful_shutdown_timeout: Some(role.default_graceful_shutdown_timeout()),
-            requested_secret_lifetime: Some(DEFAULT_MIDDLE_SECRET_LIFETIME),
-        }
-    }
-}
+role_group_config!(
+    MiddleManagerConfig,
+    MiddleManagerConfigFragment,
+    storage::DruidStorage,
+    resource::MIDDLE_MANAGER_RESOURCES,
+    DEFAULT_MIDDLE_SECRET_LIFETIME,
+);
 
-#[derive(Clone, Debug, Default, Fragment, JsonSchema, PartialEq)]
-#[fragment_attrs(
-    derive(
-        Clone,
-        Debug,
-        Default,
-        Deserialize,
-        Merge,
-        JsonSchema,
-        PartialEq,
-        Serialize
-    ),
-    serde(rename_all = "camelCase")
-)]
-pub struct RouterConfig {
-    #[fragment_attrs(serde(default))]
-    resources: Resources<storage::DruidStorage, NoRuntimeLimits>,
-    #[fragment_attrs(serde(default))]
-    pub logging: Logging<Container>,
-    #[fragment_attrs(serde(default))]
-    pub affinity: StackableAffinity,
-    /// The time period Pods have to gracefully shut down, e.g. `30m`, `1h` or `2d`.
-    /// Read more about graceful shutdown in the
-    /// [graceful shutdown documentation](DOCS_BASE_URL_PLACEHOLDER/druid/usage-guide/operations/graceful-shutdown).
-    #[fragment_attrs(serde(default))]
-    pub graceful_shutdown_timeout: Option<Duration>,
+role_group_config!(
+    RouterConfig,
+    RouterConfigFragment,
+    storage::DruidStorage,
+    resource::ROUTER_RESOURCES,
+    DEFAULT_ROUTER_SECRET_LIFETIME,
+);
 
-    /// Request secret (currently only autoTls certificates) lifetime from the secret operator, e.g. `7d`, or `30d`.
-    /// This can be shortened by the `maxCertificateLifetime` setting on the SecretClass issuing the TLS certificate.
-    #[fragment_attrs(serde(default))]
-    pub requested_secret_lifetime: Option<Duration>,
-}
-
-impl RouterConfig {
-    fn default_config(
-        cluster_name: &str,
-        role: &DruidRole,
-        deep_storage: &DeepStorageSpec,
-    ) -> RouterConfigFragment {
-        RouterConfigFragment {
-            resources: resource::ROUTER_RESOURCES.to_owned(),
-            logging: product_logging::spec::default_logging(),
-            affinity: get_affinity(cluster_name, role, deep_storage),
-            graceful_shutdown_timeout: Some(role.default_graceful_shutdown_timeout()),
-            requested_secret_lifetime: Some(DEFAULT_ROUTER_SECRET_LIFETIME),
-        }
-    }
-}
-
-#[derive(Clone, Debug, Default, Fragment, JsonSchema, PartialEq)]
-#[fragment_attrs(
-    derive(
-        Clone,
-        Debug,
-        Default,
-        Deserialize,
-        Merge,
-        JsonSchema,
-        PartialEq,
-        Serialize
-    ),
-    serde(rename_all = "camelCase")
-)]
-pub struct HistoricalConfig {
-    #[fragment_attrs(serde(default))]
-    resources: Resources<storage::HistoricalStorage, NoRuntimeLimits>,
-    #[fragment_attrs(serde(default))]
-    pub logging: Logging<Container>,
-    #[fragment_attrs(serde(default))]
-    pub affinity: StackableAffinity,
-    /// The time period Pods have to gracefully shut down, e.g. `30m`, `1h` or `2d`.
-    /// Read more about graceful shutdown in the
-    /// [graceful shutdown documentation](DOCS_BASE_URL_PLACEHOLDER/druid/usage-guide/operations/graceful-shutdown).
-    #[fragment_attrs(serde(default))]
-    pub graceful_shutdown_timeout: Option<Duration>,
-
-    /// Request secret (currently only autoTls certificates) lifetime from the secret operator, e.g. `7d`, or `30d`.
-    /// This can be shortened by the `maxCertificateLifetime` setting on the SecretClass issuing the TLS certificate.
-    #[fragment_attrs(serde(default))]
-    pub requested_secret_lifetime: Option<Duration>,
-}
-
-impl HistoricalConfig {
-    fn default_config(
-        cluster_name: &str,
-        role: &DruidRole,
-        deep_storage: &DeepStorageSpec,
-    ) -> HistoricalConfigFragment {
-        HistoricalConfigFragment {
-            resources: resource::HISTORICAL_RESOURCES.to_owned(),
-            logging: product_logging::spec::default_logging(),
-            affinity: get_affinity(cluster_name, role, deep_storage),
-            graceful_shutdown_timeout: Some(role.default_graceful_shutdown_timeout()),
-            requested_secret_lifetime: Some(DEFAULT_HISTORICAL_SECRET_LIFETIME),
-        }
-    }
-}
+role_group_config!(
+    HistoricalConfig,
+    HistoricalConfigFragment,
+    storage::HistoricalStorage,
+    resource::HISTORICAL_RESOURCES,
+    DEFAULT_HISTORICAL_SECRET_LIFETIME,
+);
 
 #[derive(Clone, Debug, Default, Deserialize, JsonSchema, Serialize)]
 #[serde(rename_all = "camelCase")]

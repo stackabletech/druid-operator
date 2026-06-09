@@ -34,7 +34,10 @@ use crate::{
         },
         validate::{DruidRoleGroupConfig, ValidatedCluster},
     },
-    crd::{DruidRole, build_recommended_labels, build_string_list, v1alpha1},
+    crd::{
+        DruidRole, build_recommended_labels, build_string_list, env_var_reference, file_reference,
+        v1alpha1,
+    },
 };
 
 // Druid `runtime.properties` config-property keys assembled into the rolegroup ConfigMap here.
@@ -154,7 +157,7 @@ pub fn build_rolegroup_config_map(
         {
             conf.insert(
                 crate::crd::database::METADATA_STORAGE_USER.to_string(),
-                format!("${{env:{username_env_name}}}",),
+                env_var_reference(username_env_name),
             );
         }
 
@@ -165,7 +168,7 @@ pub fn build_rolegroup_config_map(
         {
             conf.insert(
                 crate::crd::database::METADATA_STORAGE_PASSWORD.to_string(),
-                format!("${{env:{password_env_name}}}",),
+                env_var_reference(password_env_name),
             );
         }
 
@@ -187,14 +190,8 @@ pub fn build_rolegroup_config_map(
             );
 
             if let Some((access_key_file, secret_key_file)) = s3.credentials_mount_paths() {
-                conf.insert(
-                    S3_ACCESS_KEY.to_string(),
-                    format!("${{file:UTF-8:{access_key_file}}}"),
-                );
-                conf.insert(
-                    S3_SECRET_KEY.to_string(),
-                    format!("${{file:UTF-8:{secret_key_file}}}"),
-                );
+                conf.insert(S3_ACCESS_KEY.to_string(), file_reference(access_key_file));
+                conf.insert(S3_SECRET_KEY.to_string(), file_reference(secret_key_file));
             }
 
             conf.insert(

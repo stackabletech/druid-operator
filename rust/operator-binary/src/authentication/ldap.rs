@@ -9,7 +9,10 @@ use stackable_operator::{
 use super::{
     AddLdapVolumesSnafu, ConstructLdapEndpointUrlSnafu, Error, MissingLdapBindCredentialsSnafu,
 };
-use crate::crd::security::{STACKABLE_TLS_DIR, TLS_STORE_PASSWORD, add_cert_to_trust_store_cmd};
+use crate::crd::{
+    file_reference,
+    security::{STACKABLE_TLS_DIR, TLS_STORE_PASSWORD, add_cert_to_trust_store_cmd},
+};
 
 fn add_authenticator_config(
     provider: &ldap::v1alpha1::AuthenticationProvider,
@@ -40,11 +43,11 @@ fn add_authenticator_config(
     {
         config.insert(
             "druid.auth.authenticator.Ldap.credentialsValidator.bindUser".to_string(),
-            format!("${{file:UTF-8:{ldap_bind_user_path}}}").to_string(),
+            file_reference(ldap_bind_user_path),
         );
         config.insert(
             "druid.auth.authenticator.Ldap.credentialsValidator.bindPassword".to_string(),
-            format!("${{file:UTF-8:{ldap_bind_password_path}}}").to_string(),
+            file_reference(ldap_bind_password_path),
         );
     }
 
@@ -64,23 +67,9 @@ fn add_authenticator_config(
         "druid.auth.authenticator.Ldap.authorizerName".to_string(),
         "LdapAuthorizer".to_string(),
     );
-    config.insert(
-        "druid.auth.authenticatorChain".to_string(),
-        r#"["DruidSystemAuthenticator", "Ldap"]"#.to_string(),
-    );
+    super::set_authenticator_chain(config, &["Ldap"]);
 
     Ok(())
-}
-
-fn add_authorizer_config(config: &mut BTreeMap<String, String>) {
-    config.insert(
-        "druid.auth.authorizers".to_string(),
-        r#"["LdapAuthorizer", "DruidSystemAuthorizer"]"#.to_string(),
-    );
-    config.insert(
-        "druid.auth.authorizer.LdapAuthorizer.type".to_string(),
-        r#"allowAll"#.to_string(),
-    );
 }
 
 pub(super) fn generate_runtime_properties_config(
@@ -88,7 +77,7 @@ pub(super) fn generate_runtime_properties_config(
     config: &mut BTreeMap<String, String>,
 ) -> Result<(), Error> {
     add_authenticator_config(provider, config)?;
-    add_authorizer_config(config);
+    super::add_authorizer_config(config, "LdapAuthorizer");
 
     Ok(())
 }

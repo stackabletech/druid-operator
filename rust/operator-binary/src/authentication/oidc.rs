@@ -9,7 +9,10 @@ use stackable_operator::{
 
 use super::{AddOidcVolumesSnafu, ConstructOidcWellKnownUrlSnafu, Error};
 use crate::{
-    crd::{COOKIE_PASSPHRASE_ENV, DruidRole, security::add_cert_to_jvm_trust_store_cmd},
+    crd::{
+        COOKIE_PASSPHRASE_ENV, DruidRole, env_var_reference,
+        security::add_cert_to_jvm_trust_store_cmd,
+    },
     internal_secret::env_var_from_secret,
 };
 
@@ -46,15 +49,15 @@ fn add_authenticator_config(
     );
     config.insert(
         "druid.auth.pac4j.cookiePassphrase".to_string(),
-        format!("${{env:{COOKIE_PASSPHRASE_ENV}}}").to_string(),
+        env_var_reference(COOKIE_PASSPHRASE_ENV),
     );
     config.insert(
         "druid.auth.pac4j.oidc.clientID".to_string(),
-        format!("${{env:{oidc_client_id_env}}}").to_string(),
+        env_var_reference(oidc_client_id_env),
     );
     config.insert(
         "druid.auth.pac4j.oidc.clientSecret".to_string(),
-        format!("${{env:{oidc_client_secret_env}}}").to_string(),
+        env_var_reference(oidc_client_secret_env),
     );
     config.insert(
         "druid.auth.pac4j.oidc.discoveryURI".to_string(),
@@ -75,23 +78,9 @@ fn add_authenticator_config(
         method_string.to_string(),
     );
 
-    config.insert(
-        "druid.auth.authenticatorChain".to_string(),
-        r#"["DruidSystemAuthenticator", "Oidc"]"#.to_string(),
-    );
+    super::set_authenticator_chain(config, &["Oidc"]);
 
     Ok(())
-}
-
-fn add_authorizer_config(config: &mut BTreeMap<String, String>) {
-    config.insert(
-        "druid.auth.authorizers".to_string(),
-        r#"["OidcAuthorizer", "DruidSystemAuthorizer"]"#.to_string(),
-    );
-    config.insert(
-        "druid.auth.authorizer.OidcAuthorizer.type".to_string(),
-        r#"allowAll"#.to_string(),
-    );
 }
 
 /// Creates the OIDC parts of the runtime.properties config file.
@@ -105,14 +94,11 @@ pub(super) fn generate_runtime_properties_config(
 ) -> Result<(), Error> {
     match role {
         DruidRole::MiddleManager => {
-            config.insert(
-                "druid.auth.authenticatorChain".to_string(),
-                r#"["DruidSystemAuthenticator"]"#.to_string(),
-            );
+            super::set_authenticator_chain(config, &[]);
         }
         _ => {
             add_authenticator_config(provider, oidc, config)?;
-            add_authorizer_config(config)
+            super::add_authorizer_config(config, "OidcAuthorizer");
         }
     }
     Ok(())

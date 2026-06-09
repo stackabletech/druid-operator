@@ -11,6 +11,7 @@ use crate::{
     crd::{
         DruidRole,
         authentication::{AuthenticationClassResolved, AuthenticationClassesResolved},
+        env_var_reference,
         security::INTERNAL_INITIAL_CLIENT_PASSWORD_ENV,
         v1alpha1,
     },
@@ -22,6 +23,35 @@ pub mod oidc;
 
 // It seems this needs to be the same password for Druid to work, so we re-use the existing env variable.
 const ESCALATOR_INTERNAL_CLIENT_PASSWORD_ENV: &str = INTERNAL_INITIAL_CLIENT_PASSWORD_ENV;
+
+/// Configures the given provider authorizer (e.g. `"LdapAuthorizer"`) alongside the Druid system
+/// authorizer, both with the `allowAll` authorizer type. Shared by the LDAP and OIDC providers.
+fn add_authorizer_config(config: &mut BTreeMap<String, String>, authorizer_name: &str) {
+    config.insert(
+        "druid.auth.authorizers".to_string(),
+        format!(r#"["{authorizer_name}", "DruidSystemAuthorizer"]"#),
+    );
+    config.insert(
+        format!("druid.auth.authorizer.{authorizer_name}.type"),
+        "allowAll".to_string(),
+    );
+}
+
+/// Sets `druid.auth.authenticatorChain` to the Druid system authenticator followed by the given
+/// provider authenticators (e.g. `["Ldap"]`). Shared by the LDAP and OIDC providers.
+fn set_authenticator_chain(
+    config: &mut BTreeMap<String, String>,
+    provider_authenticators: &[&str],
+) {
+    let authenticators: Vec<String> = std::iter::once("DruidSystemAuthenticator")
+        .chain(provider_authenticators.iter().copied())
+        .map(|name| format!("\"{name}\""))
+        .collect();
+    config.insert(
+        "druid.auth.authenticatorChain".to_string(),
+        format!("[{}]", authenticators.join(", ")),
+    );
+}
 
 type Result<T, E = Error> = std::result::Result<T, E>;
 
@@ -190,7 +220,7 @@ impl DruidAuthenticationConfig {
         config.insert(
             "druid.auth.authenticator.DruidSystemAuthenticator.initialInternalClientPassword"
                 .to_string(),
-            format!("${{env:{INTERNAL_INITIAL_CLIENT_PASSWORD_ENV}}}").to_string(),
+            env_var_reference(INTERNAL_INITIAL_CLIENT_PASSWORD_ENV),
         );
         config.insert(
             "druid.auth.authenticator.DruidSystemAuthenticator.authorizerName".to_string(),
@@ -212,7 +242,7 @@ impl DruidAuthenticationConfig {
         );
         config.insert(
             "druid.escalator.internalClientPassword".to_string(),
-            format!("${{env:{ESCALATOR_INTERNAL_CLIENT_PASSWORD_ENV}}}").to_string(),
+            env_var_reference(ESCALATOR_INTERNAL_CLIENT_PASSWORD_ENV),
         );
         config.insert(
             "druid.escalator.authorizerName".to_string(),

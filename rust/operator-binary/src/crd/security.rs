@@ -287,6 +287,28 @@ impl DruidTlsSecurity {
         }
     }
 
+    /// Inserts the path/type/password triple describing a single PKCS12 keystore or truststore
+    /// (`<store_directory>/<store_file>`), keeping the store type and password consistent across
+    /// all of Druid's HTTPS store settings.
+    fn add_pkcs12_store_properties(
+        config: &mut BTreeMap<String, String>,
+        store_directory: &str,
+        store_file: &str,
+        path_property: &str,
+        type_property: &str,
+        password_property: &str,
+    ) {
+        config.insert(
+            path_property.to_string(),
+            format!("{store_directory}/{store_file}"),
+        );
+        config.insert(type_property.to_string(), TLS_STORE_TYPE.to_string());
+        config.insert(
+            password_property.to_string(),
+            TLS_STORE_PASSWORD.to_string(),
+        );
+    }
+
     fn add_tls_encryption_config_properties(
         config: &mut BTreeMap<String, String>,
         store_directory: &str,
@@ -294,46 +316,34 @@ impl DruidTlsSecurity {
     ) {
         // We need a truststore in addition to a keystore here, because server and internal tls
         // can only be enabled/disabled together
-        config.insert(
-            CLIENT_HTTPS_TRUST_STORE_PATH.to_string(),
-            format!("{}/truststore.p12", store_directory),
-        );
-        config.insert(
-            CLIENT_HTTPS_TRUST_STORE_TYPE.to_string(),
-            TLS_STORE_TYPE.to_string(),
-        );
-        config.insert(
-            CLIENT_HTTPS_TRUST_STORE_PASSWORD.to_string(),
-            TLS_STORE_PASSWORD.to_string(),
+        Self::add_pkcs12_store_properties(
+            config,
+            store_directory,
+            "truststore.p12",
+            CLIENT_HTTPS_TRUST_STORE_PATH,
+            CLIENT_HTTPS_TRUST_STORE_TYPE,
+            CLIENT_HTTPS_TRUST_STORE_PASSWORD,
         );
 
-        config.insert(
-            SERVER_HTTPS_KEY_STORE_PATH.to_string(),
-            format!("{}/keystore.p12", store_directory),
-        );
-        config.insert(
-            SERVER_HTTPS_KEY_STORE_TYPE.to_string(),
-            TLS_STORE_TYPE.to_string(),
-        );
-        config.insert(
-            SERVER_HTTPS_KEY_STORE_PASSWORD.to_string(),
-            TLS_STORE_PASSWORD.to_string(),
+        Self::add_pkcs12_store_properties(
+            config,
+            store_directory,
+            "keystore.p12",
+            SERVER_HTTPS_KEY_STORE_PATH,
+            SERVER_HTTPS_KEY_STORE_TYPE,
+            SERVER_HTTPS_KEY_STORE_PASSWORD,
         );
         config.insert(SERVER_HTTPS_CERT_ALIAS.to_string(), store_alias.to_string());
 
         // We also need to configure the truststore for authentication related stuff,
         // such as verifying the LDAP server
-        config.insert(
-            AUTH_TRUST_STORE_PATH.to_string(),
-            format!("{}/truststore.p12", store_directory),
-        );
-        config.insert(
-            AUTH_TRUST_STORE_TYPE.to_string(),
-            TLS_STORE_TYPE.to_string(),
-        );
-        config.insert(
-            AUTH_TRUST_STORE_PASSWORD.to_string(),
-            TLS_STORE_PASSWORD.to_string(),
+        Self::add_pkcs12_store_properties(
+            config,
+            store_directory,
+            "truststore.p12",
+            AUTH_TRUST_STORE_PATH,
+            AUTH_TRUST_STORE_TYPE,
+            AUTH_TRUST_STORE_PASSWORD,
         );
     }
 
@@ -342,17 +352,13 @@ impl DruidTlsSecurity {
         store_directory: &str,
         store_alias: &str,
     ) {
-        config.insert(
-            CLIENT_HTTPS_KEY_STORE_PATH.to_string(),
-            format!("{store_directory}/keystore.p12"),
-        );
-        config.insert(
-            CLIENT_HTTPS_KEY_STORE_TYPE.to_string(),
-            TLS_STORE_TYPE.to_string(),
-        );
-        config.insert(
-            CLIENT_HTTPS_KEY_STORE_PASSWORD.to_string(),
-            TLS_STORE_PASSWORD.to_string(),
+        Self::add_pkcs12_store_properties(
+            config,
+            store_directory,
+            "keystore.p12",
+            CLIENT_HTTPS_KEY_STORE_PATH,
+            CLIENT_HTTPS_KEY_STORE_TYPE,
+            CLIENT_HTTPS_KEY_STORE_PASSWORD,
         );
         // This is required because PKCS12 does not use any key passwords but it will
         // be checked and would lead to an exception:
@@ -377,17 +383,13 @@ impl DruidTlsSecurity {
             "true".to_string(),
         );
 
-        config.insert(
-            SERVER_HTTPS_TRUST_STORE_PATH.to_string(),
-            format!("{store_directory}/truststore.p12"),
-        );
-        config.insert(
-            SERVER_HTTPS_TRUST_STORE_TYPE.to_string(),
-            TLS_STORE_TYPE.to_string(),
-        );
-        config.insert(
-            SERVER_HTTPS_TRUST_STORE_PASSWORD.to_string(),
-            TLS_STORE_PASSWORD.to_string(),
+        Self::add_pkcs12_store_properties(
+            config,
+            store_directory,
+            "truststore.p12",
+            SERVER_HTTPS_TRUST_STORE_PATH,
+            SERVER_HTTPS_TRUST_STORE_TYPE,
+            SERVER_HTTPS_TRUST_STORE_PASSWORD,
         );
         // This is required because PKCS12 does not use any key passwords but it will
         // be checked and would lead to an exception:
