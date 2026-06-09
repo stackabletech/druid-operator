@@ -6,6 +6,7 @@
 use std::{
     borrow::Cow,
     collections::{BTreeMap, HashMap},
+    str::FromStr,
 };
 
 use snafu::{ResultExt, Snafu};
@@ -18,6 +19,7 @@ use stackable_operator::{
     kube::{Resource, api::ObjectMeta},
     v2::{
         HasName, HasUid,
+        builder::pod::container::{self, EnvVarName, EnvVarSet},
         controller_utils::{get_cluster_name, get_namespace, get_uid},
         types::{
             kubernetes::{NamespaceName, Uid},
@@ -76,6 +78,9 @@ pub enum Error {
     InvalidMetadataDatabaseConnection {
         source: stackable_operator::database_connections::Error,
     },
+
+    #[snafu(display("invalid environment variable override name"))]
+    ParseEnvVarName { source: container::Error },
 }
 
 type Result<T, E = Error> = std::result::Result<T, E>;
@@ -92,8 +97,9 @@ pub struct DruidRoleGroupConfig {
     pub runtime_config: BTreeMap<String, String>,
     /// The security.properties "validated config".
     pub security_config: BTreeMap<String, String>,
-    /// Merged env overrides (role <- rolegroup). Druid has no computed env vars.
-    pub env: BTreeMap<String, String>,
+    /// Merged env overrides (role <- rolegroup). Druid has no computed env vars. Names are
+    /// validated here so the build step can render them directly into the container.
+    pub env: EnvVarSet,
     /// The fully rendered `jvm.config` (operator defaults merged with the role/rolegroup JVM
     /// argument overrides). Precomputed here so the config-map builder no longer needs the raw
     /// cluster's `get_role`.
@@ -228,6 +234,25 @@ fn key_value_overrides(
         .collect()
 }
 
+/// Merges the role-level and rolegroup-level env overrides into a validated [`EnvVarSet`].
+///
+/// The role is processed first, then the rolegroup, so that rolegroup overrides win on key
+/// collisions ([`EnvVarSet::with_value`] overrides earlier entries with the same name). The
+/// override names are validated here so the build step can render them directly.
+fn merged_env_overrides(
+    role_env_overrides: &HashMap<String, String>,
+    rg_env_overrides: &HashMap<String, String>,
+) -> Result<EnvVarSet> {
+    let mut env = EnvVarSet::new();
+    for (name, value) in role_env_overrides.iter().chain(rg_env_overrides.iter()) {
+        env = env.with_value(
+            &EnvVarName::from_str(name).context(ParseEnvVarNameSnafu)?,
+            value.clone(),
+        );
+    }
+    Ok(env)
+}
+
 /// Builds the precomputed per-file config for a single rolegroup. Pure assembly: combines the
 /// role-level overrides with the rolegroup-level overrides (rolegroup wins) on top of the
 /// computed defaults. No behavior change vs. the inline loop body it was extracted from.
@@ -269,11 +294,7 @@ fn build_role_group_config(
     security_config.extend(security_properties::build(&security_overrides));
 
     // ----- env -----
-    let mut env: BTreeMap<String, String> = role_env_overrides
-        .iter()
-        .map(|(k, v)| (k.clone(), v.clone()))
-        .collect();
-    env.extend(rg_env_overrides.iter().map(|(k, v)| (k.clone(), v.clone())));
+    let env = merged_env_overrides(role_env_overrides, rg_env_overrides)?;
 
     // ----- jvm.config -----
     let (heap, direct) = merged_config

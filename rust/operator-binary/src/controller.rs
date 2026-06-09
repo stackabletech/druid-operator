@@ -624,16 +624,8 @@ fn build_rolegroup_statefulset(
 
     metadata_database_connection_details.add_to_container(&mut cb_druid);
 
-    // rest of env
-    let mut rest_env = rg
-        .env
-        .iter()
-        .map(|(k, v)| EnvVar {
-            name: k.clone(),
-            value: Some(v.clone()),
-            ..EnvVar::default()
-        })
-        .collect::<Vec<_>>();
+    // rest of env: the validated env overrides, rendered in sorted-by-name order.
+    let mut rest_env: Vec<EnvVar> = rg.env.clone().into();
 
     if let Some(auth_config) = druid_auth_config {
         rest_env.extend(auth_config.get_env_var_mounts(druid, role))
@@ -939,9 +931,12 @@ mod test {
     use rstest::*;
     use stackable_operator::{
         database_connections::drivers::jdbc::JdbcDatabaseConnection,
-        v2::types::{
-            kubernetes::{NamespaceName, Uid},
-            operator::ClusterName,
+        v2::{
+            builder::pod::container::EnvVarSet,
+            types::{
+                kubernetes::{NamespaceName, Uid},
+                operator::ClusterName,
+            },
         },
     };
 
@@ -1010,7 +1005,7 @@ mod test {
             merged_config,
             runtime_config: runtime_properties::defaults(&DruidRole::Historical),
             security_config: BTreeMap::new(),
-            env: BTreeMap::new(),
+            env: EnvVarSet::new(),
             // The test only asserts on runtime.properties, so the rendered jvm.config is irrelevant.
             jvm_config: String::new(),
         };
