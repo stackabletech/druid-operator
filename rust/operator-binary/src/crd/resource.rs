@@ -254,14 +254,14 @@ mod test {
             CpuLimits, CpuLimitsFragment, MemoryLimits, MemoryLimitsFragment,
             NoRuntimeLimitsFragment,
         },
+        config::{fragment, merge::Merge},
         k8s_openapi::apimachinery::pkg::api::resource::Quantity,
-        role_utils::{CommonConfiguration, RoleGroup},
         utils::yaml_from_str_singleton_map,
     };
 
     use super::*;
     use crate::crd::{
-        MiddleManagerConfig,
+        DruidRole,
         storage::{HistoricalStorage, default_free_percentage_empty_dir},
         v1alpha1,
     };
@@ -399,11 +399,13 @@ mod test {
         #[case] third: Option<ResourcesFragment<HistoricalStorage>>,
         #[case] expected: Resources<HistoricalStorage>,
     ) {
-        let got = v1alpha1::DruidCluster::merged_rolegroup_config(
-            &first.unwrap_or_default(),
-            &second.unwrap_or_default(),
-            &third.unwrap_or_default(),
-        );
+        // Replicates the fragment merge done by `with_validated_config` /
+        // `RoleGroup::validate_config`: default <- role <- role group, then validate.
+        let mut role_config = second.unwrap_or_default();
+        role_config.merge(&third.unwrap_or_default());
+        let mut rolegroup_config = first.unwrap_or_default();
+        rolegroup_config.merge(&role_config);
+        let got = fragment::validate::<Resources<HistoricalStorage>>(rolegroup_config);
 
         assert_eq!(expected, got.unwrap());
     }
@@ -415,19 +417,11 @@ mod test {
         ))
         .expect("failed to parse YAML");
 
-        let config = cluster.merged_config().unwrap();
-        if let Some(RoleGroup {
-            config:
-                CommonConfiguration {
-                    config:
-                        MiddleManagerConfig {
-                            resources: middlemanager_resources_from_rg,
-                            ..
-                        },
-                    ..
-                },
-            ..
-        }) = config.middle_managers.get("resources-from-role-group")
+        let middle_managers = cluster.merged_role(&DruidRole::MiddleManager).unwrap();
+
+        if let Some(RoleResource::Druid(middlemanager_resources_from_rg)) = middle_managers
+            .get("resources-from-role-group")
+            .map(|rg| &rg.config.resources)
         {
             let expected = Resources {
                 cpu: CpuLimits {
@@ -449,18 +443,9 @@ mod test {
             panic!("No role group named [resources-from-role-group] found");
         }
 
-        if let Some(RoleGroup {
-            config:
-                CommonConfiguration {
-                    config:
-                        MiddleManagerConfig {
-                            resources: middlemanager_resources_from_rg,
-                            ..
-                        },
-                    ..
-                },
-            ..
-        }) = config.middle_managers.get("resources-from-role")
+        if let Some(RoleResource::Druid(middlemanager_resources_from_rg)) = middle_managers
+            .get("resources-from-role")
+            .map(|rg| &rg.config.resources)
         {
             let expected = Resources {
                 cpu: CpuLimits {
@@ -492,12 +477,10 @@ mod test {
         ))
         .expect("failed to parse YAML");
 
+        let historicals = cluster.merged_role(&DruidRole::Historical).unwrap();
+
         // ---------- default role group
-        let config = cluster.merged_config().unwrap();
-        let res = config
-            .common_config(&DruidRole::Historical, "default")
-            .unwrap()
-            .resources;
+        let res = &historicals.get("default").unwrap().config.resources;
         let mut got = BTreeMap::new();
 
         assert!(res.update_druid_config_file(&mut got).is_ok());
@@ -508,10 +491,7 @@ mod test {
         assert_eq!(value, &expected, "primary");
 
         // ---------- secondary role group
-        let res = config
-            .common_config(&DruidRole::Historical, "secondary")
-            .unwrap()
-            .resources;
+        let res = &historicals.get("secondary").unwrap().config.resources;
         let mut got = BTreeMap::new();
 
         assert!(res.update_druid_config_file(&mut got).is_ok());

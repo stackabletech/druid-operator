@@ -41,6 +41,7 @@ mod authentication;
 mod controller;
 mod crd;
 mod extensions;
+mod framework;
 mod internal_secret;
 mod listener;
 mod operations;

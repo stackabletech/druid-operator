@@ -142,11 +142,8 @@ mod tests {
         let deserializer = serde_yaml::Deserializer::from_str(input);
         let druid: v1alpha1::DruidCluster =
             serde_yaml::with::singleton_map_recursive::deserialize(deserializer).unwrap();
-        let merged_config = druid
-            .merged_config()
-            .unwrap()
-            .common_config(&role, "default")
-            .unwrap();
+        let merged_role = druid.merged_role(&role).unwrap();
+        let merged_config = merged_role.get("default").unwrap();
 
         let mut expected_affinities = vec![];
 
@@ -257,7 +254,7 @@ mod tests {
         };
 
         assert_eq!(
-            merged_config.affinity,
+            merged_config.config.affinity,
             StackableAffinity {
                 pod_affinity: Some(PodAffinity {
                     preferred_during_scheduling_ignored_during_execution: Some(expected_affinities),

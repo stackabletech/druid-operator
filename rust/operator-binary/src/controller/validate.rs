@@ -3,23 +3,17 @@
 //! Synchronously validates inputs that don't require a Kubernetes client. Produces
 //! [`ValidatedCluster`], consumed by the rest of `reconcile_druid`.
 
-use std::{
-    borrow::Cow,
-    collections::{BTreeMap, HashMap},
-    str::FromStr,
-};
+use std::{borrow::Cow, collections::BTreeMap};
 
 use snafu::{ResultExt, Snafu};
 use stackable_operator::{
     cli::OperatorEnvironmentOptions,
     commons::product_image_selection::{self, ResolvedProductImage},
-    config::merge::Merge,
     crd::s3,
     database_connections::drivers::jdbc::{JdbcDatabaseConnection, JdbcDatabaseConnectionDetails},
     kube::{Resource, api::ObjectMeta},
     v2::{
         HasName, HasUid,
-        builder::pod::container::{self, EnvVarName, EnvVarSet},
         controller_utils::{get_cluster_name, get_namespace, get_uid},
         types::{
             kubernetes::{NamespaceName, Uid},
@@ -31,17 +25,8 @@ use strum::IntoEnumIterator;
 
 use crate::{
     authentication::DruidAuthenticationConfig,
-    controller::{
-        build::{
-            jvm::construct_jvm_args,
-            properties::{ConfigFileName, runtime_properties, security_properties},
-        },
-        dereference::DereferencedObjects,
-    },
-    crd::{
-        CommonRoleGroupConfig, DruidConfigOverrides, DruidRole, STACKABLE_TRUST_STORE,
-        STACKABLE_TRUST_STORE_PASSWORD, build_string_list, security::DruidTlsSecurity, v1alpha1,
-    },
+    controller::dereference::DereferencedObjects,
+    crd::{DeepStorageSpec, DruidErasedRole, DruidRole, security::DruidTlsSecurity, v1alpha1},
     extensions::get_extension_list,
 };
 
@@ -66,45 +51,26 @@ pub enum Error {
         source: stackable_operator::v2::controller_utils::Error,
     },
 
-    #[snafu(display("failed to get JVM config"))]
-    GetJvmConfig {
-        source: crate::controller::build::jvm::Error,
-    },
-
-    #[snafu(display("failed to derive Druid memory settings from resources"))]
-    DeriveMemorySettings { source: crate::crd::resource::Error },
-
     #[snafu(display("invalid metadata database connection"))]
     InvalidMetadataDatabaseConnection {
         source: stackable_operator::database_connections::Error,
     },
-
-    #[snafu(display("invalid environment variable override name"))]
-    ParseEnvVarName { source: container::Error },
 }
 
 type Result<T, E = Error> = std::result::Result<T, E>;
 
 pub type RoleGroupName = String;
 
-/// The merged config plus the per-file "validated config" maps that used to be produced by
-/// product-config. These are computed from first principles so that rendered config stays
-/// byte-identical.
-#[derive(Clone)]
-pub struct DruidRoleGroupConfig {
-    pub merged_config: CommonRoleGroupConfig,
-    /// The runtime.properties config: recommended defaults plus merged overrides.
-    pub runtime_config: BTreeMap<String, String>,
-    /// The security.properties "validated config".
-    pub security_config: BTreeMap<String, String>,
-    /// Merged env overrides (role <- rolegroup). Druid has no computed env vars. Names are
-    /// validated here so the build step can render them directly into the container.
-    pub env: EnvVarSet,
-    /// The fully rendered `jvm.config` (operator defaults merged with the role/rolegroup JVM
-    /// argument overrides). Precomputed here so the config-map builder no longer needs the raw
-    /// cluster's `get_role`.
-    pub jvm_config: String,
-}
+/// A validated, merged role-group config.
+///
+/// This is the framework [`RoleGroupConfig`] (config plus the four merged override categories),
+/// with the typed per-role config erased to [`CommonRoleGroupConfig`] so that all roles share a
+/// single type. The rendered per-file configs (runtime.properties / security.properties /
+/// jvm.config) are produced later, in the config-map build step.
+///
+/// Defined in [`crate::crd`] (where it has access to the private typed config fields) and
+/// re-exported here for the build step.
+pub use crate::crd::DruidRoleGroupConfig;
 
 /// Cluster-wide resolved fields that are not role/rolegroup specific.
 pub struct ValidatedClusterConfig {
@@ -121,6 +87,10 @@ pub struct ValidatedClusterConfig {
     pub metadata_storage_type: String,
     /// The JDBC connection details (URL plus credential env vars) for the metadata database.
     pub metadata_db_connection: JdbcDatabaseConnectionDetails,
+    /// The deep-storage spec, carried so the build step can derive the cluster-level
+    /// `runtime.properties` (deep storage type / directory / base key) without the raw
+    /// `DruidCluster`.
+    pub deep_storage: DeepStorageSpec,
 }
 
 /// Synchronous inputs the rest of `reconcile_druid` needs after dereferencing.
@@ -137,9 +107,14 @@ pub struct ValidatedCluster {
     pub image: ResolvedProductImage,
     pub cluster_config: ValidatedClusterConfig,
     pub role_group_configs: BTreeMap<DruidRole, BTreeMap<RoleGroupName, DruidRoleGroupConfig>>,
+    /// The erased roles (see [`DruidErasedRole`]), retained so the build step can render
+    /// `jvm.config` (which merges the role/rolegroup JVM argument overrides) without the raw
+    /// `DruidCluster`.
+    roles: BTreeMap<DruidRole, DruidErasedRole>,
 }
 
 impl ValidatedCluster {
+    #[allow(clippy::too_many_arguments)]
     pub(crate) fn new(
         name: ClusterName,
         namespace: NamespaceName,
@@ -147,6 +122,7 @@ impl ValidatedCluster {
         image: ResolvedProductImage,
         cluster_config: ValidatedClusterConfig,
         role_group_configs: BTreeMap<DruidRole, BTreeMap<RoleGroupName, DruidRoleGroupConfig>>,
+        roles: BTreeMap<DruidRole, DruidErasedRole>,
     ) -> Self {
         let metadata = ObjectMeta {
             name: Some(name.to_string()),
@@ -162,7 +138,16 @@ impl ValidatedCluster {
             image,
             cluster_config,
             role_group_configs,
+            roles,
         }
+    }
+
+    /// The erased role (carrying the JVM argument overrides) for the given role. Used by the build
+    /// step to render `jvm.config`.
+    pub fn get_role(&self, role: &DruidRole) -> &DruidErasedRole {
+        self.roles
+            .get(role)
+            .expect("every DruidRole is populated during validation")
     }
 }
 
@@ -211,129 +196,6 @@ impl HasUid for ValidatedCluster {
     }
 }
 
-/// Returns the user-supplied key/value overrides for the given config file from a
-/// [`DruidConfigOverrides`].
-///
-/// The CRD override map allows a value-less key (`someKey:` / null in YAML), modelled as
-/// `Option<String>`. We flatten `None` to an empty string here, matching how the Java
-/// properties writer rendered a missing value (`key=`), so the rest of the pipeline can work
-/// with plain `String` values.
-fn key_value_overrides(
-    overrides: &DruidConfigOverrides,
-    file: ConfigFileName,
-) -> BTreeMap<String, String> {
-    let raw = match file {
-        ConfigFileName::RuntimeProperties => overrides.runtime_properties.overrides.clone(),
-        ConfigFileName::SecurityProperties => overrides.security_properties.overrides.clone(),
-        // log4j2.properties is rendered by the logging framework, and jvm.config is rendered from
-        // JVM argument overrides; neither is assembled from key/value overrides here.
-        ConfigFileName::Log4j2Properties | ConfigFileName::JvmConfig => BTreeMap::new(),
-    };
-    raw.into_iter()
-        .map(|(k, v)| (k, v.unwrap_or_default()))
-        .collect()
-}
-
-/// Merges the role-level and rolegroup-level env overrides into a validated [`EnvVarSet`].
-///
-/// The role is processed first, then the rolegroup, so that rolegroup overrides win on key
-/// collisions ([`EnvVarSet::with_value`] overrides earlier entries with the same name). The
-/// override names are validated here so the build step can render them directly.
-fn merged_env_overrides(
-    role_env_overrides: &HashMap<String, String>,
-    rg_env_overrides: &HashMap<String, String>,
-) -> Result<EnvVarSet> {
-    let mut env = EnvVarSet::new();
-    for (name, value) in role_env_overrides.iter().chain(rg_env_overrides.iter()) {
-        env = env.with_value(
-            &EnvVarName::from_str(name).context(ParseEnvVarNameSnafu)?,
-            value.clone(),
-        );
-    }
-    Ok(env)
-}
-
-/// Builds the precomputed per-file config for a single rolegroup. Pure assembly: combines the
-/// role-level overrides with the rolegroup-level overrides (rolegroup wins) on top of the
-/// computed defaults. No behavior change vs. the inline loop body it was extracted from.
-#[allow(clippy::too_many_arguments)]
-fn build_role_group_config(
-    druid: &v1alpha1::DruidCluster,
-    druid_role: &DruidRole,
-    rg_name: &str,
-    merged_config: CommonRoleGroupConfig,
-    role_config_overrides: &DruidConfigOverrides,
-    role_env_overrides: &HashMap<String, String>,
-    rg_config_overrides: &DruidConfigOverrides,
-    rg_env_overrides: &HashMap<String, String>,
-) -> Result<DruidRoleGroupConfig> {
-    // Merge the role-level and rolegroup-level config overrides (rolegroup wins over role).
-    let mut config_overrides = rg_config_overrides.clone();
-    config_overrides.merge(role_config_overrides);
-
-    // ----- runtime.properties -----
-    let mut runtime_config = druid.compute_runtime_properties();
-    if *druid_role == DruidRole::MiddleManager {
-        let (k, v) = middlemanager_indexer_java_opts();
-        runtime_config.insert(k, v);
-    }
-    runtime_config.extend(runtime_properties::defaults(druid_role));
-    runtime_config.extend(key_value_overrides(
-        &config_overrides,
-        ConfigFileName::RuntimeProperties,
-    ));
-
-    // ----- security.properties -----
-    let mut security_config: BTreeMap<String, String> = BTreeMap::new();
-    if *druid_role == DruidRole::MiddleManager {
-        let (k, v) = middlemanager_indexer_java_opts();
-        security_config.insert(k, v);
-    }
-    let security_overrides =
-        key_value_overrides(&config_overrides, ConfigFileName::SecurityProperties);
-    security_config.extend(security_properties::build(&security_overrides));
-
-    // ----- env -----
-    let env = merged_env_overrides(role_env_overrides, rg_env_overrides)?;
-
-    // ----- jvm.config -----
-    let (heap, direct) = merged_config
-        .resources
-        .get_memory_sizes(druid_role)
-        .context(DeriveMemorySettingsSnafu)?;
-    let jvm_config = construct_jvm_args(
-        druid_role,
-        &druid.get_role(druid_role),
-        rg_name,
-        heap,
-        direct,
-    )
-    .context(GetJvmConfigSnafu)?;
-
-    Ok(DruidRoleGroupConfig {
-        merged_config,
-        runtime_config,
-        security_config,
-        env,
-        jvm_config,
-    })
-}
-
-const INDEXER_JAVA_OPTS: &str = "druid.indexer.runner.javaOptsArray";
-
-/// The `druid.indexer.runner.javaOptsArray` entry that must be present in *every* rendered file
-/// (runtime.properties and security.properties) for MiddleManagers.
-fn middlemanager_indexer_java_opts() -> (String, String) {
-    (
-        INDEXER_JAVA_OPTS.to_string(),
-        build_string_list(&[
-            format!("-Djavax.net.ssl.trustStore={STACKABLE_TRUST_STORE}"),
-            format!("-Djavax.net.ssl.trustStorePassword={STACKABLE_TRUST_STORE_PASSWORD}"),
-            "-Djavax.net.ssl.trustStoreType=pkcs12".to_owned(),
-        ]),
-    )
-}
-
 /// Validates the cluster spec and the dereferenced inputs.
 pub fn validate(
     druid: &v1alpha1::DruidCluster,
@@ -360,44 +222,16 @@ pub fn validate(
     )
     .context(InvalidDruidAuthenticationConfigSnafu)?;
 
-    let merged = druid.merged_config().context(FailedToResolveConfigSnafu)?;
-
     let mut role_group_configs: BTreeMap<DruidRole, BTreeMap<RoleGroupName, DruidRoleGroupConfig>> =
         BTreeMap::new();
+    let mut roles = BTreeMap::new();
 
     for druid_role in DruidRole::iter() {
-        // The role-level overrides (role <- rolegroup precedence starts here).
-        let role = druid.get_role(&druid_role);
-        let role_config_overrides = &role.config.config_overrides;
-        let role_env_overrides = role.config.env_overrides.clone();
-
-        let rolegroups = merged.role_group_names(&druid_role);
-
-        let mut group_map: BTreeMap<RoleGroupName, DruidRoleGroupConfig> = BTreeMap::new();
-        for rg_name in rolegroups {
-            let merged_config = merged
-                .common_config(&druid_role, &rg_name)
-                .context(FailedToResolveConfigSnafu)?;
-            // The rolegroup-level config/env overrides (rolegroup wins over role).
-            // The rolegroup is guaranteed to exist because `rg_name` comes from
-            // `role_group_names` and `common_config` above already resolved it.
-            let (rg_config_overrides, rg_env_overrides) = merged
-                .role_group_overrides(&druid_role, &rg_name)
-                .expect("role group resolved by common_config must exist");
-
-            let rg_config = build_role_group_config(
-                druid,
-                &druid_role,
-                &rg_name,
-                merged_config,
-                role_config_overrides,
-                &role_env_overrides,
-                rg_config_overrides,
-                rg_env_overrides,
-            )?;
-            group_map.insert(rg_name, rg_config);
-        }
-        role_group_configs.insert(druid_role, group_map);
+        let group_map = druid
+            .merged_role(&druid_role)
+            .context(FailedToResolveConfigSnafu)?;
+        role_group_configs.insert(druid_role.clone(), group_map);
+        roles.insert(druid_role.clone(), druid.get_role(&druid_role));
     }
 
     let name = get_cluster_name(druid).context(ClusterIdentitySnafu)?;
@@ -433,7 +267,9 @@ pub fn validate(
             extensions,
             metadata_storage_type,
             metadata_db_connection,
+            deep_storage: druid.spec.cluster_config.deep_storage.clone(),
         },
         role_group_configs,
+        roles,
     ))
 }

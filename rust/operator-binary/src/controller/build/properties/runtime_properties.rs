@@ -9,7 +9,63 @@
 
 use std::collections::BTreeMap;
 
-use crate::crd::DruidRole;
+use crate::crd::{DeepStorageSpec, DruidRole, METRICS_PORT};
+
+// deep storage
+const DS_TYPE: &str = "druid.storage.type";
+const DS_DIRECTORY: &str = "druid.storage.storageDirectory";
+const DS_BASE_KEY: &str = "druid.storage.baseKey";
+// OPA
+const AUTH_AUTHORIZERS: &str = "druid.auth.authorizers";
+const AUTH_AUTHORIZERS_VALUE: &str = "[\"OpaAuthorizer\"]";
+const AUTH_AUTHORIZER_OPA_TYPE: &str = "druid.auth.authorizer.OpaAuthorizer.type";
+const AUTH_AUTHORIZER_OPA_TYPE_VALUE: &str = "opa";
+// metrics
+const PROMETHEUS_PORT: &str = "druid.emitter.prometheus.port";
+
+/// The recommended cluster-level `runtime.properties` derived from the cluster config (deep
+/// storage, OPA authorization and metrics). These are independent of role and role group.
+///
+/// `opa_authorization_enabled` mirrors `authorization.opa` being configured (equivalently, the
+/// OPA connection string having been resolved during dereferencing).
+pub fn cluster_runtime_properties(
+    deep_storage: &DeepStorageSpec,
+    opa_authorization_enabled: bool,
+) -> BTreeMap<String, String> {
+    let mut result = BTreeMap::new();
+
+    // OPA
+    if opa_authorization_enabled {
+        result.insert(
+            AUTH_AUTHORIZERS.to_string(),
+            AUTH_AUTHORIZERS_VALUE.to_string(),
+        );
+        result.insert(
+            AUTH_AUTHORIZER_OPA_TYPE.to_string(),
+            AUTH_AUTHORIZER_OPA_TYPE_VALUE.to_string(),
+        );
+        // The opaUri still needs to be set, but that requires a discovery config map and is
+        // handled in the controller.
+    }
+
+    // deep storage
+    result.insert(DS_TYPE.to_string(), deep_storage.to_string());
+    match deep_storage {
+        DeepStorageSpec::Hdfs(hdfs) => {
+            result.insert(DS_DIRECTORY.to_string(), hdfs.directory.clone());
+        }
+        DeepStorageSpec::S3(s3_spec) => {
+            if let Some(key) = &s3_spec.base_key {
+                result.insert(DS_BASE_KEY.to_string(), key.to_string());
+            }
+        }
+    }
+
+    // metrics
+    result.insert(PROMETHEUS_PORT.to_string(), METRICS_PORT.to_string());
+
+    result
+}
 
 /// Defaults rendered for every role.
 const ALL_ROLES: &[(&str, &str)] = &[

@@ -1,15 +1,15 @@
 //! Builds the rolegroup [`ConfigMap`] from a [`ValidatedCluster`].
 //!
-//! The per-file "validated config" maps (runtime.properties / security.properties) are taken
-//! from the [`DruidRoleGroupConfig`] precomputed in the validate step; product-config is no
-//! longer involved.
+//! The per-file configs (runtime.properties / security.properties / jvm.config) are rendered here
+//! from the merged [`DruidRoleGroupConfig`] (config plus the merged config overrides); the
+//! recommended cluster-level runtime properties and the erased roles needed for `jvm.config` are
+//! carried on `ValidatedCluster`. Product-config is no longer involved.
 //!
 //! Metadata, owner reference and recommended labels are derived entirely from `ValidatedCluster`
 //! (which carries the validated name/namespace/uid and implements `Resource`).
 //!
-//! The builder no longer reads the raw [`v1alpha1::DruidCluster`] at all: the extensions load
-//! list, the metadata-database connection / storage type and the rendered `jvm.config` are all
-//! precomputed on `ValidatedCluster` during the validate step.
+//! The builder does not read the raw [`v1alpha1::DruidCluster`] at all: everything it needs is
+//! carried on `ValidatedCluster` (resolved during the validate step).
 
 use std::collections::BTreeMap;
 
@@ -28,15 +28,19 @@ use stackable_operator::{
 use crate::{
     controller::{
         DRUID_CONTROLLER_NAME,
-        build::properties::{
-            ConfigFileName,
-            logging::{build_log4j2_config, build_vector_config},
+        build::{
+            jvm::construct_jvm_args,
+            properties::{
+                ConfigFileName,
+                logging::{build_log4j2_config, build_vector_config},
+                runtime_properties, security_properties,
+            },
         },
         validate::{DruidRoleGroupConfig, ValidatedCluster},
     },
     crd::{
-        DruidRole, build_recommended_labels, build_string_list, env_var_reference, file_reference,
-        v1alpha1,
+        DruidConfigOverrides, DruidRole, STACKABLE_TRUST_STORE, STACKABLE_TRUST_STORE_PASSWORD,
+        build_recommended_labels, build_string_list, env_var_reference, file_reference, v1alpha1,
     },
 };
 
@@ -87,9 +91,55 @@ pub enum Error {
     GenerateAuthenticationRuntimeSettings {
         source: crate::authentication::Error,
     },
+
+    #[snafu(display("failed to derive Druid memory settings from resources"))]
+    DeriveMemorySettings { source: crate::crd::resource::Error },
+
+    #[snafu(display("failed to construct the jvm.config"))]
+    GetJvmConfig {
+        source: crate::controller::build::jvm::Error,
+    },
 }
 
 type Result<T, E = Error> = std::result::Result<T, E>;
+
+const INDEXER_JAVA_OPTS: &str = "druid.indexer.runner.javaOptsArray";
+
+/// The `druid.indexer.runner.javaOptsArray` entry that must be present in *every* rendered file
+/// (runtime.properties and security.properties) for MiddleManagers.
+fn middlemanager_indexer_java_opts() -> (String, String) {
+    (
+        INDEXER_JAVA_OPTS.to_string(),
+        build_string_list(&[
+            format!("-Djavax.net.ssl.trustStore={STACKABLE_TRUST_STORE}"),
+            format!("-Djavax.net.ssl.trustStorePassword={STACKABLE_TRUST_STORE_PASSWORD}"),
+            "-Djavax.net.ssl.trustStoreType=pkcs12".to_owned(),
+        ]),
+    )
+}
+
+/// Returns the user-supplied key/value overrides for the given config file from a
+/// [`DruidConfigOverrides`].
+///
+/// The CRD override map allows a value-less key (`someKey:` / null in YAML), modelled as
+/// `Option<String>`. We flatten `None` to an empty string here, matching how the Java properties
+/// writer rendered a missing value (`key=`), so the rest of the pipeline can work with plain
+/// `String` values.
+fn key_value_overrides(
+    overrides: &DruidConfigOverrides,
+    file: ConfigFileName,
+) -> BTreeMap<String, String> {
+    let raw = match file {
+        ConfigFileName::RuntimeProperties => overrides.runtime_properties.overrides.clone(),
+        ConfigFileName::SecurityProperties => overrides.security_properties.overrides.clone(),
+        // log4j2.properties is rendered by the logging framework, and jvm.config is rendered from
+        // JVM argument overrides; neither is assembled from key/value overrides here.
+        ConfigFileName::Log4j2Properties | ConfigFileName::JvmConfig => BTreeMap::new(),
+    };
+    raw.into_iter()
+        .map(|(k, v)| (k, v.unwrap_or_default()))
+        .collect()
+}
 
 /// The rolegroup [`ConfigMap`] configures the rolegroup based on the configuration given by the administrator
 pub fn build_rolegroup_config_map(
@@ -117,7 +167,7 @@ pub fn build_rolegroup_config_map(
         // This has to be done here since there is no other suitable place for it.
         // Previously such properties were added in the compute_files() function,
         // but that code path is now incompatible with the design of fragment merging.
-        rg.merged_config
+        rg.config
             .resources
             .update_druid_config_file(&mut conf)
             .context(UpdateDruidConfigFromResourcesSnafu)?;
@@ -217,8 +267,22 @@ pub fn build_rolegroup_config_map(
             );
         };
 
-        // extend the config to respect the precomputed defaults and overrides
-        conf.extend(rg.runtime_config.clone());
+        // Role/rolegroup runtime.properties: the recommended cluster-config-derived properties,
+        // the MiddleManager indexer opts, the per-role defaults and finally the user overrides
+        // (each layer wins over the previous, and over the cluster-level properties above).
+        conf.extend(runtime_properties::cluster_runtime_properties(
+            &cluster_config.deep_storage,
+            cluster_config.opa_connection_string.is_some(),
+        ));
+        if *role == DruidRole::MiddleManager {
+            let (k, v) = middlemanager_indexer_java_opts();
+            conf.insert(k, v);
+        }
+        conf.extend(runtime_properties::defaults(role));
+        conf.extend(key_value_overrides(
+            &rg.config_overrides,
+            ConfigFileName::RuntimeProperties,
+        ));
 
         let runtime_properties =
             to_java_properties_string(conf.iter()).context(SerializeRuntimePropertiesSnafu)?;
@@ -229,14 +293,37 @@ pub fn build_rolegroup_config_map(
     }
 
     // ----- jvm.config -----
-    // Precomputed during validation; see `DruidRoleGroupConfig::jvm_config`.
-    cm_conf_data.insert(ConfigFileName::JvmConfig.to_string(), rg.jvm_config.clone());
+    {
+        let (heap, direct) = rg
+            .config
+            .resources
+            .get_memory_sizes(role)
+            .context(DeriveMemorySettingsSnafu)?;
+        let jvm_config = construct_jvm_args(
+            role,
+            cluster.get_role(role),
+            &rolegroup.role_group,
+            heap,
+            direct,
+        )
+        .context(GetJvmConfigSnafu)?;
+        cm_conf_data.insert(ConfigFileName::JvmConfig.to_string(), jvm_config);
+    }
 
     // ----- security.properties -----
     {
+        let mut security_config: BTreeMap<String, String> = BTreeMap::new();
+        if *role == DruidRole::MiddleManager {
+            let (k, v) = middlemanager_indexer_java_opts();
+            security_config.insert(k, v);
+        }
+        let security_overrides =
+            key_value_overrides(&rg.config_overrides, ConfigFileName::SecurityProperties);
+        security_config.extend(security_properties::build(&security_overrides));
+
         cm_conf_data.insert(
             ConfigFileName::SecurityProperties.to_string(),
-            to_java_properties_string(rg.security_config.iter()).with_context(|_| {
+            to_java_properties_string(security_config.iter()).with_context(|_| {
                 JvmSecurityPropertiesSnafu {
                     rolegroup: rolegroup.role_group.clone(),
                 }
@@ -265,11 +352,11 @@ pub fn build_rolegroup_config_map(
         config_map_builder.add_data(filename, file_content);
     }
 
-    if let Some(log4j2_config) = build_log4j2_config(&rg.merged_config.logging) {
+    if let Some(log4j2_config) = build_log4j2_config(&rg.config.logging) {
         config_map_builder.add_data(ConfigFileName::Log4j2Properties.to_string(), log4j2_config);
     }
 
-    if let Some(vector_config) = build_vector_config(rolegroup, &rg.merged_config.logging) {
+    if let Some(vector_config) = build_vector_config(rolegroup, &rg.config.logging) {
         config_map_builder.add_data(VECTOR_CONFIG_FILE, vector_config);
     }
 

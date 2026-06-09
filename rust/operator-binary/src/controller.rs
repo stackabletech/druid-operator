@@ -504,7 +504,7 @@ fn build_rolegroup_statefulset(
     druid_auth_config: &Option<DruidAuthenticationConfig>,
     service_account: &ServiceAccount,
 ) -> Result<StatefulSet> {
-    let merged_rolegroup_config = &rg.merged_config;
+    let merged_rolegroup_config = &rg.config;
     // prepare container builder
     let prepare_container_name = Container::Prepare.to_string();
     let mut cb_prepare = ContainerBuilder::new(&prepare_container_name).context(
@@ -625,7 +625,7 @@ fn build_rolegroup_statefulset(
     metadata_database_connection_details.add_to_container(&mut cb_druid);
 
     // rest of env: the validated env overrides, rendered in sorted-by-name order.
-    let mut rest_env: Vec<EnvVar> = rg.env.clone().into();
+    let mut rest_env: Vec<EnvVar> = rg.env_overrides.clone().into();
 
     if let Some(auth_config) = druid_auth_config {
         rest_env.extend(auth_config.get_env_var_mounts(druid, role))
@@ -757,11 +757,8 @@ fn build_rolegroup_statefulset(
     }
 
     let mut pod_template = pb.build_template();
-    pod_template.merge_from(druid.pod_overrides_for_role(role).clone());
-    if let Some(pod_overrides) = druid.pod_overrides_for_role_group(role, &rolegroup_ref.role_group)
-    {
-        pod_template.merge_from(pod_overrides.clone());
-    }
+    // The role and rolegroup pod overrides were already merged (rolegroup wins) during validation.
+    pod_template.merge_from(rg.pod_overrides.clone());
 
     Ok(StatefulSet {
         metadata: ObjectMetaBuilder::new()
@@ -931,23 +928,17 @@ mod test {
     use rstest::*;
     use stackable_operator::{
         database_connections::drivers::jdbc::JdbcDatabaseConnection,
-        v2::{
-            builder::pod::container::EnvVarSet,
-            types::{
-                kubernetes::{NamespaceName, Uid},
-                operator::ClusterName,
-            },
+        v2::types::{
+            kubernetes::{NamespaceName, Uid},
+            operator::ClusterName,
         },
     };
 
     use super::*;
     use crate::{
         controller::{
-            build::{
-                config_map::build_rolegroup_config_map,
-                properties::{ConfigFileName, runtime_properties},
-            },
-            validate::{DruidRoleGroupConfig, ValidatedCluster, ValidatedClusterConfig},
+            build::{config_map::build_rolegroup_config_map, properties::ConfigFileName},
+            validate::{ValidatedCluster, ValidatedClusterConfig},
         },
         crd::{PROP_SEGMENT_CACHE_LOCATIONS, authentication::AuthenticationClassesResolved},
         extensions::get_extension_list,
@@ -993,22 +984,22 @@ mod test {
             Some("tls".to_string()),
         );
 
-        let merged = druid.merged_config().expect("merged config");
-        let merged_config = merged
-            .common_config(&DruidRole::Historical, tested_rolegroup_name)
-            .expect("common config for tested rolegroup");
-
         // The segment cache property is injected dynamically by the config_map builder from the
-        // merged resources, independent of the precomputed runtime_config. We still populate the
-        // runtime_config with the static role defaults to mirror the production path.
-        let rg = DruidRoleGroupConfig {
-            merged_config,
-            runtime_config: runtime_properties::defaults(&DruidRole::Historical),
-            security_config: BTreeMap::new(),
-            env: EnvVarSet::new(),
-            // The test only asserts on runtime.properties, so the rendered jvm.config is irrelevant.
-            jvm_config: String::new(),
-        };
+        // merged resources of the validated role group config.
+        let rg = druid
+            .merged_role(&DruidRole::Historical)
+            .expect("merged historical role")
+            .get(tested_rolegroup_name)
+            .expect("tested rolegroup")
+            .clone();
+
+        // The build step renders jvm.config from the erased role; populate the one role the test
+        // exercises.
+        let mut roles = BTreeMap::new();
+        roles.insert(
+            DruidRole::Historical,
+            druid.get_role(&DruidRole::Historical),
+        );
 
         let extensions = get_extension_list(&druid, &druid_tls_security, &None);
         let metadata_storage_type = druid
@@ -1039,8 +1030,10 @@ mod test {
                 extensions,
                 metadata_storage_type,
                 metadata_db_connection,
+                deep_storage: druid.spec.cluster_config.deep_storage.clone(),
             },
             BTreeMap::new(),
+            roles,
         );
 
         let rolegroup_ref = RoleGroupRef {

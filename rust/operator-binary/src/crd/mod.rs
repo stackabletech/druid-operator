@@ -1,4 +1,4 @@
-use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
+use std::collections::{BTreeMap, HashSet};
 
 use indoc::formatdoc;
 use security::add_cert_to_jvm_trust_store_cmd;
@@ -13,7 +13,7 @@ use stackable_operator::{
         resources::{NoRuntimeLimits, Resources},
     },
     config::{
-        fragment::{self, Fragment, FromFragment, ValidationError},
+        fragment::{Fragment, FromFragment, ValidationError},
         merge::Merge,
     },
     crd::{
@@ -21,7 +21,7 @@ use stackable_operator::{
         s3,
     },
     deep_merger::ObjectOverrides,
-    k8s_openapi::api::core::v1::{PodTemplateSpec, Volume},
+    k8s_openapi::api::core::v1::Volume,
     kube::{CustomResource, ResourceExt},
     kvp::ObjectLabels,
     product_logging::{
@@ -39,12 +39,15 @@ use stackable_operator::{
 };
 use strum::{Display, EnumDiscriminants, EnumIter, EnumString, IntoStaticStr};
 
-use crate::crd::{
-    affinity::get_affinity,
-    authorization::DruidAuthorization,
-    database::MetadataDatabaseConnection,
-    resource::RoleResource,
-    tls::{DruidTls, default_druid_tls},
+use crate::{
+    crd::{
+        affinity::get_affinity,
+        authorization::DruidAuthorization,
+        database::MetadataDatabaseConnection,
+        resource::RoleResource,
+        tls::{DruidTls, default_druid_tls},
+    },
+    framework::role_utils::{RoleGroupConfig, with_validated_config},
 };
 
 pub mod affinity;
@@ -76,17 +79,6 @@ pub const PROP_SEGMENT_CACHE_LOCATIONS: &str = "druid.segmentCache.locations";
 /////////////////////////////
 //    CONFIG PROPERTIES    //
 /////////////////////////////
-// deep storage
-const DS_TYPE: &str = "druid.storage.type";
-const DS_DIRECTORY: &str = "druid.storage.storageDirectory";
-const DS_BASE_KEY: &str = "druid.storage.baseKey";
-// OPA
-const AUTH_AUTHORIZERS: &str = "druid.auth.authorizers";
-const AUTH_AUTHORIZERS_VALUE: &str = "[\"OpaAuthorizer\"]";
-const AUTH_AUTHORIZER_OPA_TYPE: &str = "druid.auth.authorizer.OpaAuthorizer.type";
-const AUTH_AUTHORIZER_OPA_TYPE_VALUE: &str = "opa";
-// metrics
-const PROMETHEUS_PORT: &str = "druid.emitter.prometheus.port";
 pub const METRICS_PORT_NAME: &str = "metrics";
 pub const METRICS_PORT: u16 = 9090;
 
@@ -167,6 +159,12 @@ pub enum Error {
 
     #[snafu(display("fragment validation failure"))]
     FragmentValidationFailure { source: ValidationError },
+
+    #[snafu(display("failed to merge and validate config for role group {role_group:?}"))]
+    FailedToMergeRoleGroupConfig {
+        source: crate::framework::role_utils::Error,
+        role_group: String,
+    },
 }
 
 #[versioned(
@@ -329,44 +327,6 @@ impl HasStatusCondition for v1alpha1::DruidCluster {
 }
 
 impl v1alpha1::DruidCluster {
-    pub fn compute_runtime_properties(&self) -> BTreeMap<String, String> {
-        let mut result = BTreeMap::new();
-        // OPA
-        if let Some(DruidAuthorization { opa: _ }) = &self.spec.cluster_config.authorization {
-            result.insert(
-                AUTH_AUTHORIZERS.to_string(),
-                AUTH_AUTHORIZERS_VALUE.to_string(),
-            );
-            result.insert(
-                AUTH_AUTHORIZER_OPA_TYPE.to_string(),
-                AUTH_AUTHORIZER_OPA_TYPE_VALUE.to_string(),
-            );
-            // The opaUri still needs to be set, but that requires a discovery config map and is handled in the controller.rs
-        }
-        // deep storage
-        result.insert(
-            DS_TYPE.to_string(),
-            self.spec.cluster_config.deep_storage.to_string(),
-        );
-        match self.spec.cluster_config.deep_storage.clone() {
-            DeepStorageSpec::Hdfs(hdfs) => {
-                result.insert(DS_DIRECTORY.to_string(), hdfs.directory);
-            }
-            DeepStorageSpec::S3(s3_spec) => {
-                if let Some(key) = &s3_spec.base_key {
-                    result.insert(DS_BASE_KEY.to_string(), key.to_string());
-                }
-                // bucket information (name, connection) needs to be resolved first,
-                // that is done directly in the controller
-            }
-        }
-
-        // metrics
-        result.insert(PROMETHEUS_PORT.to_string(), METRICS_PORT.to_string());
-
-        result
-    }
-
     /// If an s3 connection for ingestion is given, as well as an s3 connection for deep storage, they need to be the same.
     /// This function returns the resolved connection, or raises an Error if the connections are not identical.
     pub async fn get_s3_connection(
@@ -451,98 +411,102 @@ impl v1alpha1::DruidCluster {
         s3_ingestion || s3_storage
     }
 
-    /// Returns the merged and validated configuration for all roles
-    pub fn merged_config(&self) -> Result<MergedConfig, Error> {
+    /// Merges and validates all role groups of the given role.
+    ///
+    /// All four override categories (config / env / cli / pod) are merged by
+    /// [`with_validated_config`] (role group wins over role); the typed per-role config is then
+    /// erased to the shared [`CommonRoleGroupConfig`] view consumed by the build step.
+    pub fn merged_role(
+        &self,
+        role: &DruidRole,
+    ) -> Result<BTreeMap<String, DruidRoleGroupConfig>, Error> {
         let deep_storage = &self.spec.cluster_config.deep_storage;
+        let name = self.name_any();
 
-        Ok(MergedConfig {
-            brokers: v1alpha1::DruidCluster::merged_role(
-                &extract_role_from_role_config::<BrokerConfig>(self.spec.brokers.clone()),
-                &BrokerConfig::default_config(&self.name_any(), &DruidRole::Broker, deep_storage),
-            )?,
-            coordinators: v1alpha1::DruidCluster::merged_role(
-                &extract_role_from_role_config::<CoordinatorConfig>(self.spec.coordinators.clone()),
-                &CoordinatorConfig::default_config(
-                    &self.name_any(),
-                    &DruidRole::Coordinator,
-                    deep_storage,
-                ),
-            )?,
-            historicals: v1alpha1::DruidCluster::merged_role(
-                &self.spec.historicals,
-                &HistoricalConfig::default_config(
-                    &self.name_any(),
-                    &DruidRole::Historical,
-                    deep_storage,
-                ),
-            )?,
-            middle_managers: v1alpha1::DruidCluster::merged_role(
-                &self.spec.middle_managers,
-                &MiddleManagerConfig::default_config(
-                    &self.name_any(),
-                    &DruidRole::MiddleManager,
-                    deep_storage,
-                ),
-            )?,
-            routers: v1alpha1::DruidCluster::merged_role(
-                &extract_role_from_role_config::<RouterConfig>(self.spec.routers.clone()),
-                &RouterConfig::default_config(&self.name_any(), &DruidRole::Router, deep_storage),
-            )?,
-        })
-    }
-
-    /// Merges and validates the role groups of the given role with the given default configuration
-    fn merged_role<T>(
-        role: &Role<T::Fragment, DruidConfigOverrides, GenericRoleConfig, JavaCommonConfig>,
-        default_config: &T::Fragment,
-    ) -> Result<HashMap<String, RoleGroup<T, JavaCommonConfig, DruidConfigOverrides>>, Error>
-    where
-        T: FromFragment,
-        T::Fragment: Clone + Merge,
-    {
-        let mut merged_role_config = HashMap::new();
-
-        for (rolegroup_name, rolegroup) in &role.role_groups {
-            let merged_rolegroup_config = v1alpha1::DruidCluster::merged_rolegroup(
-                rolegroup,
-                &role.config.config,
-                default_config,
-            )?;
-            merged_role_config.insert(rolegroup_name.to_owned(), merged_rolegroup_config);
+        // All roles erase to an identical `CommonRoleGroupConfig`; only the typed config, the role
+        // config type and the `RoleResource` variant (historicals carry typed storage) differ.
+        macro_rules! merged_role {
+            ($field:ident, $config:ty, $role_config:ty, $resource:path) => {{
+                let typed_role = &self.spec.$field;
+                let default_config = <$config>::default_config(&name, role, deep_storage);
+                let mut groups = BTreeMap::new();
+                for (rg_name, rg) in &typed_role.role_groups {
+                    let validated = with_validated_config::<
+                        $config,
+                        JavaCommonConfig,
+                        _,
+                        $role_config,
+                        DruidConfigOverrides,
+                    >(rg, typed_role, &default_config)
+                    .with_context(|_| FailedToMergeRoleGroupConfigSnafu {
+                        role_group: rg_name.clone(),
+                    })?;
+                    let common = CommonRoleGroupConfig {
+                        resources: $resource(validated.config.resources),
+                        logging: validated.config.logging,
+                        replicas: rg.replicas,
+                        affinity: validated.config.affinity,
+                        graceful_shutdown_timeout: validated.config.graceful_shutdown_timeout,
+                        requested_secret_lifetime: validated
+                            .config
+                            .requested_secret_lifetime
+                            .context(MissingSecretLifetimeSnafu)?,
+                    };
+                    groups.insert(
+                        rg_name.clone(),
+                        DruidRoleGroupConfig {
+                            replicas: validated.replicas,
+                            config: common,
+                            config_overrides: validated.config_overrides,
+                            env_overrides: validated.env_overrides,
+                            cli_overrides: validated.cli_overrides,
+                            pod_overrides: validated.pod_overrides,
+                            product_specific_common_config: validated
+                                .product_specific_common_config,
+                        },
+                    );
+                }
+                groups
+            }};
         }
 
-        Ok(merged_role_config)
-    }
-
-    /// Merges and validates the given role group with the given role and default configurations
-    fn merged_rolegroup<T>(
-        rolegroup: &RoleGroup<T::Fragment, JavaCommonConfig, DruidConfigOverrides>,
-        role_config: &T::Fragment,
-        default_config: &T::Fragment,
-    ) -> Result<RoleGroup<T, JavaCommonConfig, DruidConfigOverrides>, Error>
-    where
-        T: FromFragment,
-        T::Fragment: Clone + Merge,
-    {
-        let merged_config = v1alpha1::DruidCluster::merged_rolegroup_config(
-            &rolegroup.config.config,
-            role_config,
-            default_config,
-        )?;
-        Ok(RoleGroup {
-            config: CommonConfiguration {
-                config: merged_config,
-                config_overrides: rolegroup.config.config_overrides.to_owned(),
-                env_overrides: rolegroup.config.env_overrides.to_owned(),
-                cli_overrides: rolegroup.config.cli_overrides.to_owned(),
-                pod_overrides: rolegroup.config.pod_overrides.to_owned(),
-                product_specific_common_config: rolegroup
-                    .config
-                    .product_specific_common_config
-                    .to_owned(),
-            },
-            replicas: rolegroup.replicas,
-        })
+        let groups = match role {
+            DruidRole::Broker => {
+                merged_role!(
+                    brokers,
+                    BrokerConfig,
+                    v1alpha1::DruidRoleConfig,
+                    RoleResource::Druid
+                )
+            }
+            DruidRole::Coordinator => merged_role!(
+                coordinators,
+                CoordinatorConfig,
+                v1alpha1::DruidRoleConfig,
+                RoleResource::Druid
+            ),
+            DruidRole::Historical => merged_role!(
+                historicals,
+                HistoricalConfig,
+                GenericRoleConfig,
+                RoleResource::Historical
+            ),
+            DruidRole::MiddleManager => merged_role!(
+                middle_managers,
+                MiddleManagerConfig,
+                GenericRoleConfig,
+                RoleResource::Druid
+            ),
+            DruidRole::Router => {
+                merged_role!(
+                    routers,
+                    RouterConfig,
+                    v1alpha1::DruidRoleConfig,
+                    RoleResource::Druid
+                )
+            }
+        };
+        Ok(groups)
     }
 
     pub fn generic_role_config(&self, role: &DruidRole) -> &GenericRoleConfig {
@@ -555,29 +519,7 @@ impl v1alpha1::DruidCluster {
         }
     }
 
-    /// Merges and validates the given role group, role, and default configurations
-    pub(crate) fn merged_rolegroup_config<T>(
-        rolegroup_config: &T::Fragment,
-        role_config: &T::Fragment,
-        default_config: &T::Fragment,
-    ) -> Result<T, Error>
-    where
-        T: FromFragment,
-        T::Fragment: Clone + Merge,
-    {
-        let mut role_config = role_config.to_owned();
-        let mut rolegroup_config = rolegroup_config.to_owned();
-
-        role_config.merge(default_config);
-        rolegroup_config.merge(&role_config);
-
-        fragment::validate(rolegroup_config).context(FragmentValidationFailureSnafu)
-    }
-
-    pub fn get_role(
-        &self,
-        druid_role: &DruidRole,
-    ) -> Role<(), DruidConfigOverrides, GenericRoleConfig, JavaCommonConfig> {
+    pub fn get_role(&self, druid_role: &DruidRole) -> DruidErasedRole {
         match druid_role {
             DruidRole::Broker => erase_config(extract_role_from_role_config::<BrokerConfig>(
                 self.spec.brokers.clone(),
@@ -590,39 +532,6 @@ impl v1alpha1::DruidCluster {
             DruidRole::Router => erase_config(extract_role_from_role_config::<RouterConfig>(
                 self.spec.routers.clone(),
             )),
-        }
-    }
-
-    pub fn pod_overrides_for_role(&self, role: &DruidRole) -> &PodTemplateSpec {
-        match role {
-            DruidRole::Broker => &self.spec.brokers.config.pod_overrides,
-            DruidRole::Coordinator => &self.spec.coordinators.config.pod_overrides,
-            DruidRole::Historical => &self.spec.historicals.config.pod_overrides,
-            DruidRole::MiddleManager => &self.spec.middle_managers.config.pod_overrides,
-            DruidRole::Router => &self.spec.routers.config.pod_overrides,
-        }
-    }
-
-    pub fn pod_overrides_for_role_group(
-        &self,
-        role: &DruidRole,
-        role_group: &str,
-    ) -> Option<&PodTemplateSpec> {
-        macro_rules! pod_overrides {
-            ($field:ident) => {
-                self.spec
-                    .$field
-                    .role_groups
-                    .get(role_group)
-                    .map(|rg| &rg.config.pod_overrides)
-            };
-        }
-        match role {
-            DruidRole::Broker => pod_overrides!(brokers),
-            DruidRole::Coordinator => pod_overrides!(coordinators),
-            DruidRole::Historical => pod_overrides!(historicals),
-            DruidRole::MiddleManager => pod_overrides!(middle_managers),
-            DruidRole::Router => pod_overrides!(routers),
         }
     }
 }
@@ -659,98 +568,23 @@ pub struct CommonRoleGroupConfig {
     pub requested_secret_lifetime: Duration,
 }
 
-/// Container for the merged and validated role group configurations
+/// A validated, merged role-group config.
 ///
-/// This structure contains for every role a map from the role group names to their configurations.
-/// The role group configurations are merged with the role and default configurations. The product
-/// configuration is not applied.
-pub struct MergedConfig {
-    /// Merged configuration of the broker role
-    pub brokers: HashMap<String, RoleGroup<BrokerConfig, JavaCommonConfig, DruidConfigOverrides>>,
-    /// Merged configuration of the coordinator role
-    pub coordinators:
-        HashMap<String, RoleGroup<CoordinatorConfig, JavaCommonConfig, DruidConfigOverrides>>,
-    /// Merged configuration of the historical role
-    pub historicals:
-        HashMap<String, RoleGroup<HistoricalConfig, JavaCommonConfig, DruidConfigOverrides>>,
-    /// Merged configuration of the middle manager role
-    pub middle_managers:
-        HashMap<String, RoleGroup<MiddleManagerConfig, JavaCommonConfig, DruidConfigOverrides>>,
-    /// Merged configuration of the router role
-    pub routers: HashMap<String, RoleGroup<RouterConfig, JavaCommonConfig, DruidConfigOverrides>>,
-}
+/// This is the framework [`RoleGroupConfig`] (config plus the four merged override categories,
+/// role group winning over role), with the typed per-role config erased to the shared
+/// [`CommonRoleGroupConfig`] view. The rendered per-file configs (runtime.properties /
+/// security.properties / jvm.config) are produced later, in the config-map build step.
+///
+/// Note: the StatefulSet replicas come from [`CommonRoleGroupConfig::replicas`] (an `Option`, so
+/// an unspecified count is left unset and stays HPA-friendly), not from the framework
+/// [`RoleGroupConfig::replicas`].
+pub type DruidRoleGroupConfig =
+    RoleGroupConfig<CommonRoleGroupConfig, JavaCommonConfig, DruidConfigOverrides>;
 
-impl MergedConfig {
-    /// Returns the common configuration for the given role and rolegroup name
-    pub fn common_config(
-        &self,
-        role: &DruidRole,
-        rolegroup_name: &str,
-    ) -> Result<CommonRoleGroupConfig, Error> {
-        // All roles build an identical `CommonRoleGroupConfig`; only the role-group map and the
-        // `RoleResource` variant (historicals carry typed storage) differ.
-        macro_rules! common_config {
-            ($field:ident, $resource:path) => {{
-                let rolegroup = self
-                    .$field
-                    .get(rolegroup_name)
-                    .context(CannotRetrieveRoleGroupSnafu { rolegroup_name })?;
-                Ok(CommonRoleGroupConfig {
-                    resources: $resource(rolegroup.config.config.resources.to_owned()),
-                    logging: rolegroup.config.config.logging.to_owned(),
-                    replicas: rolegroup.replicas,
-                    affinity: rolegroup.config.config.affinity.clone(),
-                    graceful_shutdown_timeout: rolegroup.config.config.graceful_shutdown_timeout,
-                    requested_secret_lifetime: rolegroup
-                        .config
-                        .config
-                        .requested_secret_lifetime
-                        .context(MissingSecretLifetimeSnafu)?,
-                })
-            }};
-        }
-        match role {
-            DruidRole::Broker => common_config!(brokers, RoleResource::Druid),
-            DruidRole::Coordinator => common_config!(coordinators, RoleResource::Druid),
-            DruidRole::Historical => common_config!(historicals, RoleResource::Historical),
-            DruidRole::MiddleManager => common_config!(middle_managers, RoleResource::Druid),
-            DruidRole::Router => common_config!(routers, RoleResource::Druid),
-        }
-    }
-
-    /// Returns the (sorted) role group names defined for the given role.
-    pub fn role_group_names(&self, role: &DruidRole) -> BTreeSet<String> {
-        match role {
-            DruidRole::Broker => self.brokers.keys().cloned().collect(),
-            DruidRole::Coordinator => self.coordinators.keys().cloned().collect(),
-            DruidRole::Historical => self.historicals.keys().cloned().collect(),
-            DruidRole::MiddleManager => self.middle_managers.keys().cloned().collect(),
-            DruidRole::Router => self.routers.keys().cloned().collect(),
-        }
-    }
-
-    /// Returns the rolegroup-level config and env overrides for the given role and rolegroup.
-    pub fn role_group_overrides(
-        &self,
-        role: &DruidRole,
-        rolegroup_name: &str,
-    ) -> Option<(&DruidConfigOverrides, &HashMap<String, String>)> {
-        macro_rules! get {
-            ($field:expr) => {
-                $field
-                    .get(rolegroup_name)
-                    .map(|rg| (&rg.config.config_overrides, &rg.config.env_overrides))
-            };
-        }
-        match role {
-            DruidRole::Broker => get!(self.brokers),
-            DruidRole::Coordinator => get!(self.coordinators),
-            DruidRole::Historical => get!(self.historicals),
-            DruidRole::MiddleManager => get!(self.middle_managers),
-            DruidRole::Router => get!(self.routers),
-        }
-    }
-}
+/// A role with its typed config erased to `()`, retaining the override layers (notably the JVM
+/// argument overrides in `product_specific_common_config`). Carried on the validated cluster so
+/// the build step can render `jvm.config` without reaching back to the raw `DruidCluster`.
+pub type DruidErasedRole = Role<(), DruidConfigOverrides, GenericRoleConfig, JavaCommonConfig>;
 
 impl Default for v1alpha1::DruidRoleConfig {
     fn default() -> Self {

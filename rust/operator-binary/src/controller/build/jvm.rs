@@ -294,10 +294,11 @@ mod tests {
             serde_yaml::with::singleton_map_recursive::deserialize(deserializer).unwrap();
 
         let role = druid.get_role(druid_role);
-        let merged_config = druid.merged_config().unwrap();
-        let (heap, direct) = merged_config
-            .common_config(druid_role, "default")
+        let merged_role = druid.merged_role(druid_role).unwrap();
+        let (heap, direct) = merged_role
+            .get("default")
             .unwrap()
+            .config
             .resources
             .get_memory_sizes(druid_role)
             .unwrap();
