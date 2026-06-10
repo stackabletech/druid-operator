@@ -139,10 +139,9 @@ impl AuthenticationClassesResolved {
                         Some(server_and_internal_secret_class) => {
                             if let Some(auth_class_secret_class) =
                                 &provider.client_cert_secret_class
+                                && auth_class_secret_class != server_and_internal_secret_class
                             {
-                                if auth_class_secret_class != server_and_internal_secret_class {
-                                    return TlsAuthenticationClassSecretClassDiffersFromDruidServerTlsSnafu { auth_class_name: auth_class_name.to_string(), server_and_internal_secret_class: server_and_internal_secret_class.clone() }.fail()?;
-                                }
+                                return TlsAuthenticationClassSecretClassDiffersFromDruidServerTlsSnafu { auth_class_name: auth_class_name.to_string(), server_and_internal_secret_class: server_and_internal_secret_class.clone() }.fail()?;
                             }
                         }
                         None => {
@@ -231,10 +230,10 @@ impl AuthenticationClassesResolved {
     }
 
     pub fn tls_authentication_enabled(&self) -> bool {
-        if !self.auth_classes.is_empty() {
-            if let Some(AuthenticationClassResolved::Tls { .. }) = self.auth_classes.first() {
-                return true;
-            }
+        if !self.auth_classes.is_empty()
+            && let Some(AuthenticationClassResolved::Tls { .. }) = self.auth_classes.first()
+        {
+            return true;
         }
         false
     }
