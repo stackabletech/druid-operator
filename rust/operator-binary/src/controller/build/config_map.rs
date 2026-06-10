@@ -120,25 +120,17 @@ fn middlemanager_indexer_java_opts() -> (String, String) {
 
 /// Returns the user-supplied key/value overrides for the given config file from a
 /// [`DruidConfigOverrides`].
-///
-/// The CRD override map allows a value-less key (`someKey:` / null in YAML), modelled as
-/// `Option<String>`. We flatten `None` to an empty string here, matching how the Java properties
-/// writer rendered a missing value (`key=`), so the rest of the pipeline can work with plain
-/// `String` values.
 fn key_value_overrides(
     overrides: &DruidConfigOverrides,
     file: ConfigFileName,
 ) -> BTreeMap<String, String> {
-    let raw = match file {
+    match file {
         ConfigFileName::RuntimeProperties => overrides.runtime_properties.overrides.clone(),
         ConfigFileName::SecurityProperties => overrides.security_properties.overrides.clone(),
         // log4j2.properties is rendered by the logging framework, and jvm.config is rendered from
         // JVM argument overrides; neither is assembled from key/value overrides here.
         ConfigFileName::Log4j2Properties | ConfigFileName::JvmConfig => BTreeMap::new(),
-    };
-    raw.into_iter()
-        .map(|(k, v)| (k, v.unwrap_or_default()))
-        .collect()
+    }
 }
 
 /// The rolegroup [`ConfigMap`] configures the rolegroup based on the configuration given by the administrator
