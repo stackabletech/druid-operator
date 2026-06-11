@@ -99,10 +99,6 @@ pub struct ValidatedCluster {
     /// [`Resource`] and be passed directly to the metadata/owner-reference builders.
     metadata: ObjectMeta,
     pub name: ClusterName,
-    // Read from the mirrored `metadata` in the configmap path (via `name_and_namespace`); the typed
-    // field is consumed directly when the service/statefulset builders move onto `ValidatedCluster`.
-    #[allow(dead_code)]
-    pub namespace: NamespaceName,
     pub uid: Uid,
     pub image: ResolvedProductImage,
     pub cluster_config: ValidatedClusterConfig,
@@ -133,7 +129,6 @@ impl ValidatedCluster {
         Self {
             metadata,
             name,
-            namespace,
             uid,
             image,
             cluster_config,
