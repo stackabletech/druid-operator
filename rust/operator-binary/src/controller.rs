@@ -923,25 +923,12 @@ pub fn error_policy(
 
 #[cfg(test)]
 mod test {
-    use std::{collections::BTreeMap, str::FromStr};
-
     use rstest::*;
-    use stackable_operator::{
-        database_connections::drivers::jdbc::JdbcDatabaseConnection,
-        v2::types::{
-            kubernetes::{NamespaceName, Uid},
-            operator::ClusterName,
-        },
-    };
 
     use super::*;
     use crate::{
-        controller::{
-            build::{config_map::build_rolegroup_config_map, properties::ConfigFileName},
-            validate::{ValidatedCluster, ValidatedClusterConfig},
-        },
-        crd::{PROP_SEGMENT_CACHE_LOCATIONS, authentication::AuthenticationClassesResolved},
-        extensions::get_extension_list,
+        controller::build::{config_map::build_rolegroup_config_map, properties::ConfigFileName},
+        crd::PROP_SEGMENT_CACHE_LOCATIONS,
     };
 
     #[rstest]
@@ -960,81 +947,22 @@ mod test {
         #[case] tested_rolegroup_name: &str,
         #[case] expected_druid_segment_cache_property: &str,
     ) {
-        let cluster_cr =
-            std::fs::File::open(format!("test/resources/druid_controller/{druid_manifest}"))
+        let yaml =
+            std::fs::read_to_string(format!("test/resources/druid_controller/{druid_manifest}"))
                 .unwrap();
-        let deserializer = serde_yaml::Deserializer::from_reader(&cluster_cr);
-        let druid: v1alpha1::DruidCluster =
-            serde_yaml::with::singleton_map_recursive::deserialize(deserializer).unwrap();
+        let druid = crate::controller::validate::test_support::druid_from_yaml(&yaml);
 
-        let resolved_product_image: ResolvedProductImage = druid
-            .spec
-            .image
-            .resolve(
-                CONTAINER_IMAGE_BASE_NAME,
-                "oci.example.org",
-                crate::built_info::PKG_VERSION,
-            )
-            .expect("test: resolved product image is always valid");
-
-        let druid_tls_security = DruidTlsSecurity::new(
-            &AuthenticationClassesResolved {
-                auth_classes: vec![],
-            },
-            Some("tls".to_string()),
-        );
+        let cluster = crate::controller::validate::test_support::validated_cluster(&druid);
 
         // The segment cache property is injected dynamically by the config_map builder from the
         // merged resources of the validated role group config.
-        let rg = druid
-            .merged_role(&DruidRole::Historical)
-            .expect("merged historical role")
+        let rg = cluster
+            .role_group_configs
+            .get(&DruidRole::Historical)
+            .expect("historical role groups")
             .get(tested_rolegroup_name)
             .expect("tested rolegroup")
             .clone();
-
-        // The build step renders jvm.config from the erased role; populate the one role the test
-        // exercises.
-        let mut roles = BTreeMap::new();
-        roles.insert(
-            DruidRole::Historical,
-            druid.get_role(&DruidRole::Historical),
-        );
-
-        let extensions = get_extension_list(&druid, &druid_tls_security, &None);
-        let metadata_storage_type = druid
-            .spec
-            .cluster_config
-            .metadata_database
-            .as_metadata_storage_type()
-            .to_string();
-        let metadata_db_connection = druid
-            .spec
-            .cluster_config
-            .metadata_database
-            .jdbc_connection_details("metadata")
-            .expect("test: valid metadata db connection");
-
-        let cluster = ValidatedCluster::new(
-            ClusterName::from_str(&druid.name_any()).expect("test: valid cluster name"),
-            NamespaceName::from_str("default").expect("test: valid namespace"),
-            Uid::from_str("c27b3971-ca72-42c1-80a4-abdfc1db0ddd").expect("test: valid uid"),
-            resolved_product_image.clone(),
-            ValidatedClusterConfig {
-                zookeeper_connection_string: "zookeeper-connection-string".to_string(),
-                opa_connection_string: None,
-                s3_connection: None,
-                deep_storage_bucket_name: None,
-                druid_tls_security,
-                druid_auth_config: None,
-                extensions,
-                metadata_storage_type,
-                metadata_db_connection,
-                deep_storage: druid.spec.cluster_config.deep_storage.clone(),
-            },
-            BTreeMap::new(),
-            roles,
-        );
 
         let rolegroup_ref = RoleGroupRef {
             cluster: ObjectRef::from_obj(&druid),

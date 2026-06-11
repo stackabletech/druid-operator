@@ -26,7 +26,7 @@ use strum::IntoEnumIterator;
 use crate::{
     authentication::DruidAuthenticationConfig,
     controller::dereference::DereferencedObjects,
-    crd::{DeepStorageSpec, DruidErasedRole, DruidRole, security::DruidTlsSecurity, v1alpha1},
+    crd::{DeepStorageSpec, DruidRole, security::DruidTlsSecurity, v1alpha1},
     extensions::get_extension_list,
 };
 
@@ -63,10 +63,11 @@ pub type RoleGroupName = String;
 
 /// A validated, merged role-group config.
 ///
-/// This is the framework [`RoleGroupConfig`] (config plus the four merged override categories),
-/// with the typed per-role config erased to [`CommonRoleGroupConfig`] so that all roles share a
-/// single type. The rendered per-file configs (runtime.properties / security.properties /
-/// jvm.config) are produced later, in the config-map build step.
+/// This is the upstream [`stackable_operator::v2::role_utils::RoleGroupConfig`] (config plus the
+/// four merged override categories), with the typed per-role config erased to
+/// [`CommonRoleGroupConfig`] so that all roles share a single type. The rendered per-file configs
+/// (runtime.properties / security.properties / jvm.config) are produced later, in the config-map
+/// build step.
 ///
 /// Defined in [`crate::crd`] (where it has access to the private typed config fields) and
 /// re-exported here for the build step.
@@ -103,10 +104,6 @@ pub struct ValidatedCluster {
     pub image: ResolvedProductImage,
     pub cluster_config: ValidatedClusterConfig,
     pub role_group_configs: BTreeMap<DruidRole, BTreeMap<RoleGroupName, DruidRoleGroupConfig>>,
-    /// The erased roles (see [`DruidErasedRole`]), retained so the build step can render
-    /// `jvm.config` (which merges the role/rolegroup JVM argument overrides) without the raw
-    /// `DruidCluster`.
-    roles: BTreeMap<DruidRole, DruidErasedRole>,
 }
 
 impl ValidatedCluster {
@@ -118,7 +115,6 @@ impl ValidatedCluster {
         image: ResolvedProductImage,
         cluster_config: ValidatedClusterConfig,
         role_group_configs: BTreeMap<DruidRole, BTreeMap<RoleGroupName, DruidRoleGroupConfig>>,
-        roles: BTreeMap<DruidRole, DruidErasedRole>,
     ) -> Self {
         let metadata = ObjectMeta {
             name: Some(name.to_string()),
@@ -133,16 +129,7 @@ impl ValidatedCluster {
             image,
             cluster_config,
             role_group_configs,
-            roles,
         }
-    }
-
-    /// The erased role (carrying the JVM argument overrides) for the given role. Used by the build
-    /// step to render `jvm.config`.
-    pub fn get_role(&self, role: &DruidRole) -> &DruidErasedRole {
-        self.roles
-            .get(role)
-            .expect("every DruidRole is populated during validation")
     }
 }
 
@@ -219,14 +206,12 @@ pub fn validate(
 
     let mut role_group_configs: BTreeMap<DruidRole, BTreeMap<RoleGroupName, DruidRoleGroupConfig>> =
         BTreeMap::new();
-    let mut roles = BTreeMap::new();
 
     for druid_role in DruidRole::iter() {
         let group_map = druid
             .merged_role(&druid_role)
             .context(FailedToResolveConfigSnafu)?;
         role_group_configs.insert(druid_role.clone(), group_map);
-        roles.insert(druid_role.clone(), druid.get_role(&druid_role));
     }
 
     let name = get_cluster_name(druid).context(ClusterIdentitySnafu)?;
@@ -265,6 +250,146 @@ pub fn validate(
             deep_storage: druid.spec.cluster_config.deep_storage.clone(),
         },
         role_group_configs,
-        roles,
     ))
+}
+
+#[cfg(test)]
+pub(crate) mod test_support {
+    use std::{collections::BTreeMap, str::FromStr};
+
+    use stackable_operator::{
+        database_connections::drivers::jdbc::JdbcDatabaseConnection,
+        kube::ResourceExt,
+        v2::types::{
+            kubernetes::{NamespaceName, Uid},
+            operator::ClusterName,
+        },
+    };
+    use strum::IntoEnumIterator;
+
+    use super::{RoleGroupName, ValidatedCluster, ValidatedClusterConfig};
+    use crate::{
+        controller::CONTAINER_IMAGE_BASE_NAME,
+        crd::{
+            DruidRole, authentication::AuthenticationClassesResolved, security::DruidTlsSecurity,
+            v1alpha1,
+        },
+        extensions::get_extension_list,
+    };
+
+    /// A minimal but fully-valid `DruidCluster` with one role group per role.
+    pub const MINIMAL_DRUID_YAML: &str = r#"
+apiVersion: druid.stackable.tech/v1alpha1
+kind: DruidCluster
+metadata:
+  name: simple-druid
+  namespace: default
+  uid: c27b3971-ca72-42c1-80a4-abdfc1db0ddd
+spec:
+  image:
+    productVersion: 30.0.0
+  clusterConfig:
+    deepStorage:
+      hdfs:
+        configMapName: simple-hdfs
+        directory: /druid
+    metadataDatabase:
+      postgresql:
+        host: druid-postgresql
+        database: druid
+        credentialsSecretName: mySecret
+    zookeeperConfigMapName: simple-druid-znode
+  brokers:
+    roleGroups:
+      default:
+        replicas: 1
+  coordinators:
+    roleGroups:
+      default:
+        replicas: 1
+  historicals:
+    roleGroups:
+      default:
+        replicas: 1
+  middleManagers:
+    roleGroups:
+      default:
+        replicas: 1
+  routers:
+    roleGroups:
+      default:
+        replicas: 1
+"#;
+
+    /// Parses a `DruidCluster` from YAML the same way the operator does (singleton-map enums).
+    pub fn druid_from_yaml(yaml: &str) -> v1alpha1::DruidCluster {
+        let deserializer = serde_yaml::Deserializer::from_str(yaml);
+        serde_yaml::with::singleton_map_recursive::deserialize(deserializer)
+            .expect("invalid test DruidCluster YAML")
+    }
+
+    /// Builds a [`ValidatedCluster`] from a `DruidCluster` using test defaults for the
+    /// dereferenced/cluster-wide fields (no S3, no auth, fixed zookeeper string). Runs the real
+    /// `merged_role` pipeline for every role.
+    pub fn validated_cluster(druid: &v1alpha1::DruidCluster) -> ValidatedCluster {
+        let image = druid
+            .spec
+            .image
+            .resolve(
+                CONTAINER_IMAGE_BASE_NAME,
+                "oci.example.org",
+                crate::built_info::PKG_VERSION,
+            )
+            .expect("test: resolvable product image");
+
+        let druid_tls_security = DruidTlsSecurity::new(
+            &AuthenticationClassesResolved {
+                auth_classes: vec![],
+            },
+            Some("tls".to_string()),
+        );
+
+        let mut role_group_configs: BTreeMap<DruidRole, BTreeMap<RoleGroupName, _>> =
+            BTreeMap::new();
+        for role in DruidRole::iter() {
+            role_group_configs.insert(
+                role.clone(),
+                druid.merged_role(&role).expect("test: merged role"),
+            );
+        }
+
+        let extensions = get_extension_list(druid, &druid_tls_security, &None);
+        let metadata_storage_type = druid
+            .spec
+            .cluster_config
+            .metadata_database
+            .as_metadata_storage_type()
+            .to_string();
+        let metadata_db_connection = druid
+            .spec
+            .cluster_config
+            .metadata_database
+            .jdbc_connection_details("metadata")
+            .expect("test: valid metadata db connection");
+
+        ValidatedCluster::new(
+            ClusterName::from_str(&druid.name_any()).expect("test: valid cluster name"),
+            NamespaceName::from_str("default").expect("test: valid namespace"),
+            Uid::from_str("c27b3971-ca72-42c1-80a4-abdfc1db0ddd").expect("test: valid uid"),
+            image,
+            ValidatedClusterConfig {
+                zookeeper_connection_string: "zookeeper-connection-string".to_string(),
+                opa_connection_string: None,
+                s3_connection: None,
+                deep_storage_bucket_name: None,
+                druid_tls_security,
+                druid_auth_config: None,
+                extensions,
+                metadata_storage_type,
+                metadata_db_connection,
+                deep_storage: druid.spec.cluster_config.deep_storage.clone(),
+            },
+            role_group_configs,
+        )
+    }
 }

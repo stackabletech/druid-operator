@@ -1,14 +1,11 @@
 use snafu::{ResultExt, Snafu};
 use stackable_operator::{
-    memory::MemoryQuantity,
-    role_utils,
-    role_utils::{GenericRoleConfig, JavaCommonConfig, JvmArgumentOverrides, Role},
+    memory::MemoryQuantity, v2::jvm_argument_overrides::JvmArgumentOverrides,
 };
 
 use super::properties::ConfigFileName;
 use crate::crd::{
-    DruidConfigOverrides, DruidRole, RW_CONFIG_DIRECTORY, STACKABLE_TRUST_STORE,
-    STACKABLE_TRUST_STORE_PASSWORD,
+    DruidRole, RW_CONFIG_DIRECTORY, STACKABLE_TRUST_STORE, STACKABLE_TRUST_STORE_PASSWORD,
 };
 
 #[derive(Snafu, Debug)]
@@ -18,17 +15,13 @@ pub enum Error {
         value: MemoryQuantity,
         source: stackable_operator::memory::Error,
     },
-
-    #[snafu(display("failed to merge jvm argument overrides"))]
-    MergeJvmArgumentOverrides { source: role_utils::Error },
 }
 
 /// Please note that this function is slightly different than all other operators, because memory
 /// management is far more advanced in this operator.
-pub fn construct_jvm_args<T>(
+pub fn construct_jvm_args(
     druid_role: &DruidRole,
-    role: &Role<T, DruidConfigOverrides, GenericRoleConfig, JavaCommonConfig>,
-    role_group: &str,
+    jvm_argument_overrides: &JvmArgumentOverrides,
     heap: MemoryQuantity,
     direct_memory: Option<MemoryQuantity>,
 ) -> Result<String, Error> {
@@ -71,14 +64,7 @@ pub fn construct_jvm_args<T>(
         jvm_args.push("-Dderby.stream.error.file=/stackable/var/druid/derby.log".to_owned());
     }
 
-    let operator_generated = JvmArgumentOverrides::new_with_only_additions(jvm_args);
-    let merged_jvm_argument_overrides = role
-        .get_merged_jvm_argument_overrides(role_group, &operator_generated)
-        .context(MergeJvmArgumentOverridesSnafu)?;
-
-    Ok(merged_jvm_argument_overrides
-        .effective_jvm_config_after_merging()
-        .join("\n"))
+    Ok(jvm_argument_overrides.apply_to(jvm_args).join("\n"))
 }
 
 #[cfg(test)]
@@ -86,53 +72,15 @@ mod tests {
     use indoc::indoc;
 
     use super::*;
-    use crate::crd::v1alpha1::DruidCluster;
 
     #[test]
     fn test_construct_jvm_arguments_defaults() {
-        let input = r#"
-        apiVersion: druid.stackable.tech/v1alpha1
-        kind: DruidCluster
-        metadata:
-          name: simple-druid
-        spec:
-          image:
-            productVersion: 30.0.0
-          clusterConfig:
-            deepStorage:
-              hdfs:
-                configMapName: simple-hdfs
-                directory: /druid
-            metadataDatabase:
-              postgresql:
-                host: druid-postgresql
-                database: druid
-                credentialsSecretName: mySecret
-            zookeeperConfigMapName: simple-druid-znode
-          brokers:
-            roleGroups:
-              default:
-                replicas: 1
-          coordinators:
-            roleGroups:
-              default:
-                replicas: 1
-          historicals:
-            roleGroups:
-              default:
-                replicas: 1
-          middleManagers:
-            roleGroups:
-              default:
-                replicas: 1
-          routers:
-            roleGroups:
-              default:
-                replicas: 1
-        "#;
+        use crate::controller::validate::test_support::MINIMAL_DRUID_YAML;
 
-        let coordinator_jvm_config = construct_jvm_config_for_test(input, &DruidRole::Coordinator);
-        let historical_jvm_config = construct_jvm_config_for_test(input, &DruidRole::Historical);
+        let coordinator_jvm_config =
+            construct_jvm_config_for_test(MINIMAL_DRUID_YAML, &DruidRole::Coordinator);
+        let historical_jvm_config =
+            construct_jvm_config_for_test(MINIMAL_DRUID_YAML, &DruidRole::Historical);
 
         assert_eq!(
             coordinator_jvm_config,
@@ -289,20 +237,19 @@ mod tests {
     }
 
     fn construct_jvm_config_for_test(druid_cluster: &str, druid_role: &DruidRole) -> String {
-        let deserializer = serde_yaml::Deserializer::from_str(druid_cluster);
-        let druid: DruidCluster =
-            serde_yaml::with::singleton_map_recursive::deserialize(deserializer).unwrap();
+        use crate::controller::validate::test_support::druid_from_yaml;
 
-        let role = druid.get_role(druid_role);
+        let druid = druid_from_yaml(druid_cluster);
         let merged_role = druid.merged_role(druid_role).unwrap();
-        let (heap, direct) = merged_role
-            .get("default")
-            .unwrap()
-            .config
-            .resources
-            .get_memory_sizes(druid_role)
-            .unwrap();
+        let rg = merged_role.get("default").unwrap();
+        let (heap, direct) = rg.config.resources.get_memory_sizes(druid_role).unwrap();
 
-        construct_jvm_args(druid_role, &role, "default", heap, direct).unwrap()
+        construct_jvm_args(
+            druid_role,
+            &rg.product_specific_common_config.jvm_argument_overrides,
+            heap,
+            direct,
+        )
+        .unwrap()
     }
 }

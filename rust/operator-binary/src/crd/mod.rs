@@ -1,4 +1,7 @@
-use std::collections::{BTreeMap, HashSet};
+use std::{
+    collections::{BTreeMap, HashSet},
+    str::FromStr,
+};
 
 use indoc::formatdoc;
 use security::add_cert_to_jvm_trust_store_cmd;
@@ -13,7 +16,7 @@ use stackable_operator::{
         resources::{NoRuntimeLimits, Resources},
     },
     config::{
-        fragment::{Fragment, FromFragment, ValidationError},
+        fragment::{Fragment, ValidationError},
         merge::Merge,
     },
     crd::{
@@ -29,25 +32,26 @@ use stackable_operator::{
         framework::{create_vector_shutdown_file_command, remove_vector_shutdown_file_command},
         spec::Logging,
     },
-    role_utils::{CommonConfiguration, GenericRoleConfig, JavaCommonConfig, Role, RoleGroup},
+    role_utils::{GenericRoleConfig, Role},
     schemars::{self, JsonSchema},
     shared::time::Duration,
     status::condition::{ClusterCondition, HasStatusCondition},
     utils::{COMMON_BASH_TRAP_FUNCTIONS, crds::raw_object_list_schema},
-    v2::config_overrides::KeyValueConfigOverrides,
+    v2::{
+        builder::pod::container::{EnvVarName, EnvVarSet},
+        config_overrides::KeyValueConfigOverrides,
+        role_utils::{JavaCommonConfig, RoleGroupConfig, with_validated_config},
+    },
     versioned::versioned,
 };
 use strum::{Display, EnumDiscriminants, EnumIter, EnumString, IntoStaticStr};
 
-use crate::{
-    crd::{
-        affinity::get_affinity,
-        authorization::DruidAuthorization,
-        database::MetadataDatabaseConnection,
-        resource::RoleResource,
-        tls::{DruidTls, default_druid_tls},
-    },
-    framework::role_utils::{RoleGroupConfig, with_validated_config},
+use crate::crd::{
+    affinity::get_affinity,
+    authorization::DruidAuthorization,
+    database::MetadataDatabaseConnection,
+    resource::RoleResource,
+    tls::{DruidTls, default_druid_tls},
 };
 
 pub mod affinity;
@@ -162,7 +166,13 @@ pub enum Error {
 
     #[snafu(display("failed to merge and validate config for role group {role_group:?}"))]
     FailedToMergeRoleGroupConfig {
-        source: crate::framework::role_utils::Error,
+        source: ValidationError,
+        role_group: String,
+    },
+
+    #[snafu(display("invalid environment variable override name in role group {role_group:?}"))]
+    ParseEnvVarName {
+        source: stackable_operator::v2::builder::pod::container::Error,
         role_group: String,
     },
 }
@@ -442,26 +452,45 @@ impl v1alpha1::DruidCluster {
                         role_group: rg_name.clone(),
                     })?;
                     let common = CommonRoleGroupConfig {
-                        resources: $resource(validated.config.resources),
-                        logging: validated.config.logging,
+                        resources: $resource(validated.config.config.resources),
+                        logging: validated.config.config.logging,
                         replicas: rg.replicas,
-                        affinity: validated.config.affinity,
-                        graceful_shutdown_timeout: validated.config.graceful_shutdown_timeout,
+                        affinity: validated.config.config.affinity,
+                        graceful_shutdown_timeout: validated
+                            .config
+                            .config
+                            .graceful_shutdown_timeout,
                         requested_secret_lifetime: validated
+                            .config
                             .config
                             .requested_secret_lifetime
                             .context(MissingSecretLifetimeSnafu)?,
                     };
+                    // Upstream returns env overrides as a `HashMap`; the build step consumes an
+                    // `EnvVarSet`. Convert here, validating each name. (Role/role-group precedence
+                    // is already resolved by `with_validated_config`.)
+                    let mut env_overrides = EnvVarSet::new();
+                    for (name, value) in validated.config.env_overrides {
+                        env_overrides = env_overrides.with_value(
+                            &EnvVarName::from_str(&name).with_context(|_| {
+                                ParseEnvVarNameSnafu {
+                                    role_group: rg_name.clone(),
+                                }
+                            })?,
+                            value,
+                        );
+                    }
                     groups.insert(
                         rg_name.clone(),
                         DruidRoleGroupConfig {
-                            replicas: validated.replicas,
+                            replicas: validated.replicas.unwrap_or(1),
                             config: common,
-                            config_overrides: validated.config_overrides,
-                            env_overrides: validated.env_overrides,
-                            cli_overrides: validated.cli_overrides,
-                            pod_overrides: validated.pod_overrides,
+                            config_overrides: validated.config.config_overrides,
+                            env_overrides,
+                            cli_overrides: validated.config.cli_overrides,
+                            pod_overrides: validated.config.pod_overrides,
                             product_specific_common_config: validated
+                                .config
                                 .product_specific_common_config,
                         },
                     );
@@ -518,22 +547,6 @@ impl v1alpha1::DruidCluster {
             DruidRole::Router => &self.spec.routers.role_config.generic,
         }
     }
-
-    pub fn get_role(&self, druid_role: &DruidRole) -> DruidErasedRole {
-        match druid_role {
-            DruidRole::Broker => erase_config(extract_role_from_role_config::<BrokerConfig>(
-                self.spec.brokers.clone(),
-            )),
-            DruidRole::Coordinator => erase_config(extract_role_from_role_config::<
-                CoordinatorConfig,
-            >(self.spec.coordinators.clone())),
-            DruidRole::Historical => erase_config(self.spec.historicals.clone()),
-            DruidRole::MiddleManager => erase_config(self.spec.middle_managers.clone()),
-            DruidRole::Router => erase_config(extract_role_from_role_config::<RouterConfig>(
-                self.spec.routers.clone(),
-            )),
-        }
-    }
 }
 
 #[derive(
@@ -570,21 +583,17 @@ pub struct CommonRoleGroupConfig {
 
 /// A validated, merged role-group config.
 ///
-/// This is the framework [`RoleGroupConfig`] (config plus the four merged override categories,
-/// role group winning over role), with the typed per-role config erased to the shared
-/// [`CommonRoleGroupConfig`] view. The rendered per-file configs (runtime.properties /
+/// This is the upstream [`stackable_operator::v2::role_utils::RoleGroupConfig`] (config plus the
+/// four merged override categories, role group winning over role), with the typed per-role config
+/// erased to the shared [`CommonRoleGroupConfig`] view. The merged JVM argument overrides live in
+/// `product_specific_common_config`; the rendered per-file configs (runtime.properties /
 /// security.properties / jvm.config) are produced later, in the config-map build step.
 ///
 /// Note: the StatefulSet replicas come from [`CommonRoleGroupConfig::replicas`] (an `Option`, so
-/// an unspecified count is left unset and stays HPA-friendly), not from the framework
+/// an unspecified count is left unset and stays HPA-friendly), not from
 /// [`RoleGroupConfig::replicas`].
 pub type DruidRoleGroupConfig =
     RoleGroupConfig<CommonRoleGroupConfig, JavaCommonConfig, DruidConfigOverrides>;
-
-/// A role with its typed config erased to `()`, retaining the override layers (notably the JVM
-/// argument overrides in `product_specific_common_config`). Carried on the validated cluster so
-/// the build step can render `jvm.config` without reaching back to the raw `DruidCluster`.
-pub type DruidErasedRole = Role<(), DruidConfigOverrides, GenericRoleConfig, JavaCommonConfig>;
 
 impl Default for v1alpha1::DruidRoleConfig {
     fn default() -> Self {
@@ -933,88 +942,6 @@ pub fn build_recommended_labels<'a, T>(
         controller_name,
         role,
         role_group,
-    }
-}
-
-fn extract_role_from_role_config<T>(
-    fragment: Role<T::Fragment, DruidConfigOverrides, v1alpha1::DruidRoleConfig, JavaCommonConfig>,
-) -> Role<T::Fragment, DruidConfigOverrides, GenericRoleConfig, JavaCommonConfig>
-where
-    T: FromFragment,
-    T::Fragment: Clone + Merge,
-{
-    Role {
-        config: CommonConfiguration {
-            config: fragment.config.config,
-            config_overrides: fragment.config.config_overrides,
-            env_overrides: fragment.config.env_overrides,
-            cli_overrides: fragment.config.cli_overrides,
-            pod_overrides: fragment.config.pod_overrides,
-            product_specific_common_config: fragment.config.product_specific_common_config,
-        },
-        role_config: fragment.role_config.generic,
-        role_groups: fragment
-            .role_groups
-            .into_iter()
-            .map(|(k, v)| {
-                (
-                    k,
-                    RoleGroup {
-                        config: CommonConfiguration {
-                            config: v.config.config,
-                            config_overrides: v.config.config_overrides,
-                            env_overrides: v.config.env_overrides,
-                            cli_overrides: v.config.cli_overrides,
-                            pod_overrides: v.config.pod_overrides,
-                            product_specific_common_config: v.config.product_specific_common_config,
-                        },
-                        replicas: v.replicas,
-                    },
-                )
-            })
-            .collect(),
-    }
-}
-
-/// Discards the typed `config` of a [`Role`], replacing it with `()`.
-///
-/// `get_role` needs to return a single concrete type across all roles, but each role has a
-/// different config fragment. Callers only read the role/role-group level overrides
-/// (`config_overrides`, `env_overrides`, `product_specific_common_config`), never the typed config
-/// itself, so erasing it to `()` yields a uniform return type without needing a trait object.
-fn erase_config<C>(
-    role: Role<C, DruidConfigOverrides, GenericRoleConfig, JavaCommonConfig>,
-) -> Role<(), DruidConfigOverrides, GenericRoleConfig, JavaCommonConfig> {
-    Role {
-        config: CommonConfiguration {
-            config: (),
-            config_overrides: role.config.config_overrides,
-            env_overrides: role.config.env_overrides,
-            cli_overrides: role.config.cli_overrides,
-            pod_overrides: role.config.pod_overrides,
-            product_specific_common_config: role.config.product_specific_common_config,
-        },
-        role_config: role.role_config,
-        role_groups: role
-            .role_groups
-            .into_iter()
-            .map(|(k, v)| {
-                (
-                    k,
-                    RoleGroup {
-                        config: CommonConfiguration {
-                            config: (),
-                            config_overrides: v.config.config_overrides,
-                            env_overrides: v.config.env_overrides,
-                            cli_overrides: v.config.cli_overrides,
-                            pod_overrides: v.config.pod_overrides,
-                            product_specific_common_config: v.config.product_specific_common_config,
-                        },
-                        replicas: v.replicas,
-                    },
-                )
-            })
-            .collect(),
     }
 }
 

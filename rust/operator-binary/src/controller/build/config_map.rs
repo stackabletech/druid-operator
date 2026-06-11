@@ -1,9 +1,9 @@
 //! Builds the rolegroup [`ConfigMap`] from a [`ValidatedCluster`].
 //!
 //! The per-file configs (runtime.properties / security.properties / jvm.config) are rendered here
-//! from the merged [`DruidRoleGroupConfig`] (config plus the merged config overrides); the
-//! recommended cluster-level runtime properties and the erased roles needed for `jvm.config` are
-//! carried on `ValidatedCluster`.
+//! from the merged [`DruidRoleGroupConfig`] (config plus the merged config overrides, including the
+//! merged JVM argument overrides used for `jvm.config`); the recommended cluster-level runtime
+//! properties are carried on `ValidatedCluster`.
 //!
 //! Metadata, owner reference and recommended labels are derived entirely from `ValidatedCluster`
 //! (which carries the validated name/namespace/uid and implements `Resource`).
@@ -293,8 +293,7 @@ pub fn build_rolegroup_config_map(
             .context(DeriveMemorySettingsSnafu)?;
         let jvm_config = construct_jvm_args(
             role,
-            cluster.get_role(role),
-            &rolegroup.role_group,
+            &rg.product_specific_common_config.jvm_argument_overrides,
             heap,
             direct,
         )
