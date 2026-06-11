@@ -3,7 +3,7 @@
 //! The per-file configs (runtime.properties / security.properties / jvm.config) are rendered here
 //! from the merged [`DruidRoleGroupConfig`] (config plus the merged config overrides); the
 //! recommended cluster-level runtime properties and the erased roles needed for `jvm.config` are
-//! carried on `ValidatedCluster`. Product-config is no longer involved.
+//! carried on `ValidatedCluster`.
 //!
 //! Metadata, owner reference and recommended labels are derived entirely from `ValidatedCluster`
 //! (which carries the validated name/namespace/uid and implements `Resource`).

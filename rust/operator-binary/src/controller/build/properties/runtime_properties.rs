@@ -1,11 +1,7 @@
-//! Builder for the static, role-specific `runtime.properties` defaults that were
-//! previously injected by product-config's `recommendedValues`.
+//! Builder for the static, role-specific `runtime.properties`.
 //!
-//! Only includes a recommended value for a role where the property was
-//! `required: true` for that role (verified against
-//! `tests/templates/kuttl/smoke/53-assert.yaml.j2`). Dynamic, cluster-derived
-//! values (ZooKeeper, extensions, metadata DB, deep storage, TLS, auth, ports,
-//! resource-derived sizes) are added by the controller, not here.
+//! Dynamic, cluster-derived values (ZooKeeper, extensions, metadata DB, deep storage,
+//!  TLS, auth, ports, resource-derived sizes) are added by the controller, not here.
 
 use std::collections::BTreeMap;
 
@@ -25,9 +21,6 @@ const PROMETHEUS_PORT: &str = "druid.emitter.prometheus.port";
 
 /// The recommended cluster-level `runtime.properties` derived from the cluster config (deep
 /// storage, OPA authorization and metrics). These are independent of role and role group.
-///
-/// `opa_authorization_enabled` mirrors `authorization.opa` being configured (equivalently, the
-/// OPA connection string having been resolved during dereferencing).
 pub fn cluster_runtime_properties(
     deep_storage: &DeepStorageSpec,
     opa_authorization_enabled: bool,
