@@ -63,9 +63,9 @@ use crate::{
         service::{build_rolegroup_headless_service, build_rolegroup_metrics_service},
     },
     crd::{
-        APP_NAME, CommonRoleGroupConfig, Container, DRUID_CONFIG_DIRECTORY, DeepStorageSpec,
-        DruidClusterStatus, DruidRole, HDFS_CONFIG_DIRECTORY, LOG_CONFIG_DIRECTORY, METRICS_PORT,
-        METRICS_PORT_NAME, OPERATOR_NAME, RW_CONFIG_DIRECTORY, STACKABLE_LOG_DIR,
+        APP_NAME, Container, DRUID_CONFIG_DIRECTORY, DeepStorageSpec, DruidClusterStatus,
+        DruidRole, HDFS_CONFIG_DIRECTORY, LOG_CONFIG_DIRECTORY, METRICS_PORT, METRICS_PORT_NAME,
+        OPERATOR_NAME, RW_CONFIG_DIRECTORY, STACKABLE_LOG_DIR, ValidatedDruidConfig,
         build_recommended_labels, security::DruidTlsSecurity, v1alpha1,
     },
     internal_secret::create_shared_internal_secret,
@@ -788,7 +788,7 @@ fn build_rolegroup_statefulset(
             .build(),
         spec: Some(StatefulSetSpec {
             pod_management_policy: Some("Parallel".to_string()),
-            replicas: merged_rolegroup_config.replicas.map(i32::from),
+            replicas: Some(i32::from(rg.replicas)),
             selector: LabelSelector {
                 match_labels: Some(
                     Labels::role_group_selector(
@@ -861,7 +861,7 @@ fn add_config_volume_and_volume_mounts(
 
 fn add_log_config_volume_and_volume_mounts(
     rolegroup_ref: &RoleGroupRef<v1alpha1::DruidCluster>,
-    merged_rolegroup_config: &CommonRoleGroupConfig,
+    merged_rolegroup_config: &ValidatedDruidConfig,
     cb_druid: &mut ContainerBuilder,
     pb: &mut PodBuilder,
 ) -> Result<()> {

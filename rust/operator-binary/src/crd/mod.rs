@@ -432,7 +432,7 @@ impl v1alpha1::DruidCluster {
     ///
     /// All four override categories (config / env / cli / pod) are merged by
     /// [`with_validated_config`] (role group wins over role); the typed per-role config is then
-    /// erased to the shared [`CommonRoleGroupConfig`] view consumed by the build step.
+    /// erased to the shared [`ValidatedDruidConfig`] view consumed by the build step.
     pub fn merged_role(
         &self,
         role: &DruidRole,
@@ -440,7 +440,7 @@ impl v1alpha1::DruidCluster {
         let deep_storage = &self.spec.cluster_config.deep_storage;
         let name = self.name_any();
 
-        // All roles erase to an identical `CommonRoleGroupConfig`; only the typed config, the role
+        // All roles erase to an identical `ValidatedDruidConfig`; only the typed config, the role
         // config type and the `RoleResource` variant (historicals carry typed storage) differ.
         macro_rules! merged_role {
             ($field:ident, $config:ty, $role_config:ty, $resource:path) => {{
@@ -458,10 +458,9 @@ impl v1alpha1::DruidCluster {
                     .with_context(|_| FailedToMergeRoleGroupConfigSnafu {
                         role_group: rg_name.clone(),
                     })?;
-                    let common = CommonRoleGroupConfig {
+                    let common = ValidatedDruidConfig {
                         resources: $resource(validated.config.config.resources),
                         logging: validated.config.config.logging,
-                        replicas: rg.replicas,
                         affinity: validated.config.config.affinity,
                         graceful_shutdown_timeout: validated
                             .config
@@ -582,30 +581,30 @@ pub enum Container {
     Vector,
 }
 
-/// Common configuration for all role groups
+/// The validated, merged Druid config shared by all role groups (the typed per-role config erased
+/// to a single view). Mirrors the opensearch-operator's `ValidatedOpenSearchConfig`.
 #[derive(Clone)]
-pub struct CommonRoleGroupConfig {
-    pub resources: RoleResource,
-    pub logging: Logging<Container>,
-    pub replicas: Option<u16>,
+pub struct ValidatedDruidConfig {
     pub affinity: StackableAffinity,
     pub graceful_shutdown_timeout: Option<Duration>,
+    pub logging: Logging<Container>,
     pub requested_secret_lifetime: Duration,
+    pub resources: RoleResource,
 }
 
 /// A validated, merged role-group config.
 ///
 /// This is the upstream [`stackable_operator::v2::role_utils::RoleGroupConfig`] (config plus the
 /// four merged override categories, role group winning over role), with the typed per-role config
-/// erased to the shared [`CommonRoleGroupConfig`] view. The merged JVM argument overrides live in
+/// erased to the shared [`ValidatedDruidConfig`] view. The merged JVM argument overrides live in
 /// `product_specific_common_config`; the rendered per-file configs (runtime.properties /
 /// security.properties / jvm.config) are produced later, in the config-map build step.
 ///
-/// Note: the StatefulSet replicas come from [`CommonRoleGroupConfig::replicas`] (an `Option`, so
-/// an unspecified count is left unset and stays HPA-friendly), not from
-/// [`RoleGroupConfig::replicas`].
+/// The StatefulSet replicas come from [`RoleGroupConfig::replicas`] (defaulted to 1 during the
+/// merge), mirroring the hive-operator. Upstream `replicas` should be made optional again so an
+/// unspecified count can stay HPA-friendly.
 pub type DruidRoleGroupConfig =
-    RoleGroupConfig<CommonRoleGroupConfig, JavaCommonConfig, DruidConfigOverrides>;
+    RoleGroupConfig<ValidatedDruidConfig, JavaCommonConfig, DruidConfigOverrides>;
 
 impl Default for v1alpha1::DruidRoleConfig {
     fn default() -> Self {
