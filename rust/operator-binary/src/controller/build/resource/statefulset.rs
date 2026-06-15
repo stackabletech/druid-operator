@@ -24,7 +24,7 @@ use stackable_operator::{
     kvp::Labels,
     product_logging,
     v2::{
-        builder::pod::container::EnvVarSet,
+        builder::pod::container::{EnvVarSet, new_container_builder},
         product_logging::framework::{ValidatedContainerLogConfigChoice, vector_container},
         role_group_utils::ResourceNames,
         types::{
@@ -64,12 +64,6 @@ const USERDATA_MOUNTPOINT: &str = "/stackable/userdata";
 
 #[derive(Snafu, Debug)]
 pub enum Error {
-    #[snafu(display("failed to create container builder with name [{name}]"))]
-    FailedContainerBuilderCreation {
-        source: stackable_operator::builder::pod::container::Error,
-        name: String,
-    },
-
     #[snafu(display("failed to configure graceful shutdown"))]
     GracefulShutdown {
         source: crate::operations::graceful_shutdown::Error,
@@ -146,19 +140,13 @@ pub fn build_rolegroup_statefulset(
     let druid_tls_security = &cluster.cluster_config.druid_tls_security;
     let druid_auth_config = &cluster.cluster_config.druid_auth_config;
     // prepare container builder
-    let prepare_container_name = Container::Prepare.to_string();
-    let mut cb_prepare = ContainerBuilder::new(&prepare_container_name).context(
-        FailedContainerBuilderCreationSnafu {
-            name: &prepare_container_name,
-        },
-    )?;
+    let prepare_container_name = ContainerName::from_str(&Container::Prepare.to_string())
+        .expect("'prepare' is a valid container name");
+    let mut cb_prepare = new_container_builder(&prepare_container_name);
     // druid container builder
-    let druid_container_name = Container::Druid.to_string();
-    let mut cb_druid = ContainerBuilder::new(&druid_container_name).context(
-        FailedContainerBuilderCreationSnafu {
-            name: &druid_container_name,
-        },
-    )?;
+    let druid_container_name = ContainerName::from_str(&Container::Druid.to_string())
+        .expect("'druid' is a valid container name");
+    let mut cb_druid = new_container_builder(&druid_container_name);
     // init pod builder
     let mut pb = PodBuilder::new();
     pb.affinity(&merged_rolegroup_config.affinity);
@@ -182,7 +170,7 @@ pub fn build_rolegroup_statefulset(
         // otherwise the output of the following commands will not be captured!
         prepare_container_commands.push(product_logging::framework::capture_shell_output(
             STACKABLE_LOG_DIR,
-            &prepare_container_name,
+            prepare_container_name.as_ref(),
             log_config,
         ));
     }
