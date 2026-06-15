@@ -248,6 +248,8 @@ pub(crate) static ROUTER_RESOURCES: LazyLock<
 
 #[cfg(test)]
 mod test {
+    use std::str::FromStr;
+
     use rstest::*;
     use stackable_operator::{
         commons::resources::{
@@ -257,6 +259,7 @@ mod test {
         config::{fragment, merge::Merge},
         k8s_openapi::apimachinery::pkg::api::resource::Quantity,
         utils::yaml_from_str_singleton_map,
+        v2::types::operator::RoleGroupName,
     };
 
     use super::*;
@@ -420,7 +423,7 @@ mod test {
         let middle_managers = cluster.merged_role(&DruidRole::MiddleManager).unwrap();
 
         if let Some(RoleResource::Druid(middlemanager_resources_from_rg)) = middle_managers
-            .get("resources-from-role-group")
+            .get(&RoleGroupName::from_str("resources-from-role-group").unwrap())
             .map(|rg| &rg.config.resources)
         {
             let expected = Resources {
@@ -444,7 +447,7 @@ mod test {
         }
 
         if let Some(RoleResource::Druid(middlemanager_resources_from_rg)) = middle_managers
-            .get("resources-from-role")
+            .get(&RoleGroupName::from_str("resources-from-role").unwrap())
             .map(|rg| &rg.config.resources)
         {
             let expected = Resources {
@@ -480,7 +483,11 @@ mod test {
         let historicals = cluster.merged_role(&DruidRole::Historical).unwrap();
 
         // ---------- default role group
-        let res = &historicals.get("default").unwrap().config.resources;
+        let res = &historicals
+            .get(&RoleGroupName::from_str("default").unwrap())
+            .unwrap()
+            .config
+            .resources;
         let mut got = BTreeMap::new();
 
         assert!(res.update_druid_config_file(&mut got).is_ok());
@@ -491,7 +498,11 @@ mod test {
         assert_eq!(value, &expected, "primary");
 
         // ---------- secondary role group
-        let res = &historicals.get("secondary").unwrap().config.resources;
+        let res = &historicals
+            .get(&RoleGroupName::from_str("secondary").unwrap())
+            .unwrap()
+            .config
+            .resources;
         let mut got = BTreeMap::new();
 
         assert!(res.update_druid_config_file(&mut got).is_ok());

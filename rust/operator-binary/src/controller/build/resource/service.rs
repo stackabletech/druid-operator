@@ -5,11 +5,12 @@ use stackable_operator::{
     builder::meta::ObjectMetaBuilder,
     k8s_openapi::api::core::v1::{Service, ServicePort, ServiceSpec},
     kvp::{Annotations, Label, ObjectLabels},
-    role_utils::RoleGroupRef,
+    v2::types::operator::RoleGroupName,
 };
 
-use crate::crd::{
-    DruidRole, METRICS_PORT, METRICS_PORT_NAME, security::DruidTlsSecurity, v1alpha1,
+use crate::{
+    controller::validate::ValidatedCluster,
+    crd::{DruidRole, METRICS_PORT, METRICS_PORT_NAME, security::DruidTlsSecurity, v1alpha1},
 };
 
 #[derive(Snafu, Debug)]
@@ -33,18 +34,23 @@ pub enum Error {
 /// The rolegroup headless [`Service`] is a service that allows direct access to the instances of a certain rolegroup
 /// This is mostly useful for internal communication between peers, or for clients that perform client-side load balancing.
 pub fn build_rolegroup_headless_service(
-    druid: &v1alpha1::DruidCluster,
+    cluster: &ValidatedCluster,
     druid_tls_security: &DruidTlsSecurity,
     druid_role: &DruidRole,
-    role_group_ref: &RoleGroupRef<v1alpha1::DruidCluster>,
+    role_group_name: &RoleGroupName,
     object_labels: ObjectLabels<v1alpha1::DruidCluster>,
     selector: BTreeMap<String, String>,
 ) -> Result<Service, Error> {
     Ok(Service {
         metadata: ObjectMetaBuilder::new()
-            .name_and_namespace(druid)
-            .name(role_group_ref.rolegroup_headless_service_name())
-            .ownerreference_from_resource(druid, None, Some(true))
+            .name_and_namespace(cluster)
+            .name(
+                cluster
+                    .resource_names(druid_role, role_group_name)
+                    .headless_service_name()
+                    .to_string(),
+            )
+            .ownerreference_from_resource(cluster, None, Some(true))
             .context(ObjectMissingMetadataForOwnerRefSnafu)?
             .with_recommended_labels(&object_labels)
             .context(MetadataBuildSnafu)?
@@ -64,16 +70,22 @@ pub fn build_rolegroup_headless_service(
 
 /// The rolegroup metrics [`Service`] is a service that exposes metrics and a prometheus scraping label.
 pub fn build_rolegroup_metrics_service(
-    druid: &v1alpha1::DruidCluster,
-    role_group_ref: &RoleGroupRef<v1alpha1::DruidCluster>,
+    cluster: &ValidatedCluster,
+    druid_role: &DruidRole,
+    role_group_name: &RoleGroupName,
     object_labels: ObjectLabels<v1alpha1::DruidCluster>,
     selector: BTreeMap<String, String>,
 ) -> Result<Service, Error> {
     Ok(Service {
         metadata: ObjectMetaBuilder::new()
-            .name_and_namespace(druid)
-            .name(role_group_ref.rolegroup_metrics_service_name())
-            .ownerreference_from_resource(druid, None, Some(true))
+            .name_and_namespace(cluster)
+            .name(
+                cluster
+                    .resource_names(druid_role, role_group_name)
+                    .metrics_service_name()
+                    .to_string(),
+            )
+            .ownerreference_from_resource(cluster, None, Some(true))
             .context(ObjectMissingMetadataForOwnerRefSnafu)?
             .with_recommended_labels(&object_labels)
             .context(MetadataBuildSnafu)?

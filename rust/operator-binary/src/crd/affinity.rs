@@ -76,7 +76,7 @@ pub fn get_affinity(
 
 #[cfg(test)]
 mod tests {
-    use std::collections::BTreeMap;
+    use std::{collections::BTreeMap, str::FromStr};
 
     use rstest::rstest;
     use stackable_operator::{
@@ -87,6 +87,7 @@ mod tests {
             },
             apimachinery::pkg::apis::meta::v1::LabelSelector,
         },
+        v2::types::operator::RoleGroupName,
     };
 
     use super::*;
@@ -143,7 +144,9 @@ mod tests {
         let druid: v1alpha1::DruidCluster =
             serde_yaml::with::singleton_map_recursive::deserialize(deserializer).unwrap();
         let merged_role = druid.merged_role(&role).unwrap();
-        let merged_config = merged_role.get("default").unwrap();
+        let merged_config = merged_role
+            .get(&RoleGroupName::from_str("default").unwrap())
+            .unwrap();
 
         let mut expected_affinities = vec![];
 

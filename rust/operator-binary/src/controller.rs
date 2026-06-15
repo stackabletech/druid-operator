@@ -340,7 +340,7 @@ pub async fn reconcile_druid(
             let rolegroup = RoleGroupRef {
                 cluster: ObjectRef::from_obj(druid),
                 role: role_name.clone(),
-                role_group: rolegroup_name.into(),
+                role_group: rolegroup_name.to_string(),
             };
 
             let role_group_service_recommended_labels = build_recommended_labels(
@@ -360,17 +360,18 @@ pub async fn reconcile_druid(
             .context(LabelBuildSnafu)?;
 
             let rg_headless_service = build_rolegroup_headless_service(
-                druid,
+                &validated_cluster,
                 &validated_cluster.cluster_config.druid_tls_security,
                 druid_role,
-                &rolegroup,
+                rolegroup_name,
                 role_group_service_recommended_labels.clone(),
                 role_group_service_selector.clone().into(),
             )
             .context(ServiceConfigurationSnafu)?;
             let rg_metrics_service = build_rolegroup_metrics_service(
-                druid,
-                &rolegroup,
+                &validated_cluster,
+                druid_role,
+                rolegroup_name,
                 role_group_service_recommended_labels,
                 role_group_service_selector.into(),
             )
@@ -932,7 +933,10 @@ pub fn error_policy(
 
 #[cfg(test)]
 mod test {
+    use std::str::FromStr;
+
     use rstest::*;
+    use stackable_operator::v2::types::operator::RoleGroupName;
 
     use super::*;
     use crate::{
@@ -971,7 +975,7 @@ mod test {
             .role_group_configs
             .get(&DruidRole::Historical)
             .expect("historical role groups")
-            .get(tested_rolegroup_name)
+            .get(&RoleGroupName::from_str(tested_rolegroup_name).unwrap())
             .expect("tested rolegroup")
             .clone();
 

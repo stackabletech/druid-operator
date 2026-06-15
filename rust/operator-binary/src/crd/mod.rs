@@ -41,6 +41,7 @@ use stackable_operator::{
         builder::pod::container::{EnvVarName, EnvVarSet},
         config_overrides::KeyValueConfigOverrides,
         role_utils::{JavaCommonConfig, RoleGroupConfig, with_validated_config},
+        types::operator::RoleGroupName,
     },
     versioned::versioned,
 };
@@ -173,6 +174,12 @@ pub enum Error {
     #[snafu(display("invalid environment variable override name in role group {role_group:?}"))]
     ParseEnvVarName {
         source: stackable_operator::v2::builder::pod::container::Error,
+        role_group: String,
+    },
+
+    #[snafu(display("invalid role group name {role_group:?}"))]
+    ParseRoleGroupName {
+        source: stackable_operator::v2::macros::attributed_string_type::Error,
         role_group: String,
     },
 }
@@ -429,7 +436,7 @@ impl v1alpha1::DruidCluster {
     pub fn merged_role(
         &self,
         role: &DruidRole,
-    ) -> Result<BTreeMap<String, DruidRoleGroupConfig>, Error> {
+    ) -> Result<BTreeMap<RoleGroupName, DruidRoleGroupConfig>, Error> {
         let deep_storage = &self.spec.cluster_config.deep_storage;
         let name = self.name_any();
 
@@ -480,8 +487,13 @@ impl v1alpha1::DruidCluster {
                             value,
                         );
                     }
+                    let role_group_name = RoleGroupName::from_str(rg_name).with_context(|_| {
+                        ParseRoleGroupNameSnafu {
+                            role_group: rg_name.clone(),
+                        }
+                    })?;
                     groups.insert(
-                        rg_name.clone(),
+                        role_group_name,
                         DruidRoleGroupConfig {
                             replicas: validated.replicas.unwrap_or(1),
                             config: common,

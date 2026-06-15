@@ -3,7 +3,7 @@
 //! Synchronously validates inputs that don't require a Kubernetes client. Produces
 //! [`ValidatedCluster`], consumed by the rest of `reconcile_druid`.
 
-use std::{borrow::Cow, collections::BTreeMap};
+use std::{borrow::Cow, collections::BTreeMap, str::FromStr};
 
 use snafu::{ResultExt, Snafu};
 use stackable_operator::{
@@ -15,9 +15,10 @@ use stackable_operator::{
     v2::{
         HasName, HasUid,
         controller_utils::{get_cluster_name, get_namespace, get_uid},
+        role_group_utils::ResourceNames,
         types::{
             kubernetes::{NamespaceName, Uid},
-            operator::ClusterName,
+            operator::{ClusterName, RoleGroupName, RoleName},
         },
     },
 };
@@ -58,8 +59,6 @@ pub enum Error {
 }
 
 type Result<T, E = Error> = std::result::Result<T, E>;
-
-pub type RoleGroupName = String;
 
 /// A validated, merged role-group config.
 ///
@@ -129,6 +128,20 @@ impl ValidatedCluster {
             image,
             cluster_config,
             role_group_configs,
+        }
+    }
+
+    /// Type-safe names for the resources of the given role's role group.
+    pub(crate) fn resource_names(
+        &self,
+        role: &DruidRole,
+        role_group_name: &RoleGroupName,
+    ) -> ResourceNames {
+        ResourceNames {
+            cluster_name: self.name.clone(),
+            role_name: RoleName::from_str(&role.to_string())
+                .expect("a DruidRole is a valid role name"),
+            role_group_name: role_group_name.clone(),
         }
     }
 }

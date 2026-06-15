@@ -69,7 +69,10 @@ pub fn construct_jvm_args(
 
 #[cfg(test)]
 mod tests {
+    use std::str::FromStr;
+
     use indoc::indoc;
+    use stackable_operator::v2::types::operator::RoleGroupName;
 
     use super::*;
 
@@ -241,7 +244,9 @@ mod tests {
 
         let druid = druid_from_yaml(druid_cluster);
         let merged_role = druid.merged_role(druid_role).unwrap();
-        let rg = merged_role.get("default").unwrap();
+        let rg = merged_role
+            .get(&RoleGroupName::from_str("default").unwrap())
+            .unwrap();
         let (heap, direct) = rg.config.resources.get_memory_sizes(druid_role).unwrap();
 
         construct_jvm_args(
