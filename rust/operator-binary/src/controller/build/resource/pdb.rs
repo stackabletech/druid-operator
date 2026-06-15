@@ -1,37 +1,24 @@
-use snafu::{ResultExt, Snafu};
+use std::str::FromStr;
+
 use stackable_operator::{
-    builder::pdb::PodDisruptionBudgetBuilder, client::Client, cluster_resources::ClusterResources,
-    commons::pdb::PdbConfig, kube::ResourceExt,
+    commons::pdb::PdbConfig,
+    k8s_openapi::api::policy::v1::PodDisruptionBudget,
+    v2::{builder::pdb::pod_disruption_budget_builder_with_role, types::operator::RoleName},
 };
 
 use crate::{
-    controller::DRUID_CONTROLLER_NAME,
-    crd::{APP_NAME, DruidRole, OPERATOR_NAME, v1alpha1},
+    controller::{controller_name, operator_name, product_name, validate::ValidatedCluster},
+    crd::DruidRole,
 };
 
-#[derive(Snafu, Debug)]
-pub enum Error {
-    #[snafu(display("Cannot create PodDisruptionBudget for role [{role}]"))]
-    CreatePdb {
-        source: stackable_operator::builder::pdb::Error,
-        role: String,
-    },
-    #[snafu(display("Cannot apply PodDisruptionBudget [{name}]"))]
-    ApplyPdb {
-        source: stackable_operator::cluster_resources::Error,
-        name: String,
-    },
-}
-
-pub async fn add_pdbs(
+/// Builds the [`PodDisruptionBudget`] for the given `role`, or `None` if PDBs are disabled.
+pub fn build_pdb(
     pdb: &PdbConfig,
-    druid: &v1alpha1::DruidCluster,
+    cluster: &ValidatedCluster,
     role: &DruidRole,
-    client: &Client,
-    cluster_resources: &mut ClusterResources<'_>,
-) -> Result<(), Error> {
+) -> Option<PodDisruptionBudget> {
     if !pdb.enabled {
-        return Ok(());
+        return None;
     }
     let max_unavailable = pdb.max_unavailable.unwrap_or(match role {
         DruidRole::Broker => max_unavailable_brokers(),
@@ -40,25 +27,17 @@ pub async fn add_pdbs(
         DruidRole::MiddleManager => max_unavailable_middle_managers(),
         DruidRole::Router => max_unavailable_routers(),
     });
-    let pdb = PodDisruptionBudgetBuilder::new_with_role(
-        druid,
-        APP_NAME,
-        &role.to_string(),
-        OPERATOR_NAME,
-        DRUID_CONTROLLER_NAME,
+    let pdb = pod_disruption_budget_builder_with_role(
+        cluster,
+        &product_name(),
+        &RoleName::from_str(&role.to_string()).expect("a DruidRole is a valid role name"),
+        &operator_name(),
+        &controller_name(),
     )
-    .with_context(|_| CreatePdbSnafu {
-        role: role.to_string(),
-    })?
     .with_max_unavailable(max_unavailable)
     .build();
-    let pdb_name = pdb.name_any();
-    cluster_resources
-        .add(client, pdb)
-        .await
-        .with_context(|_| ApplyPdbSnafu { name: pdb_name })?;
 
-    Ok(())
+    Some(pdb)
 }
 
 fn max_unavailable_brokers() -> u16 {

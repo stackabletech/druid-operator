@@ -45,7 +45,7 @@ use stackable_operator::{
         role_group_utils::ResourceNames,
         types::{
             kubernetes::{ContainerName, VolumeName},
-            operator::RoleGroupName,
+            operator::{ControllerName, OperatorName, ProductName, RoleGroupName},
         },
     },
 };
@@ -57,7 +57,7 @@ use crate::{
             LISTENER_VOLUME_DIR, LISTENER_VOLUME_NAME, build_group_listener,
             build_group_listener_pvc, group_listener_name, secret_volume_listener_scope,
         },
-        pdb::add_pdbs,
+        pdb::build_pdb,
         service::{build_rolegroup_headless_service, build_rolegroup_metrics_service},
     },
     crd::{
@@ -84,6 +84,22 @@ pub const DRUID_CONTROLLER_NAME: &str = "druidcluster";
 pub const FULL_CONTROLLER_NAME: &str = concatcp!(DRUID_CONTROLLER_NAME, '.', OPERATOR_NAME);
 
 pub(super) const CONTAINER_IMAGE_BASE_NAME: &str = "druid";
+
+/// The product name (`druid`) as a type-safe label value.
+pub(crate) fn product_name() -> ProductName {
+    ProductName::from_str(APP_NAME).expect("'druid' is a valid product name")
+}
+
+/// The operator name as a type-safe label value.
+pub(crate) fn operator_name() -> OperatorName {
+    OperatorName::from_str(OPERATOR_NAME).expect("the operator name is a valid label value")
+}
+
+/// The controller name as a type-safe label value.
+pub(crate) fn controller_name() -> ControllerName {
+    ControllerName::from_str(DRUID_CONTROLLER_NAME)
+        .expect("the controller name is a valid label value")
+}
 
 // volume names
 const DRUID_CONFIG_VOLUME_NAME: &str = "config";
@@ -192,9 +208,9 @@ pub enum Error {
         source: stackable_operator::commons::rbac::Error,
     },
 
-    #[snafu(display("failed to create PodDisruptionBudget"))]
-    FailedToCreatePdb {
-        source: crate::controller::build::resource::pdb::Error,
+    #[snafu(display("failed to apply PodDisruptionBudget"))]
+    ApplyPdb {
+        source: stackable_operator::cluster_resources::Error,
     },
 
     #[snafu(display("failed to configure graceful shutdown"))]
@@ -417,15 +433,16 @@ pub async fn reconcile_druid(
 
         let role_config = druid.generic_role_config(druid_role);
 
-        add_pdbs(
+        if let Some(pdb) = build_pdb(
             &role_config.pod_disruption_budget,
-            druid,
+            &validated_cluster,
             druid_role,
-            client,
-            &mut cluster_resources,
-        )
-        .await
-        .context(FailedToCreatePdbSnafu)?;
+        ) {
+            cluster_resources
+                .add(client, pdb)
+                .await
+                .context(ApplyPdbSnafu)?;
+        }
     }
 
     let cluster_operation_cond_builder =

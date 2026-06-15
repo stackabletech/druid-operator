@@ -14,7 +14,7 @@ use stackable_operator::{
     k8s_openapi::api::core::v1::Volume,
     kube::{Resource, api::ObjectMeta},
     v2::{
-        HasName, HasUid,
+        HasName, HasUid, NameIsValidLabelValue,
         controller_utils::{get_cluster_name, get_namespace, get_uid},
         role_group_utils::ResourceNames,
         types::{
@@ -192,6 +192,12 @@ impl HasName for ValidatedCluster {
 impl HasUid for ValidatedCluster {
     fn to_uid(&self) -> Uid {
         self.uid.clone()
+    }
+}
+
+impl NameIsValidLabelValue for ValidatedCluster {
+    fn to_label_value(&self) -> String {
+        self.name.to_label_value()
     }
 }
 

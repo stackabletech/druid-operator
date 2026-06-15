@@ -447,11 +447,17 @@ impl v1alpha1::DruidCluster {
         s3_ingestion || s3_storage
     }
 
-    /// Merges and validates all role groups of the given role.
+    /// Merges and validates all role groups of the given role. Invoked from the validate step
+    /// (`controller::validate`).
     ///
     /// All four override categories (config / env / cli / pod) are merged by
     /// [`with_validated_config`] (role group wins over role); the typed per-role config is then
     /// erased to the shared [`ValidatedDruidConfig`] view consumed by the build step.
+    ///
+    /// This lives in `crate::crd` and is a `macro_rules!` rather than a generic function on purpose: the erasure
+    /// reads the per-role configs' private `resources` field and calls their private
+    /// `default_config`, and the five roles wrap *different* `resources` types into different
+    /// [`RoleResource`] variants.
     pub fn merged_role(
         &self,
         role: &DruidRole,
