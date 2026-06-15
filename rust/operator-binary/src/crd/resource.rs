@@ -5,8 +5,8 @@ use stackable_operator::{
     builder,
     builder::pod::{PodBuilder, container::ContainerBuilder, volume::VolumeBuilder},
     commons::resources::{
-        CpuLimitsFragment, MemoryLimits, MemoryLimitsFragment, NoRuntimeLimits,
-        NoRuntimeLimitsFragment, Resources, ResourcesFragment,
+        CpuLimitsFragment, MemoryLimitsFragment, NoRuntimeLimits, NoRuntimeLimitsFragment,
+        Resources, ResourcesFragment,
     },
     k8s_openapi::{
         api::core::v1::{EmptyDirVolumeSource, ResourceRequirements},
@@ -66,13 +66,6 @@ impl RoleResource {
         match self {
             Self::Druid(r) => r.clone().into(),
             Self::Historical(r) => r.clone().into(),
-        }
-    }
-
-    pub fn as_memory_limits(&self) -> MemoryLimits<NoRuntimeLimits> {
-        match self {
-            Self::Druid(r) => r.memory.clone(),
-            Self::Historical(r) => r.memory.clone(),
         }
     }
 

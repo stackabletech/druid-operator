@@ -19,9 +19,9 @@ use stackable_operator::{
     crd::s3,
     k8s_openapi::api::core::v1::{ConfigMap, EnvVar},
     product_logging::framework::VECTOR_CONFIG_FILE,
-    role_utils::RoleGroupRef,
     v2::{
         builder::meta::ownerreference_from_resource, config_file_writer::to_java_properties_string,
+        types::operator::RoleGroupName,
     },
 };
 
@@ -40,7 +40,7 @@ use crate::{
     },
     crd::{
         DruidConfigOverrides, DruidRole, STACKABLE_TRUST_STORE, STACKABLE_TRUST_STORE_PASSWORD,
-        build_recommended_labels, build_string_list, env_var_reference, file_reference, v1alpha1,
+        build_recommended_labels, build_string_list, env_var_reference, file_reference,
     },
 };
 
@@ -57,10 +57,10 @@ const AUTH_AUTHORIZER_OPA_URI: &str = "druid.auth.authorizer.OpaAuthorizer.opaUr
 #[derive(Snafu, Debug)]
 #[allow(clippy::enum_variant_names)]
 pub enum Error {
-    #[snafu(display("failed to build ConfigMap for {}", rolegroup))]
+    #[snafu(display("failed to build ConfigMap for role group {role_group}"))]
     BuildRoleGroupConfig {
         source: stackable_operator::builder::configmap::Error,
-        rolegroup: RoleGroupRef<v1alpha1::DruidCluster>,
+        role_group: String,
     },
 
     #[snafu(display("failed to configure S3 connection"))]
@@ -137,9 +137,10 @@ fn key_value_overrides(
 pub fn build_rolegroup_config_map(
     cluster: &ValidatedCluster,
     role: &DruidRole,
-    rolegroup: &RoleGroupRef<v1alpha1::DruidCluster>,
+    role_group_name: &RoleGroupName,
     rg: &DruidRoleGroupConfig,
 ) -> Result<ConfigMap> {
+    let resource_names = cluster.resource_names(role, role_group_name);
     let cluster_config = &cluster.cluster_config;
     let druid_tls_security = &cluster_config.druid_tls_security;
     let druid_auth_config = &cluster_config.druid_auth_config;
@@ -316,7 +317,7 @@ pub fn build_rolegroup_config_map(
             ConfigFileName::SecurityProperties.to_string(),
             to_java_properties_string(security_config.iter()).with_context(|_| {
                 JvmSecurityPropertiesSnafu {
-                    rolegroup: rolegroup.role_group.clone(),
+                    rolegroup: role_group_name.to_string(),
                 }
             })?,
         );
@@ -326,14 +327,14 @@ pub fn build_rolegroup_config_map(
     config_map_builder.metadata(
         ObjectMetaBuilder::new()
             .name_and_namespace(cluster)
-            .name(rolegroup.object_name())
+            .name(resource_names.role_group_config_map().to_string())
             .ownerreference(ownerreference_from_resource(cluster, None, Some(true)))
             .with_recommended_labels(&build_recommended_labels(
                 cluster,
                 DRUID_CONTROLLER_NAME,
                 &cluster.image.app_version_label_value,
-                &rolegroup.role,
-                &rolegroup.role_group,
+                &role.to_string(),
+                role_group_name.as_ref(),
             ))
             .context(MetadataBuildSnafu)?
             .build(),
@@ -356,6 +357,6 @@ pub fn build_rolegroup_config_map(
     config_map_builder
         .build()
         .with_context(|_| BuildRoleGroupConfigSnafu {
-            rolegroup: rolegroup.clone(),
+            role_group: role_group_name.to_string(),
         })
 }
