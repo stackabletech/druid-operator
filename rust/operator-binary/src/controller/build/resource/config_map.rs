@@ -32,7 +32,7 @@ use crate::{
             jvm::construct_jvm_args,
             properties::{
                 ConfigFileName,
-                logging::{build_log4j2_config, build_vector_config},
+                product_logging::{build_log4j2, vector_config_file_content},
                 runtime_properties, security_properties,
             },
         },
@@ -343,12 +343,14 @@ pub fn build_rolegroup_config_map(
         config_map_builder.add_data(filename, file_content);
     }
 
-    if let Some(log4j2_config) = build_log4j2_config(&rg.config.logging) {
+    if let Some(log4j2_config) = build_log4j2(&rg.config.logging.druid_container) {
         config_map_builder.add_data(ConfigFileName::Log4j2Properties.to_string(), log4j2_config);
     }
 
-    if let Some(vector_config) = build_vector_config(rolegroup, &rg.config.logging) {
-        config_map_builder.add_data(VECTOR_CONFIG_FILE, vector_config);
+    // The Vector agent config (`vector.yaml`) is a static, env-var-parameterized file (mirroring
+    // the hive-/opensearch-operator). It is only added when the Vector agent is enabled.
+    if rg.config.logging.enable_vector_agent {
+        config_map_builder.add_data(VECTOR_CONFIG_FILE, vector_config_file_content());
     }
 
     config_map_builder

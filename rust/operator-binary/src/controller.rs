@@ -1,7 +1,7 @@
 //! Ensures that `Pod`s are configured and running for each [`DruidCluster`][v1alpha1]
 //!
 //! [v1alpha1]: v1alpha1::DruidCluster
-use std::sync::Arc;
+use std::{str::FromStr, sync::Arc};
 
 use const_format::concatcp;
 use snafu::{ResultExt, Snafu};
@@ -35,19 +35,20 @@ use stackable_operator::{
     },
     kvp::{KeyValuePairError, LabelError, LabelValueError, Labels},
     logging::controller::ReconcilerError,
-    product_logging::{
-        self,
-        framework::LoggingError,
-        spec::{
-            ConfigMapLogConfig, ContainerLogConfig, ContainerLogConfigChoice,
-            CustomContainerLogConfig,
-        },
-    },
+    product_logging,
     role_utils::RoleGroupRef,
     shared::time::Duration,
     status::condition::{
         compute_conditions, operations::ClusterOperationsConditionBuilder,
         statefulset::StatefulSetConditionBuilder,
+    },
+    v2::{
+        builder::pod::container::EnvVarSet,
+        product_logging::framework::{ValidatedContainerLogConfigChoice, vector_container},
+        types::{
+            kubernetes::{ContainerName, VolumeName},
+            operator::RoleGroupName,
+        },
     },
 };
 use strum::{EnumDiscriminants, IntoStaticStr};
@@ -77,10 +78,10 @@ mod dereference;
 mod validate;
 
 use build::{
-    properties::logging::MAX_DRUID_LOG_FILES_SIZE,
+    properties::product_logging::MAX_DRUID_LOG_FILES_SIZE,
     resource::discovery::{self, build_discovery_configmaps},
 };
-use validate::DruidRoleGroupConfig;
+use validate::{DruidRoleGroupConfig, ValidatedCluster};
 
 pub const DRUID_CONTROLLER_NAME: &str = "druidcluster";
 pub const FULL_CONTROLLER_NAME: &str = concatcp!(DRUID_CONTROLLER_NAME, '.', OPERATOR_NAME);
@@ -179,9 +180,6 @@ pub enum Error {
         source: crate::internal_secret::Error,
     },
 
-    #[snafu(display("vector agent is enabled but vector aggregator ConfigMap is missing"))]
-    VectorAggregatorConfigMapMissing,
-
     #[snafu(display("failed to create RBAC service account"))]
     ApplyServiceAccount {
         source: stackable_operator::cluster_resources::Error,
@@ -224,9 +222,6 @@ pub enum Error {
     GetRequiredLabels {
         source: KeyValuePairError<LabelValueError>,
     },
-
-    #[snafu(display("failed to build vector container"))]
-    BuildVectorContainer { source: LoggingError },
 
     #[snafu(display("failed to add needed volume"))]
     AddVolume { source: builder::pod::Error },
@@ -386,8 +381,10 @@ pub async fn reconcile_druid(
             .context(BuildConfigMapSnafu)?;
             let rg_statefulset = build_rolegroup_statefulset(
                 druid,
+                &validated_cluster,
                 &validated_cluster.image,
                 druid_role,
+                rolegroup_name,
                 &rolegroup,
                 rg,
                 validated_cluster.cluster_config.s3_connection.as_ref(),
@@ -505,8 +502,10 @@ pub async fn reconcile_druid(
 /// corresponding [`stackable_operator::k8s_openapi::api::core::v1::Service`] (from [`build_rolegroup_headless_service`]).
 fn build_rolegroup_statefulset(
     druid: &v1alpha1::DruidCluster,
+    cluster: &ValidatedCluster,
     resolved_product_image: &ResolvedProductImage,
     role: &DruidRole,
+    role_group_name: &RoleGroupName,
     rolegroup_ref: &RoleGroupRef<v1alpha1::DruidCluster>,
     rg: &DruidRoleGroupConfig,
     s3_conn: Option<&s3::v1alpha1::ConnectionSpec>,
@@ -550,12 +549,8 @@ fn build_rolegroup_statefulset(
 
     let mut main_container_commands = role.main_container_prepare_commands(s3_conn);
     let mut prepare_container_commands = vec![];
-    if let Some(ContainerLogConfig {
-        choice: Some(ContainerLogConfigChoice::Automatic(log_config)),
-    }) = merged_rolegroup_config
-        .logging
-        .containers
-        .get(&Container::Prepare)
+    if let ValidatedContainerLogConfigChoice::Automatic(log_config) =
+        &merged_rolegroup_config.logging.prepare_container
     {
         // This command needs to be added at the beginning of the shell commands,
         // otherwise the output of the following commands will not be captured!
@@ -737,33 +732,19 @@ fn build_rolegroup_statefulset(
         .service_account_name(service_account.name_any())
         .security_context(PodSecurityContextBuilder::new().fs_group(1000).build());
 
-    if merged_rolegroup_config.logging.enable_vector_agent {
-        match &druid.spec.cluster_config.vector_aggregator_config_map_name {
-            Some(vector_aggregator_config_map_name) => {
-                pb.add_container(
-                    product_logging::framework::vector_container(
-                        resolved_product_image,
-                        DRUID_CONFIG_VOLUME_NAME,
-                        LOG_VOLUME_NAME,
-                        merged_rolegroup_config
-                            .logging
-                            .containers
-                            .get(&Container::Vector),
-                        ResourceRequirementsBuilder::new()
-                            .with_cpu_request("250m")
-                            .with_cpu_limit("500m")
-                            .with_memory_request("128Mi")
-                            .with_memory_limit("128Mi")
-                            .build(),
-                        vector_aggregator_config_map_name,
-                    )
-                    .context(BuildVectorContainerSnafu)?,
-                );
-            }
-            None => {
-                VectorAggregatorConfigMapMissingSnafu.fail()?;
-            }
-        }
+    // The Vector agent reads the static `vector.yaml` (added to the rolegroup ConfigMap) from the
+    // config volume; the validated aggregator address comes from the up-front `ValidatedLogging`.
+    if let Some(vector_log_config) = &merged_rolegroup_config.logging.vector_container {
+        pb.add_container(vector_container(
+            &ContainerName::from_str(&Container::Vector.to_string())
+                .expect("'vector' is a valid container name"),
+            resolved_product_image,
+            vector_log_config,
+            &cluster.resource_names(role, role_group_name),
+            &VolumeName::from_str(DRUID_CONFIG_VOLUME_NAME).expect("a valid volume name"),
+            &VolumeName::from_str(LOG_VOLUME_NAME).expect("a valid volume name"),
+            EnvVarSet::new(),
+        ));
     }
 
     let mut pod_template = pb.build_template();
@@ -869,19 +850,9 @@ fn add_log_config_volume_and_volume_mounts(
         .add_volume_mount(LOG_CONFIG_VOLUME_NAME, LOG_CONFIG_DIRECTORY)
         .context(AddVolumeMountSnafu)?;
 
-    let config_map = if let Some(ContainerLogConfig {
-        choice:
-            Some(ContainerLogConfigChoice::Custom(CustomContainerLogConfig {
-                custom: ConfigMapLogConfig { config_map },
-            })),
-    }) = merged_rolegroup_config
-        .logging
-        .containers
-        .get(&Container::Druid)
-    {
-        config_map.into()
-    } else {
-        rolegroup_ref.object_name()
+    let config_map = match &merged_rolegroup_config.logging.druid_container {
+        ValidatedContainerLogConfigChoice::Custom(config_map_name) => config_map_name.to_string(),
+        ValidatedContainerLogConfigChoice::Automatic(_) => rolegroup_ref.object_name(),
     };
 
     pb.add_volume(

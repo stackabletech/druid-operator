@@ -1,6 +1,6 @@
 //! Per-file builders for Druid `.properties` files.
 
-pub mod logging;
+pub mod product_logging;
 pub mod runtime_properties;
 pub mod security_properties;
 

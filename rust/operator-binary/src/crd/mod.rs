@@ -40,8 +40,12 @@ use stackable_operator::{
     v2::{
         builder::pod::container::{EnvVarName, EnvVarSet},
         config_overrides::KeyValueConfigOverrides,
+        product_logging::framework::{
+            ValidatedContainerLogConfigChoice, VectorContainerLogConfig,
+            validate_logging_configuration_for_container,
+        },
         role_utils::{JavaCommonConfig, RoleGroupConfig, with_validated_config},
-        types::operator::RoleGroupName,
+        types::{kubernetes::ConfigMapName, operator::RoleGroupName},
     },
     versioned::versioned,
 };
@@ -181,6 +185,21 @@ pub enum Error {
     ParseRoleGroupName {
         source: stackable_operator::v2::macros::attributed_string_type::Error,
         role_group: String,
+    },
+
+    #[snafu(display("failed to validate container log configuration"))]
+    ValidateLoggingConfig {
+        source: stackable_operator::v2::product_logging::framework::Error,
+    },
+
+    #[snafu(display(
+        "the Vector agent is enabled but the Vector aggregator ConfigMap name is missing"
+    ))]
+    MissingVectorAggregatorConfigMapName,
+
+    #[snafu(display("invalid Vector aggregator ConfigMap name"))]
+    ParseVectorAggregatorConfigMapName {
+        source: stackable_operator::v2::macros::attributed_string_type::Error,
     },
 }
 
@@ -440,6 +459,17 @@ impl v1alpha1::DruidCluster {
         let deep_storage = &self.spec.cluster_config.deep_storage;
         let name = self.name_any();
 
+        // The Vector aggregator discovery ConfigMap name (validated here so an invalid name fails
+        // up-front). It is only required when the Vector agent is enabled for a role group.
+        let vector_aggregator_config_map_name = self
+            .spec
+            .cluster_config
+            .vector_aggregator_config_map_name
+            .as_deref()
+            .map(ConfigMapName::from_str)
+            .transpose()
+            .context(ParseVectorAggregatorConfigMapNameSnafu)?;
+
         // All roles erase to an identical `ValidatedDruidConfig`; only the typed config, the role
         // config type and the `RoleResource` variant (historicals carry typed storage) differ.
         macro_rules! merged_role {
@@ -460,7 +490,10 @@ impl v1alpha1::DruidCluster {
                     })?;
                     let common = ValidatedDruidConfig {
                         resources: $resource(validated.config.config.resources),
-                        logging: validated.config.config.logging,
+                        logging: validate_logging(
+                            &validated.config.config.logging,
+                            &vector_aggregator_config_map_name,
+                        )?,
                         affinity: validated.config.config.affinity,
                         graceful_shutdown_timeout: validated
                             .config
@@ -587,9 +620,57 @@ pub enum Container {
 pub struct ValidatedDruidConfig {
     pub affinity: StackableAffinity,
     pub graceful_shutdown_timeout: Option<Duration>,
-    pub logging: Logging<Container>,
+    pub logging: ValidatedLogging,
     pub requested_secret_lifetime: Duration,
     pub resources: RoleResource,
+}
+
+/// Validated logging configuration for the Druid, Prepare (init) and (optional) Vector containers.
+///
+/// Produced up-front by [`validate_logging`] (mirroring the hive-/opensearch-operator) so that an
+/// invalid custom log ConfigMap name or a missing Vector aggregator discovery ConfigMap name fails
+/// reconciliation during validation rather than at resource-build time.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ValidatedLogging {
+    pub druid_container: ValidatedContainerLogConfigChoice,
+    pub prepare_container: ValidatedContainerLogConfigChoice,
+    pub vector_container: Option<VectorContainerLogConfig>,
+    pub enable_vector_agent: bool,
+}
+
+/// Validates the logging configuration for the Druid, Prepare and (optional) Vector containers.
+///
+/// `vector_aggregator_config_map_name` is the discovery ConfigMap name of the Vector aggregator;
+/// it is required (and was validated up-front) only when the Vector agent is enabled.
+fn validate_logging(
+    logging: &Logging<Container>,
+    vector_aggregator_config_map_name: &Option<ConfigMapName>,
+) -> Result<ValidatedLogging, Error> {
+    let druid_container = validate_logging_configuration_for_container(logging, &Container::Druid)
+        .context(ValidateLoggingConfigSnafu)?;
+    let prepare_container =
+        validate_logging_configuration_for_container(logging, &Container::Prepare)
+            .context(ValidateLoggingConfigSnafu)?;
+
+    let vector_container = if logging.enable_vector_agent {
+        let vector_aggregator_config_map_name = vector_aggregator_config_map_name
+            .clone()
+            .context(MissingVectorAggregatorConfigMapNameSnafu)?;
+        Some(VectorContainerLogConfig {
+            log_config: validate_logging_configuration_for_container(logging, &Container::Vector)
+                .context(ValidateLoggingConfigSnafu)?,
+            vector_aggregator_config_map_name,
+        })
+    } else {
+        None
+    };
+
+    Ok(ValidatedLogging {
+        druid_container,
+        prepare_container,
+        vector_container,
+        enable_vector_agent: logging.enable_vector_agent,
+    })
 }
 
 /// A validated, merged role-group config.

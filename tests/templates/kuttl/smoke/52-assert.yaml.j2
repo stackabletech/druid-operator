@@ -43,6 +43,46 @@ spec:
     spec:
       serviceAccount: druid-serviceaccount
       serviceAccountName: druid-serviceaccount
+{% if lookup('env', 'VECTOR_AGGREGATOR') %}
+      # The Vector agent sidecar (added by the v2 `vector_container`). kuttl matches list
+      # elements positionally, so the first (druid) container is named only to align indices.
+      containers:
+        - name: druid
+        - name: vector
+          env:
+            - name: CLUSTER_NAME
+              value: druid
+            - name: DATA_DIR
+              value: /stackable/log/_vector-state
+            - name: LOG_DIR
+              value: /stackable/log
+            - name: NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: ROLE_GROUP_NAME
+              value: default
+            - name: ROLE_NAME
+              value: broker
+            - name: VECTOR_AGGREGATOR_ADDRESS
+              valueFrom:
+                configMapKeyRef:
+                  key: ADDRESS
+                  name: vector-aggregator-discovery
+            - name: VECTOR_CONFIG_YAML
+              value: /stackable/config/vector.yaml
+            - name: VECTOR_FILE_LOG_LEVEL
+              value: info
+            - name: VECTOR_LOG
+              value: info
+          volumeMounts:
+            - mountPath: /stackable/config/vector.yaml
+              name: config
+              readOnly: true
+              subPath: vector.yaml
+            - mountPath: /stackable/log
+              name: log
+{% endif %}
       terminationGracePeriodSeconds: 1
 status:
   readyReplicas: 1
@@ -78,6 +118,46 @@ spec:
     spec:
       serviceAccount: druid-serviceaccount
       serviceAccountName: druid-serviceaccount
+{% if lookup('env', 'VECTOR_AGGREGATOR') %}
+      # The Vector agent sidecar (added by the v2 `vector_container`). kuttl matches list
+      # elements positionally, so the first (druid) container is named only to align indices.
+      containers:
+        - name: druid
+        - name: vector
+          env:
+            - name: CLUSTER_NAME
+              value: druid
+            - name: DATA_DIR
+              value: /stackable/log/_vector-state
+            - name: LOG_DIR
+              value: /stackable/log
+            - name: NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: ROLE_GROUP_NAME
+              value: default
+            - name: ROLE_NAME
+              value: coordinator
+            - name: VECTOR_AGGREGATOR_ADDRESS
+              valueFrom:
+                configMapKeyRef:
+                  key: ADDRESS
+                  name: vector-aggregator-discovery
+            - name: VECTOR_CONFIG_YAML
+              value: /stackable/config/vector.yaml
+            - name: VECTOR_FILE_LOG_LEVEL
+              value: info
+            - name: VECTOR_LOG
+              value: info
+          volumeMounts:
+            - mountPath: /stackable/config/vector.yaml
+              name: config
+              readOnly: true
+              subPath: vector.yaml
+            - mountPath: /stackable/log
+              name: log
+{% endif %}
       terminationGracePeriodSeconds: 1
 status:
   readyReplicas: 1
@@ -113,6 +193,46 @@ spec:
     spec:
       serviceAccount: druid-serviceaccount
       serviceAccountName: druid-serviceaccount
+{% if lookup('env', 'VECTOR_AGGREGATOR') %}
+      # The Vector agent sidecar (added by the v2 `vector_container`). kuttl matches list
+      # elements positionally, so the first (druid) container is named only to align indices.
+      containers:
+        - name: druid
+        - name: vector
+          env:
+            - name: CLUSTER_NAME
+              value: druid
+            - name: DATA_DIR
+              value: /stackable/log/_vector-state
+            - name: LOG_DIR
+              value: /stackable/log
+            - name: NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: ROLE_GROUP_NAME
+              value: default
+            - name: ROLE_NAME
+              value: historical
+            - name: VECTOR_AGGREGATOR_ADDRESS
+              valueFrom:
+                configMapKeyRef:
+                  key: ADDRESS
+                  name: vector-aggregator-discovery
+            - name: VECTOR_CONFIG_YAML
+              value: /stackable/config/vector.yaml
+            - name: VECTOR_FILE_LOG_LEVEL
+              value: info
+            - name: VECTOR_LOG
+              value: info
+          volumeMounts:
+            - mountPath: /stackable/config/vector.yaml
+              name: config
+              readOnly: true
+              subPath: vector.yaml
+            - mountPath: /stackable/log
+              name: log
+{% endif %}
       terminationGracePeriodSeconds: 1
       volumes:
         - name: tls-mount
@@ -176,6 +296,46 @@ spec:
     spec:
       serviceAccount: druid-serviceaccount
       serviceAccountName: druid-serviceaccount
+{% if lookup('env', 'VECTOR_AGGREGATOR') %}
+      # The Vector agent sidecar (added by the v2 `vector_container`). kuttl matches list
+      # elements positionally, so the first (druid) container is named only to align indices.
+      containers:
+        - name: druid
+        - name: vector
+          env:
+            - name: CLUSTER_NAME
+              value: druid
+            - name: DATA_DIR
+              value: /stackable/log/_vector-state
+            - name: LOG_DIR
+              value: /stackable/log
+            - name: NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: ROLE_GROUP_NAME
+              value: default
+            - name: ROLE_NAME
+              value: middlemanager
+            - name: VECTOR_AGGREGATOR_ADDRESS
+              valueFrom:
+                configMapKeyRef:
+                  key: ADDRESS
+                  name: vector-aggregator-discovery
+            - name: VECTOR_CONFIG_YAML
+              value: /stackable/config/vector.yaml
+            - name: VECTOR_FILE_LOG_LEVEL
+              value: info
+            - name: VECTOR_LOG
+              value: info
+          volumeMounts:
+            - mountPath: /stackable/config/vector.yaml
+              name: config
+              readOnly: true
+              subPath: vector.yaml
+            - mountPath: /stackable/log
+              name: log
+{% endif %}
       terminationGracePeriodSeconds: 1
 status:
   readyReplicas: 1
@@ -211,6 +371,46 @@ spec:
     spec:
       serviceAccount: druid-serviceaccount
       serviceAccountName: druid-serviceaccount
+{% if lookup('env', 'VECTOR_AGGREGATOR') %}
+      # The Vector agent sidecar (added by the v2 `vector_container`). kuttl matches list
+      # elements positionally, so the first (druid) container is named only to align indices.
+      containers:
+        - name: druid
+        - name: vector
+          env:
+            - name: CLUSTER_NAME
+              value: druid
+            - name: DATA_DIR
+              value: /stackable/log/_vector-state
+            - name: LOG_DIR
+              value: /stackable/log
+            - name: NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: ROLE_GROUP_NAME
+              value: default
+            - name: ROLE_NAME
+              value: router
+            - name: VECTOR_AGGREGATOR_ADDRESS
+              valueFrom:
+                configMapKeyRef:
+                  key: ADDRESS
+                  name: vector-aggregator-discovery
+            - name: VECTOR_CONFIG_YAML
+              value: /stackable/config/vector.yaml
+            - name: VECTOR_FILE_LOG_LEVEL
+              value: info
+            - name: VECTOR_LOG
+              value: info
+          volumeMounts:
+            - mountPath: /stackable/config/vector.yaml
+              name: config
+              readOnly: true
+              subPath: vector.yaml
+            - mountPath: /stackable/log
+              name: log
+{% endif %}
       terminationGracePeriodSeconds: 1
 status:
   readyReplicas: 1
