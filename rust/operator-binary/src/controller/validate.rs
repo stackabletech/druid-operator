@@ -11,6 +11,7 @@ use stackable_operator::{
     commons::product_image_selection::{self, ResolvedProductImage},
     crd::s3,
     database_connections::drivers::jdbc::{JdbcDatabaseConnection, JdbcDatabaseConnectionDetails},
+    k8s_openapi::api::core::v1::Volume,
     kube::{Resource, api::ObjectMeta},
     v2::{
         HasName, HasUid,
@@ -91,6 +92,9 @@ pub struct ValidatedClusterConfig {
     /// `runtime.properties` (deep storage type / directory / base key) without the raw
     /// `DruidCluster`.
     pub deep_storage: DeepStorageSpec,
+    /// User-supplied extra volumes, mounted into every container, carried so the build step does
+    /// not read the raw `DruidCluster`.
+    pub extra_volumes: Vec<Volume>,
 }
 
 /// Synchronous inputs the rest of `reconcile_druid` needs after dereferencing.
@@ -261,6 +265,7 @@ pub fn validate(
             metadata_storage_type,
             metadata_db_connection,
             deep_storage: druid.spec.cluster_config.deep_storage.clone(),
+            extra_volumes: druid.spec.cluster_config.extra_volumes.clone(),
         },
         role_group_configs,
     ))
@@ -401,6 +406,7 @@ spec:
                 metadata_storage_type,
                 metadata_db_connection,
                 deep_storage: druid.spec.cluster_config.deep_storage.clone(),
+                extra_volumes: druid.spec.cluster_config.extra_volumes.clone(),
             },
             role_group_configs,
         )

@@ -16,10 +16,8 @@ use stackable_operator::{
     },
     cli::OperatorEnvironmentOptions,
     cluster_resources::{ClusterResourceApplyStrategy, ClusterResources},
-    commons::{product_image_selection::ResolvedProductImage, rbac::build_rbac_resources},
+    commons::rbac::build_rbac_resources,
     constants::RESTART_CONTROLLER_ENABLED_LABEL,
-    crd::s3,
-    database_connections::drivers::jdbc::JdbcDatabaseConnection as _,
     k8s_openapi::{
         DeepMerge,
         api::{
@@ -54,7 +52,6 @@ use stackable_operator::{
 use strum::{EnumDiscriminants, IntoStaticStr};
 
 use crate::{
-    authentication::DruidAuthenticationConfig,
     controller::build::resource::{
         listener::{
             LISTENER_VOLUME_DIR, LISTENER_VOLUME_NAME, build_group_listener,
@@ -67,7 +64,7 @@ use crate::{
         APP_NAME, Container, DRUID_CONFIG_DIRECTORY, DeepStorageSpec, DruidClusterStatus,
         DruidRole, HDFS_CONFIG_DIRECTORY, LOG_CONFIG_DIRECTORY, METRICS_PORT, METRICS_PORT_NAME,
         OPERATOR_NAME, RW_CONFIG_DIRECTORY, STACKABLE_LOG_DIR, ValidatedDruidConfig,
-        build_recommended_labels, security::DruidTlsSecurity, v1alpha1,
+        build_recommended_labels, v1alpha1,
     },
     internal_secret::create_shared_internal_secret,
     operations::graceful_shutdown::add_graceful_shutdown_config,
@@ -75,7 +72,7 @@ use crate::{
 
 mod build;
 mod dereference;
-mod validate;
+pub(crate) mod validate;
 
 use build::{
     properties::product_logging::MAX_DRUID_LOG_FILES_SIZE,
@@ -258,11 +255,6 @@ pub enum Error {
     BuildConfigMap {
         source: build::resource::config_map::Error,
     },
-
-    #[snafu(display("invalid metadata database connection"))]
-    InvalidMetadataDatabaseConnection {
-        source: stackable_operator::database_connections::Error,
-    },
 }
 
 type Result<T, E = Error> = std::result::Result<T, E>;
@@ -332,35 +324,12 @@ pub async fn reconcile_druid(
             .context(FailedInternalSecretCreationSnafu)?;
 
         for (rolegroup_name, rg) in groups.iter() {
-            let role_group_service_recommended_labels = build_recommended_labels(
-                druid,
-                DRUID_CONTROLLER_NAME,
-                &validated_cluster.image.app_version_label_value,
-                &role_name,
-                rolegroup_name.as_ref(),
-            );
-
-            let role_group_service_selector =
-                Labels::role_group_selector(druid, APP_NAME, &role_name, rolegroup_name.as_ref())
-                    .context(LabelBuildSnafu)?;
-
-            let rg_headless_service = build_rolegroup_headless_service(
-                &validated_cluster,
-                &validated_cluster.cluster_config.druid_tls_security,
-                druid_role,
-                rolegroup_name,
-                role_group_service_recommended_labels.clone(),
-                role_group_service_selector.clone().into(),
-            )
-            .context(ServiceConfigurationSnafu)?;
-            let rg_metrics_service = build_rolegroup_metrics_service(
-                &validated_cluster,
-                druid_role,
-                rolegroup_name,
-                role_group_service_recommended_labels,
-                role_group_service_selector.into(),
-            )
-            .context(ServiceConfigurationSnafu)?;
+            let rg_headless_service =
+                build_rolegroup_headless_service(&validated_cluster, druid_role, rolegroup_name)
+                    .context(ServiceConfigurationSnafu)?;
+            let rg_metrics_service =
+                build_rolegroup_metrics_service(&validated_cluster, druid_role, rolegroup_name)
+                    .context(ServiceConfigurationSnafu)?;
 
             let rg_configmap = build::resource::config_map::build_rolegroup_config_map(
                 &validated_cluster,
@@ -370,15 +339,10 @@ pub async fn reconcile_druid(
             )
             .context(BuildConfigMapSnafu)?;
             let rg_statefulset = build_rolegroup_statefulset(
-                druid,
                 &validated_cluster,
-                &validated_cluster.image,
                 druid_role,
                 rolegroup_name,
                 rg,
-                validated_cluster.cluster_config.s3_connection.as_ref(),
-                &validated_cluster.cluster_config.druid_tls_security,
-                &validated_cluster.cluster_config.druid_auth_config,
                 &rbac_sa,
             )?;
 
@@ -415,12 +379,12 @@ pub async fn reconcile_druid(
         }
 
         if let Some(listener_class) = druid_role.listener_class_name(druid)
-            && let Some(listener_group_name) = group_listener_name(druid, druid_role)
+            && let Some(listener_group_name) = group_listener_name(&validated_cluster, druid_role)
         {
             let role_group_listener = build_group_listener(
-                druid,
+                &validated_cluster,
                 build_recommended_labels(
-                    druid,
+                    &validated_cluster,
                     DRUID_CONTROLLER_NAME,
                     &validated_cluster.image.app_version_label_value,
                     &role_name,
@@ -429,7 +393,6 @@ pub async fn reconcile_druid(
                 listener_class.to_string(),
                 listener_group_name,
                 druid_role,
-                &validated_cluster.cluster_config.druid_tls_security,
             )
             .context(ListenerConfigurationSnafu)?;
 
@@ -484,26 +447,26 @@ pub async fn reconcile_druid(
     Ok(Action::await_change())
 }
 
-#[allow(clippy::too_many_arguments)]
 /// The rolegroup [`StatefulSet`] runs the rolegroup, as configured by the administrator.
 ///
 /// The [`Pod`](`stackable_operator::k8s_openapi::api::core::v1::Pod`)s are accessible through the
 /// corresponding [`stackable_operator::k8s_openapi::api::core::v1::Service`] (from [`build_rolegroup_headless_service`]).
 fn build_rolegroup_statefulset(
-    druid: &v1alpha1::DruidCluster,
     cluster: &ValidatedCluster,
-    resolved_product_image: &ResolvedProductImage,
     role: &DruidRole,
     role_group_name: &RoleGroupName,
     rg: &DruidRoleGroupConfig,
-    s3_conn: Option<&s3::v1alpha1::ConnectionSpec>,
-    druid_tls_security: &DruidTlsSecurity,
-    druid_auth_config: &Option<DruidAuthenticationConfig>,
     service_account: &ServiceAccount,
 ) -> Result<StatefulSet> {
     let merged_rolegroup_config = &rg.config;
     let role_name = role.to_string();
     let resource_names = cluster.resource_names(role, role_group_name);
+    // Everything below used to be threaded in as separate parameters; it all lives on the
+    // `ValidatedCluster` now.
+    let resolved_product_image = &cluster.image;
+    let s3_conn = cluster.cluster_config.s3_connection.as_ref();
+    let druid_tls_security = &cluster.cluster_config.druid_tls_security;
+    let druid_auth_config = &cluster.cluster_config.druid_auth_config;
     // prepare container builder
     let prepare_container_name = Container::Prepare.to_string();
     let mut cb_prepare = ContainerBuilder::new(&prepare_container_name).context(
@@ -530,12 +493,7 @@ fn build_rolegroup_statefulset(
     )
     .context(GracefulShutdownSnafu)?;
 
-    let metadata_database_connection_details = druid
-        .spec
-        .cluster_config
-        .metadata_database
-        .jdbc_connection_details("metadata")
-        .context(InvalidMetadataDatabaseConnectionSnafu)?;
+    let metadata_database_connection_details = &cluster.cluster_config.metadata_db_connection;
 
     let mut main_container_commands = role.main_container_prepare_commands(s3_conn);
     let mut prepare_container_commands = vec![];
@@ -589,7 +547,7 @@ fn build_rolegroup_statefulset(
     )?;
     add_log_volume_and_volume_mounts(&mut cb_druid, &mut cb_prepare, &mut pb)?;
     add_hdfs_cm_volume_and_volume_mounts(
-        &druid.spec.cluster_config.deep_storage,
+        &cluster.cluster_config.deep_storage,
         &mut cb_druid,
         &mut pb,
     )?;
@@ -623,7 +581,7 @@ fn build_rolegroup_statefulset(
     let mut rest_env: Vec<EnvVar> = rg.env_overrides.clone().into();
 
     if let Some(auth_config) = druid_auth_config {
-        rest_env.extend(auth_config.get_env_var_mounts(druid, role))
+        rest_env.extend(auth_config.get_env_var_mounts(cluster, role))
     }
 
     // Needed for the `containerdebug` process to log it's tracing information to.
@@ -662,7 +620,7 @@ fn build_rolegroup_statefulset(
     // Known roles are MiddleManagers for ingestion and Historicals for deep storage (GCS plugin)
     // We may at some time in the future revisit this and limit it again to avoid needlessly
     // propagating potentially confidential files throughout the cluster
-    for volume in &druid.spec.cluster_config.extra_volumes {
+    for volume in &cluster.cluster_config.extra_volumes {
         // Extract values into vars so we make it impossible to log something other than
         // what we actually use to create the mounts - maybe paranoid, but hey ..
         let volume_name = &volume.name;
@@ -682,14 +640,14 @@ fn build_rolegroup_statefulset(
 
     let mut pvcs: Option<Vec<PersistentVolumeClaim>> = None;
 
-    if let Some(group_listener_name) = group_listener_name(druid, role) {
+    if let Some(group_listener_name) = group_listener_name(cluster, role) {
         cb_druid
             .add_volume_mount(LISTENER_VOLUME_NAME, LISTENER_VOLUME_DIR)
             .context(AddVolumeMountSnafu)?;
 
         // Used for PVC templates that cannot be modified once they are deployed
         let unversioned_recommended_labels = Labels::recommended(&build_recommended_labels(
-            druid,
+            cluster,
             DRUID_CONTROLLER_NAME,
             // A version value is required, and we do want to use the "recommended" format for the other desired labels
             "none",
@@ -706,7 +664,7 @@ fn build_rolegroup_statefulset(
 
     let metadata = ObjectMetaBuilder::new()
         .with_recommended_labels(&build_recommended_labels(
-            druid,
+            cluster,
             DRUID_CONTROLLER_NAME,
             &resolved_product_image.app_version_label_value,
             &role_name,
@@ -743,12 +701,12 @@ fn build_rolegroup_statefulset(
 
     Ok(StatefulSet {
         metadata: ObjectMetaBuilder::new()
-            .name_and_namespace(druid)
+            .name_and_namespace(cluster)
             .name(resource_names.stateful_set_name().to_string())
-            .ownerreference_from_resource(druid, None, Some(true))
+            .ownerreference_from_resource(cluster, None, Some(true))
             .context(ObjectMissingMetadataForOwnerRefSnafu)?
             .with_recommended_labels(&build_recommended_labels(
-                druid,
+                cluster,
                 DRUID_CONTROLLER_NAME,
                 &resolved_product_image.app_version_label_value,
                 &role_name,
@@ -763,7 +721,7 @@ fn build_rolegroup_statefulset(
             selector: LabelSelector {
                 match_labels: Some(
                     Labels::role_group_selector(
-                        druid,
+                        cluster,
                         APP_NAME,
                         &role_name,
                         role_group_name.as_ref(),

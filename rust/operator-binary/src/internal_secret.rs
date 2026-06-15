@@ -168,8 +168,8 @@ fn build_immutable_shared_internal_secret_name(druid: &v1alpha1::DruidCluster) -
     format!("{}-internal-secret", druid.name_any())
 }
 
-pub fn build_shared_internal_secret_name(druid: &v1alpha1::DruidCluster) -> String {
-    format!("{}-shared-internal-secret", druid.name_any())
+pub fn build_shared_internal_secret_name<T: ResourceExt>(owner: &T) -> String {
+    format!("{}-shared-internal-secret", owner.name_any())
 }
 
 fn get_random_base64() -> String {

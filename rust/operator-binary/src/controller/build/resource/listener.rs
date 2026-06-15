@@ -6,14 +6,15 @@ use stackable_operator::{
     },
     crd::listener::{self, v1alpha1::Listener},
     k8s_openapi::api::core::v1::PersistentVolumeClaim,
-    kube::ResourceExt,
     kvp::{Labels, ObjectLabels},
 };
 
-use crate::crd::{
-    DruidRole,
-    security::{DruidTlsSecurity, PLAINTEXT_PORT_NAME, TLS_PORT_NAME},
-    v1alpha1,
+use crate::{
+    controller::validate::ValidatedCluster,
+    crd::{
+        DruidRole,
+        security::{DruidTlsSecurity, PLAINTEXT_PORT_NAME, TLS_PORT_NAME},
+    },
 };
 
 pub const LISTENER_VOLUME_NAME: &str = "listener";
@@ -47,25 +48,29 @@ pub enum Error {
 }
 
 pub fn build_group_listener(
-    druid: &v1alpha1::DruidCluster,
-    object_labels: ObjectLabels<v1alpha1::DruidCluster>,
+    cluster: &ValidatedCluster,
+    object_labels: ObjectLabels<ValidatedCluster>,
     listener_class: String,
     listener_group_name: String,
     druid_role: &DruidRole,
-    druid_tls_security: &DruidTlsSecurity,
 ) -> Result<Listener, Error> {
     Ok(Listener {
         metadata: ObjectMetaBuilder::new()
-            .name_and_namespace(druid)
+            .name_and_namespace(cluster)
             .name(listener_group_name)
-            .ownerreference_from_resource(druid, None, Some(true))
+            .ownerreference_from_resource(cluster, None, Some(true))
             .context(ObjectMissingMetadataForOwnerRefSnafu)?
             .with_recommended_labels(&object_labels)
             .context(BuildObjectMetaSnafu)?
             .build(),
         spec: listener::v1alpha1::ListenerSpec {
             class_name: Some(listener_class),
-            ports: Some(druid_tls_security.listener_ports(druid_role)),
+            ports: Some(
+                cluster
+                    .cluster_config
+                    .druid_tls_security
+                    .listener_ports(druid_role),
+            ),
             ..listener::v1alpha1::ListenerSpec::default()
         },
         status: None,
@@ -84,14 +89,11 @@ pub fn build_group_listener_pvc(
     .context(BuildListenerPersistentVolumeSnafu)
 }
 
-pub fn group_listener_name(
-    druid: &v1alpha1::DruidCluster,
-    druid_role: &DruidRole,
-) -> Option<String> {
+pub fn group_listener_name(cluster: &ValidatedCluster, druid_role: &DruidRole) -> Option<String> {
     match druid_role {
         DruidRole::Coordinator | DruidRole::Broker | DruidRole::Router => Some(format!(
             "{cluster_name}-{druid_role}",
-            cluster_name = druid.name_any(),
+            cluster_name = cluster.name,
         )),
         DruidRole::Historical | DruidRole::MiddleManager => None,
     }

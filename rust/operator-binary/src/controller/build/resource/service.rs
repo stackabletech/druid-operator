@@ -1,16 +1,14 @@
-use std::collections::BTreeMap;
-
 use snafu::{ResultExt, Snafu};
 use stackable_operator::{
     builder::meta::ObjectMetaBuilder,
     k8s_openapi::api::core::v1::{Service, ServicePort, ServiceSpec},
-    kvp::{Annotations, Label, ObjectLabels},
+    kvp::{Annotations, Label, Labels},
     v2::types::operator::RoleGroupName,
 };
 
 use crate::{
-    controller::validate::ValidatedCluster,
-    crd::{DruidRole, METRICS_PORT, METRICS_PORT_NAME, security::DruidTlsSecurity, v1alpha1},
+    controller::{DRUID_CONTROLLER_NAME, validate::ValidatedCluster},
+    crd::{APP_NAME, DruidRole, METRICS_PORT, METRICS_PORT_NAME, build_recommended_labels},
 };
 
 #[derive(Snafu, Debug)]
@@ -35,12 +33,20 @@ pub enum Error {
 /// This is mostly useful for internal communication between peers, or for clients that perform client-side load balancing.
 pub fn build_rolegroup_headless_service(
     cluster: &ValidatedCluster,
-    druid_tls_security: &DruidTlsSecurity,
     druid_role: &DruidRole,
     role_group_name: &RoleGroupName,
-    object_labels: ObjectLabels<v1alpha1::DruidCluster>,
-    selector: BTreeMap<String, String>,
 ) -> Result<Service, Error> {
+    let role_name = druid_role.to_string();
+    let object_labels = build_recommended_labels(
+        cluster,
+        DRUID_CONTROLLER_NAME,
+        &cluster.image.app_version_label_value,
+        &role_name,
+        role_group_name.as_ref(),
+    );
+    let selector =
+        Labels::role_group_selector(cluster, APP_NAME, &role_name, role_group_name.as_ref())
+            .context(LabelBuildSnafu)?;
     Ok(Service {
         metadata: ObjectMetaBuilder::new()
             .name_and_namespace(cluster)
@@ -59,8 +65,13 @@ pub fn build_rolegroup_headless_service(
             // Internal communication does not need to be exposed
             type_: Some("ClusterIP".to_string()),
             cluster_ip: Some("None".to_string()),
-            ports: Some(druid_tls_security.service_ports(druid_role)),
-            selector: Some(selector),
+            ports: Some(
+                cluster
+                    .cluster_config
+                    .druid_tls_security
+                    .service_ports(druid_role),
+            ),
+            selector: Some(selector.into()),
             publish_not_ready_addresses: Some(true),
             ..ServiceSpec::default()
         }),
@@ -73,9 +84,18 @@ pub fn build_rolegroup_metrics_service(
     cluster: &ValidatedCluster,
     druid_role: &DruidRole,
     role_group_name: &RoleGroupName,
-    object_labels: ObjectLabels<v1alpha1::DruidCluster>,
-    selector: BTreeMap<String, String>,
 ) -> Result<Service, Error> {
+    let role_name = druid_role.to_string();
+    let object_labels = build_recommended_labels(
+        cluster,
+        DRUID_CONTROLLER_NAME,
+        &cluster.image.app_version_label_value,
+        &role_name,
+        role_group_name.as_ref(),
+    );
+    let selector =
+        Labels::role_group_selector(cluster, APP_NAME, &role_name, role_group_name.as_ref())
+            .context(LabelBuildSnafu)?;
     Ok(Service {
         metadata: ObjectMetaBuilder::new()
             .name_and_namespace(cluster)
@@ -97,7 +117,7 @@ pub fn build_rolegroup_metrics_service(
             type_: Some("ClusterIP".to_string()),
             cluster_ip: Some("None".to_string()),
             ports: Some(metrics_service_ports()),
-            selector: Some(selector),
+            selector: Some(selector.into()),
             publish_not_ready_addresses: Some(true),
             ..ServiceSpec::default()
         }),

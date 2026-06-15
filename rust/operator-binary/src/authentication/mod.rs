@@ -8,12 +8,12 @@ use stackable_operator::{
 };
 
 use crate::{
+    controller::validate::ValidatedCluster,
     crd::{
         DruidRole,
         authentication::{AuthenticationClassResolved, AuthenticationClassesResolved},
         env_var_reference,
         security::INTERNAL_INITIAL_CLIENT_PASSWORD_ENV,
-        v1alpha1,
     },
     internal_secret::{build_shared_internal_secret_name, env_var_from_secret},
 };
@@ -166,13 +166,9 @@ impl DruidAuthenticationConfig {
         command
     }
 
-    pub fn get_env_var_mounts(
-        &self,
-        druid: &v1alpha1::DruidCluster,
-        role: &DruidRole,
-    ) -> Vec<EnvVar> {
+    pub fn get_env_var_mounts(&self, cluster: &ValidatedCluster, role: &DruidRole) -> Vec<EnvVar> {
         let mut envs = vec![];
-        let internal_secret_name = build_shared_internal_secret_name(druid);
+        let internal_secret_name = build_shared_internal_secret_name(cluster);
         envs.push(env_var_from_secret(
             &internal_secret_name,
             None,
