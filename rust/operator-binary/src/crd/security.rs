@@ -119,12 +119,13 @@ impl DruidTlsSecurity {
     ) -> Self {
         DruidTlsSecurity {
             auth_classes: auth_classes.clone(),
-            server_and_internal_secret_class: druid
-                .spec
-                .cluster_config
-                .tls
-                .as_ref()
-                .and_then(|tls| tls.server_and_internal_secret_class.clone()),
+            server_and_internal_secret_class: druid.spec.cluster_config.tls.as_ref().and_then(
+                |tls| {
+                    tls.server_and_internal_secret_class
+                        .as_ref()
+                        .map(|secret_class| secret_class.to_string())
+                },
+            ),
         }
     }
 

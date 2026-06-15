@@ -39,7 +39,7 @@ pub fn get_affinity(
             {
                 vec![affinity_between_role_pods(
                     "hdfs",
-                    hdfs_discovery_cm_name, // The discovery cm has the same name as the HdfsCluster itself
+                    hdfs_discovery_cm_name.as_ref(), // The discovery cm has the same name as the HdfsCluster itself
                     "datanode",
                     50,
                 )]

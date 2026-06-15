@@ -491,6 +491,9 @@ spec:
                     properties:
                       listenerClass:
                         default: cluster-internal
+                        maxLength: 253
+                        minLength: 1
+                        pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                         type: string
                       podDisruptionBudget:
                         default:
@@ -1091,6 +1094,9 @@ spec:
                               The [discovery ConfigMap](https://docs.stackable.tech/home/nightly/concepts/service_discovery)
                               for the HDFS instance. When running an HDFS cluster with the Stackable operator, the operator
                               will create this ConfigMap for you. It has the same name as your HDFSCluster resource.
+                            maxLength: 253
+                            minLength: 1
+                            pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                             type: string
                           directory:
                             description: The directory inside of HDFS where Druid should store its data.
@@ -1574,7 +1580,10 @@ spec:
                           - If TLS encryption is used at all
                           - Which cert the servers should use to authenticate themselves against the clients
                           - Which cert the servers should use to authenticate themselves among each other
+                        maxLength: 253
+                        minLength: 1
                         nullable: true
+                        pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                         type: string
                     type: object
                   vectorAggregatorConfigMapName:
@@ -1583,7 +1592,10 @@ spec:
                       It must contain the key `ADDRESS` with the address of the Vector aggregator.
                       Follow the [logging tutorial](https://docs.stackable.tech/home/nightly/tutorials/logging-vector-aggregator)
                       to learn how to configure log aggregation with Vector.
+                    maxLength: 253
+                    minLength: 1
                     nullable: true
+                    pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                     type: string
                   zookeeperConfigMapName:
                     description: |-
@@ -1591,6 +1603,9 @@ spec:
                       Provide the name of the ZooKeeper [discovery ConfigMap](https://docs.stackable.tech/home/nightly/concepts/service_discovery)
                       here. When using the [Stackable operator for Apache ZooKeeper](https://docs.stackable.tech/home/nightly/zookeeper/)
                       to deploy a ZooKeeper cluster, this will simply be the name of your ZookeeperCluster resource.
+                    maxLength: 253
+                    minLength: 1
+                    pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                     type: string
                 required:
                 - deepStorage
@@ -2090,6 +2105,9 @@ spec:
                     properties:
                       listenerClass:
                         default: cluster-internal
+                        maxLength: 253
+                        minLength: 1
+                        pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                         type: string
                       podDisruptionBudget:
                         default:
@@ -5118,6 +5136,9 @@ spec:
                     properties:
                       listenerClass:
                         default: cluster-internal
+                        maxLength: 253
+                        minLength: 1
+                        pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                         type: string
                       podDisruptionBudget:
                         default:

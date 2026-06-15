@@ -45,7 +45,7 @@ use stackable_operator::{
         },
         role_utils::{JavaCommonConfig, RoleGroupConfig, with_validated_config},
         types::{
-            kubernetes::ConfigMapName,
+            kubernetes::{ConfigMapName, ListenerClassName},
             operator::{RoleGroupName, RoleName},
         },
     },
@@ -199,11 +199,6 @@ pub enum Error {
         "the Vector agent is enabled but the Vector aggregator ConfigMap name is missing"
     ))]
     MissingVectorAggregatorConfigMapName,
-
-    #[snafu(display("invalid Vector aggregator ConfigMap name"))]
-    ParseVectorAggregatorConfigMapName {
-        source: stackable_operator::v2::macros::attributed_string_type::Error,
-    },
 }
 
 #[versioned(
@@ -328,14 +323,14 @@ pub mod versioned {
         /// Provide the name of the ZooKeeper [discovery ConfigMap](DOCS_BASE_URL_PLACEHOLDER/concepts/service_discovery)
         /// here. When using the [Stackable operator for Apache ZooKeeper](DOCS_BASE_URL_PLACEHOLDER/zookeeper/)
         /// to deploy a ZooKeeper cluster, this will simply be the name of your ZookeeperCluster resource.
-        pub zookeeper_config_map_name: String,
+        pub zookeeper_config_map_name: ConfigMapName,
 
         /// Name of the Vector aggregator [discovery ConfigMap](DOCS_BASE_URL_PLACEHOLDER/concepts/service_discovery).
         /// It must contain the key `ADDRESS` with the address of the Vector aggregator.
         /// Follow the [logging tutorial](DOCS_BASE_URL_PLACEHOLDER/tutorials/logging-vector-aggregator)
         /// to learn how to configure log aggregation with Vector.
         #[serde(skip_serializing_if = "Option::is_none")]
-        pub vector_aggregator_config_map_name: Option<String>,
+        pub vector_aggregator_config_map_name: Option<ConfigMapName>,
 
         /// Extra volumes similar to `.spec.volumes` on a Pod to mount into every container, this can be useful to for
         /// example make client certificates, keytabs or similar things available to processors. These volumes will be
@@ -351,7 +346,7 @@ pub mod versioned {
         pub generic: GenericRoleConfig,
 
         #[serde(default = "druid_default_listener_class")]
-        pub listener_class: String,
+        pub listener_class: ListenerClassName,
     }
 }
 
@@ -468,16 +463,14 @@ impl v1alpha1::DruidCluster {
         let deep_storage = &self.spec.cluster_config.deep_storage;
         let name = self.name_any();
 
-        // The Vector aggregator discovery ConfigMap name (validated here so an invalid name fails
-        // up-front). It is only required when the Vector agent is enabled for a role group.
+        // The Vector aggregator discovery ConfigMap name (a typed `ConfigMapName`, so an invalid
+        // name is already rejected at deserialization). It is only required when the Vector agent
+        // is enabled for a role group.
         let vector_aggregator_config_map_name = self
             .spec
             .cluster_config
             .vector_aggregator_config_map_name
-            .as_deref()
-            .map(ConfigMapName::from_str)
-            .transpose()
-            .context(ParseVectorAggregatorConfigMapNameSnafu)?;
+            .clone();
 
         // All roles erase to an identical `ValidatedDruidConfig`; only the typed config, the role
         // config type and the `RoleResource` variant (historicals carry typed storage) differ.
@@ -705,8 +698,8 @@ impl Default for v1alpha1::DruidRoleConfig {
     }
 }
 
-fn druid_default_listener_class() -> String {
-    "cluster-internal".to_string()
+fn druid_default_listener_class() -> ListenerClassName {
+    ListenerClassName::from_str("cluster-internal").expect("a valid listener class name")
 }
 
 #[derive(
@@ -851,7 +844,7 @@ impl DruidRole {
         }
     }
 
-    pub fn listener_class_name(&self, druid: &v1alpha1::DruidCluster) -> Option<String> {
+    pub fn listener_class_name(&self, druid: &v1alpha1::DruidCluster) -> Option<ListenerClassName> {
         match self {
             Self::Broker => Some(druid.spec.brokers.role_config.listener_class.to_owned()),
             Self::Coordinator => Some(
@@ -893,7 +886,7 @@ pub struct HdfsDeepStorageSpec {
     /// The [discovery ConfigMap](DOCS_BASE_URL_PLACEHOLDER/concepts/service_discovery)
     /// for the HDFS instance. When running an HDFS cluster with the Stackable operator, the operator
     /// will create this ConfigMap for you. It has the same name as your HDFSCluster resource.
-    pub config_map_name: String,
+    pub config_map_name: ConfigMapName,
     /// The directory inside of HDFS where Druid should store its data.
     pub directory: String,
 }

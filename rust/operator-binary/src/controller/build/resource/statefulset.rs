@@ -404,7 +404,7 @@ fn add_hdfs_cm_volume_and_volume_mounts(
             .context(AddVolumeMountSnafu)?;
         pb.add_volume(
             VolumeBuilder::new(HDFS_CONFIG_VOLUME_NAME)
-                .with_config_map(&hdfs.config_map_name)
+                .with_config_map(hdfs.config_map_name.to_string())
                 .build(),
         )
         .context(AddVolumeSnafu)?;

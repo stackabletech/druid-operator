@@ -128,10 +128,11 @@ impl AuthenticationClassesResolved {
                 .context(AuthenticationClassRetrievalFailedSnafu)?;
 
             let auth_class_name = auth_class.name_any();
-            let server_and_internal_secret_class = cluster_config
-                .tls
-                .as_ref()
-                .and_then(|tls| tls.server_and_internal_secret_class.to_owned());
+            let server_and_internal_secret_class = cluster_config.tls.as_ref().and_then(|tls| {
+                tls.server_and_internal_secret_class
+                    .as_ref()
+                    .map(|secret_class| secret_class.to_string())
+            });
 
             match &auth_class.spec.provider {
                 core::v1alpha1::AuthenticationClassProvider::Tls(provider) => {

@@ -1,5 +1,10 @@
+use std::str::FromStr;
+
 use serde::{Deserialize, Serialize};
-use stackable_operator::schemars::{self, JsonSchema};
+use stackable_operator::{
+    schemars::{self, JsonSchema},
+    v2::types::kubernetes::SecretClassName,
+};
 
 const TLS_DEFAULT_SECRET_CLASS: &str = "tls";
 
@@ -14,7 +19,7 @@ pub struct DruidTls {
     // happens via the HTTPS port. Even if both HTTPS and HTTP port are enabled, Druid clients
     // will default to using TLS.
     #[serde(default = "tls_default", skip_serializing_if = "Option::is_none")]
-    pub server_and_internal_secret_class: Option<String>,
+    pub server_and_internal_secret_class: Option<SecretClassName>,
 }
 
 /// Default TLS settings. Internal and server communication default to "tls" secret class.
@@ -25,14 +30,18 @@ pub fn default_druid_tls() -> Option<DruidTls> {
 }
 
 /// Helper methods to provide defaults in the CRDs and tests
-pub fn tls_default() -> Option<String> {
-    Some(TLS_DEFAULT_SECRET_CLASS.to_string())
+pub fn tls_default() -> Option<SecretClassName> {
+    Some(SecretClassName::from_str(TLS_DEFAULT_SECRET_CLASS).expect("a valid secret class name"))
 }
 
 #[cfg(test)]
 mod tests {
+    use std::str::FromStr;
+
     use indoc::formatdoc;
-    use stackable_operator::utils::yaml_from_str_singleton_map;
+    use stackable_operator::{
+        utils::yaml_from_str_singleton_map, v2::types::kubernetes::SecretClassName,
+    };
 
     use crate::crd::{tls::DruidTls, v1alpha1::DruidClusterConfig};
 
@@ -54,7 +63,9 @@ zookeeperConfigMapName: zk-config-map
         assert_eq!(
             druid_cluster_config.tls,
             Some(DruidTls {
-                server_and_internal_secret_class: Some("tls".to_string())
+                server_and_internal_secret_class: Some(
+                    SecretClassName::from_str("tls").expect("a valid secret class name")
+                )
             }),
         );
         assert_eq!(druid_cluster_config.authentication, vec![]);
@@ -73,7 +84,10 @@ zookeeperConfigMapName: zk-config-map
         assert_eq!(
             druid_cluster_config.tls,
             Some(DruidTls {
-                server_and_internal_secret_class: Some("druid-secret-class".to_string())
+                server_and_internal_secret_class: Some(
+                    SecretClassName::from_str("druid-secret-class")
+                        .expect("a valid secret class name")
+                )
             }),
         );
         assert_eq!(druid_cluster_config.authentication, vec![]);
@@ -126,7 +140,10 @@ zookeeperConfigMapName: zk-config-map
         assert_eq!(
             druid_cluster_config.tls,
             Some(DruidTls {
-                server_and_internal_secret_class: Some("druid-secret-class".to_string())
+                server_and_internal_secret_class: Some(
+                    SecretClassName::from_str("druid-secret-class")
+                        .expect("a valid secret class name")
+                )
             }),
         );
         /*

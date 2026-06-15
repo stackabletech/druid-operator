@@ -197,7 +197,12 @@ fn references_config_map(
         return false;
     };
 
-    druid.spec.cluster_config.zookeeper_config_map_name == config_map.name_any()
+    druid
+        .spec
+        .cluster_config
+        .zookeeper_config_map_name
+        .to_string()
+        == config_map.name_any()
         || match &druid.spec.cluster_config.authorization {
             Some(druid_authorization) => {
                 druid_authorization.opa.config_map_name == config_map.name_any()
@@ -206,7 +211,7 @@ fn references_config_map(
         }
         || match &druid.spec.cluster_config.deep_storage {
             crd::DeepStorageSpec::Hdfs(hdfs_spec) => {
-                hdfs_spec.config_map_name == config_map.name_any()
+                hdfs_spec.config_map_name.to_string() == config_map.name_any()
             }
             _ => false,
         }

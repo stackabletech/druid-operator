@@ -84,7 +84,11 @@ pub async fn dereference(
         .as_deref()
         .context(ObjectHasNoNamespaceSnafu)?;
 
-    let zk_confmap = druid.spec.cluster_config.zookeeper_config_map_name.clone();
+    let zk_confmap = druid
+        .spec
+        .cluster_config
+        .zookeeper_config_map_name
+        .to_string();
     let zookeeper_connection_string = client
         .get::<ConfigMap>(&zk_confmap, namespace)
         .await
