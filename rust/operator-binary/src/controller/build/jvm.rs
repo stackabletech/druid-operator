@@ -6,7 +6,11 @@ use stackable_operator::{
 use super::properties::ConfigFileName;
 use crate::crd::{
     DruidRole, RW_CONFIG_DIRECTORY, STACKABLE_TRUST_STORE, STACKABLE_TRUST_STORE_PASSWORD,
+    STACKABLE_TRUST_STORE_TYPE,
 };
+
+/// The Derby error log file, written by the Coordinator's embedded Derby (default metadata store).
+const DERBY_LOG_FILE: &str = "/stackable/var/druid/derby.log";
 
 #[derive(Snafu, Debug)]
 pub enum Error {
@@ -58,10 +62,10 @@ pub fn construct_jvm_args(
         format!("-Dlog4j.configurationFile={RW_CONFIG_DIRECTORY}/{log4j2_config_file}"),
         format!("-Djavax.net.ssl.trustStore={STACKABLE_TRUST_STORE}"),
         format!("-Djavax.net.ssl.trustStorePassword={STACKABLE_TRUST_STORE_PASSWORD}"),
-        "-Djavax.net.ssl.trustStoreType=pkcs12".to_owned(),
+        format!("-Djavax.net.ssl.trustStoreType={STACKABLE_TRUST_STORE_TYPE}"),
     ]);
     if druid_role == &DruidRole::Coordinator {
-        jvm_args.push("-Dderby.stream.error.file=/stackable/var/druid/derby.log".to_owned());
+        jvm_args.push(format!("-Dderby.stream.error.file={DERBY_LOG_FILE}"));
     }
 
     Ok(jvm_argument_overrides.apply_to(jvm_args).join("\n"))

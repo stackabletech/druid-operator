@@ -81,6 +81,7 @@ pub const RW_CONFIG_DIRECTORY: &str = "/stackable/rwconfig";
 // store directories
 pub const STACKABLE_TRUST_STORE: &str = "/stackable/truststore.p12";
 pub const STACKABLE_TRUST_STORE_PASSWORD: &str = "changeit";
+pub const STACKABLE_TRUST_STORE_TYPE: &str = "pkcs12";
 pub const STACKABLE_LOG_DIR: &str = "/stackable/log";
 
 pub const PROP_SEGMENT_CACHE_LOCATIONS: &str = "druid.segmentCache.locations";

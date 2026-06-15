@@ -40,7 +40,8 @@ use crate::{
     },
     crd::{
         DruidConfigOverrides, DruidRole, STACKABLE_TRUST_STORE, STACKABLE_TRUST_STORE_PASSWORD,
-        build_recommended_labels, build_string_list, env_var_reference, file_reference,
+        STACKABLE_TRUST_STORE_TYPE, build_recommended_labels, build_string_list, env_var_reference,
+        file_reference,
     },
 };
 
@@ -113,7 +114,7 @@ fn middlemanager_indexer_java_opts() -> (String, String) {
         build_string_list(&[
             format!("-Djavax.net.ssl.trustStore={STACKABLE_TRUST_STORE}"),
             format!("-Djavax.net.ssl.trustStorePassword={STACKABLE_TRUST_STORE_PASSWORD}"),
-            "-Djavax.net.ssl.trustStoreType=pkcs12".to_owned(),
+            format!("-Djavax.net.ssl.trustStoreType={STACKABLE_TRUST_STORE_TYPE}"),
         ]),
     )
 }
@@ -359,4 +360,78 @@ pub fn build_rolegroup_config_map(
         .with_context(|_| BuildRoleGroupConfigSnafu {
             role_group: role_group_name.to_string(),
         })
+}
+
+#[cfg(test)]
+mod tests {
+    use std::str::FromStr;
+
+    use stackable_operator::{
+        k8s_openapi::api::core::v1::ConfigMap, v2::types::operator::RoleGroupName,
+    };
+
+    use super::*;
+    use crate::controller::validate::test_support::{
+        MINIMAL_DRUID_YAML, druid_from_yaml, validated_cluster,
+    };
+
+    /// Builds the rolegroup `ConfigMap` for `<role>/<role_group>` from the minimal test fixture.
+    fn build_cm(role: DruidRole, role_group: &str) -> ConfigMap {
+        let druid = druid_from_yaml(MINIMAL_DRUID_YAML);
+        let cluster = validated_cluster(&druid);
+        let role_group_name = RoleGroupName::from_str(role_group).unwrap();
+        let rg = cluster
+            .role_group_configs
+            .get(&role)
+            .expect("role present")
+            .get(&role_group_name)
+            .expect("role group present")
+            .clone();
+        build_rolegroup_config_map(&cluster, &role, &role_group_name, &rg).expect("config map")
+    }
+
+    #[test]
+    fn contains_the_operator_written_config_files() {
+        let cm = build_cm(DruidRole::Broker, "default");
+        let data = cm.data.expect("config map has data");
+
+        // Always-present operator-written files.
+        assert!(data.contains_key(&ConfigFileName::RuntimeProperties.to_string()));
+        assert!(data.contains_key(&ConfigFileName::SecurityProperties.to_string()));
+        assert!(data.contains_key(&ConfigFileName::JvmConfig.to_string()));
+        // Automatic logging is the default, so log4j2 is rendered.
+        assert!(data.contains_key(&ConfigFileName::Log4j2Properties.to_string()));
+        // The Vector agent is disabled by default, so no `vector.yaml` is added.
+        assert!(!data.contains_key(VECTOR_CONFIG_FILE));
+    }
+
+    #[test]
+    fn has_the_expected_name_and_recommended_labels() {
+        let cm = build_cm(DruidRole::Broker, "default");
+        let meta = cm.metadata;
+
+        assert_eq!(meta.name.as_deref(), Some("simple-druid-broker-default"));
+
+        let labels = meta.labels.expect("recommended labels");
+        assert_eq!(
+            labels.get("app.kubernetes.io/name").map(String::as_str),
+            Some("druid")
+        );
+        assert_eq!(
+            labels.get("app.kubernetes.io/instance").map(String::as_str),
+            Some("simple-druid")
+        );
+        assert_eq!(
+            labels
+                .get("app.kubernetes.io/component")
+                .map(String::as_str),
+            Some("broker")
+        );
+        assert_eq!(
+            labels
+                .get("app.kubernetes.io/role-group")
+                .map(String::as_str),
+            Some("default")
+        );
+    }
 }
