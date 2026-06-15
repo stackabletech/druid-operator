@@ -42,9 +42,7 @@ mod controller;
 mod crd;
 mod extensions;
 mod internal_secret;
-mod listener;
 mod operations;
-mod service;
 mod webhooks;
 
 mod built_info {

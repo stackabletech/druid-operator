@@ -54,6 +54,14 @@ use strum::{EnumDiscriminants, IntoStaticStr};
 
 use crate::{
     authentication::DruidAuthenticationConfig,
+    controller::build::resource::{
+        listener::{
+            LISTENER_VOLUME_DIR, LISTENER_VOLUME_NAME, build_group_listener,
+            build_group_listener_pvc, group_listener_name, secret_volume_listener_scope,
+        },
+        pdb::add_pdbs,
+        service::{build_rolegroup_headless_service, build_rolegroup_metrics_service},
+    },
     crd::{
         APP_NAME, CommonRoleGroupConfig, Container, DRUID_CONFIG_DIRECTORY, DeepStorageSpec,
         DruidClusterStatus, DruidRole, HDFS_CONFIG_DIRECTORY, LOG_CONFIG_DIRECTORY, METRICS_PORT,
@@ -61,12 +69,7 @@ use crate::{
         build_recommended_labels, security::DruidTlsSecurity, v1alpha1,
     },
     internal_secret::create_shared_internal_secret,
-    listener::{
-        LISTENER_VOLUME_DIR, LISTENER_VOLUME_NAME, build_group_listener, build_group_listener_pvc,
-        group_listener_name, secret_volume_listener_scope,
-    },
-    operations::{graceful_shutdown::add_graceful_shutdown_config, pdb::add_pdbs},
-    service::{build_rolegroup_headless_service, build_rolegroup_metrics_service},
+    operations::graceful_shutdown::add_graceful_shutdown_config,
 };
 
 mod build;
@@ -74,8 +77,8 @@ mod dereference;
 mod validate;
 
 use build::{
-    discovery::{self, build_discovery_configmaps},
     properties::logging::MAX_DRUID_LOG_FILES_SIZE,
+    resource::discovery::{self, build_discovery_configmaps},
 };
 use validate::DruidRoleGroupConfig;
 
@@ -196,7 +199,7 @@ pub enum Error {
 
     #[snafu(display("failed to create PodDisruptionBudget"))]
     FailedToCreatePdb {
-        source: crate::operations::pdb::Error,
+        source: crate::controller::build::resource::pdb::Error,
     },
 
     #[snafu(display("failed to configure graceful shutdown"))]
@@ -244,16 +247,22 @@ pub enum Error {
     },
 
     #[snafu(display("failed to configure listener"))]
-    ListenerConfiguration { source: crate::listener::Error },
+    ListenerConfiguration {
+        source: crate::controller::build::resource::listener::Error,
+    },
 
     #[snafu(display("failed to configure service"))]
-    ServiceConfiguration { source: crate::service::Error },
+    ServiceConfiguration {
+        source: crate::controller::build::resource::service::Error,
+    },
 
     #[snafu(display("failed to validate cluster"))]
     ValidateCluster { source: validate::Error },
 
     #[snafu(display("failed to build rolegroup ConfigMap"))]
-    BuildConfigMap { source: build::config_map::Error },
+    BuildConfigMap {
+        source: build::resource::config_map::Error,
+    },
 
     #[snafu(display("invalid metadata database connection"))]
     InvalidMetadataDatabaseConnection {
@@ -367,7 +376,7 @@ pub async fn reconcile_druid(
             )
             .context(ServiceConfigurationSnafu)?;
 
-            let rg_configmap = build::config_map::build_rolegroup_config_map(
+            let rg_configmap = build::resource::config_map::build_rolegroup_config_map(
                 &validated_cluster,
                 druid_role,
                 &rolegroup,
@@ -927,7 +936,9 @@ mod test {
 
     use super::*;
     use crate::{
-        controller::build::{config_map::build_rolegroup_config_map, properties::ConfigFileName},
+        controller::build::{
+            properties::ConfigFileName, resource::config_map::build_rolegroup_config_map,
+        },
         crd::PROP_SEGMENT_CACHE_LOCATIONS,
     };
 

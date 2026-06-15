@@ -11,9 +11,10 @@ use stackable_operator::{
 
 use crate::{
     DRUID_CONTROLLER_NAME,
-    controller::validate::ValidatedCluster,
+    controller::{
+        build::resource::listener::build_listener_connection_string, validate::ValidatedCluster,
+    },
     crd::{DruidRole, build_recommended_labels},
-    listener::build_listener_connection_string,
 };
 
 #[derive(Snafu, Debug)]
@@ -29,7 +30,9 @@ pub enum Error {
     },
 
     #[snafu(display("failed to configure listener discovery configmap"))]
-    ListenerConfiguration { source: crate::listener::Error },
+    ListenerConfiguration {
+        source: crate::controller::build::resource::listener::Error,
+    },
 }
 
 /// Builds discovery [`ConfigMap`]s for connecting to a Druid cluster.
