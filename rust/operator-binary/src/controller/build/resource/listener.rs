@@ -1,12 +1,17 @@
+use std::str::FromStr;
+
 use snafu::{OptionExt, ResultExt, Snafu};
 use stackable_operator::{
-    builder::{
-        meta::ObjectMetaBuilder,
-        pod::volume::{ListenerOperatorVolumeSourceBuilder, ListenerReference},
-    },
+    builder::meta::ObjectMetaBuilder,
     crd::listener::{self, v1alpha1::Listener},
     k8s_openapi::api::core::v1::PersistentVolumeClaim,
     kvp::{Labels, ObjectLabels},
+    v2::{
+        builder::pod::volume::{
+            ListenerReference, listener_operator_volume_source_builder_build_pvc,
+        },
+        types::kubernetes::{ListenerName, PersistentVolumeClaimName},
+    },
 };
 
 use crate::{
@@ -32,11 +37,6 @@ pub enum Error {
         source: stackable_operator::builder::meta::Error,
     },
 
-    #[snafu(display("failed to build listener volume"))]
-    BuildListenerPersistentVolume {
-        source: stackable_operator::builder::pod::volume::ListenerOperatorVolumeSourceBuilderError,
-    },
-
     #[snafu(display("{role_name} listener has no adress"))]
     RoleListenerHasNoAddress { role_name: String },
 
@@ -51,13 +51,13 @@ pub fn build_group_listener(
     cluster: &ValidatedCluster,
     object_labels: ObjectLabels<ValidatedCluster>,
     listener_class: String,
-    listener_group_name: String,
+    listener_group_name: ListenerName,
     druid_role: &DruidRole,
 ) -> Result<Listener, Error> {
     Ok(Listener {
         metadata: ObjectMetaBuilder::new()
             .name_and_namespace(cluster)
-            .name(listener_group_name)
+            .name(listener_group_name.to_string())
             .ownerreference_from_resource(cluster, None, Some(true))
             .context(ObjectMissingMetadataForOwnerRefSnafu)?
             .with_recommended_labels(&object_labels)
@@ -78,23 +78,29 @@ pub fn build_group_listener(
 }
 
 pub fn build_group_listener_pvc(
-    group_listener_name: &String,
+    group_listener_name: &ListenerName,
     unversioned_recommended_labels: &Labels,
-) -> Result<PersistentVolumeClaim, Error> {
-    ListenerOperatorVolumeSourceBuilder::new(
-        &ListenerReference::ListenerName(group_listener_name.to_string()),
+) -> PersistentVolumeClaim {
+    listener_operator_volume_source_builder_build_pvc(
+        &ListenerReference::Listener(group_listener_name.clone()),
         unversioned_recommended_labels,
+        &PersistentVolumeClaimName::from_str(LISTENER_VOLUME_NAME)
+            .expect("a valid persistent volume claim name"),
     )
-    .build_pvc(LISTENER_VOLUME_NAME.to_string())
-    .context(BuildListenerPersistentVolumeSnafu)
 }
 
-pub fn group_listener_name(cluster: &ValidatedCluster, druid_role: &DruidRole) -> Option<String> {
+pub fn group_listener_name(
+    cluster: &ValidatedCluster,
+    druid_role: &DruidRole,
+) -> Option<ListenerName> {
     match druid_role {
-        DruidRole::Coordinator | DruidRole::Broker | DruidRole::Router => Some(format!(
-            "{cluster_name}-{druid_role}",
-            cluster_name = cluster.name,
-        )),
+        DruidRole::Coordinator | DruidRole::Broker | DruidRole::Router => Some(
+            ListenerName::from_str(&format!(
+                "{cluster_name}-{druid_role}",
+                cluster_name = cluster.name,
+            ))
+            .expect("a valid listener name"),
+        ),
         DruidRole::Historical | DruidRole::MiddleManager => None,
     }
 }

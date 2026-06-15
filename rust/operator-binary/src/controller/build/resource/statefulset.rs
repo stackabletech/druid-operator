@@ -100,11 +100,6 @@ pub enum Error {
         source: stackable_operator::builder::pod::container::Error,
     },
 
-    #[snafu(display("failed to configure listener"))]
-    ListenerConfiguration {
-        source: crate::controller::build::resource::listener::Error,
-    },
-
     #[snafu(display("failed to build labels"))]
     LabelBuild {
         source: stackable_operator::kvp::LabelError,
@@ -322,10 +317,10 @@ pub fn build_rolegroup_statefulset(
         ))
         .context(LabelBuildSnafu)?;
 
-        pvcs = Some(vec![
-            build_group_listener_pvc(&group_listener_name, &unversioned_recommended_labels)
-                .context(ListenerConfigurationSnafu)?,
-        ]);
+        pvcs = Some(vec![build_group_listener_pvc(
+            &group_listener_name,
+            &unversioned_recommended_labels,
+        )]);
     }
 
     let metadata = ObjectMetaBuilder::new()
