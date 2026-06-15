@@ -103,6 +103,7 @@ pub struct ValidatedCluster {
     /// [`Resource`] and be passed directly to the metadata/owner-reference builders.
     metadata: ObjectMeta,
     pub name: ClusterName,
+    pub namespace: NamespaceName,
     pub uid: Uid,
     pub image: ResolvedProductImage,
     pub cluster_config: ValidatedClusterConfig,
@@ -128,6 +129,7 @@ impl ValidatedCluster {
         Self {
             metadata,
             name,
+            namespace,
             uid,
             image,
             cluster_config,

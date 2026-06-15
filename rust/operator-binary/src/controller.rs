@@ -7,10 +7,9 @@ use const_format::concatcp;
 use snafu::{ResultExt, Snafu};
 use stackable_operator::{
     cli::OperatorEnvironmentOptions,
-    cluster_resources::{ClusterResourceApplyStrategy, ClusterResources},
+    cluster_resources::ClusterResourceApplyStrategy,
     commons::rbac::build_rbac_resources,
     kube::{
-        Resource,
         core::{DeserializeGuard, error_boundary},
         runtime::controller::Action,
     },
@@ -21,7 +20,10 @@ use stackable_operator::{
         compute_conditions, operations::ClusterOperationsConditionBuilder,
         statefulset::StatefulSetConditionBuilder,
     },
-    v2::types::operator::{ControllerName, OperatorName, ProductName},
+    v2::{
+        cluster_resources::cluster_resources_new,
+        types::operator::{ControllerName, OperatorName, ProductName},
+    },
 };
 use strum::{EnumDiscriminants, IntoStaticStr};
 
@@ -109,11 +111,6 @@ pub enum Error {
     #[snafu(display("failed to apply cluster status"))]
     ApplyStatus {
         source: stackable_operator::client::Error,
-    },
-
-    #[snafu(display("failed to create cluster resources"))]
-    CreateClusterResources {
-        source: stackable_operator::cluster_resources::Error,
     },
 
     #[snafu(display("failed to delete orphaned resources"))]
@@ -209,15 +206,16 @@ pub async fn reconcile_druid(
         validate::validate(druid, &dereferenced_objects, &ctx.operator_environment)
             .context(ValidateClusterSnafu)?;
 
-    let mut cluster_resources = ClusterResources::new(
-        APP_NAME,
-        OPERATOR_NAME,
-        DRUID_CONTROLLER_NAME,
-        &druid.object_ref(&()),
+    let mut cluster_resources = cluster_resources_new(
+        &product_name(),
+        &operator_name(),
+        &controller_name(),
+        &validated_cluster.name,
+        &validated_cluster.namespace,
+        &validated_cluster.uid,
         ClusterResourceApplyStrategy::from(&druid.spec.cluster_operation),
         &druid.spec.object_overrides,
-    )
-    .context(CreateClusterResourcesSnafu)?;
+    );
 
     let (rbac_sa, rbac_rolebinding) = build_rbac_resources(
         druid,
