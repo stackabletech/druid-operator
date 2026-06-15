@@ -1,33 +1,20 @@
-use snafu::{ResultExt, Snafu};
+use std::str::FromStr;
+
 use stackable_operator::{
     builder::meta::ObjectMetaBuilder,
     k8s_openapi::api::core::v1::{Service, ServicePort, ServiceSpec},
-    kvp::{Annotations, Label, Labels},
-    v2::types::operator::RoleGroupName,
+    kvp::{Annotations, Labels},
+    v2::{
+        builder::meta::ownerreference_from_resource,
+        kvp::label::{recommended_labels, role_group_selector},
+        types::operator::{ProductVersion, RoleGroupName},
+    },
 };
 
 use crate::{
-    controller::{DRUID_CONTROLLER_NAME, validate::ValidatedCluster},
-    crd::{APP_NAME, DruidRole, METRICS_PORT, METRICS_PORT_NAME, build_recommended_labels},
+    controller::{controller_name, operator_name, product_name, validate::ValidatedCluster},
+    crd::{DruidRole, METRICS_PORT, METRICS_PORT_NAME},
 };
-
-#[derive(Snafu, Debug)]
-pub enum Error {
-    #[snafu(display("object is missing metadata to build owner reference"))]
-    ObjectMissingMetadataForOwnerRef {
-        source: stackable_operator::builder::meta::Error,
-    },
-
-    #[snafu(display("failed to build Metadata"))]
-    MetadataBuild {
-        source: stackable_operator::builder::meta::Error,
-    },
-
-    #[snafu(display("failed to build Labels"))]
-    LabelBuild {
-        source: stackable_operator::kvp::LabelError,
-    },
-}
 
 /// The rolegroup headless [`Service`] is a service that allows direct access to the instances of a certain rolegroup
 /// This is mostly useful for internal communication between peers, or for clients that perform client-side load balancing.
@@ -35,19 +22,24 @@ pub fn build_rolegroup_headless_service(
     cluster: &ValidatedCluster,
     druid_role: &DruidRole,
     role_group_name: &RoleGroupName,
-) -> Result<Service, Error> {
-    let role_name = druid_role.to_string();
-    let object_labels = build_recommended_labels(
+) -> Service {
+    let object_labels = recommended_labels(
         cluster,
-        DRUID_CONTROLLER_NAME,
-        &cluster.image.app_version_label_value,
-        &role_name,
-        role_group_name.as_ref(),
+        &product_name(),
+        &ProductVersion::from_str(&cluster.image.app_version_label_value)
+            .expect("a valid product version"),
+        &operator_name(),
+        &controller_name(),
+        &druid_role.to_role_name(),
+        role_group_name,
     );
-    let selector =
-        Labels::role_group_selector(cluster, APP_NAME, &role_name, role_group_name.as_ref())
-            .context(LabelBuildSnafu)?;
-    Ok(Service {
+    let selector = role_group_selector(
+        cluster,
+        &product_name(),
+        &druid_role.to_role_name(),
+        role_group_name,
+    );
+    Service {
         metadata: ObjectMetaBuilder::new()
             .name_and_namespace(cluster)
             .name(
@@ -56,10 +48,8 @@ pub fn build_rolegroup_headless_service(
                     .headless_service_name()
                     .to_string(),
             )
-            .ownerreference_from_resource(cluster, None, Some(true))
-            .context(ObjectMissingMetadataForOwnerRefSnafu)?
-            .with_recommended_labels(&object_labels)
-            .context(MetadataBuildSnafu)?
+            .ownerreference(ownerreference_from_resource(cluster, None, Some(true)))
+            .with_labels(object_labels)
             .build(),
         spec: Some(ServiceSpec {
             // Internal communication does not need to be exposed
@@ -76,7 +66,7 @@ pub fn build_rolegroup_headless_service(
             ..ServiceSpec::default()
         }),
         status: None,
-    })
+    }
 }
 
 /// The rolegroup metrics [`Service`] is a service that exposes metrics and a prometheus scraping label.
@@ -84,19 +74,24 @@ pub fn build_rolegroup_metrics_service(
     cluster: &ValidatedCluster,
     druid_role: &DruidRole,
     role_group_name: &RoleGroupName,
-) -> Result<Service, Error> {
-    let role_name = druid_role.to_string();
-    let object_labels = build_recommended_labels(
+) -> Service {
+    let object_labels = recommended_labels(
         cluster,
-        DRUID_CONTROLLER_NAME,
-        &cluster.image.app_version_label_value,
-        &role_name,
-        role_group_name.as_ref(),
+        &product_name(),
+        &ProductVersion::from_str(&cluster.image.app_version_label_value)
+            .expect("a valid product version"),
+        &operator_name(),
+        &controller_name(),
+        &druid_role.to_role_name(),
+        role_group_name,
     );
-    let selector =
-        Labels::role_group_selector(cluster, APP_NAME, &role_name, role_group_name.as_ref())
-            .context(LabelBuildSnafu)?;
-    Ok(Service {
+    let selector = role_group_selector(
+        cluster,
+        &product_name(),
+        &druid_role.to_role_name(),
+        role_group_name,
+    );
+    Service {
         metadata: ObjectMetaBuilder::new()
             .name_and_namespace(cluster)
             .name(
@@ -105,11 +100,9 @@ pub fn build_rolegroup_metrics_service(
                     .metrics_service_name()
                     .to_string(),
             )
-            .ownerreference_from_resource(cluster, None, Some(true))
-            .context(ObjectMissingMetadataForOwnerRefSnafu)?
-            .with_recommended_labels(&object_labels)
-            .context(MetadataBuildSnafu)?
-            .with_label(Label::try_from(("prometheus.io/scrape", "true")).context(LabelBuildSnafu)?)
+            .ownerreference(ownerreference_from_resource(cluster, None, Some(true)))
+            .with_labels(object_labels)
+            .with_labels(prometheus_labels())
             .with_annotations(prometheus_annotations())
             .build(),
         spec: Some(ServiceSpec {
@@ -122,7 +115,7 @@ pub fn build_rolegroup_metrics_service(
             ..ServiceSpec::default()
         }),
         status: None,
-    })
+    }
 }
 
 fn metrics_service_ports() -> Vec<ServicePort> {
@@ -132,6 +125,11 @@ fn metrics_service_ports() -> Vec<ServicePort> {
         protocol: Some("TCP".to_string()),
         ..ServicePort::default()
     }]
+}
+
+/// The Prometheus scraping label added to the metrics [`Service`].
+fn prometheus_labels() -> Labels {
+    Labels::try_from([("prometheus.io/scrape", "true")]).expect("should be a valid label")
 }
 
 /// Common annotations for Prometheus

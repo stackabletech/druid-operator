@@ -1,20 +1,26 @@
 //! Discovery for Druid.  We make Druid discoverable by putting a connection string to the router service
 //! inside a config map.  We only provide a connection string to the router service, since it serves as
 //! a gateway to the cluster for client queries.
+use std::str::FromStr;
+
 use snafu::{ResultExt, Snafu};
 use stackable_operator::{
     builder::{configmap::ConfigMapBuilder, meta::ObjectMetaBuilder},
     crd::listener::v1alpha1::Listener,
     k8s_openapi::api::core::v1::ConfigMap,
-    v2::builder::meta::ownerreference_from_resource,
+    v2::{
+        builder::meta::ownerreference_from_resource,
+        kvp::label::recommended_labels,
+        types::operator::{ProductVersion, RoleGroupName},
+    },
 };
 
 use crate::{
-    DRUID_CONTROLLER_NAME,
     controller::{
-        build::resource::listener::build_listener_connection_string, validate::ValidatedCluster,
+        build::resource::listener::build_listener_connection_string, controller_name,
+        operator_name, product_name, validate::ValidatedCluster,
     },
-    crd::{DruidRole, build_recommended_labels},
+    crd::DruidRole,
 };
 
 #[derive(Snafu, Debug)]
@@ -22,11 +28,6 @@ pub enum Error {
     #[snafu(display("failed to build ConfigMap"))]
     BuildConfigMap {
         source: stackable_operator::builder::configmap::Error,
-    },
-
-    #[snafu(display("failed to add recommended labels"))]
-    AddRecommendedLabels {
-        source: stackable_operator::builder::meta::Error,
     },
 
     #[snafu(display("failed to configure listener discovery configmap"))]
@@ -65,14 +66,16 @@ fn build_discovery_configmap(
             ObjectMetaBuilder::new()
                 .name_and_namespace(cluster)
                 .ownerreference(ownerreference_from_resource(cluster, None, Some(true)))
-                .with_recommended_labels(&build_recommended_labels(
+                .with_labels(recommended_labels(
                     cluster,
-                    DRUID_CONTROLLER_NAME,
-                    &cluster.image.app_version_label_value,
-                    &DruidRole::Router.to_string(),
-                    "discovery",
+                    &product_name(),
+                    &ProductVersion::from_str(&cluster.image.app_version_label_value)
+                        .expect("a valid product version"),
+                    &operator_name(),
+                    &controller_name(),
+                    &DruidRole::Router.to_role_name(),
+                    &RoleGroupName::from_str("discovery").expect("a valid role group name"),
                 ))
-                .context(AddRecommendedLabelsSnafu)?
                 .build(),
         )
         .add_data("DRUID_ROUTER", router_host)

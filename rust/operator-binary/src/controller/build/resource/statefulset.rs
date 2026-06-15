@@ -21,22 +21,24 @@ use stackable_operator::{
         apimachinery::pkg::apis::meta::v1::LabelSelector,
     },
     kube::ResourceExt,
-    kvp::Labels,
     product_logging,
     v2::{
-        builder::pod::container::{EnvVarSet, new_container_builder},
+        builder::{
+            meta::ownerreference_from_resource,
+            pod::container::{EnvVarSet, new_container_builder},
+        },
+        kvp::label::{recommended_labels, role_group_selector},
         product_logging::framework::{ValidatedContainerLogConfigChoice, vector_container},
         role_group_utils::ResourceNames,
         types::{
             kubernetes::{ContainerName, VolumeName},
-            operator::RoleGroupName,
+            operator::{ProductVersion, RoleGroupName},
         },
     },
 };
 
 use crate::{
     controller::{
-        DRUID_CONTROLLER_NAME,
         build::{
             properties::product_logging::MAX_DRUID_LOG_FILES_SIZE,
             resource::listener::{
@@ -44,12 +46,13 @@ use crate::{
                 group_listener_name, secret_volume_listener_scope,
             },
         },
+        controller_name, operator_name, product_name,
         validate::{DruidRoleGroupConfig, ValidatedCluster},
     },
     crd::{
-        APP_NAME, Container, DRUID_CONFIG_DIRECTORY, DeepStorageSpec, DruidRole,
-        HDFS_CONFIG_DIRECTORY, LOG_CONFIG_DIRECTORY, METRICS_PORT, METRICS_PORT_NAME,
-        RW_CONFIG_DIRECTORY, STACKABLE_LOG_DIR, ValidatedDruidConfig, build_recommended_labels,
+        Container, DRUID_CONFIG_DIRECTORY, DeepStorageSpec, DruidRole, HDFS_CONFIG_DIRECTORY,
+        LOG_CONFIG_DIRECTORY, METRICS_PORT, METRICS_PORT_NAME, RW_CONFIG_DIRECTORY,
+        STACKABLE_LOG_DIR, ValidatedDruidConfig,
     },
     operations::graceful_shutdown::add_graceful_shutdown_config,
 };
@@ -99,21 +102,6 @@ pub enum Error {
     AddVolumeMount {
         source: stackable_operator::builder::pod::container::Error,
     },
-
-    #[snafu(display("failed to build labels"))]
-    LabelBuild {
-        source: stackable_operator::kvp::LabelError,
-    },
-
-    #[snafu(display("failed to build metadata"))]
-    MetadataBuild {
-        source: stackable_operator::builder::meta::Error,
-    },
-
-    #[snafu(display("object is missing metadata to build owner reference"))]
-    ObjectMissingMetadataForOwnerRef {
-        source: stackable_operator::builder::meta::Error,
-    },
 }
 
 type Result<T, E = Error> = std::result::Result<T, E>;
@@ -126,7 +114,6 @@ pub fn build_rolegroup_statefulset(
     service_account: &ServiceAccount,
 ) -> Result<StatefulSet> {
     let merged_rolegroup_config = &rg.config;
-    let role_name = role.to_string();
     let resource_names = cluster.resource_names(role, role_group_name);
     // Everything below used to be threaded in as separate parameters; it all lives on the
     // `ValidatedCluster` now.
@@ -307,15 +294,17 @@ pub fn build_rolegroup_statefulset(
             .context(AddVolumeMountSnafu)?;
 
         // Used for PVC templates that cannot be modified once they are deployed
-        let unversioned_recommended_labels = Labels::recommended(&build_recommended_labels(
+        // A version value is required, and we do want to use the "recommended" format for the
+        // other desired labels, hence the "none" product version.
+        let unversioned_recommended_labels = recommended_labels(
             cluster,
-            DRUID_CONTROLLER_NAME,
-            // A version value is required, and we do want to use the "recommended" format for the other desired labels
-            "none",
-            &role_name,
-            role_group_name.as_ref(),
-        ))
-        .context(LabelBuildSnafu)?;
+            &product_name(),
+            &ProductVersion::from_str("none").expect("a valid product version"),
+            &operator_name(),
+            &controller_name(),
+            &role.to_role_name(),
+            role_group_name,
+        );
 
         pvcs = Some(vec![build_group_listener_pvc(
             &group_listener_name,
@@ -324,14 +313,16 @@ pub fn build_rolegroup_statefulset(
     }
 
     let metadata = ObjectMetaBuilder::new()
-        .with_recommended_labels(&build_recommended_labels(
+        .with_labels(recommended_labels(
             cluster,
-            DRUID_CONTROLLER_NAME,
-            &resolved_product_image.app_version_label_value,
-            &role_name,
-            role_group_name.as_ref(),
+            &product_name(),
+            &ProductVersion::from_str(&resolved_product_image.app_version_label_value)
+                .expect("a valid product version"),
+            &operator_name(),
+            &controller_name(),
+            &role.to_role_name(),
+            role_group_name,
         ))
-        .context(MetadataBuildSnafu)?
         .build();
 
     pb.image_pull_secrets_from_product_image(resolved_product_image)
@@ -364,16 +355,17 @@ pub fn build_rolegroup_statefulset(
         metadata: ObjectMetaBuilder::new()
             .name_and_namespace(cluster)
             .name(resource_names.stateful_set_name().to_string())
-            .ownerreference_from_resource(cluster, None, Some(true))
-            .context(ObjectMissingMetadataForOwnerRefSnafu)?
-            .with_recommended_labels(&build_recommended_labels(
+            .ownerreference(ownerreference_from_resource(cluster, None, Some(true)))
+            .with_labels(recommended_labels(
                 cluster,
-                DRUID_CONTROLLER_NAME,
-                &resolved_product_image.app_version_label_value,
-                &role_name,
-                role_group_name.as_ref(),
+                &product_name(),
+                &ProductVersion::from_str(&resolved_product_image.app_version_label_value)
+                    .expect("a valid product version"),
+                &operator_name(),
+                &controller_name(),
+                &role.to_role_name(),
+                role_group_name,
             ))
-            .context(MetadataBuildSnafu)?
             .with_label(RESTART_CONTROLLER_ENABLED_LABEL.to_owned())
             .build(),
         spec: Some(StatefulSetSpec {
@@ -381,13 +373,12 @@ pub fn build_rolegroup_statefulset(
             replicas: Some(i32::from(rg.replicas)),
             selector: LabelSelector {
                 match_labels: Some(
-                    Labels::role_group_selector(
+                    role_group_selector(
                         cluster,
-                        APP_NAME,
-                        &role_name,
-                        role_group_name.as_ref(),
+                        &product_name(),
+                        &role.to_role_name(),
+                        role_group_name,
                     )
-                    .context(LabelBuildSnafu)?
                     .into(),
                 ),
                 ..LabelSelector::default()

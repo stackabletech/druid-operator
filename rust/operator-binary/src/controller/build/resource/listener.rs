@@ -1,14 +1,15 @@
 use std::str::FromStr;
 
-use snafu::{OptionExt, ResultExt, Snafu};
+use snafu::{OptionExt, Snafu};
 use stackable_operator::{
     builder::meta::ObjectMetaBuilder,
     crd::listener::{self, v1alpha1::Listener},
     k8s_openapi::api::core::v1::PersistentVolumeClaim,
-    kvp::{Labels, ObjectLabels},
+    kvp::Labels,
     v2::{
-        builder::pod::volume::{
-            ListenerReference, listener_operator_volume_source_builder_build_pvc,
+        builder::{
+            meta::ownerreference_from_resource,
+            pod::volume::{ListenerReference, listener_operator_volume_source_builder_build_pvc},
         },
         types::kubernetes::{ListenerName, PersistentVolumeClaimName},
     },
@@ -27,16 +28,6 @@ pub const LISTENER_VOLUME_DIR: &str = "/stackable/listener";
 
 #[derive(Snafu, Debug)]
 pub enum Error {
-    #[snafu(display("listener object is missing metadata to build owner reference"))]
-    ObjectMissingMetadataForOwnerRef {
-        source: stackable_operator::builder::meta::Error,
-    },
-
-    #[snafu(display("failed to build listener object meta data"))]
-    BuildObjectMeta {
-        source: stackable_operator::builder::meta::Error,
-    },
-
     #[snafu(display("{role_name} listener has no adress"))]
     RoleListenerHasNoAddress { role_name: String },
 
@@ -49,19 +40,17 @@ pub enum Error {
 
 pub fn build_group_listener(
     cluster: &ValidatedCluster,
-    object_labels: ObjectLabels<ValidatedCluster>,
+    object_labels: Labels,
     listener_class: String,
     listener_group_name: ListenerName,
     druid_role: &DruidRole,
-) -> Result<Listener, Error> {
-    Ok(Listener {
+) -> Listener {
+    Listener {
         metadata: ObjectMetaBuilder::new()
             .name_and_namespace(cluster)
             .name(listener_group_name.to_string())
-            .ownerreference_from_resource(cluster, None, Some(true))
-            .context(ObjectMissingMetadataForOwnerRefSnafu)?
-            .with_recommended_labels(&object_labels)
-            .context(BuildObjectMetaSnafu)?
+            .ownerreference(ownerreference_from_resource(cluster, None, Some(true)))
+            .with_labels(object_labels)
             .build(),
         spec: listener::v1alpha1::ListenerSpec {
             class_name: Some(listener_class),
@@ -74,7 +63,7 @@ pub fn build_group_listener(
             ..listener::v1alpha1::ListenerSpec::default()
         },
         status: None,
-    })
+    }
 }
 
 pub fn build_group_listener_pvc(

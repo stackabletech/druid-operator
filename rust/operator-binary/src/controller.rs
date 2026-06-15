@@ -22,7 +22,10 @@ use stackable_operator::{
     },
     v2::{
         cluster_resources::cluster_resources_new,
-        types::operator::{ControllerName, OperatorName, ProductName},
+        kvp::label::recommended_labels,
+        types::operator::{
+            ControllerName, OperatorName, ProductName, ProductVersion, RoleGroupName,
+        },
     },
 };
 use strum::{EnumDiscriminants, IntoStaticStr};
@@ -33,9 +36,7 @@ use crate::{
         pdb::build_pdb,
         service::{build_rolegroup_headless_service, build_rolegroup_metrics_service},
     },
-    crd::{
-        APP_NAME, DruidClusterStatus, DruidRole, OPERATOR_NAME, build_recommended_labels, v1alpha1,
-    },
+    crd::{APP_NAME, DruidClusterStatus, DruidRole, OPERATOR_NAME, v1alpha1},
     internal_secret::create_shared_internal_secret,
 };
 
@@ -158,16 +159,6 @@ pub enum Error {
         source: stackable_operator::cluster_resources::Error,
     },
 
-    #[snafu(display("failed to configure listener"))]
-    ListenerConfiguration {
-        source: crate::controller::build::resource::listener::Error,
-    },
-
-    #[snafu(display("failed to configure service"))]
-    ServiceConfiguration {
-        source: crate::controller::build::resource::service::Error,
-    },
-
     #[snafu(display("failed to validate cluster"))]
     ValidateCluster { source: validate::Error },
 
@@ -238,19 +229,15 @@ pub async fn reconcile_druid(
     let mut ss_cond_builder = StatefulSetConditionBuilder::default();
 
     for (druid_role, groups) in validated_cluster.role_group_configs.iter() {
-        let role_name = druid_role.to_string();
-
         create_shared_internal_secret(druid, client, DRUID_CONTROLLER_NAME)
             .await
             .context(FailedInternalSecretCreationSnafu)?;
 
         for (rolegroup_name, rg) in groups.iter() {
             let rg_headless_service =
-                build_rolegroup_headless_service(&validated_cluster, druid_role, rolegroup_name)
-                    .context(ServiceConfigurationSnafu)?;
+                build_rolegroup_headless_service(&validated_cluster, druid_role, rolegroup_name);
             let rg_metrics_service =
-                build_rolegroup_metrics_service(&validated_cluster, druid_role, rolegroup_name)
-                    .context(ServiceConfigurationSnafu)?;
+                build_rolegroup_metrics_service(&validated_cluster, druid_role, rolegroup_name);
 
             let rg_configmap = build::resource::config_map::build_rolegroup_config_map(
                 &validated_cluster,
@@ -305,18 +292,20 @@ pub async fn reconcile_druid(
         {
             let role_group_listener = build_group_listener(
                 &validated_cluster,
-                build_recommended_labels(
+                recommended_labels(
                     &validated_cluster,
-                    DRUID_CONTROLLER_NAME,
-                    &validated_cluster.image.app_version_label_value,
-                    &role_name,
-                    "none",
+                    &product_name(),
+                    &ProductVersion::from_str(&validated_cluster.image.app_version_label_value)
+                        .expect("a valid product version"),
+                    &operator_name(),
+                    &controller_name(),
+                    &druid_role.to_role_name(),
+                    &RoleGroupName::from_str("none").expect("a valid role group name"),
                 ),
                 listener_class.to_string(),
                 listener_group_name,
                 druid_role,
-            )
-            .context(ListenerConfigurationSnafu)?;
+            );
 
             let listener = cluster_resources
                 .add(client, role_group_listener)

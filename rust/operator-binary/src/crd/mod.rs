@@ -26,7 +26,6 @@ use stackable_operator::{
     deep_merger::ObjectOverrides,
     k8s_openapi::api::core::v1::Volume,
     kube::{CustomResource, ResourceExt},
-    kvp::ObjectLabels,
     product_logging::{
         self,
         framework::{create_vector_shutdown_file_command, remove_vector_shutdown_file_command},
@@ -45,7 +44,10 @@ use stackable_operator::{
             validate_logging_configuration_for_container,
         },
         role_utils::{JavaCommonConfig, RoleGroupConfig, with_validated_config},
-        types::{kubernetes::ConfigMapName, operator::RoleGroupName},
+        types::{
+            kubernetes::ConfigMapName,
+            operator::{RoleGroupName, RoleName},
+        },
     },
     versioned::versioned,
 };
@@ -736,6 +738,12 @@ pub enum DruidRole {
 }
 
 impl DruidRole {
+    /// Returns the typed role name used for Kubernetes labels and selectors.
+    pub fn to_role_name(&self) -> RoleName {
+        RoleName::from_str(&self.to_string())
+            .expect("a DruidRole always serializes to a valid role name")
+    }
+
     /// Returns the name of the internal druid process name associated with the role.
     /// These strings are used by druid internally to identify processes.
     fn get_process_name(&self) -> &str {
@@ -1023,25 +1031,6 @@ pub fn build_string_list(strings: &[String]) -> String {
     let quoted_strings: Vec<String> = strings.iter().map(|s| format!("\"{}\"", s)).collect();
     let comma_list = quoted_strings.join(", ");
     format!("[{}]", comma_list)
-}
-
-/// Creates recommended `ObjectLabels` to be used in deployed resources
-pub fn build_recommended_labels<'a, T>(
-    owner: &'a T,
-    controller_name: &'a str,
-    app_version: &'a str,
-    role: &'a str,
-    role_group: &'a str,
-) -> ObjectLabels<'a, T> {
-    ObjectLabels {
-        owner,
-        app_name: APP_NAME,
-        app_version,
-        operator_name: OPERATOR_NAME,
-        controller_name,
-        role,
-        role_group,
-    }
 }
 
 #[cfg(test)]

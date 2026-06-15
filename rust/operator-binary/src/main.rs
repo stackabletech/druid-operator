@@ -6,7 +6,7 @@ use std::sync::Arc;
 
 use anyhow::anyhow;
 use clap::Parser;
-use controller::{DRUID_CONTROLLER_NAME, FULL_CONTROLLER_NAME};
+use controller::FULL_CONTROLLER_NAME;
 use futures::{FutureExt, StreamExt, TryFutureExt};
 use stackable_operator::{
     YamlSchema,

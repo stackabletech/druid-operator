@@ -11,7 +11,7 @@
 //! The builder does not read the raw [`v1alpha1::DruidCluster`] at all: everything it needs is
 //! carried on `ValidatedCluster` (resolved during the validate step).
 
-use std::collections::BTreeMap;
+use std::{collections::BTreeMap, str::FromStr};
 
 use snafu::{ResultExt, Snafu};
 use stackable_operator::{
@@ -20,14 +20,15 @@ use stackable_operator::{
     k8s_openapi::api::core::v1::{ConfigMap, EnvVar},
     product_logging::framework::VECTOR_CONFIG_FILE,
     v2::{
-        builder::meta::ownerreference_from_resource, config_file_writer::to_java_properties_string,
-        types::operator::RoleGroupName,
+        builder::meta::ownerreference_from_resource,
+        config_file_writer::to_java_properties_string,
+        kvp::label::recommended_labels,
+        types::operator::{ProductVersion, RoleGroupName},
     },
 };
 
 use crate::{
     controller::{
-        DRUID_CONTROLLER_NAME,
         build::{
             jvm::construct_jvm_args,
             properties::{
@@ -36,12 +37,12 @@ use crate::{
                 runtime_properties, security_properties,
             },
         },
+        controller_name, operator_name, product_name,
         validate::{DruidRoleGroupConfig, ValidatedCluster},
     },
     crd::{
         DruidConfigOverrides, DruidRole, STACKABLE_TRUST_STORE, STACKABLE_TRUST_STORE_PASSWORD,
-        STACKABLE_TRUST_STORE_TYPE, build_recommended_labels, build_string_list, env_var_reference,
-        file_reference,
+        STACKABLE_TRUST_STORE_TYPE, build_string_list, env_var_reference, file_reference,
     },
 };
 
@@ -82,11 +83,6 @@ pub enum Error {
 
     #[snafu(display("failed to update Druid config from resources"))]
     UpdateDruidConfigFromResources { source: crate::crd::resource::Error },
-
-    #[snafu(display("failed to build metadata"))]
-    MetadataBuild {
-        source: stackable_operator::builder::meta::Error,
-    },
 
     #[snafu(display("there was an error generating the authentication runtime settings"))]
     GenerateAuthenticationRuntimeSettings {
@@ -330,14 +326,16 @@ pub fn build_rolegroup_config_map(
             .name_and_namespace(cluster)
             .name(resource_names.role_group_config_map().to_string())
             .ownerreference(ownerreference_from_resource(cluster, None, Some(true)))
-            .with_recommended_labels(&build_recommended_labels(
+            .with_labels(recommended_labels(
                 cluster,
-                DRUID_CONTROLLER_NAME,
-                &cluster.image.app_version_label_value,
-                &role.to_string(),
-                role_group_name.as_ref(),
+                &product_name(),
+                &ProductVersion::from_str(&cluster.image.app_version_label_value)
+                    .expect("a valid product version"),
+                &operator_name(),
+                &controller_name(),
+                &role.to_role_name(),
+                role_group_name,
             ))
-            .context(MetadataBuildSnafu)?
             .build(),
     );
 
