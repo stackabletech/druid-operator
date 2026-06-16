@@ -28,7 +28,7 @@ use stackable_operator::{
         role_group_utils::ResourceNames,
         types::{
             kubernetes::{ContainerName, VolumeName},
-            operator::{ProductVersion, RoleGroupName},
+            operator::RoleGroupName,
         },
     },
 };
@@ -36,6 +36,7 @@ use stackable_operator::{
 use crate::{
     controller::{
         build::{
+            UNVERSIONED_PRODUCT_VERSION,
             properties::product_logging::MAX_DRUID_LOG_FILES_SIZE,
             resource::listener::{
                 LISTENER_VOLUME_DIR, LISTENER_VOLUME_NAME, build_group_listener_pvc,
@@ -290,12 +291,9 @@ pub fn build_rolegroup_statefulset(
 
         // Used for PVC templates that cannot be modified once they are deployed
         // A version value is required, and we do want to use the "recommended" format for the
-        // other desired labels, hence the "none" product version.
-        let unversioned_recommended_labels = cluster.recommended_labels_for(
-            role,
-            &ProductVersion::from_str("none").expect("a valid product version"),
-            role_group_name,
-        );
+        // other desired labels, hence the unversioned product version.
+        let unversioned_recommended_labels =
+            cluster.recommended_labels_for(role, &UNVERSIONED_PRODUCT_VERSION, role_group_name);
 
         pvcs = Some(vec![build_group_listener_pvc(
             &group_listener_name,

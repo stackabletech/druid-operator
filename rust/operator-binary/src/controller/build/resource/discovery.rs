@@ -1,17 +1,18 @@
 //! Discovery for Druid.  We make Druid discoverable by putting a connection string to the router service
 //! inside a config map.  We only provide a connection string to the router service, since it serves as
 //! a gateway to the cluster for client queries.
-use std::str::FromStr;
-
 use snafu::{ResultExt, Snafu};
 use stackable_operator::{
     builder::configmap::ConfigMapBuilder, crd::listener::v1alpha1::Listener,
-    k8s_openapi::api::core::v1::ConfigMap, v2::types::operator::RoleGroupName,
+    k8s_openapi::api::core::v1::ConfigMap,
 };
 
 use crate::{
     controller::{
-        build::resource::listener::build_listener_connection_string, validate::ValidatedCluster,
+        build::{
+            PLACEHOLDER_DISCOVERY_ROLE_GROUP, resource::listener::build_listener_connection_string,
+        },
+        validate::ValidatedCluster,
     },
     crd::DruidRole,
 };
@@ -60,7 +61,7 @@ fn build_discovery_configmap(
                 .object_meta(
                     cluster.name.to_string(),
                     &DruidRole::Router,
-                    &RoleGroupName::from_str("discovery").expect("a valid role group name"),
+                    &PLACEHOLDER_DISCOVERY_ROLE_GROUP,
                 )
                 .build(),
         )

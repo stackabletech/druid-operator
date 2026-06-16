@@ -2,21 +2,19 @@ use std::str::FromStr;
 
 use snafu::{OptionExt, Snafu};
 use stackable_operator::{
-    builder::meta::ObjectMetaBuilder,
     crd::listener::{self, v1alpha1::Listener},
     k8s_openapi::api::core::v1::PersistentVolumeClaim,
     kvp::Labels,
     v2::{
-        builder::{
-            meta::ownerreference_from_resource,
-            pod::volume::{ListenerReference, listener_operator_volume_source_builder_build_pvc},
+        builder::pod::volume::{
+            ListenerReference, listener_operator_volume_source_builder_build_pvc,
         },
         types::kubernetes::{ListenerName, PersistentVolumeClaimName},
     },
 };
 
 use crate::{
-    controller::validate::ValidatedCluster,
+    controller::{build::PLACEHOLDER_LISTENER_ROLE_GROUP, validate::ValidatedCluster},
     crd::{
         DruidRole,
         security::{DruidTlsSecurity, PLAINTEXT_PORT_NAME, TLS_PORT_NAME},
@@ -40,17 +38,19 @@ pub enum Error {
 
 pub fn build_group_listener(
     cluster: &ValidatedCluster,
-    object_labels: Labels,
     listener_class: String,
     listener_group_name: ListenerName,
     druid_role: &DruidRole,
 ) -> Listener {
+    // The group listener is a role-level (not role-group-level) object, so there is no real
+    // role-group name; the placeholder is used for the recommended labels.
     Listener {
-        metadata: ObjectMetaBuilder::new()
-            .name_and_namespace(cluster)
-            .name(listener_group_name.to_string())
-            .ownerreference(ownerreference_from_resource(cluster, None, Some(true)))
-            .with_labels(object_labels)
+        metadata: cluster
+            .object_meta(
+                listener_group_name.to_string(),
+                druid_role,
+                &PLACEHOLDER_LISTENER_ROLE_GROUP,
+            )
             .build(),
         spec: listener::v1alpha1::ListenerSpec {
             class_name: Some(listener_class),

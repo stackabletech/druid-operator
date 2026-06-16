@@ -22,7 +22,7 @@ use stackable_operator::{
     },
     v2::{
         cluster_resources::cluster_resources_new,
-        types::operator::{ControllerName, OperatorName, ProductName, RoleGroupName},
+        types::operator::{ControllerName, OperatorName, ProductName},
     },
 };
 use strum::{EnumDiscriminants, IntoStaticStr};
@@ -289,10 +289,6 @@ pub async fn reconcile_druid(
         {
             let role_group_listener = build_group_listener(
                 &validated_cluster,
-                validated_cluster.recommended_labels(
-                    druid_role,
-                    &RoleGroupName::from_str("none").expect("a valid role group name"),
-                ),
                 listener_class.to_string(),
                 listener_group_name,
                 druid_role,
