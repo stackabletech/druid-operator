@@ -37,6 +37,7 @@ use crate::{
     controller::{
         build::{
             UNVERSIONED_PRODUCT_VERSION,
+            graceful_shutdown::add_graceful_shutdown_config,
             properties::product_logging::MAX_DRUID_LOG_FILES_SIZE,
             resource::listener::{
                 LISTENER_VOLUME_DIR, LISTENER_VOLUME_NAME, build_group_listener_pvc,
@@ -50,7 +51,6 @@ use crate::{
         LOG_CONFIG_DIRECTORY, METRICS_PORT, METRICS_PORT_NAME, RW_CONFIG_DIRECTORY,
         STACKABLE_LOG_DIR, ValidatedDruidConfig,
     },
-    operations::graceful_shutdown::add_graceful_shutdown_config,
 };
 
 // volume names
@@ -65,7 +65,7 @@ const USERDATA_MOUNTPOINT: &str = "/stackable/userdata";
 pub enum Error {
     #[snafu(display("failed to configure graceful shutdown"))]
     GracefulShutdown {
-        source: crate::operations::graceful_shutdown::Error,
+        source: crate::controller::build::graceful_shutdown::Error,
     },
 
     #[snafu(display("failed to add OIDC Volumes and VolumeMounts to the Pod and containers"))]

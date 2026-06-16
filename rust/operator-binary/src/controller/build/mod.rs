@@ -16,6 +16,7 @@ stackable_operator::constant!(pub(crate) PLACEHOLDER_LISTENER_ROLE_GROUP: RoleGr
 // deployed. A constant value keeps the labels stable across version upgrades.
 stackable_operator::constant!(pub(crate) UNVERSIONED_PRODUCT_VERSION: ProductVersion = "none");
 
+pub mod graceful_shutdown;
 pub mod jvm;
 pub mod properties;
 pub mod resource;

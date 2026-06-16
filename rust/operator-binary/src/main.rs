@@ -42,7 +42,6 @@ mod controller;
 mod crd;
 mod extensions;
 mod internal_secret;
-mod operations;
 mod webhooks;
 
 mod built_info {
