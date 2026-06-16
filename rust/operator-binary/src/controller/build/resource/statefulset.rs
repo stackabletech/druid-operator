@@ -54,11 +54,13 @@ use crate::{
 };
 
 // volume names
-const DRUID_CONFIG_VOLUME_NAME: &str = "config";
-const HDFS_CONFIG_VOLUME_NAME: &str = "hdfs";
-const LOG_CONFIG_VOLUME_NAME: &str = "log-config";
-const LOG_VOLUME_NAME: &str = "log";
-const RW_CONFIG_VOLUME_NAME: &str = "rwconfig";
+stackable_operator::constant!(DRUID_CONFIG_VOLUME_NAME: VolumeName = "config");
+stackable_operator::constant!(HDFS_CONFIG_VOLUME_NAME: VolumeName = "hdfs");
+stackable_operator::constant!(LOG_CONFIG_VOLUME_NAME: VolumeName = "log-config");
+stackable_operator::constant!(LOG_VOLUME_NAME: VolumeName = "log");
+stackable_operator::constant!(RW_CONFIG_VOLUME_NAME: VolumeName = "rwconfig");
+
+// volume mount directory (not a volume name)
 const USERDATA_MOUNTPOINT: &str = "/stackable/userdata";
 
 #[derive(Snafu, Debug)]
@@ -321,8 +323,8 @@ pub fn build_rolegroup_statefulset(
             resolved_product_image,
             vector_log_config,
             &resource_names,
-            &VolumeName::from_str(DRUID_CONFIG_VOLUME_NAME).expect("a valid volume name"),
-            &VolumeName::from_str(LOG_VOLUME_NAME).expect("a valid volume name"),
+            &DRUID_CONFIG_VOLUME_NAME,
+            &LOG_VOLUME_NAME,
             EnvVarSet::new(),
         ));
     }
@@ -364,10 +366,10 @@ fn add_hdfs_cm_volume_and_volume_mounts(
     // hdfs deep storage mount
     if let DeepStorageSpec::Hdfs(hdfs) = deep_storage_spec {
         cb_druid
-            .add_volume_mount(HDFS_CONFIG_VOLUME_NAME, HDFS_CONFIG_DIRECTORY)
+            .add_volume_mount(&*HDFS_CONFIG_VOLUME_NAME, HDFS_CONFIG_DIRECTORY)
             .context(AddVolumeMountSnafu)?;
         pb.add_volume(
-            VolumeBuilder::new(HDFS_CONFIG_VOLUME_NAME)
+            VolumeBuilder::new(&*HDFS_CONFIG_VOLUME_NAME)
                 .with_config_map(hdfs.config_map_name.to_string())
                 .build(),
         )
@@ -383,19 +385,19 @@ fn add_config_volume_and_volume_mounts(
     pb: &mut PodBuilder,
 ) -> Result<()> {
     cb_druid
-        .add_volume_mount(DRUID_CONFIG_VOLUME_NAME, DRUID_CONFIG_DIRECTORY)
+        .add_volume_mount(&*DRUID_CONFIG_VOLUME_NAME, DRUID_CONFIG_DIRECTORY)
         .context(AddVolumeMountSnafu)?;
     pb.add_volume(
-        VolumeBuilder::new(DRUID_CONFIG_VOLUME_NAME)
+        VolumeBuilder::new(&*DRUID_CONFIG_VOLUME_NAME)
             .with_config_map(resource_names.role_group_config_map().to_string())
             .build(),
     )
     .context(AddVolumeSnafu)?;
     cb_druid
-        .add_volume_mount(RW_CONFIG_VOLUME_NAME, RW_CONFIG_DIRECTORY)
+        .add_volume_mount(&*RW_CONFIG_VOLUME_NAME, RW_CONFIG_DIRECTORY)
         .context(AddVolumeMountSnafu)?;
     pb.add_volume(
-        VolumeBuilder::new(RW_CONFIG_VOLUME_NAME)
+        VolumeBuilder::new(&*RW_CONFIG_VOLUME_NAME)
             .with_empty_dir(Some(""), None)
             .build(),
     )
@@ -411,7 +413,7 @@ fn add_log_config_volume_and_volume_mounts(
     pb: &mut PodBuilder,
 ) -> Result<()> {
     cb_druid
-        .add_volume_mount(LOG_CONFIG_VOLUME_NAME, LOG_CONFIG_DIRECTORY)
+        .add_volume_mount(&*LOG_CONFIG_VOLUME_NAME, LOG_CONFIG_DIRECTORY)
         .context(AddVolumeMountSnafu)?;
 
     let config_map = match &merged_rolegroup_config.logging.druid_container {
@@ -422,7 +424,7 @@ fn add_log_config_volume_and_volume_mounts(
     };
 
     pb.add_volume(
-        VolumeBuilder::new(LOG_CONFIG_VOLUME_NAME)
+        VolumeBuilder::new(&*LOG_CONFIG_VOLUME_NAME)
             .with_config_map(config_map)
             .build(),
     )
@@ -437,13 +439,13 @@ fn add_log_volume_and_volume_mounts(
     pb: &mut PodBuilder,
 ) -> Result<()> {
     cb_druid
-        .add_volume_mount(LOG_VOLUME_NAME, STACKABLE_LOG_DIR)
+        .add_volume_mount(&*LOG_VOLUME_NAME, STACKABLE_LOG_DIR)
         .context(AddVolumeMountSnafu)?;
     cb_prepare
-        .add_volume_mount(LOG_VOLUME_NAME, STACKABLE_LOG_DIR)
+        .add_volume_mount(&*LOG_VOLUME_NAME, STACKABLE_LOG_DIR)
         .context(AddVolumeMountSnafu)?;
     pb.add_volume(
-        VolumeBuilder::new(LOG_VOLUME_NAME)
+        VolumeBuilder::new(&*LOG_VOLUME_NAME)
             .with_empty_dir(
                 Some(""),
                 Some(product_logging::framework::calculate_log_volume_size_limit(
