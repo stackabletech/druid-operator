@@ -8,7 +8,10 @@ use std::{borrow::Cow, collections::BTreeMap, str::FromStr};
 use snafu::{ResultExt, Snafu};
 use stackable_operator::{
     cli::OperatorEnvironmentOptions,
-    commons::product_image_selection::{self, ResolvedProductImage},
+    commons::{
+        pdb::PdbConfig,
+        product_image_selection::{self, ResolvedProductImage},
+    },
     crd::s3,
     database_connections::drivers::jdbc::{JdbcDatabaseConnection, JdbcDatabaseConnectionDetails},
     k8s_openapi::api::core::v1::Volume,
@@ -18,7 +21,7 @@ use stackable_operator::{
         controller_utils::{get_cluster_name, get_namespace, get_uid},
         role_group_utils::ResourceNames,
         types::{
-            kubernetes::{NamespaceName, Uid},
+            kubernetes::{ListenerClassName, NamespaceName, Uid},
             operator::{ClusterName, RoleGroupName, RoleName},
         },
     },
@@ -97,6 +100,16 @@ pub struct ValidatedClusterConfig {
     pub extra_volumes: Vec<Volume>,
 }
 
+/// Per-role configuration extracted during validation, so the reconcile/build steps consume this
+/// instead of re-reading the raw [`v1alpha1::DruidCluster`].
+#[derive(Clone, Debug)]
+pub struct ValidatedRoleConfig {
+    pub pdb: PdbConfig,
+    /// The role's listener class, or `None` for roles without a listener
+    /// ([`DruidRole::Historical`]/[`DruidRole::MiddleManager`]).
+    pub listener_class: Option<ListenerClassName>,
+}
+
 /// Synchronous inputs the rest of `reconcile_druid` needs after dereferencing.
 pub struct ValidatedCluster {
     /// Mirrors `name`/`namespace`/`uid` below so that `ValidatedCluster` can implement
@@ -107,6 +120,8 @@ pub struct ValidatedCluster {
     pub uid: Uid,
     pub image: ResolvedProductImage,
     pub cluster_config: ValidatedClusterConfig,
+    /// The per-role config (PDB and listener class) for every [`DruidRole`].
+    pub role_configs: BTreeMap<DruidRole, ValidatedRoleConfig>,
     pub role_group_configs: BTreeMap<DruidRole, BTreeMap<RoleGroupName, DruidRoleGroupConfig>>,
 }
 
@@ -118,6 +133,7 @@ impl ValidatedCluster {
         uid: Uid,
         image: ResolvedProductImage,
         cluster_config: ValidatedClusterConfig,
+        role_configs: BTreeMap<DruidRole, ValidatedRoleConfig>,
         role_group_configs: BTreeMap<DruidRole, BTreeMap<RoleGroupName, DruidRoleGroupConfig>>,
     ) -> Self {
         let metadata = ObjectMeta {
@@ -133,8 +149,16 @@ impl ValidatedCluster {
             uid,
             image,
             cluster_config,
+            role_configs,
             role_group_configs,
         }
+    }
+
+    /// The validated per-role config (PDB and listener class) for the given role.
+    pub(crate) fn role_config(&self, role: &DruidRole) -> &ValidatedRoleConfig {
+        self.role_configs
+            .get(role)
+            .expect("every DruidRole has a validated role config")
     }
 
     /// Type-safe names for the resources of the given role's role group.
@@ -231,12 +255,24 @@ pub fn validate(
 
     let mut role_group_configs: BTreeMap<DruidRole, BTreeMap<RoleGroupName, DruidRoleGroupConfig>> =
         BTreeMap::new();
+    let mut role_configs: BTreeMap<DruidRole, ValidatedRoleConfig> = BTreeMap::new();
 
     for druid_role in DruidRole::iter() {
         let group_map = druid
             .merged_role(&druid_role)
             .context(FailedToResolveConfigSnafu)?;
         role_group_configs.insert(druid_role.clone(), group_map);
+
+        role_configs.insert(
+            druid_role.clone(),
+            ValidatedRoleConfig {
+                pdb: druid
+                    .generic_role_config(&druid_role)
+                    .pod_disruption_budget
+                    .clone(),
+                listener_class: druid_role.listener_class_name(druid),
+            },
+        );
     }
 
     let name = get_cluster_name(druid).context(ClusterIdentitySnafu)?;
@@ -275,6 +311,7 @@ pub fn validate(
             deep_storage: druid.spec.cluster_config.deep_storage.clone(),
             extra_volumes: druid.spec.cluster_config.extra_volumes.clone(),
         },
+        role_configs,
         role_group_configs,
     ))
 }
@@ -293,7 +330,7 @@ pub(crate) mod test_support {
     };
     use strum::IntoEnumIterator;
 
-    use super::{RoleGroupName, ValidatedCluster, ValidatedClusterConfig};
+    use super::{RoleGroupName, ValidatedCluster, ValidatedClusterConfig, ValidatedRoleConfig};
     use crate::{
         controller::CONTAINER_IMAGE_BASE_NAME,
         crd::{
@@ -377,10 +414,21 @@ spec:
 
         let mut role_group_configs: BTreeMap<DruidRole, BTreeMap<RoleGroupName, _>> =
             BTreeMap::new();
+        let mut role_configs: BTreeMap<DruidRole, ValidatedRoleConfig> = BTreeMap::new();
         for role in DruidRole::iter() {
             role_group_configs.insert(
                 role.clone(),
                 druid.merged_role(&role).expect("test: merged role"),
+            );
+            role_configs.insert(
+                role.clone(),
+                ValidatedRoleConfig {
+                    pdb: druid
+                        .generic_role_config(&role)
+                        .pod_disruption_budget
+                        .clone(),
+                    listener_class: role.listener_class_name(druid),
+                },
             );
         }
 
@@ -416,6 +464,7 @@ spec:
                 deep_storage: druid.spec.cluster_config.deep_storage.clone(),
                 extra_volumes: druid.spec.cluster_config.extra_volumes.clone(),
             },
+            role_configs,
             role_group_configs,
         )
     }

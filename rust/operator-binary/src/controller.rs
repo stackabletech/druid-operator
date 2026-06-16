@@ -287,7 +287,7 @@ pub async fn reconcile_druid(
             );
         }
 
-        if let Some(listener_class) = druid_role.listener_class_name(druid)
+        if let Some(listener_class) = &validated_cluster.role_config(druid_role).listener_class
             && let Some(listener_group_name) = group_listener_name(&validated_cluster, druid_role)
         {
             let role_group_listener = build_group_listener(
@@ -326,13 +326,9 @@ pub async fn reconcile_druid(
             }
         }
 
-        let role_config = druid.generic_role_config(druid_role);
+        let role_config = validated_cluster.role_config(druid_role);
 
-        if let Some(pdb) = build_pdb(
-            &role_config.pod_disruption_budget,
-            &validated_cluster,
-            druid_role,
-        ) {
+        if let Some(pdb) = build_pdb(&role_config.pdb, &validated_cluster, druid_role) {
             cluster_resources
                 .add(client, pdb)
                 .await
