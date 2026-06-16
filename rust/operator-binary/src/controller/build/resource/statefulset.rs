@@ -24,7 +24,9 @@ use stackable_operator::{
     product_logging,
     v2::{
         builder::pod::container::{EnvVarSet, new_container_builder},
-        product_logging::framework::{ValidatedContainerLogConfigChoice, vector_container},
+        product_logging::framework::{
+            STACKABLE_LOG_DIR, ValidatedContainerLogConfigChoice, vector_container,
+        },
         role_group_utils::ResourceNames,
         types::{
             kubernetes::{ContainerName, VolumeName},
@@ -49,7 +51,7 @@ use crate::{
     crd::{
         Container, DRUID_CONFIG_DIRECTORY, DeepStorageSpec, DruidRole, HDFS_CONFIG_DIRECTORY,
         LOG_CONFIG_DIRECTORY, METRICS_PORT, METRICS_PORT_NAME, RW_CONFIG_DIRECTORY,
-        STACKABLE_LOG_DIR, ValidatedDruidConfig,
+        ValidatedDruidConfig,
     },
 };
 
