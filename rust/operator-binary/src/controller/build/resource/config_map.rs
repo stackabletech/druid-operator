@@ -11,20 +11,15 @@
 //! The builder does not read the raw [`v1alpha1::DruidCluster`] at all: everything it needs is
 //! carried on `ValidatedCluster` (resolved during the validate step).
 
-use std::{collections::BTreeMap, str::FromStr};
+use std::collections::BTreeMap;
 
 use snafu::{ResultExt, Snafu};
 use stackable_operator::{
-    builder::{configmap::ConfigMapBuilder, meta::ObjectMetaBuilder},
+    builder::configmap::ConfigMapBuilder,
     crd::s3,
     k8s_openapi::api::core::v1::{ConfigMap, EnvVar},
     product_logging::framework::VECTOR_CONFIG_FILE,
-    v2::{
-        builder::meta::ownerreference_from_resource,
-        config_file_writer::to_java_properties_string,
-        kvp::label::recommended_labels,
-        types::operator::{ProductVersion, RoleGroupName},
-    },
+    v2::{config_file_writer::to_java_properties_string, types::operator::RoleGroupName},
 };
 
 use crate::{
@@ -37,7 +32,6 @@ use crate::{
                 runtime_properties, security_properties,
             },
         },
-        controller_name, operator_name, product_name,
         validate::{DruidRoleGroupConfig, ValidatedCluster},
     },
     crd::{
@@ -322,20 +316,12 @@ pub fn build_rolegroup_config_map(
 
     let mut config_map_builder = ConfigMapBuilder::new();
     config_map_builder.metadata(
-        ObjectMetaBuilder::new()
-            .name_and_namespace(cluster)
-            .name(resource_names.role_group_config_map().to_string())
-            .ownerreference(ownerreference_from_resource(cluster, None, Some(true)))
-            .with_labels(recommended_labels(
-                cluster,
-                &product_name(),
-                &ProductVersion::from_str(&cluster.image.app_version_label_value)
-                    .expect("a valid product version"),
-                &operator_name(),
-                &controller_name(),
-                &role.to_role_name(),
+        cluster
+            .object_meta(
+                resource_names.role_group_config_map().to_string(),
+                role,
                 role_group_name,
-            ))
+            )
             .build(),
     );
 

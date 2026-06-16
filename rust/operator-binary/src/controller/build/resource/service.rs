@@ -1,18 +1,11 @@
-use std::str::FromStr;
-
 use stackable_operator::{
-    builder::meta::ObjectMetaBuilder,
     k8s_openapi::api::core::v1::{Service, ServicePort, ServiceSpec},
     kvp::{Annotations, Labels},
-    v2::{
-        builder::meta::ownerreference_from_resource,
-        kvp::label::{recommended_labels, role_group_selector},
-        types::operator::{ProductVersion, RoleGroupName},
-    },
+    v2::types::operator::RoleGroupName,
 };
 
 use crate::{
-    controller::{controller_name, operator_name, product_name, validate::ValidatedCluster},
+    controller::validate::ValidatedCluster,
     crd::{DruidRole, METRICS_PORT, METRICS_PORT_NAME},
 };
 
@@ -23,33 +16,16 @@ pub fn build_rolegroup_headless_service(
     druid_role: &DruidRole,
     role_group_name: &RoleGroupName,
 ) -> Service {
-    let object_labels = recommended_labels(
-        cluster,
-        &product_name(),
-        &ProductVersion::from_str(&cluster.image.app_version_label_value)
-            .expect("a valid product version"),
-        &operator_name(),
-        &controller_name(),
-        &druid_role.to_role_name(),
-        role_group_name,
-    );
-    let selector = role_group_selector(
-        cluster,
-        &product_name(),
-        &druid_role.to_role_name(),
-        role_group_name,
-    );
     Service {
-        metadata: ObjectMetaBuilder::new()
-            .name_and_namespace(cluster)
-            .name(
+        metadata: cluster
+            .object_meta(
                 cluster
                     .resource_names(druid_role, role_group_name)
                     .headless_service_name()
                     .to_string(),
+                druid_role,
+                role_group_name,
             )
-            .ownerreference(ownerreference_from_resource(cluster, None, Some(true)))
-            .with_labels(object_labels)
             .build(),
         spec: Some(ServiceSpec {
             // Internal communication does not need to be exposed
@@ -61,7 +37,11 @@ pub fn build_rolegroup_headless_service(
                     .druid_tls_security
                     .service_ports(druid_role),
             ),
-            selector: Some(selector.into()),
+            selector: Some(
+                cluster
+                    .role_group_selector(druid_role, role_group_name)
+                    .into(),
+            ),
             publish_not_ready_addresses: Some(true),
             ..ServiceSpec::default()
         }),
@@ -75,33 +55,16 @@ pub fn build_rolegroup_metrics_service(
     druid_role: &DruidRole,
     role_group_name: &RoleGroupName,
 ) -> Service {
-    let object_labels = recommended_labels(
-        cluster,
-        &product_name(),
-        &ProductVersion::from_str(&cluster.image.app_version_label_value)
-            .expect("a valid product version"),
-        &operator_name(),
-        &controller_name(),
-        &druid_role.to_role_name(),
-        role_group_name,
-    );
-    let selector = role_group_selector(
-        cluster,
-        &product_name(),
-        &druid_role.to_role_name(),
-        role_group_name,
-    );
     Service {
-        metadata: ObjectMetaBuilder::new()
-            .name_and_namespace(cluster)
-            .name(
+        metadata: cluster
+            .object_meta(
                 cluster
                     .resource_names(druid_role, role_group_name)
                     .metrics_service_name()
                     .to_string(),
+                druid_role,
+                role_group_name,
             )
-            .ownerreference(ownerreference_from_resource(cluster, None, Some(true)))
-            .with_labels(object_labels)
             .with_labels(prometheus_labels())
             .with_annotations(prometheus_annotations())
             .build(),
@@ -110,7 +73,11 @@ pub fn build_rolegroup_metrics_service(
             type_: Some("ClusterIP".to_string()),
             cluster_ip: Some("None".to_string()),
             ports: Some(metrics_service_ports()),
-            selector: Some(selector.into()),
+            selector: Some(
+                cluster
+                    .role_group_selector(druid_role, role_group_name)
+                    .into(),
+            ),
             publish_not_ready_addresses: Some(true),
             ..ServiceSpec::default()
         }),

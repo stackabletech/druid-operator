@@ -23,11 +23,7 @@ use stackable_operator::{
     kube::ResourceExt,
     product_logging,
     v2::{
-        builder::{
-            meta::ownerreference_from_resource,
-            pod::container::{EnvVarSet, new_container_builder},
-        },
-        kvp::label::{recommended_labels, role_group_selector},
+        builder::pod::container::{EnvVarSet, new_container_builder},
         product_logging::framework::{ValidatedContainerLogConfigChoice, vector_container},
         role_group_utils::ResourceNames,
         types::{
@@ -46,7 +42,6 @@ use crate::{
                 group_listener_name, secret_volume_listener_scope,
             },
         },
-        controller_name, operator_name, product_name,
         validate::{DruidRoleGroupConfig, ValidatedCluster},
     },
     crd::{
@@ -296,13 +291,9 @@ pub fn build_rolegroup_statefulset(
         // Used for PVC templates that cannot be modified once they are deployed
         // A version value is required, and we do want to use the "recommended" format for the
         // other desired labels, hence the "none" product version.
-        let unversioned_recommended_labels = recommended_labels(
-            cluster,
-            &product_name(),
+        let unversioned_recommended_labels = cluster.recommended_labels_for(
+            role,
             &ProductVersion::from_str("none").expect("a valid product version"),
-            &operator_name(),
-            &controller_name(),
-            &role.to_role_name(),
             role_group_name,
         );
 
@@ -313,16 +304,7 @@ pub fn build_rolegroup_statefulset(
     }
 
     let metadata = ObjectMetaBuilder::new()
-        .with_labels(recommended_labels(
-            cluster,
-            &product_name(),
-            &ProductVersion::from_str(&resolved_product_image.app_version_label_value)
-                .expect("a valid product version"),
-            &operator_name(),
-            &controller_name(),
-            &role.to_role_name(),
-            role_group_name,
-        ))
+        .with_labels(cluster.recommended_labels(role, role_group_name))
         .build();
 
     pb.image_pull_secrets_from_product_image(resolved_product_image)
@@ -352,35 +334,19 @@ pub fn build_rolegroup_statefulset(
     pod_template.merge_from(rg.pod_overrides.clone());
 
     Ok(StatefulSet {
-        metadata: ObjectMetaBuilder::new()
-            .name_and_namespace(cluster)
-            .name(resource_names.stateful_set_name().to_string())
-            .ownerreference(ownerreference_from_resource(cluster, None, Some(true)))
-            .with_labels(recommended_labels(
-                cluster,
-                &product_name(),
-                &ProductVersion::from_str(&resolved_product_image.app_version_label_value)
-                    .expect("a valid product version"),
-                &operator_name(),
-                &controller_name(),
-                &role.to_role_name(),
+        metadata: cluster
+            .object_meta(
+                resource_names.stateful_set_name().to_string(),
+                role,
                 role_group_name,
-            ))
+            )
             .with_label(RESTART_CONTROLLER_ENABLED_LABEL.to_owned())
             .build(),
         spec: Some(StatefulSetSpec {
             pod_management_policy: Some("Parallel".to_string()),
             replicas: Some(i32::from(rg.replicas)),
             selector: LabelSelector {
-                match_labels: Some(
-                    role_group_selector(
-                        cluster,
-                        &product_name(),
-                        &role.to_role_name(),
-                        role_group_name,
-                    )
-                    .into(),
-                ),
+                match_labels: Some(cluster.role_group_selector(role, role_group_name).into()),
                 ..LabelSelector::default()
             },
             service_name: Some(resource_names.headless_service_name().to_string()),

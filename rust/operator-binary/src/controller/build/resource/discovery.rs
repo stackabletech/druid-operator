@@ -5,20 +5,13 @@ use std::str::FromStr;
 
 use snafu::{ResultExt, Snafu};
 use stackable_operator::{
-    builder::{configmap::ConfigMapBuilder, meta::ObjectMetaBuilder},
-    crd::listener::v1alpha1::Listener,
-    k8s_openapi::api::core::v1::ConfigMap,
-    v2::{
-        builder::meta::ownerreference_from_resource,
-        kvp::label::recommended_labels,
-        types::operator::{ProductVersion, RoleGroupName},
-    },
+    builder::configmap::ConfigMapBuilder, crd::listener::v1alpha1::Listener,
+    k8s_openapi::api::core::v1::ConfigMap, v2::types::operator::RoleGroupName,
 };
 
 use crate::{
     controller::{
-        build::resource::listener::build_listener_connection_string, controller_name,
-        operator_name, product_name, validate::ValidatedCluster,
+        build::resource::listener::build_listener_connection_string, validate::ValidatedCluster,
     },
     crd::DruidRole,
 };
@@ -63,19 +56,12 @@ fn build_discovery_configmap(
 
     ConfigMapBuilder::new()
         .metadata(
-            ObjectMetaBuilder::new()
-                .name_and_namespace(cluster)
-                .ownerreference(ownerreference_from_resource(cluster, None, Some(true)))
-                .with_labels(recommended_labels(
-                    cluster,
-                    &product_name(),
-                    &ProductVersion::from_str(&cluster.image.app_version_label_value)
-                        .expect("a valid product version"),
-                    &operator_name(),
-                    &controller_name(),
-                    &DruidRole::Router.to_role_name(),
+            cluster
+                .object_meta(
+                    cluster.name.to_string(),
+                    &DruidRole::Router,
                     &RoleGroupName::from_str("discovery").expect("a valid role group name"),
-                ))
+                )
                 .build(),
         )
         .add_data("DRUID_ROUTER", router_host)

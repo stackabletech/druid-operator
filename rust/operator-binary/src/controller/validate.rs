@@ -7,6 +7,7 @@ use std::{borrow::Cow, collections::BTreeMap, str::FromStr};
 
 use snafu::{ResultExt, Snafu};
 use stackable_operator::{
+    builder::meta::ObjectMetaBuilder,
     cli::OperatorEnvironmentOptions,
     commons::{
         pdb::PdbConfig,
@@ -16,13 +17,16 @@ use stackable_operator::{
     database_connections::drivers::jdbc::{JdbcDatabaseConnection, JdbcDatabaseConnectionDetails},
     k8s_openapi::api::core::v1::Volume,
     kube::{Resource, api::ObjectMeta},
+    kvp::Labels,
     v2::{
         HasName, HasUid, NameIsValidLabelValue,
+        builder::meta::ownerreference_from_resource,
         controller_utils::{get_cluster_name, get_namespace, get_uid},
+        kvp::label::{recommended_labels, role_group_selector},
         role_group_utils::ResourceNames,
         types::{
             kubernetes::{ListenerClassName, NamespaceName, Uid},
-            operator::{ClusterName, RoleGroupName, RoleName},
+            operator::{ClusterName, ProductVersion, RoleGroupName, RoleName},
         },
     },
 };
@@ -30,7 +34,7 @@ use strum::IntoEnumIterator;
 
 use crate::{
     authentication::DruidAuthenticationConfig,
-    controller::dereference::DereferencedObjects,
+    controller::{controller_name, dereference::DereferencedObjects, operator_name, product_name},
     crd::{DeepStorageSpec, DruidRole, security::DruidTlsSecurity, v1alpha1},
     extensions::get_extension_list,
 };
@@ -119,6 +123,10 @@ pub struct ValidatedCluster {
     pub namespace: NamespaceName,
     pub uid: Uid,
     pub image: ResolvedProductImage,
+    /// The product version as a valid label value, used for the recommended
+    /// `app.kubernetes.io/version` label. Parsed once from the resolved image's app version label
+    /// value, so the build steps don't re-parse it per resource.
+    pub product_version: ProductVersion,
     pub cluster_config: ValidatedClusterConfig,
     /// The per-role config (PDB and listener class) for every [`DruidRole`].
     pub role_configs: BTreeMap<DruidRole, ValidatedRoleConfig>,
@@ -142,12 +150,17 @@ impl ValidatedCluster {
             uid: Some(uid.to_string()),
             ..ObjectMeta::default()
         };
+        // `app_version_label_value` is constructed to be a valid label value, so it is also a valid
+        // `ProductVersion`.
+        let product_version = ProductVersion::from_str(&image.app_version_label_value)
+            .expect("the app version label value is a valid product version");
         Self {
             metadata,
             name,
             namespace,
             uid,
             image,
+            product_version,
             cluster_config,
             role_configs,
             role_group_configs,
@@ -159,6 +172,65 @@ impl ValidatedCluster {
         self.role_configs
             .get(role)
             .expect("every DruidRole has a validated role config")
+    }
+
+    /// Recommended labels for a role-group resource, using the given product version.
+    ///
+    /// Kept separate so the listener PVC templates (which require an immutable, version-independent
+    /// label set) can pass the unversioned product version.
+    pub(crate) fn recommended_labels_for(
+        &self,
+        role: &DruidRole,
+        product_version: &ProductVersion,
+        role_group_name: &RoleGroupName,
+    ) -> Labels {
+        recommended_labels(
+            self,
+            &product_name(),
+            product_version,
+            &operator_name(),
+            &controller_name(),
+            &role.to_role_name(),
+            role_group_name,
+        )
+    }
+
+    /// Recommended labels for a role-group resource.
+    pub(crate) fn recommended_labels(
+        &self,
+        role: &DruidRole,
+        role_group_name: &RoleGroupName,
+    ) -> Labels {
+        self.recommended_labels_for(role, &self.product_version, role_group_name)
+    }
+
+    /// Selector labels matching the pods of a role group.
+    pub(crate) fn role_group_selector(
+        &self,
+        role: &DruidRole,
+        role_group_name: &RoleGroupName,
+    ) -> Labels {
+        role_group_selector(self, &product_name(), &role.to_role_name(), role_group_name)
+    }
+
+    /// Returns an [`ObjectMetaBuilder`] pre-filled with the namespace, an owner reference back to
+    /// this cluster, and the recommended labels for a resource named `name` in `role`/`role_group_name`.
+    ///
+    /// Consolidates the metadata chain repeated by the child-resource builders. Call sites that need
+    /// extra labels/annotations chain them onto the returned builder.
+    pub(crate) fn object_meta(
+        &self,
+        name: impl Into<String>,
+        role: &DruidRole,
+        role_group_name: &RoleGroupName,
+    ) -> ObjectMetaBuilder {
+        let mut builder = ObjectMetaBuilder::new();
+        builder
+            .name_and_namespace(self)
+            .name(name)
+            .ownerreference(ownerreference_from_resource(self, None, Some(true)))
+            .with_labels(self.recommended_labels(role, role_group_name));
+        builder
     }
 
     /// Type-safe names for the resources of the given role's role group.
