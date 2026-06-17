@@ -526,3 +526,120 @@ spec:
         )
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use stackable_operator::cli::OperatorEnvironmentOptions;
+    use strum::IntoEnumIterator;
+
+    use super::{
+        Error,
+        test_support::{MINIMAL_DRUID_YAML, druid_from_yaml},
+        validate,
+    };
+    use crate::{
+        controller::dereference::DereferencedObjects,
+        crd::{DruidRole, authentication::AuthenticationClassesResolved},
+    };
+
+    /// Dereferenced inputs with test defaults: no S3, no OPA, no auth, a fixed ZooKeeper string.
+    fn dereferenced_objects() -> DereferencedObjects {
+        DereferencedObjects {
+            zookeeper_connection_string: "zookeeper-connection-string".to_string(),
+            opa_connection_string: None,
+            s3_connection: None,
+            deep_storage_bucket_name: None,
+            resolved_authentication_classes: AuthenticationClassesResolved {
+                auth_classes: Vec::new(),
+            },
+        }
+    }
+
+    fn operator_environment() -> OperatorEnvironmentOptions {
+        OperatorEnvironmentOptions {
+            operator_namespace: "stackable-operators".to_string(),
+            operator_service_name: "druid-operator".to_string(),
+            image_repository: "oci.example.org".to_string(),
+        }
+    }
+
+    #[test]
+    fn test_validate_ok() {
+        let druid = druid_from_yaml(MINIMAL_DRUID_YAML);
+
+        let validated = validate(&druid, &dereferenced_objects(), &operator_environment())
+            .expect("the minimal cluster validates");
+
+        assert_eq!(validated.name.to_string(), "simple-druid");
+        assert_eq!(validated.namespace.to_string(), "default");
+        assert_eq!(
+            validated.uid.to_string(),
+            "c27b3971-ca72-42c1-80a4-abdfc1db0ddd"
+        );
+
+        // Every role is merged and gets a role config.
+        for role in DruidRole::iter() {
+            assert!(
+                validated.role_group_configs.contains_key(&role),
+                "missing role-group configs for {role}"
+            );
+            assert!(
+                validated.role_configs.contains_key(&role),
+                "missing role config for {role}"
+            );
+        }
+
+        // Only Broker/Coordinator/Router carry a listener class; Historical/MiddleManager don't.
+        assert!(
+            validated
+                .role_config(&DruidRole::Broker)
+                .listener_class
+                .is_some()
+        );
+        assert!(
+            validated
+                .role_config(&DruidRole::Coordinator)
+                .listener_class
+                .is_some()
+        );
+        assert!(
+            validated
+                .role_config(&DruidRole::Router)
+                .listener_class
+                .is_some()
+        );
+        assert!(
+            validated
+                .role_config(&DruidRole::Historical)
+                .listener_class
+                .is_none()
+        );
+        assert!(
+            validated
+                .role_config(&DruidRole::MiddleManager)
+                .listener_class
+                .is_none()
+        );
+
+        // Defaults from the dereferenced inputs flow through.
+        assert!(validated.cluster_config.druid_auth_config.is_none());
+        assert!(!validated.cluster_config.uses_s3());
+        assert_eq!(
+            validated.cluster_config.zookeeper_connection_string,
+            "zookeeper-connection-string"
+        );
+    }
+
+    #[test]
+    fn test_validate_err_missing_uid() {
+        let mut druid = druid_from_yaml(MINIMAL_DRUID_YAML);
+        druid.metadata.uid = None;
+
+        let result = validate(&druid, &dereferenced_objects(), &operator_environment());
+
+        assert!(
+            matches!(result, Err(Error::ClusterIdentity { .. })),
+            "expected a ClusterIdentity error when the cluster has no uid"
+        );
+    }
+}
