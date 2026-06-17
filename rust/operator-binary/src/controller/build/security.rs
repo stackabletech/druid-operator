@@ -30,7 +30,8 @@ use stackable_operator::{
 };
 
 use crate::crd::{
-    DruidRole, STACKABLE_TRUST_STORE_PASSWORD, STACKABLE_TRUST_STORE_TYPE,
+    DruidRole, KEY_STORE_FILE, STACKABLE_TRUST_STORE_PASSWORD, STACKABLE_TRUST_STORE_TYPE,
+    TRUST_STORE_FILE,
     security::{DruidTlsSecurity, PLAINTEXT_PORT_NAME, STACKABLE_TLS_DIR, TLS_PORT_NAME},
 };
 
@@ -83,10 +84,6 @@ const TLS_ALIAS_NAME: &str = "1";
 const AUTH_TRUST_STORE_PATH: &str = "druid.auth.basic.ssl.trustStorePath";
 const AUTH_TRUST_STORE_TYPE: &str = "druid.auth.basic.ssl.trustStoreType";
 const AUTH_TRUST_STORE_PASSWORD: &str = "druid.auth.basic.ssl.trustStorePassword";
-// PKCS12 store file names (within the TLS store directory).
-const TRUST_STORE_FILE: &str = "truststore.p12";
-const KEY_STORE_FILE: &str = "keystore.p12";
-
 // The layer-4 protocol used by all of Druid's exposed ports.
 const TCP_PROTOCOL: &str = "TCP";
 

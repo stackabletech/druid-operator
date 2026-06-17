@@ -1,7 +1,8 @@
 use stackable_operator::v2::types::kubernetes::SecretClassName;
 
 use crate::crd::{
-    STACKABLE_TRUST_STORE_PASSWORD, authentication::AuthenticationClassesResolved, v1alpha1,
+    STACKABLE_TRUST_STORE_PASSWORD, TRUST_STORE_FILE,
+    authentication::AuthenticationClassesResolved, v1alpha1,
 };
 
 /// The validated TLS security decision for a Druid cluster: which server/internal TLS `SecretClass`
@@ -82,7 +83,7 @@ pub fn add_cert_to_trust_store_cmd(
     destination_directory: &str,
     store_password: &str,
 ) -> Vec<String> {
-    let truststore = format!("{destination_directory}/truststore.p12");
+    let truststore = format!("{destination_directory}/{TRUST_STORE_FILE}");
     vec![format!(
         "if [ -f {truststore} ]; then cert-tools generate-pkcs12-truststore --pkcs12 {truststore}:{store_password} --pem {cert_file} --out {truststore} --out-password {store_password}; else cert-tools generate-pkcs12-truststore --pem {cert_file} --out {truststore} --out-password {store_password}; fi"
     )]

@@ -81,6 +81,9 @@ pub const HDFS_CONFIG_DIRECTORY: &str = "/stackable/hdfs";
 pub const LOG_CONFIG_DIRECTORY: &str = "/stackable/log_config";
 pub const RW_CONFIG_DIRECTORY: &str = "/stackable/rwconfig";
 
+pub const TRUST_STORE_FILE: &str = "truststore.p12";
+pub const KEY_STORE_FILE: &str = "keystore.p12";
+
 // store directories
 pub const STACKABLE_TRUST_STORE: &str = "/stackable/truststore.p12";
 pub const STACKABLE_TRUST_STORE_PASSWORD: &str = "changeit";
