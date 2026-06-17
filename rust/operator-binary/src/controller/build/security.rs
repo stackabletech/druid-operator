@@ -4,7 +4,7 @@
 //! properties, volumes and mounts, keystore commands, probes). They live in the build step so the
 //! validated [`DruidTlsSecurity`] type carries no rendering logic.
 
-use std::collections::BTreeMap;
+use std::{collections::BTreeMap, str::FromStr};
 
 use snafu::{ResultExt, Snafu};
 use stackable_operator::{
@@ -26,7 +26,7 @@ use stackable_operator::{
         apimachinery::pkg::util::intstr::IntOrString,
     },
     shared::time::Duration,
-    v2::types::common::Port,
+    v2::types::{common::Port, kubernetes::VolumeName},
 };
 
 use crate::crd::{
@@ -92,8 +92,8 @@ const TLS_STORE_TYPE: &str = "pkcs12";
 const STACKABLE_MOUNT_TLS_DIR: &str = "/stackable/mount_tls";
 
 // volume names
-const TLS_VOLUME_NAME: &str = "tls";
-const TLS_MOUNT_VOLUME_NAME: &str = "tls-mount";
+stackable_operator::constant!(TLS_VOLUME_NAME: VolumeName = "tls");
+stackable_operator::constant!(TLS_MOUNT_VOLUME_NAME: VolumeName = "tls-mount");
 
 pub fn container_ports(tls: &DruidTlsSecurity, role: &DruidRole) -> Vec<ContainerPort> {
     exposed_ports(tls, role)
@@ -170,7 +170,7 @@ pub fn add_tls_volume_and_volume_mounts(
         }
 
         pod.add_volume(
-            VolumeBuilder::new(TLS_MOUNT_VOLUME_NAME)
+            VolumeBuilder::new(&*TLS_MOUNT_VOLUME_NAME)
                 .ephemeral(
                     secret_volume_source_builder
                         .build()
@@ -180,24 +180,24 @@ pub fn add_tls_volume_and_volume_mounts(
         )
         .context(AddVolumeSnafu)?;
         prepare
-            .add_volume_mount(TLS_MOUNT_VOLUME_NAME, STACKABLE_MOUNT_TLS_DIR)
+            .add_volume_mount(&*TLS_MOUNT_VOLUME_NAME, STACKABLE_MOUNT_TLS_DIR)
             .context(AddVolumeMountSnafu)?;
         druid
-            .add_volume_mount(TLS_MOUNT_VOLUME_NAME, STACKABLE_MOUNT_TLS_DIR)
+            .add_volume_mount(&*TLS_MOUNT_VOLUME_NAME, STACKABLE_MOUNT_TLS_DIR)
             .context(AddVolumeMountSnafu)?;
 
         pod.add_volume(
-            VolumeBuilder::new(TLS_VOLUME_NAME)
+            VolumeBuilder::new(&*TLS_VOLUME_NAME)
                 .with_empty_dir(Option::<&str>::None, None)
                 .build(),
         )
         .context(AddVolumeSnafu)?;
 
         prepare
-            .add_volume_mount(TLS_VOLUME_NAME, STACKABLE_TLS_DIR)
+            .add_volume_mount(&*TLS_VOLUME_NAME, STACKABLE_TLS_DIR)
             .context(AddVolumeMountSnafu)?;
         druid
-            .add_volume_mount(TLS_VOLUME_NAME, STACKABLE_TLS_DIR)
+            .add_volume_mount(&*TLS_VOLUME_NAME, STACKABLE_TLS_DIR)
             .context(AddVolumeMountSnafu)?;
     }
     Ok(())

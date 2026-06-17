@@ -1,9 +1,6 @@
-use std::str::FromStr;
-
 use stackable_operator::{
-    commons::pdb::PdbConfig,
-    k8s_openapi::api::policy::v1::PodDisruptionBudget,
-    v2::{builder::pdb::pod_disruption_budget_builder_with_role, types::operator::RoleName},
+    commons::pdb::PdbConfig, k8s_openapi::api::policy::v1::PodDisruptionBudget,
+    v2::builder::pdb::pod_disruption_budget_builder_with_role,
 };
 
 use crate::{
@@ -30,7 +27,7 @@ pub fn build_pdb(
     let pdb = pod_disruption_budget_builder_with_role(
         cluster,
         &product_name(),
-        &RoleName::from_str(&role.to_string()).expect("a DruidRole is a valid role name"),
+        &role.to_role_name(),
         &operator_name(),
         &controller_name(),
     )

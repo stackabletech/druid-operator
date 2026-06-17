@@ -30,7 +30,7 @@ use stackable_operator::{
         role_group_utils::ResourceNames,
         types::{
             kubernetes::{ListenerClassName, NamespaceName, Uid},
-            operator::{ClusterName, ProductVersion, RoleGroupName, RoleName},
+            operator::{ClusterName, ProductVersion, RoleGroupName},
         },
     },
 };
@@ -250,8 +250,7 @@ impl ValidatedCluster {
     ) -> ResourceNames {
         ResourceNames {
             cluster_name: self.name.clone(),
-            role_name: RoleName::from_str(&role.to_string())
-                .expect("a DruidRole is a valid role name"),
+            role_name: role.to_role_name(),
             role_group_name: role_group_name.clone(),
         }
     }

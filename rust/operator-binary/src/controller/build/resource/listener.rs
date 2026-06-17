@@ -9,7 +9,7 @@ use stackable_operator::{
         builder::pod::volume::{
             ListenerReference, listener_operator_volume_source_builder_build_pvc,
         },
-        types::kubernetes::{ListenerName, PersistentVolumeClaimName},
+        types::kubernetes::{ListenerClassName, ListenerName, PersistentVolumeClaimName},
     },
 };
 
@@ -24,7 +24,7 @@ use crate::{
     },
 };
 
-pub const LISTENER_VOLUME_NAME: &str = "listener";
+stackable_operator::constant!(pub LISTENER_VOLUME_NAME: PersistentVolumeClaimName = "listener");
 pub const LISTENER_VOLUME_DIR: &str = "/stackable/listener";
 
 #[derive(Snafu, Debug)]
@@ -41,7 +41,7 @@ pub enum Error {
 
 pub fn build_group_listener(
     cluster: &ValidatedCluster,
-    listener_class: String,
+    listener_class: &ListenerClassName,
     listener_group_name: ListenerName,
     druid_role: &DruidRole,
 ) -> Listener {
@@ -56,7 +56,7 @@ pub fn build_group_listener(
             )
             .build(),
         spec: listener::v1alpha1::ListenerSpec {
-            class_name: Some(listener_class),
+            class_name: Some(listener_class.to_string()),
             ports: Some(listener_ports(
                 &cluster.cluster_config.druid_tls_security,
                 druid_role,
@@ -74,8 +74,7 @@ pub fn build_group_listener_pvc(
     listener_operator_volume_source_builder_build_pvc(
         &ListenerReference::Listener(group_listener_name.clone()),
         unversioned_recommended_labels,
-        &PersistentVolumeClaimName::from_str(LISTENER_VOLUME_NAME)
-            .expect("a valid persistent volume claim name"),
+        &LISTENER_VOLUME_NAME,
     )
 }
 

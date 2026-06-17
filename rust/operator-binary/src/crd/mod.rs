@@ -46,7 +46,7 @@ use stackable_operator::{
         role_utils::{JavaCommonConfig, RoleGroupConfig, with_validated_config},
         types::{
             common::Port,
-            kubernetes::{ConfigMapName, ListenerClassName},
+            kubernetes::{ConfigMapName, ContainerName, ListenerClassName},
             operator::{RoleGroupName, RoleName},
         },
     },
@@ -599,6 +599,14 @@ pub enum Container {
     Druid,
     Prepare,
     Vector,
+}
+
+impl Container {
+    /// Returns the typed container name for this container.
+    pub fn to_container_name(&self) -> ContainerName {
+        ContainerName::from_str(&self.to_string())
+            .expect("a Container always serializes to a valid container name")
+    }
 }
 
 /// The validated, merged Druid config shared by all role groups (the typed per-role config erased

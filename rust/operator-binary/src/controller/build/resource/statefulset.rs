@@ -28,10 +28,7 @@ use stackable_operator::{
             STACKABLE_LOG_DIR, ValidatedContainerLogConfigChoice, vector_container,
         },
         role_group_utils::ResourceNames,
-        types::{
-            kubernetes::{ContainerName, VolumeName},
-            operator::RoleGroupName,
-        },
+        types::{kubernetes::VolumeName, operator::RoleGroupName},
     },
 };
 
@@ -128,12 +125,10 @@ pub fn build_rolegroup_statefulset(
     let druid_tls_security = &cluster.cluster_config.druid_tls_security;
     let druid_auth_config = &cluster.cluster_config.druid_auth_config;
     // prepare container builder
-    let prepare_container_name = ContainerName::from_str(&Container::Prepare.to_string())
-        .expect("'prepare' is a valid container name");
+    let prepare_container_name = Container::Prepare.to_container_name();
     let mut cb_prepare = new_container_builder(&prepare_container_name);
     // druid container builder
-    let druid_container_name = ContainerName::from_str(&Container::Druid.to_string())
-        .expect("'druid' is a valid container name");
+    let druid_container_name = Container::Druid.to_container_name();
     let mut cb_druid = new_container_builder(&druid_container_name);
     // init pod builder
     let mut pb = PodBuilder::new();
@@ -304,7 +299,7 @@ pub fn build_rolegroup_statefulset(
 
     if let Some(group_listener_name) = group_listener_name(cluster, role) {
         cb_druid
-            .add_volume_mount(LISTENER_VOLUME_NAME, LISTENER_VOLUME_DIR)
+            .add_volume_mount(&*LISTENER_VOLUME_NAME, LISTENER_VOLUME_DIR)
             .context(AddVolumeMountSnafu)?;
 
         // Used for PVC templates that cannot be modified once they are deployed
@@ -334,8 +329,7 @@ pub fn build_rolegroup_statefulset(
     // config volume; the validated aggregator address comes from the up-front `ValidatedLogging`.
     if let Some(vector_log_config) = &merged_rolegroup_config.logging.vector_container {
         pb.add_container(vector_container(
-            &ContainerName::from_str(&Container::Vector.to_string())
-                .expect("'vector' is a valid container name"),
+            &Container::Vector.to_container_name(),
             resolved_product_image,
             vector_log_config,
             &resource_names,

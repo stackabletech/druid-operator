@@ -291,7 +291,7 @@ pub async fn reconcile_druid(
         {
             let role_group_listener = build_group_listener(
                 &validated_cluster,
-                listener_class.to_string(),
+                listener_class,
                 listener_group_name,
                 druid_role,
             );

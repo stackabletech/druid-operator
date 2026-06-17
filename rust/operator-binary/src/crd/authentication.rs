@@ -5,6 +5,7 @@ use stackable_operator::{
     client::Client,
     crd::authentication::{core, ldap, oidc, tls},
     kube::{ResourceExt, runtime::reflector::ObjectRef},
+    v2::types::kubernetes::SecretClassName,
 };
 use tracing::info;
 
@@ -52,7 +53,7 @@ pub enum Error {
     ))]
     TlsAuthenticationClassSecretClassDiffersFromDruidServerTls {
         auth_class_name: String,
-        server_and_internal_secret_class: String,
+        server_and_internal_secret_class: SecretClassName,
     },
     #[snafu(display("invalid OIDC configuration"))]
     OidcConfigurationInvalid {
@@ -128,19 +129,19 @@ impl AuthenticationClassesResolved {
                 .context(AuthenticationClassRetrievalFailedSnafu)?;
 
             let auth_class_name = auth_class.name_any();
-            let server_and_internal_secret_class = cluster_config.tls.as_ref().and_then(|tls| {
-                tls.server_and_internal_secret_class
-                    .as_ref()
-                    .map(|secret_class| secret_class.to_string())
-            });
+            let server_and_internal_secret_class = cluster_config
+                .tls
+                .as_ref()
+                .and_then(|tls| tls.server_and_internal_secret_class.as_ref());
 
             match &auth_class.spec.provider {
                 core::v1alpha1::AuthenticationClassProvider::Tls(provider) => {
-                    match &server_and_internal_secret_class {
+                    match server_and_internal_secret_class {
                         Some(server_and_internal_secret_class) => {
                             if let Some(auth_class_secret_class) =
                                 &provider.client_cert_secret_class
-                                && auth_class_secret_class != server_and_internal_secret_class
+                                && auth_class_secret_class.as_str()
+                                    != server_and_internal_secret_class.as_ref()
                             {
                                 return TlsAuthenticationClassSecretClassDiffersFromDruidServerTlsSnafu { auth_class_name: auth_class_name.to_string(), server_and_internal_secret_class: server_and_internal_secret_class.clone() }.fail()?;
                             }
