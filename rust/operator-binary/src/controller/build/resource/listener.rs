@@ -132,3 +132,91 @@ pub fn secret_volume_listener_scope(role: &DruidRole) -> Option<String> {
         DruidRole::Historical | DruidRole::MiddleManager => None,
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::{collections::BTreeMap, str::FromStr};
+
+    use stackable_operator::{kube::api::ObjectMeta, v2::types::kubernetes::SecretClassName};
+
+    use super::*;
+    use crate::controller::validate::test_support::{
+        MINIMAL_DRUID_YAML, druid_from_yaml, validated_cluster,
+    };
+
+    fn cluster() -> ValidatedCluster {
+        validated_cluster(&druid_from_yaml(MINIMAL_DRUID_YAML))
+    }
+
+    #[test]
+    fn group_listener_name_only_for_externally_reachable_roles() {
+        let cluster = cluster();
+        assert!(group_listener_name(&cluster, &DruidRole::Broker).is_some());
+        assert!(group_listener_name(&cluster, &DruidRole::Coordinator).is_some());
+        assert!(group_listener_name(&cluster, &DruidRole::Router).is_some());
+        assert!(group_listener_name(&cluster, &DruidRole::Historical).is_none());
+        assert!(group_listener_name(&cluster, &DruidRole::MiddleManager).is_none());
+    }
+
+    #[test]
+    fn group_listener_name_is_cluster_and_role_scoped() {
+        let name =
+            group_listener_name(&cluster(), &DruidRole::Broker).expect("broker has a listener");
+        assert_eq!(name.to_string(), "simple-druid-broker");
+    }
+
+    #[test]
+    fn secret_volume_listener_scope_only_for_externally_reachable_roles() {
+        assert_eq!(
+            secret_volume_listener_scope(&DruidRole::Broker),
+            Some("listener".to_string())
+        );
+        assert!(secret_volume_listener_scope(&DruidRole::Historical).is_none());
+        assert!(secret_volume_listener_scope(&DruidRole::MiddleManager).is_none());
+    }
+
+    /// A listener exposing both the plaintext and TLS ports, so the connection-string builder's
+    /// port selection can be exercised.
+    fn listener_with_both_ports() -> Listener {
+        Listener {
+            metadata: ObjectMeta::default(),
+            spec: listener::v1alpha1::ListenerSpec::default(),
+            status: Some(listener::v1alpha1::ListenerStatus {
+                service_name: None,
+                ingress_addresses: Some(vec![listener::v1alpha1::ListenerIngress {
+                    address: "druid.example.com".to_string(),
+                    address_type: listener::v1alpha1::AddressType::Hostname,
+                    ports: BTreeMap::from([
+                        (PLAINTEXT_PORT_NAME.to_string(), 8888),
+                        (TLS_PORT_NAME.to_string(), 9088),
+                    ]),
+                }]),
+                node_ports: None,
+            }),
+        }
+    }
+
+    #[test]
+    fn connection_string_uses_plaintext_port_without_tls() {
+        let tls = DruidTlsSecurity::new(false, None);
+        let conn = build_listener_connection_string(
+            listener_with_both_ports(),
+            &tls,
+            &"router".to_string(),
+        )
+        .expect("a connection string");
+        assert_eq!(conn, "druid.example.com:8888");
+    }
+
+    #[test]
+    fn connection_string_uses_tls_port_with_tls() {
+        let tls = DruidTlsSecurity::new(false, Some(SecretClassName::from_str("tls").unwrap()));
+        let conn = build_listener_connection_string(
+            listener_with_both_ports(),
+            &tls,
+            &"router".to_string(),
+        )
+        .expect("a connection string");
+        assert_eq!(conn, "druid.example.com:9088");
+    }
+}

@@ -234,11 +234,9 @@ mod test {
     use super::*;
     use crate::crd::authentication::{AuthenticationClassResolved, AuthenticationClassesResolved};
 
-    #[test]
-    fn test_ldap_config_is_added() {
-        let auth_config =
-            DruidAuthenticationConfig::from_auth_classes(AuthenticationClassesResolved {
-                auth_classes: vec![AuthenticationClassResolved::Ldap {
+    fn ldap_auth_config() -> DruidAuthenticationConfig {
+        DruidAuthenticationConfig::from_auth_classes(AuthenticationClassesResolved {
+            auth_classes: vec![AuthenticationClassResolved::Ldap {
                 auth_class_name: "ldap".to_string(),
                 provider: serde_yaml::from_str::<
                     stackable_operator::crd::authentication::ldap::v1alpha1::AuthenticationProvider,
@@ -251,13 +249,50 @@ mod test {
                 )
                 .unwrap(),
             }],
-            })
+        })
+        .unwrap()
+    }
+
+    #[test]
+    fn test_ldap_config_is_added() {
+        let got = generate_runtime_properties_config(&ldap_auth_config(), &DruidRole::Coordinator)
             .unwrap();
 
-        let role = DruidRole::Coordinator;
-
-        let got = generate_runtime_properties_config(&auth_config, &role).unwrap();
-
         assert!(got.contains_key("druid.auth.authenticator.Ldap.type"));
+    }
+
+    /// The Druid system authenticator, escalator and system authorizer are always configured
+    /// alongside the provider-specific (LDAP/OIDC) config.
+    #[test]
+    fn common_system_auth_config_is_added() {
+        let got = generate_runtime_properties_config(&ldap_auth_config(), &DruidRole::Coordinator)
+            .unwrap();
+
+        assert_eq!(
+            got.get("druid.auth.authenticator.DruidSystemAuthenticator.type"),
+            Some(&"basic".to_owned())
+        );
+        assert_eq!(
+            got.get("druid.auth.authenticator.DruidSystemAuthenticator.authorizerName"),
+            Some(&"DruidSystemAuthorizer".to_owned())
+        );
+        assert_eq!(got.get("druid.escalator.type"), Some(&"basic".to_owned()));
+        assert_eq!(
+            got.get("druid.auth.authorizer.DruidSystemAuthorizer.type"),
+            Some(&"allowAll".to_owned())
+        );
+    }
+
+    /// Pure TLS authentication is rendered in `controller::build::security`, so the auth module
+    /// contributes nothing to runtime.properties.
+    #[test]
+    fn tls_only_produces_no_runtime_properties() {
+        let got = generate_runtime_properties_config(
+            &DruidAuthenticationConfig::Tls {},
+            &DruidRole::Broker,
+        )
+        .unwrap();
+
+        assert!(got.is_empty());
     }
 }
