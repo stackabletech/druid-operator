@@ -5,7 +5,7 @@ use stackable_operator::{
 };
 
 use crate::{
-    controller::validate::ValidatedCluster,
+    controller::{build::security::service_ports, validate::ValidatedCluster},
     crd::{DruidRole, METRICS_PORT, METRICS_PORT_NAME},
 };
 
@@ -31,12 +31,10 @@ pub fn build_rolegroup_headless_service(
             // Internal communication does not need to be exposed
             type_: Some("ClusterIP".to_string()),
             cluster_ip: Some("None".to_string()),
-            ports: Some(
-                cluster
-                    .cluster_config
-                    .druid_tls_security
-                    .service_ports(druid_role),
-            ),
+            ports: Some(service_ports(
+                &cluster.cluster_config.druid_tls_security,
+                druid_role,
+            )),
             selector: Some(
                 cluster
                     .role_group_selector(druid_role, role_group_name)

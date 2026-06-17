@@ -412,10 +412,7 @@ pub(crate) mod test_support {
     use super::{RoleGroupName, ValidatedCluster, ValidatedClusterConfig, ValidatedRoleConfig};
     use crate::{
         controller::CONTAINER_IMAGE_BASE_NAME,
-        crd::{
-            DruidRole, authentication::AuthenticationClassesResolved, security::DruidTlsSecurity,
-            v1alpha1,
-        },
+        crd::{DruidRole, security::DruidTlsSecurity, v1alpha1},
     };
 
     /// A minimal but fully-valid `DruidCluster` with one role group per role.
@@ -483,12 +480,7 @@ spec:
             )
             .expect("test: resolvable product image");
 
-        let druid_tls_security = DruidTlsSecurity::new(
-            &AuthenticationClassesResolved {
-                auth_classes: vec![],
-            },
-            Some("tls".to_string()),
-        );
+        let druid_tls_security = DruidTlsSecurity::new(false, Some("tls".to_string()));
 
         let mut role_group_configs: BTreeMap<DruidRole, BTreeMap<RoleGroupName, _>> =
             BTreeMap::new();

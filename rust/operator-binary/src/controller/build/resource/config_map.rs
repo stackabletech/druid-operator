@@ -32,6 +32,7 @@ use crate::{
                 product_logging::{build_log4j2, vector_config_file_content},
                 runtime_properties, security_properties,
             },
+            security::add_tls_config_properties,
         },
         validate::{DruidRoleGroupConfig, ValidatedCluster},
     },
@@ -252,7 +253,7 @@ pub fn build_rolegroup_config_map(
         );
 
         // add tls encryption / auth properties
-        druid_tls_security.add_tls_config_properties(&mut conf, role);
+        add_tls_config_properties(druid_tls_security, &mut conf, role);
 
         if let Some(auth_config) = druid_auth_config {
             conf.extend(

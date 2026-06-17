@@ -45,6 +45,10 @@ use crate::{
                 LISTENER_VOLUME_DIR, LISTENER_VOLUME_NAME, build_group_listener_pvc,
                 group_listener_name, secret_volume_listener_scope,
             },
+            security::{
+                add_tls_volume_and_volume_mounts, build_tls_key_stores_cmd, container_ports,
+                get_tcp_socket_probe,
+            },
         },
         validate::{DruidRoleGroupConfig, ValidatedCluster},
     },
@@ -78,7 +82,9 @@ pub enum Error {
     },
 
     #[snafu(display("failed to initialize security context"))]
-    FailedToInitializeSecurityContext { source: crate::crd::security::Error },
+    FailedToInitializeSecurityContext {
+        source: crate::controller::build::security::Error,
+    },
 
     #[snafu(display(
         "Druid does not support skipping the verification of the tls enabled S3 server"
@@ -156,7 +162,7 @@ pub fn build_rolegroup_statefulset(
             log_config,
         ));
     }
-    prepare_container_commands.extend(druid_tls_security.build_tls_key_stores_cmd());
+    prepare_container_commands.extend(build_tls_key_stores_cmd(druid_tls_security));
 
     if let Some(auth_config) = druid_auth_config {
         auth_config
@@ -167,16 +173,16 @@ pub fn build_rolegroup_statefulset(
     }
 
     // volume and volume mounts
-    druid_tls_security
-        .add_tls_volume_and_volume_mounts(
-            &mut cb_prepare,
-            &mut cb_druid,
-            &mut pb,
-            &merged_rolegroup_config.requested_secret_lifetime,
-            // add listener
-            secret_volume_listener_scope(role),
-        )
-        .context(FailedToInitializeSecurityContextSnafu)?;
+    add_tls_volume_and_volume_mounts(
+        druid_tls_security,
+        &mut cb_prepare,
+        &mut cb_druid,
+        &mut pb,
+        &merged_rolegroup_config.requested_secret_lifetime,
+        // add listener
+        secret_volume_listener_scope(role),
+    )
+    .context(FailedToInitializeSecurityContextSnafu)?;
 
     if let Some(s3) = s3_conn {
         if s3.tls.uses_tls() && !s3.tls.uses_tls_verification() {
@@ -251,14 +257,14 @@ pub fn build_rolegroup_statefulset(
         ])
         .args(vec![main_container_commands.join("\n")])
         .add_env_vars(rest_env)
-        .add_container_ports(druid_tls_security.container_ports(role))
+        .add_container_ports(container_ports(druid_tls_security, role))
         .add_container_port(METRICS_PORT_NAME, METRICS_PORT.into())
         // 10s * 30 = 300s to come up
-        .startup_probe(druid_tls_security.get_tcp_socket_probe(30, 10, 30, 3))
+        .startup_probe(get_tcp_socket_probe(druid_tls_security, 30, 10, 30, 3))
         // 10s * 1 = 10s to get removed from service
-        .readiness_probe(druid_tls_security.get_tcp_socket_probe(10, 10, 1, 3))
+        .readiness_probe(get_tcp_socket_probe(druid_tls_security, 10, 10, 1, 3))
         // 10s * 3 = 30s to be restarted
-        .liveness_probe(druid_tls_security.get_tcp_socket_probe(10, 10, 3, 3))
+        .liveness_probe(get_tcp_socket_probe(druid_tls_security, 10, 10, 3, 3))
         .resources(merged_rolegroup_config.resources.as_resource_requirements());
 
     // Add extra mounts if any are specified and the current role is MiddleManager

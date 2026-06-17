@@ -14,7 +14,10 @@ use stackable_operator::{
 };
 
 use crate::{
-    controller::{build::PLACEHOLDER_LISTENER_ROLE_GROUP, validate::ValidatedCluster},
+    controller::{
+        build::{PLACEHOLDER_LISTENER_ROLE_GROUP, security::listener_ports},
+        validate::ValidatedCluster,
+    },
     crd::{
         DruidRole,
         security::{DruidTlsSecurity, PLAINTEXT_PORT_NAME, TLS_PORT_NAME},
@@ -54,12 +57,10 @@ pub fn build_group_listener(
             .build(),
         spec: listener::v1alpha1::ListenerSpec {
             class_name: Some(listener_class),
-            ports: Some(
-                cluster
-                    .cluster_config
-                    .druid_tls_security
-                    .listener_ports(druid_role),
-            ),
+            ports: Some(listener_ports(
+                &cluster.cluster_config.druid_tls_security,
+                druid_role,
+            )),
             ..listener::v1alpha1::ListenerSpec::default()
         },
         status: None,

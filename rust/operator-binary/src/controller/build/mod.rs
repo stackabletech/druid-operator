@@ -20,3 +20,4 @@ pub mod graceful_shutdown;
 pub mod jvm;
 pub mod properties;
 pub mod resource;
+pub mod security;
