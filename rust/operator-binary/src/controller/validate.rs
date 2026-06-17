@@ -397,7 +397,7 @@ pub(crate) mod test_support {
         database_connections::drivers::jdbc::JdbcDatabaseConnection,
         kube::ResourceExt,
         v2::types::{
-            kubernetes::{NamespaceName, Uid},
+            kubernetes::{NamespaceName, SecretClassName, Uid},
             operator::ClusterName,
         },
     };
@@ -474,7 +474,10 @@ spec:
             )
             .expect("test: resolvable product image");
 
-        let druid_tls_security = DruidTlsSecurity::new(false, Some("tls".to_string()));
+        let druid_tls_security = DruidTlsSecurity::new(
+            false,
+            Some(SecretClassName::from_str("tls").expect("test: valid secret class")),
+        );
 
         let mut role_group_configs: BTreeMap<DruidRole, BTreeMap<RoleGroupName, _>> =
             BTreeMap::new();

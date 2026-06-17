@@ -1,3 +1,5 @@
+use stackable_operator::v2::types::kubernetes::SecretClassName;
+
 use crate::crd::{
     STACKABLE_TRUST_STORE_PASSWORD, authentication::AuthenticationClassesResolved, v1alpha1,
 };
@@ -9,7 +11,7 @@ pub struct DruidTlsSecurity {
     tls_authentication_enabled: bool,
     /// The TLS `SecretClass` used for external client -> server and server <-> server
     /// communication, if any.
-    server_and_internal_secret_class: Option<String>,
+    server_and_internal_secret_class: Option<SecretClassName>,
 }
 
 // Port names (shared with the build-side renderer and other build modules)
@@ -26,7 +28,7 @@ impl DruidTlsSecurity {
     #[cfg(test)]
     pub(crate) fn new(
         tls_authentication_enabled: bool,
-        server_and_internal_secret_class: Option<String>,
+        server_and_internal_secret_class: Option<SecretClassName>,
     ) -> Self {
         Self {
             tls_authentication_enabled,
@@ -42,13 +44,12 @@ impl DruidTlsSecurity {
     ) -> Self {
         DruidTlsSecurity {
             tls_authentication_enabled: auth_classes.tls_authentication_enabled(),
-            server_and_internal_secret_class: druid.spec.cluster_config.tls.as_ref().and_then(
-                |tls| {
-                    tls.server_and_internal_secret_class
-                        .as_ref()
-                        .map(|secret_class| secret_class.to_string())
-                },
-            ),
+            server_and_internal_secret_class: druid
+                .spec
+                .cluster_config
+                .tls
+                .as_ref()
+                .and_then(|tls| tls.server_and_internal_secret_class.clone()),
         }
     }
 
@@ -71,8 +72,8 @@ impl DruidTlsSecurity {
 
     /// The optional TLS `SecretClass` for external client -> server and server <-> server
     /// communication.
-    pub(crate) fn server_and_internal_secret_class(&self) -> Option<&str> {
-        self.server_and_internal_secret_class.as_deref()
+    pub(crate) fn server_and_internal_secret_class(&self) -> Option<&SecretClassName> {
+        self.server_and_internal_secret_class.as_ref()
     }
 }
 
