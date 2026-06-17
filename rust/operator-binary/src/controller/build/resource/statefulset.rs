@@ -360,7 +360,9 @@ pub fn build_rolegroup_statefulset(
             .build(),
         spec: Some(StatefulSetSpec {
             pod_management_policy: Some("Parallel".to_string()),
-            replicas: Some(i32::from(rg.replicas)),
+            // Leave `replicas` unset when the role group does not specify a count, so a
+            // HorizontalPodAutoscaler can own the replica count without the operator fighting it.
+            replicas: rg.replicas.map(i32::from),
             selector: LabelSelector {
                 match_labels: Some(cluster.role_group_selector(role, role_group_name).into()),
                 ..LabelSelector::default()

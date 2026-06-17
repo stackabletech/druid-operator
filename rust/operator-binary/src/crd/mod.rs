@@ -514,7 +514,7 @@ impl v1alpha1::DruidCluster {
                     groups.insert(
                         role_group_name,
                         DruidRoleGroupConfig {
-                            replicas: validated.replicas.unwrap_or(1),
+                            replicas: validated.replicas,
                             config: common,
                             config_overrides: validated.config.config_overrides,
                             env_overrides,
@@ -668,9 +668,9 @@ fn validate_logging(
 /// `product_specific_common_config`; the rendered per-file configs (runtime.properties /
 /// security.properties / jvm.config) are produced later, in the config-map build step.
 ///
-/// The StatefulSet replicas come from [`RoleGroupConfig::replicas`] (defaulted to 1 during the
-/// merge), mirroring the hive-operator. Upstream `replicas` should be made optional again so an
-/// unspecified count can stay HPA-friendly.
+/// The StatefulSet replicas come from [`RoleGroupConfig::replicas`], which is optional: an
+/// unspecified count is passed through as `None` to the StatefulSet so a HorizontalPodAutoscaler
+/// can own the replica count.
 pub type DruidRoleGroupConfig =
     RoleGroupConfig<ValidatedDruidConfig, JavaCommonConfig, DruidConfigOverrides>;
 
