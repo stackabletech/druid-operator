@@ -40,7 +40,6 @@ use crate::{
 mod authentication;
 mod controller;
 mod crd;
-mod extensions;
 mod internal_secret;
 mod webhooks;
 

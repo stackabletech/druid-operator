@@ -28,6 +28,7 @@ use crate::{
             jvm::construct_jvm_args,
             properties::{
                 ConfigFileName,
+                extensions::get_extension_list,
                 product_logging::{build_log4j2, vector_config_file_content},
                 runtime_properties, security_properties,
             },
@@ -163,9 +164,16 @@ pub fn build_rolegroup_config_map(
             zk_connstr.to_string(),
         );
 
+        let extensions = get_extension_list(
+            &cluster_config.metadata_database,
+            druid_tls_security.tls_enabled(),
+            cluster_config.uses_s3(),
+            &cluster_config.additional_extensions,
+            druid_auth_config,
+        );
         conf.insert(
             EXTENSIONS_LOADLIST.to_string(),
-            build_string_list(&cluster_config.extensions),
+            build_string_list(&extensions),
         );
 
         if let Some(opa_str) = opa_connstr {
@@ -174,7 +182,10 @@ pub fn build_rolegroup_config_map(
 
         conf.insert(
             crate::crd::database::METADATA_STORAGE_TYPE.to_string(),
-            cluster_config.metadata_storage_type.clone(),
+            cluster_config
+                .metadata_database
+                .as_metadata_storage_type()
+                .to_string(),
         );
 
         conf.insert(

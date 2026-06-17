@@ -430,20 +430,6 @@ impl v1alpha1::DruidCluster {
         }
     }
 
-    /// Returns true if the cluster uses an s3 connection.
-    /// This is a quicker convenience function over the [v1alpha1::DruidCluster::get_s3_connection] function.
-    pub fn uses_s3(&self) -> bool {
-        let s3_ingestion = self
-            .spec
-            .cluster_config
-            .ingestion
-            .as_ref()
-            .and_then(|spec| spec.s3connection.as_ref())
-            .is_some();
-        let s3_storage = self.spec.cluster_config.deep_storage.is_s3();
-        s3_ingestion || s3_storage
-    }
-
     /// Merges and validates all role groups of the given role. Invoked from the validate step
     /// (`controller::validate`).
     ///
@@ -871,12 +857,6 @@ pub enum DeepStorageSpec {
     /// [The S3 deep storage configuration](DOCS_BASE_URL_PLACEHOLDER/druid/usage-guide/deep-storage#_s3).
     #[strum(serialize = "s3")]
     S3(S3DeepStorageSpec),
-}
-
-impl DeepStorageSpec {
-    fn is_s3(&self) -> bool {
-        matches!(self, DeepStorageSpec::S3(_))
-    }
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]

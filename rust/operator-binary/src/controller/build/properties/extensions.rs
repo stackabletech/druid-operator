@@ -1,11 +1,14 @@
+//! Builder for the `druid.extensions.loadList` runtime.properties entry.
+//!
+//! The set of Druid extensions to load is derived from the metadata database, TLS, S3 and
+//! authentication settings carried on the validated cluster. This is a build-step concern: it
+//! computes a config output, so it lives here rather than in the validate step.
+
 use std::collections::HashSet;
 
 use tracing::debug;
 
-use crate::{
-    authentication::DruidAuthenticationConfig,
-    crd::{database::MetadataDatabaseConnection, security::DruidTlsSecurity, v1alpha1},
-};
+use crate::{authentication::DruidAuthenticationConfig, crd::database::MetadataDatabaseConnection};
 
 const EXT_S3: &str = "druid-s3-extensions";
 const EXT_KAFKA_INDEXING: &str = "druid-kafka-indexing-service";
@@ -19,9 +22,16 @@ const EXT_HDFS: &str = "druid-hdfs-storage";
 const EXT_SIMPLE_CLIENT_SSL_CONTEXT: &str = "simple-client-sslcontext";
 const ENV_PAC4J: &str = "druid-pac4j";
 
+/// Computes the `druid.extensions.loadList` entries from the validated cluster inputs.
+///
+/// Takes the resolved inputs (metadata database, whether TLS/S3 are in use, the user-supplied
+/// additional extensions and the resolved authentication config) rather than the raw
+/// `DruidCluster`, so it has no dependency on the validate step.
 pub fn get_extension_list(
-    druid: &v1alpha1::DruidCluster,
-    druid_tls_security: &DruidTlsSecurity,
+    metadata_database: &MetadataDatabaseConnection,
+    tls_enabled: bool,
+    uses_s3: bool,
+    additional_extensions: &HashSet<String>,
     druid_auth_settings: &Option<DruidAuthenticationConfig>,
 ) -> Vec<String> {
     let mut extensions = HashSet::from([
@@ -33,7 +43,7 @@ pub fn get_extension_list(
         EXT_HDFS.to_string(),
     ]);
 
-    match druid.spec.cluster_config.metadata_database {
+    match metadata_database {
         MetadataDatabaseConnection::Derby(..) => {} // no additional extensions required
         MetadataDatabaseConnection::Postgresql(..) => {
             extensions.insert(EXT_PSQL_MD_ST.to_string());
@@ -43,11 +53,11 @@ pub fn get_extension_list(
         }
     };
 
-    if druid_tls_security.tls_enabled() {
+    if tls_enabled {
         extensions.insert(EXT_SIMPLE_CLIENT_SSL_CONTEXT.to_string());
     }
 
-    if druid.uses_s3() {
+    if uses_s3 {
         extensions.insert(EXT_S3.to_string());
     }
 
@@ -55,7 +65,6 @@ pub fn get_extension_list(
         extensions.insert(ENV_PAC4J.to_string());
     }
 
-    let additional_extensions = druid.spec.cluster_config.additional_extensions.clone();
     if !additional_extensions.is_empty() {
         debug!(
             enabled_extensions = ?extensions,
@@ -63,7 +72,7 @@ pub fn get_extension_list(
             "Adding user specified additional extensions to list of enabled extensions"
         );
     }
-    extensions.extend(additional_extensions);
+    extensions.extend(additional_extensions.iter().cloned());
 
     let mut extensions = Vec::from_iter(extensions);
     extensions.sort();
@@ -77,7 +86,11 @@ mod tests {
     };
 
     use super::*;
-    use crate::crd::authentication::{AuthenticationClassResolved, AuthenticationClassesResolved};
+    use crate::crd::{
+        authentication::{AuthenticationClassResolved, AuthenticationClassesResolved},
+        security::DruidTlsSecurity,
+        v1alpha1,
+    };
 
     #[test]
     fn test_additional_extensions() {
@@ -94,42 +107,48 @@ mod tests {
             ])
         );
 
+        let druid_tls_security = DruidTlsSecurity::new_from_druid_cluster(
+            &cluster,
+            &AuthenticationClassesResolved {
+                auth_classes: vec![],
+            },
+        );
+
+        let druid_auth_config = Some(
+            DruidAuthenticationConfig::try_from(AuthenticationClassesResolved {
+                auth_classes: vec![AuthenticationClassResolved::Oidc {
+                    auth_class_name: "oidc".to_string(),
+                    provider: oidc::v1alpha1::AuthenticationProvider::new(
+                        "my-oidc-provider".to_string().try_into().unwrap(),
+                        None,
+                        "".to_string(),
+                        TlsClientDetails { tls: None },
+                        "".to_string(),
+                        vec![],
+                        None,
+                    ),
+                    oidc: crate::authentication::oidc::DruidClientAuthenticationOptions {
+                        client_credentials_secret_ref: "".to_string(),
+                        extra_scopes: vec![],
+                        product_specific_fields: oidc::v1alpha1::ClientAuthenticationMethodOption {
+                            client_authentication_method:
+                                oidc::v1alpha1::ClientAuthenticationMethod::default(),
+                        },
+                    },
+                }],
+            })
+            .unwrap()
+            .unwrap(),
+        );
+
         assert_eq!(
             get_extension_list(
-                &cluster,
-                &DruidTlsSecurity::new_from_druid_cluster(
-                    &cluster,
-                    &AuthenticationClassesResolved {
-                        auth_classes: vec![]
-                    }
-                ),
-                &Some(
-                    DruidAuthenticationConfig::try_from(AuthenticationClassesResolved {
-                        auth_classes: vec![AuthenticationClassResolved::Oidc {
-                            auth_class_name: "oidc".to_string(),
-                            provider: oidc::v1alpha1::AuthenticationProvider::new(
-                                "my-oidc-provider".to_string().try_into().unwrap(),
-                                None,
-                                "".to_string(),
-                                TlsClientDetails { tls: None },
-                                "".to_string(),
-                                vec![],
-                                None
-                            ),
-                            oidc: crate::authentication::oidc::DruidClientAuthenticationOptions {
-                                client_credentials_secret_ref: "".to_string(),
-                                extra_scopes: vec![],
-                                product_specific_fields:
-                                    oidc::v1alpha1::ClientAuthenticationMethodOption {
-                                        client_authentication_method:
-                                            oidc::v1alpha1::ClientAuthenticationMethod::default(),
-                                    },
-                            }
-                        }]
-                    })
-                    .unwrap()
-                    .unwrap()
-                )
+                &cluster.spec.cluster_config.metadata_database,
+                druid_tls_security.tls_enabled(),
+                // simple.yaml uses HDFS deep storage and no S3 ingestion.
+                false,
+                &cluster.spec.cluster_config.additional_extensions,
+                &druid_auth_config,
             ),
             [
                 "druid-avro-extensions".to_owned(),

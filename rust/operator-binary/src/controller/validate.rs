@@ -3,7 +3,11 @@
 //! Synchronously validates inputs that don't require a Kubernetes client. Produces
 //! [`ValidatedCluster`], consumed by the rest of `reconcile_druid`.
 
-use std::{borrow::Cow, collections::BTreeMap, str::FromStr};
+use std::{
+    borrow::Cow,
+    collections::{BTreeMap, HashSet},
+    str::FromStr,
+};
 
 use snafu::{ResultExt, Snafu};
 use stackable_operator::{
@@ -35,8 +39,10 @@ use strum::IntoEnumIterator;
 use crate::{
     authentication::DruidAuthenticationConfig,
     controller::{controller_name, dereference::DereferencedObjects, operator_name, product_name},
-    crd::{DeepStorageSpec, DruidRole, security::DruidTlsSecurity, v1alpha1},
-    extensions::get_extension_list,
+    crd::{
+        DeepStorageSpec, DruidRole, database::MetadataDatabaseConnection,
+        security::DruidTlsSecurity, v1alpha1,
+    },
 };
 
 #[derive(Snafu, Debug)]
@@ -88,11 +94,12 @@ pub struct ValidatedClusterConfig {
     pub deep_storage_bucket_name: Option<String>,
     pub druid_tls_security: DruidTlsSecurity,
     pub druid_auth_config: Option<DruidAuthenticationConfig>,
-    /// The `druid.extensions.loadList` entries, resolved from the metadata database, TLS, S3 and
-    /// authentication settings during validation.
-    pub extensions: Vec<String>,
-    /// The `druid.metadata.storage.type` value derived from the configured metadata database.
-    pub metadata_storage_type: String,
+    /// The configured metadata database, carried so the build step can derive the
+    /// `druid.metadata.storage.type` value and the metadata-storage extension.
+    pub metadata_database: MetadataDatabaseConnection,
+    /// User-supplied additional `druid.extensions.loadList` entries, carried so the build step can
+    /// assemble the full extension list.
+    pub additional_extensions: HashSet<String>,
     /// The JDBC connection details (URL plus credential env vars) for the metadata database.
     pub metadata_db_connection: JdbcDatabaseConnectionDetails,
     /// The deep-storage spec, carried so the build step can derive the cluster-level
@@ -102,6 +109,13 @@ pub struct ValidatedClusterConfig {
     /// User-supplied extra volumes, mounted into every container, carried so the build step does
     /// not read the raw `DruidCluster`.
     pub extra_volumes: Vec<Volume>,
+}
+
+impl ValidatedClusterConfig {
+    /// Whether the cluster uses S3, for deep storage or ingestion.
+    pub fn uses_s3(&self) -> bool {
+        self.s3_connection.is_some()
+    }
 }
 
 /// Per-role configuration extracted during validation, so the reconcile/build steps consume this
@@ -351,13 +365,6 @@ pub fn validate(
     let namespace = get_namespace(druid).context(ClusterIdentitySnafu)?;
     let uid = get_uid(druid).context(ClusterIdentitySnafu)?;
 
-    let extensions = get_extension_list(druid, &druid_tls_security, &druid_auth_config);
-    let metadata_storage_type = druid
-        .spec
-        .cluster_config
-        .metadata_database
-        .as_metadata_storage_type()
-        .to_string();
     let metadata_db_connection = druid
         .spec
         .cluster_config
@@ -377,8 +384,8 @@ pub fn validate(
             deep_storage_bucket_name: dereferenced_objects.deep_storage_bucket_name.clone(),
             druid_tls_security,
             druid_auth_config,
-            extensions,
-            metadata_storage_type,
+            metadata_database: druid.spec.cluster_config.metadata_database.clone(),
+            additional_extensions: druid.spec.cluster_config.additional_extensions.clone(),
             metadata_db_connection,
             deep_storage: druid.spec.cluster_config.deep_storage.clone(),
             extra_volumes: druid.spec.cluster_config.extra_volumes.clone(),
@@ -409,7 +416,6 @@ pub(crate) mod test_support {
             DruidRole, authentication::AuthenticationClassesResolved, security::DruidTlsSecurity,
             v1alpha1,
         },
-        extensions::get_extension_list,
     };
 
     /// A minimal but fully-valid `DruidCluster` with one role group per role.
@@ -504,13 +510,6 @@ spec:
             );
         }
 
-        let extensions = get_extension_list(druid, &druid_tls_security, &None);
-        let metadata_storage_type = druid
-            .spec
-            .cluster_config
-            .metadata_database
-            .as_metadata_storage_type()
-            .to_string();
         let metadata_db_connection = druid
             .spec
             .cluster_config
@@ -530,8 +529,8 @@ spec:
                 deep_storage_bucket_name: None,
                 druid_tls_security,
                 druid_auth_config: None,
-                extensions,
-                metadata_storage_type,
+                metadata_database: druid.spec.cluster_config.metadata_database.clone(),
+                additional_extensions: druid.spec.cluster_config.additional_extensions.clone(),
                 metadata_db_connection,
                 deep_storage: druid.spec.cluster_config.deep_storage.clone(),
                 extra_volumes: druid.spec.cluster_config.extra_volumes.clone(),
