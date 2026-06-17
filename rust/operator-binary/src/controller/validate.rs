@@ -9,7 +9,7 @@ use std::{
     str::FromStr,
 };
 
-use snafu::{ResultExt, Snafu};
+use snafu::{ResultExt, Snafu, ensure};
 use stackable_operator::{
     builder::meta::ObjectMetaBuilder,
     cli::OperatorEnvironmentOptions,
@@ -70,6 +70,11 @@ pub enum Error {
     ResolveAuthenticationClasses {
         source: crate::crd::authentication::Error,
     },
+
+    #[snafu(display(
+        "two differing S3 connections were given (ingestion and deep storage), this is unsupported by Druid"
+    ))]
+    IncompatibleS3Connections,
 }
 
 type Result<T, E = Error> = std::result::Result<T, E>;
@@ -373,6 +378,36 @@ pub fn validate(
         .jdbc_connection_details("metadata")
         .context(InvalidMetadataDatabaseConnectionSnafu)?;
 
+    // The deep storage bucket carries its own S3 connection; if ingestion also configures one, the
+    // two must be identical, as Druid only supports a single S3 connection.
+    let s3_deep_storage_connection = dereferenced_objects
+        .s3_deep_storage_bucket
+        .as_ref()
+        .map(|bucket| &bucket.connection);
+    let s3_connection = match (
+        dereferenced_objects.s3_ingestion_connection.as_ref(),
+        s3_deep_storage_connection,
+    ) {
+        (Some(ingestion), Some(deep_storage)) => {
+            ensure!(ingestion == deep_storage, IncompatibleS3ConnectionsSnafu);
+            Some(ingestion.clone())
+        }
+        (Some(connection), None) | (None, Some(connection)) => Some(connection.clone()),
+        (None, None) => None,
+    };
+    let deep_storage_bucket_name = dereferenced_objects
+        .s3_deep_storage_bucket
+        .as_ref()
+        .map(|bucket| bucket.bucket_name.clone());
+
+    // The dereference step fetched the rule-agnostic OPA document URL; append the authorization
+    // rule Druid queries.
+    // TODO(@maltesander): This would rather be a preprocess step?
+    let opa_connection_string = dereferenced_objects
+        .opa_base_document_url
+        .as_ref()
+        .map(|base_url| format!("{base_url}/allow"));
+
     Ok(ValidatedCluster::new(
         name,
         namespace,
@@ -380,9 +415,9 @@ pub fn validate(
         image,
         ValidatedClusterConfig {
             zookeeper_connection_string: dereferenced_objects.zookeeper_connection_string.clone(),
-            opa_connection_string: dereferenced_objects.opa_connection_string.clone(),
-            s3_connection: dereferenced_objects.s3_connection.clone(),
-            deep_storage_bucket_name: dereferenced_objects.deep_storage_bucket_name.clone(),
+            opa_connection_string,
+            s3_connection,
+            deep_storage_bucket_name,
             druid_tls_security,
             druid_auth_config,
             metadata_database: druid.spec.cluster_config.metadata_database.clone(),
@@ -553,9 +588,9 @@ mod tests {
     fn dereferenced_objects() -> DereferencedObjects {
         DereferencedObjects {
             zookeeper_connection_string: "zookeeper-connection-string".to_string(),
-            opa_connection_string: None,
-            s3_connection: None,
-            deep_storage_bucket_name: None,
+            opa_base_document_url: None,
+            s3_ingestion_connection: None,
+            s3_deep_storage_bucket: None,
             authentication_classes: Vec::new(),
         }
     }

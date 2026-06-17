@@ -8,7 +8,6 @@ use security::add_cert_to_jvm_trust_store_cmd;
 use serde::{Deserialize, Serialize};
 use snafu::{OptionExt, ResultExt, Snafu};
 use stackable_operator::{
-    client::Client,
     commons::{
         affinity::StackableAffinity,
         cluster_operation::ClusterOperation,
@@ -152,24 +151,8 @@ pub enum Error {
     #[snafu(display("missing secret lifetime"))]
     MissingSecretLifetime,
 
-    #[snafu(display("failed to resolve S3 connection"))]
-    ResolveS3Connection {
-        source: stackable_operator::crd::s3::v1alpha1::ConnectionError,
-    },
-
-    #[snafu(display("failed to resolve S3 bucket"))]
-    ResolveS3Bucket {
-        source: stackable_operator::crd::s3::v1alpha1::BucketError,
-    },
-
-    #[snafu(display("2 differing s3 connections were given, this is unsupported by Druid"))]
-    IncompatibleS3Connections,
-
     #[snafu(display("the role group {rolegroup_name} is not defined"))]
     CannotRetrieveRoleGroup { rolegroup_name: String },
-
-    #[snafu(display("missing namespace for resource {name}"))]
-    MissingNamespace { name: String },
 
     #[snafu(display("fragment validation failure"))]
     FragmentValidationFailure { source: ValidationError },
@@ -363,76 +346,6 @@ impl HasStatusCondition for v1alpha1::DruidCluster {
 }
 
 impl v1alpha1::DruidCluster {
-    /// If an s3 connection for ingestion is given, as well as an s3 connection for deep storage, they need to be the same.
-    /// This function returns the resolved connection, or raises an Error if the connections are not identical.
-    pub async fn get_s3_connection(
-        &self,
-        client: &Client,
-    ) -> Result<Option<s3::v1alpha1::ConnectionSpec>, Error> {
-        // retrieve connection for ingestion (can be None)
-        let ingestion_conn = if let Some(ic) = self
-            .spec
-            .cluster_config
-            .ingestion
-            .as_ref()
-            .and_then(|is| is.s3connection.as_ref())
-        {
-            Some(
-                ic.clone()
-                    .resolve(
-                        client,
-                        self.namespace()
-                            .context(MissingNamespaceSnafu {
-                                name: &self.name_unchecked(),
-                            })?
-                            .as_ref(),
-                    )
-                    .await
-                    .context(ResolveS3ConnectionSnafu)?,
-            )
-        } else {
-            None
-        };
-
-        // retrieve connection for deep storage (can be None)
-        let storage_conn = match &self.spec.cluster_config.deep_storage {
-            DeepStorageSpec::S3(s3_spec) => {
-                let inlined_bucket = s3_spec
-                    .bucket
-                    .clone()
-                    .resolve(
-                        client,
-                        self.namespace()
-                            .context(MissingNamespaceSnafu {
-                                name: &self.name_unchecked(),
-                            })?
-                            .as_ref(),
-                    )
-                    .await
-                    .context(ResolveS3BucketSnafu)?;
-                Some(inlined_bucket.connection)
-            }
-            _ => None,
-        };
-
-        // if both connections are specified and are identical, return it
-        // if they differ, raise an error
-        // if only one connection is specified, return it
-        if ingestion_conn.is_some() && storage_conn.is_some() {
-            if ingestion_conn == storage_conn {
-                Ok(ingestion_conn)
-            } else {
-                Err(Error::IncompatibleS3Connections)
-            }
-        } else if ingestion_conn.is_some() {
-            Ok(ingestion_conn)
-        } else if storage_conn.is_some() {
-            Ok(storage_conn)
-        } else {
-            Ok(None)
-        }
-    }
-
     /// Merges and validates all role groups of the given role. Invoked from the validate step
     /// (`controller::validate`).
     ///

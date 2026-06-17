@@ -1,11 +1,4 @@
 //! The dereference step in the DruidCluster controller
-//!
-//! Fetches all Kubernetes objects referenced by the DruidCluster spec and returns them in
-//! [`DereferencedObjects`]. AuthenticationClasses are fetched raw here
-//! ([`fetch_authentication_classes`]) and validated later in the validate step. The remaining
-//! helpers (`DruidCluster::get_s3_connection`, `S3Bucket::resolve`,
-//! `OpaConfig::full_document_url_from_config_map`) still mix fetching and validation; their
-//! outputs are treated as "dereferenced" for now. Splitting those is a follow-up.
 
 use snafu::{OptionExt, ResultExt, Snafu};
 use stackable_operator::{
@@ -50,11 +43,13 @@ pub enum Error {
         cm_name: String,
     },
 
-    #[snafu(display("failed to get valid S3 connection"))]
-    GetS3Connection { source: crate::crd::Error },
+    #[snafu(display("failed to resolve the ingestion S3 connection"))]
+    ResolveS3Connection {
+        source: stackable_operator::crd::s3::v1alpha1::ConnectionError,
+    },
 
-    #[snafu(display("failed to get deep storage bucket"))]
-    GetDeepStorageBucket {
+    #[snafu(display("failed to resolve the deep storage S3 bucket"))]
+    ResolveS3Bucket {
         source: stackable_operator::crd::s3::v1alpha1::BucketError,
     },
 
@@ -66,13 +61,19 @@ pub enum Error {
 
 type Result<T, E = Error> = std::result::Result<T, E>;
 
-/// Kubernetes objects referenced from the DruidCluster spec, already fetched (and, for now,
-/// partly validated by the existing helper functions).
+/// Kubernetes objects referenced from the DruidCluster spec, already fetched. Validation and
+/// derivation of final values happens in the validate step.
 pub struct DereferencedObjects {
     pub zookeeper_connection_string: String,
-    pub opa_connection_string: Option<String>,
-    pub s3_connection: Option<s3::v1alpha1::ConnectionSpec>,
-    pub deep_storage_bucket_name: Option<String>,
+    /// The rule-agnostic OPA document URL (package level, no rule). The validate step appends the
+    /// concrete authorization rule to produce the connection string.
+    pub opa_base_document_url: Option<String>,
+    /// The resolved ingestion S3 connection (if any). The validate step checks it against the deep
+    /// storage connection.
+    pub s3_ingestion_connection: Option<s3::v1alpha1::ConnectionSpec>,
+    /// The resolved deep storage S3 bucket (if deep storage uses S3). Carries both the bucket name
+    /// and its connection.
+    pub s3_deep_storage_bucket: Option<s3::v1alpha1::ResolvedBucket>,
     /// The raw, fetched `AuthenticationClass` objects (in spec order). Validation of these happens
     /// in the validate step via [`AuthenticationClassesResolved::from_fetched`].
     pub authentication_classes: Vec<core::v1alpha1::AuthenticationClass>,
@@ -106,12 +107,14 @@ pub async fn dereference(
             cm_name: zk_confmap.clone(),
         })?;
 
-    let opa_connection_string = if let Some(DruidAuthorization { opa: opa_config }) =
+    // Fetch the rule-agnostic OPA document URL (package level, no rule). The validate step appends
+    // the concrete authorization rule.
+    let opa_base_document_url = if let Some(DruidAuthorization { opa: opa_config }) =
         &druid.spec.cluster_config.authorization
     {
         Some(
             opa_config
-                .full_document_url_from_config_map(client, druid, Some("allow"), &OpaApiVersion::V1)
+                .full_document_url_from_config_map(client, druid, None, &OpaApiVersion::V1)
                 .await
                 .context(GetOpaConnStringSnafu {
                     cm_name: opa_config.config_map_name.clone(),
@@ -121,20 +124,34 @@ pub async fn dereference(
         None
     };
 
-    let s3_connection = druid
-        .get_s3_connection(client)
-        .await
-        .context(GetS3ConnectionSnafu)?;
+    // Resolve the ingestion and deep storage S3 references separately. Checking that they are
+    // compatible (and extracting the bucket name) is done in the validate step.
+    let s3_ingestion_connection = if let Some(ingestion_connection) = druid
+        .spec
+        .cluster_config
+        .ingestion
+        .as_ref()
+        .and_then(|ingestion| ingestion.s3connection.as_ref())
+    {
+        Some(
+            ingestion_connection
+                .clone()
+                .resolve(client, namespace)
+                .await
+                .context(ResolveS3ConnectionSnafu)?,
+        )
+    } else {
+        None
+    };
 
-    let deep_storage_bucket_name = match &druid.spec.cluster_config.deep_storage {
+    let s3_deep_storage_bucket = match &druid.spec.cluster_config.deep_storage {
         DeepStorageSpec::S3(s3_spec) => Some(
             s3_spec
                 .bucket
                 .clone()
                 .resolve(client, namespace)
                 .await
-                .context(GetDeepStorageBucketSnafu)?
-                .bucket_name,
+                .context(ResolveS3BucketSnafu)?,
         ),
         _ => None,
     };
@@ -145,9 +162,9 @@ pub async fn dereference(
 
     Ok(DereferencedObjects {
         zookeeper_connection_string,
-        opa_connection_string,
-        s3_connection,
-        deep_storage_bucket_name,
+        opa_base_document_url,
+        s3_ingestion_connection,
+        s3_deep_storage_bucket,
         authentication_classes,
     })
 }
