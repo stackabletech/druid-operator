@@ -314,7 +314,7 @@ pub fn build_rolegroup_config_map(
         }
         let security_overrides =
             key_value_overrides(&rg.config_overrides, ConfigFileName::SecurityProperties);
-        security_config.extend(security_properties::build(&security_overrides));
+        security_config.extend(security_properties::build(security_overrides));
 
         cm_conf_data.insert(
             ConfigFileName::SecurityProperties.to_string(),

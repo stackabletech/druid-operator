@@ -87,6 +87,9 @@ const AUTH_TRUST_STORE_PASSWORD: &str = "druid.auth.basic.ssl.trustStorePassword
 const TRUST_STORE_FILE: &str = "truststore.p12";
 const KEY_STORE_FILE: &str = "keystore.p12";
 
+// The layer-4 protocol used by all of Druid's exposed ports.
+const TCP_PROTOCOL: &str = "TCP";
+
 // directories
 const STACKABLE_MOUNT_TLS_DIR: &str = "/stackable/mount_tls";
 
@@ -95,48 +98,43 @@ stackable_operator::constant!(TLS_VOLUME_NAME: VolumeName = "tls");
 stackable_operator::constant!(TLS_MOUNT_VOLUME_NAME: VolumeName = "tls-mount");
 
 pub fn container_ports(tls: &DruidTlsSecurity, role: &DruidRole) -> Vec<ContainerPort> {
-    exposed_ports(tls, role)
-        .into_iter()
-        .map(|(name, val)| ContainerPort {
-            name: Some(name),
-            container_port: val.into(),
-            protocol: Some("TCP".to_string()),
-            ..ContainerPort::default()
-        })
-        .collect()
+    let (name, port) = exposed_port(tls, role);
+    vec![ContainerPort {
+        name: Some(name.to_string()),
+        container_port: port.into(),
+        protocol: Some(TCP_PROTOCOL.to_string()),
+        ..ContainerPort::default()
+    }]
 }
 
 pub fn service_ports(tls: &DruidTlsSecurity, role: &DruidRole) -> Vec<ServicePort> {
-    exposed_ports(tls, role)
-        .into_iter()
-        .map(|(name, val)| ServicePort {
-            name: Some(name),
-            port: val.into(),
-            protocol: Some("TCP".to_string()),
-            ..ServicePort::default()
-        })
-        .collect()
+    let (name, port) = exposed_port(tls, role);
+    vec![ServicePort {
+        name: Some(name.to_string()),
+        port: port.into(),
+        protocol: Some(TCP_PROTOCOL.to_string()),
+        ..ServicePort::default()
+    }]
 }
 
 pub fn listener_ports(
     tls: &DruidTlsSecurity,
     role: &DruidRole,
 ) -> Vec<listener::v1alpha1::ListenerPort> {
-    exposed_ports(tls, role)
-        .into_iter()
-        .map(|(name, val)| listener::v1alpha1::ListenerPort {
-            name,
-            port: val.into(),
-            protocol: Some("TCP".to_string()),
-        })
-        .collect()
+    let (name, port) = exposed_port(tls, role);
+    vec![listener::v1alpha1::ListenerPort {
+        name: name.to_string(),
+        port: port.into(),
+        protocol: Some(TCP_PROTOCOL.to_string()),
+    }]
 }
 
-fn exposed_ports(tls: &DruidTlsSecurity, role: &DruidRole) -> Vec<(String, Port)> {
+/// The single port (TLS or plaintext, depending on the TLS decision) Druid exposes for the role.
+fn exposed_port(tls: &DruidTlsSecurity, role: &DruidRole) -> (&'static str, Port) {
     if tls.tls_enabled() {
-        vec![(TLS_PORT_NAME.to_string(), role.get_https_port())]
+        (TLS_PORT_NAME, role.get_https_port())
     } else {
-        vec![(PLAINTEXT_PORT_NAME.to_string(), role.get_http_port())]
+        (PLAINTEXT_PORT_NAME, role.get_http_port())
     }
 }
 

@@ -13,7 +13,7 @@ const DEFAULT_NETWORKADDRESS_CACHE_NEGATIVE_TTL: &str = "0";
 /// `overrides` are the user's merged (role <- rolegroup) `security.properties`
 /// config overrides, as returned by `DruidConfigOverrides::get_key_value_overrides`.
 /// Override values win.
-pub fn build(overrides: &BTreeMap<String, String>) -> BTreeMap<String, String> {
+pub fn build(overrides: BTreeMap<String, String>) -> BTreeMap<String, String> {
     let mut props: BTreeMap<String, String> = BTreeMap::new();
     props.insert(
         NETWORKADDRESS_CACHE_TTL.to_string(),
@@ -23,7 +23,7 @@ pub fn build(overrides: &BTreeMap<String, String>) -> BTreeMap<String, String> {
         NETWORKADDRESS_CACHE_NEGATIVE_TTL.to_string(),
         DEFAULT_NETWORKADDRESS_CACHE_NEGATIVE_TTL.to_string(),
     );
-    props.extend(overrides.iter().map(|(k, v)| (k.clone(), v.clone())));
+    props.extend(overrides);
     props
 }
 
@@ -37,7 +37,7 @@ mod tests {
     //   networkaddress.cache.ttl=30
     #[test]
     fn defaults_match_snapshot() {
-        let props = build(&BTreeMap::new());
+        let props = build(BTreeMap::new());
         assert_eq!(props["networkaddress.cache.ttl"], "30".to_string());
         assert_eq!(props["networkaddress.cache.negative.ttl"], "0".to_string());
         assert_eq!(props.len(), 2);
@@ -46,7 +46,7 @@ mod tests {
     #[test]
     fn override_wins() {
         let ov = BTreeMap::from([("networkaddress.cache.ttl".to_string(), "60".to_string())]);
-        let props = build(&ov);
+        let props = build(ov);
         assert_eq!(props["networkaddress.cache.ttl"], "60".to_string());
     }
 }
