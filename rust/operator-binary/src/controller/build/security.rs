@@ -26,6 +26,7 @@ use stackable_operator::{
         apimachinery::pkg::util::intstr::IntOrString,
     },
     shared::time::Duration,
+    v2::types::common::Port,
 };
 
 use crate::crd::{
@@ -132,7 +133,7 @@ pub fn listener_ports(
         .collect()
 }
 
-fn exposed_ports(tls: &DruidTlsSecurity, role: &DruidRole) -> Vec<(String, u16)> {
+fn exposed_ports(tls: &DruidTlsSecurity, role: &DruidRole) -> Vec<(String, Port)> {
     if tls.tls_enabled() {
         vec![(TLS_PORT_NAME.to_string(), role.get_https_port())]
     } else {

@@ -45,6 +45,7 @@ use stackable_operator::{
         },
         role_utils::{JavaCommonConfig, RoleGroupConfig, with_validated_config},
         types::{
+            common::Port,
             kubernetes::{ConfigMapName, ListenerClassName},
             operator::{RoleGroupName, RoleName},
         },
@@ -91,7 +92,7 @@ pub const PROP_SEGMENT_CACHE_LOCATIONS: &str = "druid.segmentCache.locations";
 //    CONFIG PROPERTIES    //
 /////////////////////////////
 pub const METRICS_PORT_NAME: &str = "metrics";
-pub const METRICS_PORT: u16 = 9090;
+pub const METRICS_PORT: Port = Port(9090);
 
 pub const COOKIE_PASSPHRASE_ENV: &str = "OIDC_COOKIE_PASSPHRASE";
 
@@ -724,24 +725,24 @@ impl DruidRole {
     }
 
     /// Returns the http port for every role
-    pub fn get_http_port(&self) -> u16 {
+    pub fn get_http_port(&self) -> Port {
         match &self {
-            DruidRole::Coordinator => 8081,
-            DruidRole::Broker => 8082,
-            DruidRole::Historical => 8083,
-            DruidRole::MiddleManager => 8091,
-            DruidRole::Router => 8888,
+            DruidRole::Coordinator => Port(8081),
+            DruidRole::Broker => Port(8082),
+            DruidRole::Historical => Port(8083),
+            DruidRole::MiddleManager => Port(8091),
+            DruidRole::Router => Port(8888),
         }
     }
 
     /// Returns the https port for every role
-    pub fn get_https_port(&self) -> u16 {
+    pub fn get_https_port(&self) -> Port {
         match &self {
-            DruidRole::Coordinator => 8281,
-            DruidRole::Broker => 8282,
-            DruidRole::Historical => 8283,
-            DruidRole::MiddleManager => 8291,
-            DruidRole::Router => 9088,
+            DruidRole::Coordinator => Port(8281),
+            DruidRole::Broker => Port(8282),
+            DruidRole::Historical => Port(8283),
+            DruidRole::MiddleManager => Port(8291),
+            DruidRole::Router => Port(9088),
         }
     }
 
