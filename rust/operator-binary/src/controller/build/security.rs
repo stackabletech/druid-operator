@@ -30,10 +30,8 @@ use stackable_operator::{
 };
 
 use crate::crd::{
-    DruidRole,
-    security::{
-        DruidTlsSecurity, PLAINTEXT_PORT_NAME, STACKABLE_TLS_DIR, TLS_PORT_NAME, TLS_STORE_PASSWORD,
-    },
+    DruidRole, STACKABLE_TRUST_STORE_PASSWORD, STACKABLE_TRUST_STORE_TYPE,
+    security::{DruidTlsSecurity, PLAINTEXT_PORT_NAME, STACKABLE_TLS_DIR, TLS_PORT_NAME},
 };
 
 #[derive(Snafu, Debug)]
@@ -85,8 +83,9 @@ const TLS_ALIAS_NAME: &str = "1";
 const AUTH_TRUST_STORE_PATH: &str = "druid.auth.basic.ssl.trustStorePath";
 const AUTH_TRUST_STORE_TYPE: &str = "druid.auth.basic.ssl.trustStoreType";
 const AUTH_TRUST_STORE_PASSWORD: &str = "druid.auth.basic.ssl.trustStorePassword";
-// Misc TLS
-const TLS_STORE_TYPE: &str = "pkcs12";
+// PKCS12 store file names (within the TLS store directory).
+const TRUST_STORE_FILE: &str = "truststore.p12";
+const KEY_STORE_FILE: &str = "keystore.p12";
 
 // directories
 const STACKABLE_MOUNT_TLS_DIR: &str = "/stackable/mount_tls";
@@ -162,7 +161,7 @@ pub fn add_tls_volume_and_volume_mounts(
         secret_volume_source_builder
             .with_pod_scope()
             .with_format(SecretFormat::TlsPkcs12)
-            .with_tls_pkcs12_password(TLS_STORE_PASSWORD)
+            .with_tls_pkcs12_password(STACKABLE_TRUST_STORE_PASSWORD)
             .with_auto_tls_cert_lifetime(*requested_secret_lifetime);
 
         if let Some(listener_scope) = &listener_scope {
@@ -254,10 +253,13 @@ fn add_pkcs12_store_properties(
         path_property.to_string(),
         format!("{store_directory}/{store_file}"),
     );
-    config.insert(type_property.to_string(), TLS_STORE_TYPE.to_string());
+    config.insert(
+        type_property.to_string(),
+        STACKABLE_TRUST_STORE_TYPE.to_string(),
+    );
     config.insert(
         password_property.to_string(),
-        TLS_STORE_PASSWORD.to_string(),
+        STACKABLE_TRUST_STORE_PASSWORD.to_string(),
     );
 }
 
@@ -271,7 +273,7 @@ fn add_tls_encryption_config_properties(
     add_pkcs12_store_properties(
         config,
         store_directory,
-        "truststore.p12",
+        TRUST_STORE_FILE,
         CLIENT_HTTPS_TRUST_STORE_PATH,
         CLIENT_HTTPS_TRUST_STORE_TYPE,
         CLIENT_HTTPS_TRUST_STORE_PASSWORD,
@@ -280,7 +282,7 @@ fn add_tls_encryption_config_properties(
     add_pkcs12_store_properties(
         config,
         store_directory,
-        "keystore.p12",
+        KEY_STORE_FILE,
         SERVER_HTTPS_KEY_STORE_PATH,
         SERVER_HTTPS_KEY_STORE_TYPE,
         SERVER_HTTPS_KEY_STORE_PASSWORD,
@@ -292,7 +294,7 @@ fn add_tls_encryption_config_properties(
     add_pkcs12_store_properties(
         config,
         store_directory,
-        "truststore.p12",
+        TRUST_STORE_FILE,
         AUTH_TRUST_STORE_PATH,
         AUTH_TRUST_STORE_TYPE,
         AUTH_TRUST_STORE_PASSWORD,
@@ -307,7 +309,7 @@ fn add_tls_auth_config_properties(
     add_pkcs12_store_properties(
         config,
         store_directory,
-        "keystore.p12",
+        KEY_STORE_FILE,
         CLIENT_HTTPS_KEY_STORE_PATH,
         CLIENT_HTTPS_KEY_STORE_TYPE,
         CLIENT_HTTPS_KEY_STORE_PASSWORD,
@@ -319,7 +321,7 @@ fn add_tls_auth_config_properties(
     // javax.crypto.BadPaddingException: Given final block not properly padded. Such issues can arise if a bad key is used during decryption.
     config.insert(
         CLIENT_HTTPS_KEY_MANAGER_PASSWORD.to_string(),
-        TLS_STORE_PASSWORD.to_string(),
+        STACKABLE_TRUST_STORE_PASSWORD.to_string(),
     );
     config.insert(CLIENT_HTTPS_CERT_ALIAS.to_string(), store_alias.to_string());
     // FIXME: https://github.com/stackabletech/druid-operator/issues/372
@@ -338,7 +340,7 @@ fn add_tls_auth_config_properties(
     add_pkcs12_store_properties(
         config,
         store_directory,
-        "truststore.p12",
+        TRUST_STORE_FILE,
         SERVER_HTTPS_TRUST_STORE_PATH,
         SERVER_HTTPS_TRUST_STORE_TYPE,
         SERVER_HTTPS_TRUST_STORE_PASSWORD,
@@ -350,7 +352,7 @@ fn add_tls_auth_config_properties(
     // javax.crypto.BadPaddingException: Given final block not properly padded. Such issues can arise if a bad key is used during decryption.
     config.insert(
         SERVER_HTTPS_KEY_MANAGER_PASSWORD.to_string(),
-        TLS_STORE_PASSWORD.to_string(),
+        STACKABLE_TRUST_STORE_PASSWORD.to_string(),
     );
     // FIXME: https://github.com/stackabletech/druid-operator/issues/372
     // This is required because the client will send its pod ip which is not in the SANs of the certificates
@@ -369,10 +371,12 @@ pub fn build_tls_key_stores_cmd(tls: &DruidTlsSecurity) -> Vec<String> {
         // FIXME: *Technically* we should only add the system truststore in case any webPki usage is detected,
         // wether that's in S3, LDAP, OIDC, FTE or whatnot.
         format!(
-            "cert-tools generate-pkcs12-truststore --pkcs12 '{STACKABLE_MOUNT_TLS_DIR}/truststore.p12:{TLS_STORE_PASSWORD}' --pem /etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem --out {STACKABLE_TLS_DIR}/truststore.p12 --out-password '{TLS_STORE_PASSWORD}'"
+            "cert-tools generate-pkcs12-truststore --pkcs12 '{STACKABLE_MOUNT_TLS_DIR}/{TRUST_STORE_FILE}:{STACKABLE_TRUST_STORE_PASSWORD}' --pem /etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem --out {STACKABLE_TLS_DIR}/{TRUST_STORE_FILE} --out-password '{STACKABLE_TRUST_STORE_PASSWORD}'"
         ),
         // We can copy the keystore as is.
-        format!("cp {STACKABLE_MOUNT_TLS_DIR}/keystore.p12 {STACKABLE_TLS_DIR}/keystore.p12"),
+        format!(
+            "cp {STACKABLE_MOUNT_TLS_DIR}/{KEY_STORE_FILE} {STACKABLE_TLS_DIR}/{KEY_STORE_FILE}"
+        ),
     ]
 }
 

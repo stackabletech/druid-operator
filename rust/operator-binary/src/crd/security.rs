@@ -19,7 +19,6 @@ pub const PLAINTEXT_PORT_NAME: &str = "http";
 pub const TLS_PORT_NAME: &str = "https";
 
 // Misc TLS (shared with the build-side renderer and the LDAP authentication module)
-pub const TLS_STORE_PASSWORD: &str = "changeit";
 pub const STACKABLE_TLS_DIR: &str = "/stackable/tls";
 
 pub const INTERNAL_INITIAL_CLIENT_PASSWORD_ENV: &str = "INTERNAL_INITIAL_CLIENT_PASSWORD";

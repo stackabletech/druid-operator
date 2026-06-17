@@ -26,6 +26,15 @@ pub mod oidc;
 // It seems this needs to be the same password for Druid to work, so we re-use the existing env variable.
 const ESCALATOR_INTERNAL_CLIENT_PASSWORD_ENV: &str = INTERNAL_INITIAL_CLIENT_PASSWORD_ENV;
 
+// Authorizer/authenticator names and types used in the Druid runtime.properties auth config.
+// These are shared across the LDAP and OIDC providers (in the child modules).
+const DRUID_SYSTEM_AUTHORIZER: &str = "DruidSystemAuthorizer";
+const DRUID_SYSTEM_AUTHENTICATOR: &str = "DruidSystemAuthenticator";
+/// The `allowAll` authorizer type.
+const AUTHORIZER_TYPE_ALLOW_ALL: &str = "allowAll";
+/// The `basic` authenticator/escalator type.
+const AUTHENTICATOR_TYPE_BASIC: &str = "basic";
+
 type Result<T, E = Error> = std::result::Result<T, E>;
 
 #[derive(Snafu, Debug)]
@@ -61,11 +70,11 @@ pub enum Error {
 fn add_authorizer_config(config: &mut BTreeMap<String, String>, authorizer_name: &str) {
     config.insert(
         "druid.auth.authorizers".to_string(),
-        format!(r#"["{authorizer_name}", "DruidSystemAuthorizer"]"#),
+        format!(r#"["{authorizer_name}", "{DRUID_SYSTEM_AUTHORIZER}"]"#),
     );
     config.insert(
         format!("druid.auth.authorizer.{authorizer_name}.type"),
-        "allowAll".to_string(),
+        AUTHORIZER_TYPE_ALLOW_ALL.to_string(),
     );
 }
 
@@ -75,7 +84,7 @@ fn set_authenticator_chain(
     config: &mut BTreeMap<String, String>,
     provider_authenticators: &[&str],
 ) {
-    let authenticators: Vec<String> = std::iter::once("DruidSystemAuthenticator")
+    let authenticators: Vec<String> = std::iter::once(DRUID_SYSTEM_AUTHENTICATOR)
         .chain(provider_authenticators.iter().copied())
         .map(|name| format!("\"{name}\""))
         .collect();
@@ -114,7 +123,7 @@ fn generate_common_runtime_properties_config(config: &mut BTreeMap<String, Strin
 
     config.insert(
         "druid.auth.authorizer.DruidSystemAuthorizer.type".to_string(),
-        r#"allowAll"#.to_string(),
+        AUTHORIZER_TYPE_ALLOW_ALL.to_string(),
     );
 }
 
@@ -177,7 +186,7 @@ pub fn add_volumes_and_mounts(
 fn add_druid_system_authenticator_config(config: &mut BTreeMap<String, String>) {
     config.insert(
         "druid.auth.authenticator.DruidSystemAuthenticator.type".to_string(),
-        "basic".to_string(),
+        AUTHENTICATOR_TYPE_BASIC.to_string(),
     );
     config.insert(
         "druid.auth.authenticator.DruidSystemAuthenticator.credentialsValidator.type".to_string(),
@@ -191,7 +200,7 @@ fn add_druid_system_authenticator_config(config: &mut BTreeMap<String, String>) 
     );
     config.insert(
         "druid.auth.authenticator.DruidSystemAuthenticator.authorizerName".to_string(),
-        "DruidSystemAuthorizer".to_string(),
+        DRUID_SYSTEM_AUTHORIZER.to_string(),
     );
     config.insert(
         "druid.auth.authenticator.DruidSystemAuthenticator.skipOnFailure".to_string(),
@@ -202,7 +211,10 @@ fn add_druid_system_authenticator_config(config: &mut BTreeMap<String, String>) 
 /// Creates the escalator config: <https://druid.apache.org/docs/latest/operations/auth/#escalator>.
 /// This configures Druid processes to use the basic auth authentication added in `add_druid_system_authenticator_config` for internal communication.
 fn add_escalator_config(config: &mut BTreeMap<String, String>) {
-    config.insert("druid.escalator.type".to_string(), "basic".to_string());
+    config.insert(
+        "druid.escalator.type".to_string(),
+        AUTHENTICATOR_TYPE_BASIC.to_string(),
+    );
     config.insert(
         "druid.escalator.internalClientUsername".to_string(),
         "druid_system".to_string(),
@@ -213,7 +225,7 @@ fn add_escalator_config(config: &mut BTreeMap<String, String>) {
     );
     config.insert(
         "druid.escalator.authorizerName".to_string(),
-        "DruidSystemAuthorizer".to_string(),
+        DRUID_SYSTEM_AUTHORIZER.to_string(),
     );
 }
 

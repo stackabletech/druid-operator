@@ -17,6 +17,8 @@ use crate::{
     internal_secret::env_var_from_secret,
 };
 
+const OIDC_AUTHORIZER: &str = "OidcAuthorizer";
+
 /// Creates OIDC authenticator config using the pac4j extension for Druid: <https://druid.apache.org/docs/latest/development/extensions-core/druid-pac4j>.
 fn add_authenticator_config(
     provider: &oidc::v1alpha1::AuthenticationProvider,
@@ -41,7 +43,7 @@ fn add_authenticator_config(
     );
     config.insert(
         "druid.auth.authenticator.Oidc.authorizerName".to_string(),
-        r#"OidcAuthorizer"#.to_string(),
+        OIDC_AUTHORIZER.to_string(),
     );
     config.insert(
         "druid.auth.pac4j.cookiePassphrase".to_string(),
@@ -94,7 +96,7 @@ pub(super) fn generate_runtime_properties_config(
         }
         _ => {
             add_authenticator_config(provider, oidc, config)?;
-            super::add_authorizer_config(config, "OidcAuthorizer");
+            super::add_authorizer_config(config, OIDC_AUTHORIZER);
         }
     }
     Ok(())

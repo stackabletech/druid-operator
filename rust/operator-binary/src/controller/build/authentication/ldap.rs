@@ -10,9 +10,11 @@ use super::{
     AddLdapVolumesSnafu, ConstructLdapEndpointUrlSnafu, Error, MissingLdapBindCredentialsSnafu,
 };
 use crate::crd::{
-    file_reference,
-    security::{STACKABLE_TLS_DIR, TLS_STORE_PASSWORD, add_cert_to_trust_store_cmd},
+    STACKABLE_TRUST_STORE_PASSWORD, file_reference,
+    security::{STACKABLE_TLS_DIR, add_cert_to_trust_store_cmd},
 };
+
+const LDAP_AUTHORIZER: &str = "LdapAuthorizer";
 
 fn add_authenticator_config(
     provider: &ldap::v1alpha1::AuthenticationProvider,
@@ -20,7 +22,7 @@ fn add_authenticator_config(
 ) -> Result<(), Error> {
     config.insert(
         "druid.auth.authenticator.Ldap.type".to_string(),
-        "basic".to_string(),
+        super::AUTHENTICATOR_TYPE_BASIC.to_string(),
     );
     config.insert(
         "druid.auth.authenticator.Ldap.enableCacheNotifications".to_string(),
@@ -65,7 +67,7 @@ fn add_authenticator_config(
     );
     config.insert(
         "druid.auth.authenticator.Ldap.authorizerName".to_string(),
-        "LdapAuthorizer".to_string(),
+        LDAP_AUTHORIZER.to_string(),
     );
     super::set_authenticator_chain(config, &["Ldap"]);
 
@@ -77,7 +79,7 @@ pub(super) fn generate_runtime_properties_config(
     config: &mut BTreeMap<String, String>,
 ) -> Result<(), Error> {
     add_authenticator_config(provider, config)?;
-    super::add_authorizer_config(config, "LdapAuthorizer");
+    super::add_authorizer_config(config, LDAP_AUTHORIZER);
 
     Ok(())
 }
@@ -90,7 +92,7 @@ pub(super) fn prepare_container_commands(
         command.extend(add_cert_to_trust_store_cmd(
             &tls_ca_cert_mount_path,
             STACKABLE_TLS_DIR,
-            TLS_STORE_PASSWORD,
+            STACKABLE_TRUST_STORE_PASSWORD,
         ))
     }
 }
