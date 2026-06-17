@@ -40,8 +40,8 @@ use crate::{
     authentication::DruidAuthenticationConfig,
     controller::{controller_name, dereference::DereferencedObjects, operator_name, product_name},
     crd::{
-        DeepStorageSpec, DruidRole, database::MetadataDatabaseConnection,
-        security::DruidTlsSecurity, v1alpha1,
+        DeepStorageSpec, DruidRole, authentication::AuthenticationClassesResolved,
+        database::MetadataDatabaseConnection, security::DruidTlsSecurity, v1alpha1,
     },
 };
 
@@ -64,6 +64,11 @@ pub enum Error {
     #[snafu(display("invalid metadata database connection"))]
     InvalidMetadataDatabaseConnection {
         source: stackable_operator::database_connections::Error,
+    },
+
+    #[snafu(display("failed to resolve authentication classes"))]
+    ResolveAuthenticationClasses {
+        source: crate::crd::authentication::Error,
     },
 }
 
@@ -323,14 +328,17 @@ pub fn validate(
         )
         .context(ResolveProductImageSnafu)?;
 
-    let druid_tls_security = DruidTlsSecurity::new_from_druid_cluster(
-        druid,
-        &dereferenced_objects.resolved_authentication_classes,
-    );
+    let resolved_authentication_classes = AuthenticationClassesResolved::from_fetched(
+        &druid.spec.cluster_config,
+        &dereferenced_objects.authentication_classes,
+    )
+    .context(ResolveAuthenticationClassesSnafu)?;
 
-    let druid_auth_config = DruidAuthenticationConfig::from_auth_classes(
-        dereferenced_objects.resolved_authentication_classes.clone(),
-    );
+    let druid_tls_security =
+        DruidTlsSecurity::new_from_druid_cluster(druid, &resolved_authentication_classes);
+
+    let druid_auth_config =
+        DruidAuthenticationConfig::from_auth_classes(resolved_authentication_classes);
 
     let mut role_group_configs: BTreeMap<DruidRole, BTreeMap<RoleGroupName, DruidRoleGroupConfig>> =
         BTreeMap::new();
@@ -539,10 +547,7 @@ mod tests {
         test_support::{MINIMAL_DRUID_YAML, druid_from_yaml},
         validate,
     };
-    use crate::{
-        controller::dereference::DereferencedObjects,
-        crd::{DruidRole, authentication::AuthenticationClassesResolved},
-    };
+    use crate::{controller::dereference::DereferencedObjects, crd::DruidRole};
 
     /// Dereferenced inputs with test defaults: no S3, no OPA, no auth, a fixed ZooKeeper string.
     fn dereferenced_objects() -> DereferencedObjects {
@@ -551,9 +556,7 @@ mod tests {
             opa_connection_string: None,
             s3_connection: None,
             deep_storage_bucket_name: None,
-            resolved_authentication_classes: AuthenticationClassesResolved {
-                auth_classes: Vec::new(),
-            },
+            authentication_classes: Vec::new(),
         }
     }
 

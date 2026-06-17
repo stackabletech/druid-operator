@@ -1,19 +1,22 @@
 //! The dereference step in the DruidCluster controller
 //!
 //! Fetches all Kubernetes objects referenced by the DruidCluster spec and returns them in
-//! [`DereferencedObjects`]. The helpers called here (`AuthenticationClassesResolved::from`,
-//! `DruidCluster::get_s3_connection`, `S3Bucket::resolve`,
-//! `OpaConfig::full_document_url_from_config_map`) currently mix fetching and validation;
-//! their outputs are treated as "dereferenced" for now. Splitting those helpers is a
-//! follow-up.
+//! [`DereferencedObjects`]. AuthenticationClasses are fetched raw here
+//! ([`fetch_authentication_classes`]) and validated later in the validate step. The remaining
+//! helpers (`DruidCluster::get_s3_connection`, `S3Bucket::resolve`,
+//! `OpaConfig::full_document_url_from_config_map`) still mix fetching and validation; their
+//! outputs are treated as "dereferenced" for now. Splitting those is a follow-up.
 
 use snafu::{OptionExt, ResultExt, Snafu};
 use stackable_operator::{
-    client::Client, commons::opa::OpaApiVersion, crd::s3, k8s_openapi::api::core::v1::ConfigMap,
+    client::Client,
+    commons::opa::OpaApiVersion,
+    crd::{authentication::core, s3},
+    k8s_openapi::api::core::v1::ConfigMap,
 };
 
 use crate::crd::{
-    DeepStorageSpec, authentication::AuthenticationClassesResolved,
+    DeepStorageSpec, authentication::fetch_authentication_classes,
     authorization::DruidAuthorization, v1alpha1,
 };
 
@@ -70,7 +73,9 @@ pub struct DereferencedObjects {
     pub opa_connection_string: Option<String>,
     pub s3_connection: Option<s3::v1alpha1::ConnectionSpec>,
     pub deep_storage_bucket_name: Option<String>,
-    pub resolved_authentication_classes: AuthenticationClassesResolved,
+    /// The raw, fetched `AuthenticationClass` objects (in spec order). Validation of these happens
+    /// in the validate step via [`AuthenticationClassesResolved::from_fetched`].
+    pub authentication_classes: Vec<core::v1alpha1::AuthenticationClass>,
 }
 
 /// Fetches all Kubernetes objects referenced from the [`v1alpha1::DruidCluster`] spec.
@@ -134,16 +139,15 @@ pub async fn dereference(
         _ => None,
     };
 
-    let resolved_authentication_classes =
-        AuthenticationClassesResolved::from(&druid.spec.cluster_config, client)
-            .await
-            .context(AuthenticationClassRetrievalSnafu)?;
+    let authentication_classes = fetch_authentication_classes(&druid.spec.cluster_config, client)
+        .await
+        .context(AuthenticationClassRetrievalSnafu)?;
 
     Ok(DereferencedObjects {
         zookeeper_connection_string,
         opa_connection_string,
         s3_connection,
         deep_storage_bucket_name,
-        resolved_authentication_classes,
+        authentication_classes,
     })
 }

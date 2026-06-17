@@ -1,5 +1,3 @@
-use std::future::Future;
-
 use snafu::{ResultExt, Snafu, ensure};
 use stackable_operator::{
     client::Client,
@@ -90,32 +88,37 @@ pub enum AuthenticationClassResolved {
     },
 }
 
-impl AuthenticationClassesResolved {
-    pub async fn from(
-        cluster_config: &DruidClusterConfig,
-        client: &Client,
-    ) -> Result<AuthenticationClassesResolved> {
-        let resolve_auth_class = |auth_details: core::v1alpha1::ClientAuthenticationDetails<
-            oidc::v1alpha1::ClientAuthenticationMethodOption,
-        >| async move { auth_details.resolve_class(client).await };
-        AuthenticationClassesResolved::resolve(cluster_config, resolve_auth_class).await
+/// Fetches the raw [`AuthenticationClass`](core::v1alpha1::AuthenticationClass) objects referenced
+/// by the cluster. This is the client-facing part of the pipeline (the dereference step); the
+/// fetched objects are validated separately in [`AuthenticationClassesResolved::from_fetched`]
+/// (the validate step). The returned objects are in the same order as
+/// `cluster_config.authentication`.
+pub async fn fetch_authentication_classes(
+    cluster_config: &DruidClusterConfig,
+    client: &Client,
+) -> Result<Vec<core::v1alpha1::AuthenticationClass>> {
+    let mut authentication_classes = Vec::new();
+    for entry in &cluster_config.authentication {
+        authentication_classes.push(
+            entry
+                .resolve_class(client)
+                .await
+                .context(AuthenticationClassRetrievalFailedSnafu)?,
+        );
     }
+    Ok(authentication_classes)
+}
 
-    /// Retrieves all provided `AuthenticationClass` references and checks if the configuration (TLS settings, secret class, OIDC config, etc.) is valid.
-    async fn resolve<R>(
+impl AuthenticationClassesResolved {
+    /// Validates the already-fetched `AuthenticationClass` objects (the validate step): checks that
+    /// at most one is configured and that the TLS settings, secret class and OIDC config are valid.
+    ///
+    /// `authentication_classes` are expected in the same order as `cluster_config.authentication`,
+    /// as produced by [`fetch_authentication_classes`].
+    pub fn from_fetched(
         cluster_config: &DruidClusterConfig,
-        resolve_auth_class: impl Fn(
-            core::v1alpha1::ClientAuthenticationDetails<
-                oidc::v1alpha1::ClientAuthenticationMethodOption,
-            >,
-        ) -> R,
-    ) -> Result<AuthenticationClassesResolved>
-    where
-        R: Future<
-            Output = Result<core::v1alpha1::AuthenticationClass, stackable_operator::client::Error>,
-        >,
-    {
-        let mut resolved_auth_classes = vec![];
+        authentication_classes: &[core::v1alpha1::AuthenticationClass],
+    ) -> Result<AuthenticationClassesResolved> {
         let auth_details = &cluster_config.authentication;
 
         match auth_details.len() {
@@ -123,11 +126,8 @@ impl AuthenticationClassesResolved {
             _ => MultipleAuthenticationClassesNotSupportedSnafu.fail()?,
         }
 
-        for entry in auth_details {
-            let auth_class = resolve_auth_class(entry.clone())
-                .await
-                .context(AuthenticationClassRetrievalFailedSnafu)?;
-
+        let mut resolved_auth_classes = vec![];
+        for (entry, auth_class) in auth_details.iter().zip(authentication_classes) {
             let auth_class_name = auth_class.name_any();
             let server_and_internal_secret_class = cluster_config
                 .tls
@@ -243,10 +243,7 @@ impl AuthenticationClassesResolved {
 
 #[cfg(test)]
 mod tests {
-    use std::pin::Pin;
-
     use indoc::{formatdoc, indoc};
-    use stackable_operator::kube;
 
     use super::*;
     use crate::{
@@ -264,8 +261,8 @@ metadataDatabase:
 zookeeperConfigMapName: zk-config-map
     "#;
 
-    #[tokio::test]
-    async fn resolve_ldap() {
+    #[test]
+    fn resolve_ldap() {
         let auth_classes_resolved = test_resolve_and_expect_success(
             formatdoc! {"\
                 {BASE_CLUSTER_CONFIG}
@@ -286,8 +283,7 @@ zookeeperConfigMapName: zk-config-map
                       bindCredentials:
                         secretClass: ldap-bind-credentials
             "},
-        )
-        .await;
+        );
 
         assert_eq!(
             AuthenticationClassesResolved {
@@ -309,8 +305,8 @@ zookeeperConfigMapName: zk-config-map
         );
     }
 
-    #[tokio::test]
-    async fn resolve_oidc() {
+    #[test]
+    fn resolve_oidc() {
         let auth_classes_resolved = test_resolve_and_expect_success(
             formatdoc! {"\
                 {BASE_CLUSTER_CONFIG}
@@ -331,8 +327,7 @@ zookeeperConfigMapName: zk-config-map
                       principalClaim: preferred_username
                       scopes: []
             "},
-        )
-        .await;
+        );
 
         assert_eq!(
             AuthenticationClassesResolved {
@@ -358,8 +353,8 @@ zookeeperConfigMapName: zk-config-map
         );
     }
 
-    #[tokio::test]
-    async fn resolve_tls() {
+    #[test]
+    fn resolve_tls() {
         let auth_classes_resolved = test_resolve_and_expect_success(
             formatdoc! {"\
                 {BASE_CLUSTER_CONFIG}
@@ -375,8 +370,7 @@ zookeeperConfigMapName: zk-config-map
                   provider:
                     tls: {}
             "},
-        )
-        .await;
+        );
 
         assert_eq!(
             AuthenticationClassesResolved {
@@ -389,8 +383,8 @@ zookeeperConfigMapName: zk-config-map
         );
     }
 
-    #[tokio::test]
-    async fn reject_multiple_authentication_methods() {
+    #[test]
+    fn reject_multiple_authentication_methods() {
         let error_message = test_resolve_and_expect_error(
             formatdoc! {"\
                 {BASE_CLUSTER_CONFIG}
@@ -423,8 +417,7 @@ zookeeperConfigMapName: zk-config-map
                       bindCredentials:
                           secretClass: ldap-bind-credentials
             "},
-        )
-        .await;
+        );
 
         assert_eq!(
             "only one authentication class is currently supported at a time.",
@@ -432,8 +425,8 @@ zookeeperConfigMapName: zk-config-map
         );
     }
 
-    #[tokio::test]
-    async fn reject_if_oidc_details_are_missing() {
+    #[test]
+    fn reject_if_oidc_details_are_missing() {
         let error_message = test_resolve_and_expect_error(
             formatdoc! {"\
                 {BASE_CLUSTER_CONFIG}
@@ -452,8 +445,7 @@ zookeeperConfigMapName: zk-config-map
                       principalClaim: preferred_username
                       scopes: []
             "},
-        )
-        .await;
+        );
 
         assert_eq!(
             indoc! { r#"
@@ -466,8 +458,8 @@ zookeeperConfigMapName: zk-config-map
         );
     }
 
-    #[tokio::test]
-    async fn reject_if_ldap_bind_credentials_missing() {
+    #[test]
+    fn reject_if_ldap_bind_credentials_missing() {
         let error_message = test_resolve_and_expect_error(
             formatdoc! {"\
                 {BASE_CLUSTER_CONFIG}
@@ -486,8 +478,7 @@ zookeeperConfigMapName: zk-config-map
                       port: 389
                       searchBase: ou=users,dc=example,dc=org
             "},
-        )
-        .await;
+        );
 
         assert_eq!(
             indoc! { r#"
@@ -497,8 +488,8 @@ zookeeperConfigMapName: zk-config-map
         );
     }
 
-    #[tokio::test]
-    async fn reject_if_tls_without_tls_secret_class() {
+    #[test]
+    fn reject_if_tls_without_tls_secret_class() {
         let error_message = test_resolve_and_expect_error(
             formatdoc! {"\
                 {BASE_CLUSTER_CONFIG}
@@ -517,8 +508,7 @@ zookeeperConfigMapName: zk-config-map
                     tls:
                       clientCertSecretClass: tls
             "},
-        )
-        .await;
+        );
 
         assert_eq!(
             indoc! { r#"
@@ -528,8 +518,8 @@ zookeeperConfigMapName: zk-config-map
         );
     }
 
-    #[tokio::test]
-    async fn reject_if_ldap_without_tls_secret_class() {
+    #[test]
+    fn reject_if_ldap_without_tls_secret_class() {
         let error_message = test_resolve_and_expect_error(
             formatdoc! {"\
                 {BASE_CLUSTER_CONFIG}
@@ -552,8 +542,7 @@ zookeeperConfigMapName: zk-config-map
                       bindCredentials:
                           secretClass: ldap-bind-credentials
             "},
-        )
-        .await;
+        );
 
         assert_eq!(
             indoc! { r#"
@@ -563,8 +552,8 @@ zookeeperConfigMapName: zk-config-map
         );
     }
 
-    #[tokio::test]
-    async fn reject_if_tls_with_wrong_tls_secret_class() {
+    #[test]
+    fn reject_if_tls_with_wrong_tls_secret_class() {
         let error_message = test_resolve_and_expect_error(
             formatdoc! {"\
                 {BASE_CLUSTER_CONFIG}
@@ -583,8 +572,7 @@ zookeeperConfigMapName: zk-config-map
                     tls:
                       clientCertSecretClass: tls
             "},
-        )
-        .await;
+        );
 
         assert_eq!(
             indoc! { r#"
@@ -594,62 +582,47 @@ zookeeperConfigMapName: zk-config-map
         );
     }
 
-    /// Call `AuthenticationClassesResolved::resolve` with
-    /// the given lists of `AuthenticationDetails` and
-    /// `AuthenticationClass`es and return the
-    /// `AuthenticationClassesResolved`.
+    /// Validate the given `AuthenticationClass`es against the cluster config and return the
+    /// resolved decision.
     ///
-    /// The parameters are meant to be valid and resolvable. Just fail
-    /// if there is an error.
-    async fn test_resolve_and_expect_success(
+    /// The parameters are meant to be valid. Just fail if there is an error.
+    fn test_resolve_and_expect_success(
         cluster_config_yaml: &str,
         auth_classes_yaml: &str,
     ) -> AuthenticationClassesResolved {
         test_resolve(cluster_config_yaml, auth_classes_yaml)
-            .await
             .expect("The AuthenticationClassesResolved should be resolvable.")
     }
 
-    /// Call `AuthenticationClassesResolved::resolve` with
-    /// the given lists of `ClientAuthenticationDetails` and
-    /// `AuthenticationClass`es and return the error message.
+    /// Validate the given `AuthenticationClass`es against the cluster config and return the error
+    /// message.
     ///
-    /// The parameters are meant to be invalid or not resolvable. Just
-    /// fail if there is no error.
-    async fn test_resolve_and_expect_error(
-        cluster_config_yaml: &str,
-        auth_classes_yaml: &str,
-    ) -> String {
-        dbg!(&cluster_config_yaml);
-        let error = test_resolve(cluster_config_yaml, auth_classes_yaml)
-            .await
-            .expect_err(
-                "The AuthenticationClassesResolved are invalid and should not be resolvable.",
-            );
+    /// The parameters are meant to be invalid. Just fail if there is no error.
+    fn test_resolve_and_expect_error(cluster_config_yaml: &str, auth_classes_yaml: &str) -> String {
+        let error = test_resolve(cluster_config_yaml, auth_classes_yaml).expect_err(
+            "The AuthenticationClassesResolved are invalid and should not be resolvable.",
+        );
         snafu::Report::from_error(error)
             .to_string()
             .trim_end()
             .to_owned()
     }
 
-    /// Call `AuthenticationClassesResolved::resolve` with
-    /// the given lists of `AuthenticationDetails` and
-    /// `AuthenticationClass`es and return the result.
-    async fn test_resolve(
+    /// Validate the given (pre-fetched) `AuthenticationClass`es against the cluster config.
+    ///
+    /// This exercises the pure validate-step logic ([`AuthenticationClassesResolved::from_fetched`]);
+    /// the Kubernetes fetch ([`fetch_authentication_classes`]) is not covered here.
+    fn test_resolve(
         cluster_config_yaml: &str,
         auth_classes_yaml: &str,
     ) -> Result<AuthenticationClassesResolved> {
         let cluster_config = deserialize_cluster_config(cluster_config_yaml);
-
         let auth_classes = deserialize_auth_classes(auth_classes_yaml);
 
-        let resolve_auth_class = create_auth_class_resolver(auth_classes);
-
-        AuthenticationClassesResolved::resolve(&cluster_config, resolve_auth_class).await
+        AuthenticationClassesResolved::from_fetched(&cluster_config, &auth_classes)
     }
 
-    /// Deserialize the given list of
-    /// `SupersetClientAuthenticationDetails`.
+    /// Deserialize the given [`DruidClusterConfig`].
     ///
     /// Fail if the given string cannot be deserialized.
     fn deserialize_cluster_config(input: &str) -> DruidClusterConfig {
@@ -672,55 +645,6 @@ zookeeperConfigMapName: zk-config-map
                         .expect("The definition of the AuthenticationClass should be valid.")
                 })
                 .collect()
-        }
-    }
-
-    /// Returns a function which resolves `AuthenticationClass` names to
-    /// the given list of `AuthenticationClass`es.
-    ///
-    /// Use this function in the tests to replace
-    /// `stackable_operator::commons::authentication::ClientAuthenticationDetails`
-    /// which requires a Kubernetes client.
-    #[allow(clippy::type_complexity)]
-    fn create_auth_class_resolver(
-        auth_classes: Vec<core::v1alpha1::AuthenticationClass>,
-    ) -> impl Fn(
-        core::v1alpha1::ClientAuthenticationDetails<
-            oidc::v1alpha1::ClientAuthenticationMethodOption,
-        >,
-    ) -> Pin<
-        Box<
-            dyn Future<
-                Output = Result<
-                    core::v1alpha1::AuthenticationClass,
-                    stackable_operator::client::Error,
-                >,
-            >,
-        >,
-    > {
-        move |auth_details: core::v1alpha1::ClientAuthenticationDetails<
-            oidc::v1alpha1::ClientAuthenticationMethodOption,
-        >| {
-            let auth_classes = auth_classes.clone();
-            Box::pin(async move {
-                auth_classes
-                    .iter()
-                    .find(|auth_class| {
-                        auth_class.metadata.name.as_ref()
-                            == Some(auth_details.authentication_class_name())
-                    })
-                    .cloned()
-                    .ok_or_else(|| stackable_operator::client::Error::ListResources {
-                        source: kube::Error::Api(Box::new(kube::core::Status {
-                            code: 404,
-                            message: "AuthenticationClass not found".into(),
-                            reason: "NotFound".into(),
-                            status: Some(kube::core::response::StatusSummary::Failure),
-                            details: None,
-                            metadata: Default::default(),
-                        })),
-                    })
-            })
         }
     }
 }
