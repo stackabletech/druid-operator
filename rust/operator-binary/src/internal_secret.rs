@@ -7,12 +7,10 @@ use stackable_operator::{
     k8s_openapi::api::core::v1::{EnvVar, EnvVarSource, Secret, SecretKeySelector},
     kube::ResourceExt,
 };
-use strum::{EnumDiscriminants, IntoStaticStr};
 
 use crate::crd::{COOKIE_PASSPHRASE_ENV, security::INTERNAL_INITIAL_CLIENT_PASSWORD_ENV, v1alpha1};
 
-#[derive(Snafu, Debug, EnumDiscriminants)]
-#[strum_discriminants(derive(IntoStaticStr))]
+#[derive(Snafu, Debug)]
 #[allow(clippy::enum_variant_names)]
 pub enum Error {
     #[snafu(display("failed to apply internal secret"))]

@@ -51,7 +51,7 @@ use stackable_operator::{
     },
     versioned::versioned,
 };
-use strum::{Display, EnumDiscriminants, EnumIter, EnumString, IntoStaticStr};
+use strum::{Display, EnumIter, EnumString};
 
 use crate::crd::{
     affinity::get_affinity,
@@ -142,8 +142,7 @@ pub struct DruidConfigOverrides {
     pub security_properties: KeyValueConfigOverrides,
 }
 
-#[derive(Snafu, Debug, EnumDiscriminants)]
-#[strum_discriminants(derive(IntoStaticStr))]
+#[derive(Snafu, Debug)]
 #[allow(clippy::enum_variant_names)]
 pub enum Error {
     #[snafu(display("missing secret lifetime"))]

@@ -14,7 +14,6 @@ use stackable_operator::{
     },
     memory::MemoryQuantity,
 };
-use strum::{EnumDiscriminants, IntoStaticStr};
 
 use crate::crd::{
     DruidRole, PROP_SEGMENT_CACHE_LOCATIONS,
@@ -28,8 +27,7 @@ const PATH_SEGMENT_CACHE: &str = "/stackable/var/druid/segment-cache";
 const SEGMENT_CACHE_VOLUME_NAME: &str = "segment-cache";
 
 /// This Error cannot derive PartialEq because fragment::ValidationError doesn't derive it
-#[derive(Snafu, Debug, EnumDiscriminants)]
-#[strum_discriminants(derive(IntoStaticStr))]
+#[derive(Snafu, Debug)]
 #[allow(clippy::enum_variant_names)]
 pub enum Error {
     #[snafu(display("failed to derive Druid settings from resources"))]
