@@ -38,7 +38,7 @@ use stackable_operator::{
 use crate::{
     controller::{
         build::{
-            UNVERSIONED_PRODUCT_VERSION,
+            UNVERSIONED_PRODUCT_VERSION, authentication,
             graceful_shutdown::add_graceful_shutdown_config,
             properties::product_logging::MAX_DRUID_LOG_FILES_SIZE,
             resource::listener::{
@@ -78,7 +78,7 @@ pub enum Error {
 
     #[snafu(display("failed to add OIDC Volumes and VolumeMounts to the Pod and containers"))]
     AuthVolumesBuild {
-        source: crate::authentication::Error,
+        source: crate::controller::build::authentication::Error,
     },
 
     #[snafu(display("failed to initialize security context"))]
@@ -165,11 +165,15 @@ pub fn build_rolegroup_statefulset(
     prepare_container_commands.extend(build_tls_key_stores_cmd(druid_tls_security));
 
     if let Some(auth_config) = druid_auth_config {
-        auth_config
-            .add_volumes_and_mounts(&mut pb, &mut cb_druid, &mut cb_prepare)
-            .context(AuthVolumesBuildSnafu)?;
-        prepare_container_commands.extend(auth_config.prepare_container_commands());
-        main_container_commands.extend(auth_config.main_container_commands())
+        authentication::add_volumes_and_mounts(
+            auth_config,
+            &mut pb,
+            &mut cb_druid,
+            &mut cb_prepare,
+        )
+        .context(AuthVolumesBuildSnafu)?;
+        prepare_container_commands.extend(authentication::prepare_container_commands(auth_config));
+        main_container_commands.extend(authentication::main_container_commands(auth_config))
     }
 
     // volume and volume mounts
@@ -235,7 +239,11 @@ pub fn build_rolegroup_statefulset(
     let mut rest_env: Vec<EnvVar> = rg.env_overrides.clone().into();
 
     if let Some(auth_config) = druid_auth_config {
-        rest_env.extend(auth_config.get_env_var_mounts(cluster, role))
+        rest_env.extend(authentication::get_env_var_mounts(
+            auth_config,
+            cluster,
+            role,
+        ))
     }
 
     // Needed for the `containerdebug` process to log it's tracing information to.

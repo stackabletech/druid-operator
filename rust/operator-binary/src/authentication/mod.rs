@@ -1,87 +1,20 @@
-use std::collections::BTreeMap;
+//! The validated Druid authentication decision.
+//!
+//! [`DruidAuthenticationConfig`] is the validated representation of the cluster's authentication
+//! settings, produced by [`DruidAuthenticationConfig::from_auth_classes`] during the validate step.
+//! The Kubernetes/config rendering derived from it (runtime.properties, container commands, volumes,
+//! env vars) lives in the build step (`controller::build::authentication`).
 
-use snafu::Snafu;
-use stackable_operator::{
-    builder::pod::{PodBuilder, container::ContainerBuilder},
-    crd::authentication,
-    k8s_openapi::api::core::v1::EnvVar,
-};
+use stackable_operator::crd::authentication;
 
-use crate::{
-    controller::validate::ValidatedCluster,
-    crd::{
-        DruidRole,
-        authentication::{AuthenticationClassResolved, AuthenticationClassesResolved},
-        env_var_reference,
-        security::INTERNAL_INITIAL_CLIENT_PASSWORD_ENV,
-    },
-    internal_secret::{build_shared_internal_secret_name, env_var_from_secret},
-};
+use crate::crd::authentication::{AuthenticationClassResolved, AuthenticationClassesResolved};
 
-pub mod ldap;
-pub mod oidc;
-
-// It seems this needs to be the same password for Druid to work, so we re-use the existing env variable.
-const ESCALATOR_INTERNAL_CLIENT_PASSWORD_ENV: &str = INTERNAL_INITIAL_CLIENT_PASSWORD_ENV;
-
-/// Configures the given provider authorizer (e.g. `"LdapAuthorizer"`) alongside the Druid system
-/// authorizer, both with the `allowAll` authorizer type. Shared by the LDAP and OIDC providers.
-fn add_authorizer_config(config: &mut BTreeMap<String, String>, authorizer_name: &str) {
-    config.insert(
-        "druid.auth.authorizers".to_string(),
-        format!(r#"["{authorizer_name}", "DruidSystemAuthorizer"]"#),
-    );
-    config.insert(
-        format!("druid.auth.authorizer.{authorizer_name}.type"),
-        "allowAll".to_string(),
-    );
-}
-
-/// Sets `druid.auth.authenticatorChain` to the Druid system authenticator followed by the given
-/// provider authenticators (e.g. `["Ldap"]`). Shared by the LDAP and OIDC providers.
-fn set_authenticator_chain(
-    config: &mut BTreeMap<String, String>,
-    provider_authenticators: &[&str],
-) {
-    let authenticators: Vec<String> = std::iter::once("DruidSystemAuthenticator")
-        .chain(provider_authenticators.iter().copied())
-        .map(|name| format!("\"{name}\""))
-        .collect();
-    config.insert(
-        "druid.auth.authenticatorChain".to_string(),
-        format!("[{}]", authenticators.join(", ")),
-    );
-}
-
-type Result<T, E = Error> = std::result::Result<T, E>;
-
-#[derive(Snafu, Debug)]
-pub enum Error {
-    #[snafu(display("failed to create LDAP endpoint url."))]
-    ConstructLdapEndpointUrl {
-        source: stackable_operator::crd::authentication::ldap::v1alpha1::Error,
-    },
-
-    #[snafu(display("failed to create the OIDC well-known url."))]
-    ConstructOidcWellKnownUrl {
-        source: stackable_operator::crd::authentication::oidc::v1alpha1::Error,
-    },
-
-    #[snafu(display("failed to add LDAP Volumes and VolumeMounts to the Pod and containers"))]
-    AddLdapVolumes {
-        source: stackable_operator::crd::authentication::ldap::v1alpha1::Error,
-    },
-
-    #[snafu(display("failed to add OIDC Volumes and VolumeMounts to the Pod and containers"))]
-    AddOidcVolumes {
-        source: stackable_operator::commons::tls_verification::TlsClientDetailsError,
-    },
-
-    #[snafu(display(
-        "failed to access bind credentials although they are required for LDAP to work"
-    ))]
-    MissingLdapBindCredentials,
-}
+/// Type alias for Druid's OIDC client authentication options, opting in to the
+/// `clientAuthenticationMethod` field via [`oidc::v1alpha1::ClientAuthenticationMethodOption`].
+pub type DruidClientAuthenticationOptions =
+    authentication::oidc::v1alpha1::ClientAuthenticationOptions<
+        authentication::oidc::v1alpha1::ClientAuthenticationMethodOption,
+    >;
 
 #[derive(Clone, Debug)]
 pub enum DruidAuthenticationConfig {
@@ -91,192 +24,30 @@ pub enum DruidAuthenticationConfig {
     },
     Oidc {
         provider: authentication::oidc::v1alpha1::AuthenticationProvider,
-        oidc: oidc::DruidClientAuthenticationOptions,
+        oidc: DruidClientAuthenticationOptions,
     },
 }
 
 impl DruidAuthenticationConfig {
-    pub fn try_from(
-        auth_classes_resolved: AuthenticationClassesResolved,
-    ) -> Result<Option<Self>, Error> {
-        // Currently only one auth mechanism is supported in Druid. This is checked in
-        // `rust/crd/src/authentication.rs` and just a fail-safe here. For Future changes,
-        // this is not just a "from" without error handling.
+    /// Maps the resolved `AuthenticationClass` references to the Druid authentication decision.
+    ///
+    /// Returns `None` when no authentication class is configured. Currently only one auth mechanism
+    /// is supported in Druid (checked when resolving the authentication classes), so only the first
+    /// entry is considered. This is a total mapping today; if future multi-mechanism validation is
+    /// added here, this should become fallible again.
+    pub fn from_auth_classes(auth_classes_resolved: AuthenticationClassesResolved) -> Option<Self> {
         match auth_classes_resolved.auth_classes.first() {
-            None => Ok(None),
-            Some(auth_class_resolved) => match &auth_class_resolved {
-                AuthenticationClassResolved::Tls { .. } => Ok(Some(Self::Tls {})),
-                AuthenticationClassResolved::Ldap { provider, .. } => Ok(Some(Self::Ldap {
+            None => None,
+            Some(auth_class_resolved) => match auth_class_resolved {
+                AuthenticationClassResolved::Tls { .. } => Some(Self::Tls {}),
+                AuthenticationClassResolved::Ldap { provider, .. } => Some(Self::Ldap {
                     provider: provider.clone(),
-                })),
-                AuthenticationClassResolved::Oidc { provider, oidc, .. } => Ok(Some(Self::Oidc {
+                }),
+                AuthenticationClassResolved::Oidc { provider, oidc, .. } => Some(Self::Oidc {
                     provider: provider.clone(),
                     oidc: oidc.clone(),
-                })),
+                }),
             },
         }
-    }
-
-    /// Creates the authentication and authorization parts of the runtime.properties config file.
-    /// Configuration related to TLS authentication is added in `rust/crd/src/security.rs`.
-    pub fn generate_runtime_properties_config(
-        &self,
-        role: &DruidRole,
-    ) -> Result<BTreeMap<String, String>, Error> {
-        let mut config: BTreeMap<String, String> = BTreeMap::new();
-
-        match self {
-            DruidAuthenticationConfig::Ldap { provider, .. } => {
-                self.generate_common_runtime_properties_config(&mut config);
-                ldap::generate_runtime_properties_config(provider, &mut config)?
-            }
-            DruidAuthenticationConfig::Oidc { provider, oidc, .. } => {
-                self.generate_common_runtime_properties_config(&mut config);
-                oidc::generate_runtime_properties_config(provider, oidc, role, &mut config)?
-            }
-            DruidAuthenticationConfig::Tls { .. } => (),
-        }
-        Ok(config)
-    }
-
-    /// Creates authentication config that is required by LDAP and OIDC and doesn't depend on user input.
-    fn generate_common_runtime_properties_config(&self, config: &mut BTreeMap<String, String>) {
-        self.add_druid_system_authenticator_config(config);
-        self.add_escalator_config(config);
-
-        config.insert(
-            "druid.auth.authorizer.DruidSystemAuthorizer.type".to_string(),
-            r#"allowAll"#.to_string(),
-        );
-    }
-
-    pub fn main_container_commands(&self) -> Vec<String> {
-        let mut command = vec![];
-        if let DruidAuthenticationConfig::Oidc { provider, .. } = self {
-            oidc::main_container_commands(provider, &mut command)
-        }
-        command
-    }
-
-    pub fn prepare_container_commands(&self) -> Vec<String> {
-        let mut command = vec![];
-        if let DruidAuthenticationConfig::Ldap { provider } = self {
-            ldap::prepare_container_commands(provider, &mut command)
-        }
-        command
-    }
-
-    pub fn get_env_var_mounts(&self, cluster: &ValidatedCluster, role: &DruidRole) -> Vec<EnvVar> {
-        let mut envs = vec![];
-        let internal_secret_name = build_shared_internal_secret_name(cluster);
-        envs.push(env_var_from_secret(
-            &internal_secret_name,
-            None,
-            INTERNAL_INITIAL_CLIENT_PASSWORD_ENV,
-        ));
-
-        if let DruidAuthenticationConfig::Oidc { oidc, .. } = self {
-            envs.extend(oidc::get_env_var_mounts(role, oidc, &internal_secret_name))
-        }
-        envs
-    }
-
-    pub fn add_volumes_and_mounts(
-        &self,
-        pb: &mut PodBuilder,
-        cb_druid: &mut ContainerBuilder,
-        cb_prepare: &mut ContainerBuilder,
-    ) -> Result<(), Error> {
-        match self {
-            DruidAuthenticationConfig::Ldap { provider, .. } => {
-                ldap::add_volumes_and_mounts(provider, pb, cb_druid, cb_prepare)
-            }
-            DruidAuthenticationConfig::Oidc { provider, .. } => {
-                oidc::add_volumes_and_mounts(provider, pb, cb_druid, cb_prepare)
-            }
-            DruidAuthenticationConfig::Tls { .. } => Ok(()),
-        }
-    }
-
-    /// Creates the authenticatior config for the internal communication by Druid processes using basic auth.
-    /// When using LDAP or OIDC the DruidSystemAuthenticator is always tried first and skipped if no basic auth credentials were supplied.
-    /// We don't want to create an admin user for the internal authentication, so this line is left out of the config:
-    /// # druid.auth.authenticator.DruidSystemAuthenticator.initialAdminPassword: XXX
-    fn add_druid_system_authenticator_config(&self, config: &mut BTreeMap<String, String>) {
-        config.insert(
-            "druid.auth.authenticator.DruidSystemAuthenticator.type".to_string(),
-            "basic".to_string(),
-        );
-        config.insert(
-            "druid.auth.authenticator.DruidSystemAuthenticator.credentialsValidator.type"
-                .to_string(),
-            "metadata".to_string(),
-        );
-
-        config.insert(
-            "druid.auth.authenticator.DruidSystemAuthenticator.initialInternalClientPassword"
-                .to_string(),
-            env_var_reference(INTERNAL_INITIAL_CLIENT_PASSWORD_ENV),
-        );
-        config.insert(
-            "druid.auth.authenticator.DruidSystemAuthenticator.authorizerName".to_string(),
-            "DruidSystemAuthorizer".to_string(),
-        );
-        config.insert(
-            "druid.auth.authenticator.DruidSystemAuthenticator.skipOnFailure".to_string(),
-            "true".to_string(),
-        );
-    }
-
-    /// Creates the escalator config: <https://druid.apache.org/docs/latest/operations/auth/#escalator>.
-    /// This configures Druid processes to use the basic auth authentication added in `add_druid_system_authenticator_config` for internal communication.
-    fn add_escalator_config(&self, config: &mut BTreeMap<String, String>) {
-        config.insert("druid.escalator.type".to_string(), "basic".to_string());
-        config.insert(
-            "druid.escalator.internalClientUsername".to_string(),
-            "druid_system".to_string(),
-        );
-        config.insert(
-            "druid.escalator.internalClientPassword".to_string(),
-            env_var_reference(ESCALATOR_INTERNAL_CLIENT_PASSWORD_ENV),
-        );
-        config.insert(
-            "druid.escalator.authorizerName".to_string(),
-            "DruidSystemAuthorizer".to_string(),
-        );
-    }
-}
-
-#[cfg(test)]
-mod test {
-    use super::*;
-
-    #[test]
-    fn test_ldap_config_is_added() {
-        let auth_config = DruidAuthenticationConfig::try_from(AuthenticationClassesResolved {
-            auth_classes: vec![AuthenticationClassResolved::Ldap {
-                auth_class_name: "ldap".to_string(),
-                provider: serde_yaml::from_str::<
-                    authentication::ldap::v1alpha1::AuthenticationProvider,
-                >(
-                    "
-                hostname: openldap
-                searchBase: ou=users,dc=example,dc=org
-                searchFilter: (uid=%s)
-                ",
-                )
-                .unwrap(),
-            }],
-        })
-        .unwrap()
-        .unwrap();
-
-        let role = DruidRole::Coordinator;
-
-        let got = auth_config
-            .generate_runtime_properties_config(&role)
-            .unwrap();
-
-        assert!(got.contains_key("druid.auth.authenticator.Ldap.type"));
     }
 }

@@ -9,17 +9,13 @@ use stackable_operator::{
 
 use super::{AddOidcVolumesSnafu, ConstructOidcWellKnownUrlSnafu, Error};
 use crate::{
+    authentication::DruidClientAuthenticationOptions,
     crd::{
         COOKIE_PASSPHRASE_ENV, DruidRole, env_var_reference,
         security::add_cert_to_jvm_trust_store_cmd,
     },
     internal_secret::env_var_from_secret,
 };
-
-/// Type alias for Druid's OIDC client authentication options, opting in to the
-/// `clientAuthenticationMethod` field via [`oidc::v1alpha1::ClientAuthenticationMethodOption`].
-pub type DruidClientAuthenticationOptions =
-    oidc::v1alpha1::ClientAuthenticationOptions<oidc::v1alpha1::ClientAuthenticationMethodOption>;
 
 /// Creates OIDC authenticator config using the pac4j extension for Druid: <https://druid.apache.org/docs/latest/development/extensions-core/druid-pac4j>.
 fn add_authenticator_config(

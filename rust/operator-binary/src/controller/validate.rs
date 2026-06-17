@@ -53,11 +53,6 @@ pub enum Error {
         source: product_image_selection::Error,
     },
 
-    #[snafu(display("invalid authentication configuration"))]
-    InvalidDruidAuthenticationConfig {
-        source: crate::authentication::Error,
-    },
-
     #[snafu(display("failed to resolve and merge config for role and role group"))]
     FailedToResolveConfig { source: crate::crd::Error },
 
@@ -334,10 +329,9 @@ pub fn validate(
         &dereferenced_objects.resolved_authentication_classes,
     );
 
-    let druid_auth_config = DruidAuthenticationConfig::try_from(
+    let druid_auth_config = DruidAuthenticationConfig::from_auth_classes(
         dereferenced_objects.resolved_authentication_classes.clone(),
-    )
-    .context(InvalidDruidAuthenticationConfigSnafu)?;
+    );
 
     let mut role_group_configs: BTreeMap<DruidRole, BTreeMap<RoleGroupName, DruidRoleGroupConfig>> =
         BTreeMap::new();

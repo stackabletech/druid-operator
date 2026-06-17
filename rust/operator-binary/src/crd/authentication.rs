@@ -85,7 +85,7 @@ pub enum AuthenticationClassResolved {
     Oidc {
         auth_class_name: String,
         provider: oidc::v1alpha1::AuthenticationProvider,
-        oidc: crate::authentication::oidc::DruidClientAuthenticationOptions,
+        oidc: crate::authentication::DruidClientAuthenticationOptions,
     },
 }
 
@@ -249,7 +249,7 @@ mod tests {
 
     use super::*;
     use crate::{
-        authentication::oidc::DruidClientAuthenticationOptions,
+        authentication::DruidClientAuthenticationOptions,
         crd::{authentication::AuthenticationClassesResolved, v1alpha1::DruidClusterConfig},
     };
 

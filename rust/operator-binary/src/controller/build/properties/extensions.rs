@@ -115,7 +115,7 @@ mod tests {
         );
 
         let druid_auth_config = Some(
-            DruidAuthenticationConfig::try_from(AuthenticationClassesResolved {
+            DruidAuthenticationConfig::from_auth_classes(AuthenticationClassesResolved {
                 auth_classes: vec![AuthenticationClassResolved::Oidc {
                     auth_class_name: "oidc".to_string(),
                     provider: oidc::v1alpha1::AuthenticationProvider::new(
@@ -127,7 +127,7 @@ mod tests {
                         vec![],
                         None,
                     ),
-                    oidc: crate::authentication::oidc::DruidClientAuthenticationOptions {
+                    oidc: crate::authentication::DruidClientAuthenticationOptions {
                         client_credentials_secret_ref: "".to_string(),
                         extra_scopes: vec![],
                         product_specific_fields: oidc::v1alpha1::ClientAuthenticationMethodOption {
@@ -137,7 +137,6 @@ mod tests {
                     },
                 }],
             })
-            .unwrap()
             .unwrap(),
         );
 

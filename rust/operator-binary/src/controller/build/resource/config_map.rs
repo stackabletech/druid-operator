@@ -25,6 +25,7 @@ use stackable_operator::{
 use crate::{
     controller::{
         build::{
+            authentication::generate_runtime_properties_config as generate_auth_runtime_properties,
             jvm::construct_jvm_args,
             properties::{
                 ConfigFileName,
@@ -82,7 +83,7 @@ pub enum Error {
 
     #[snafu(display("there was an error generating the authentication runtime settings"))]
     GenerateAuthenticationRuntimeSettings {
-        source: crate::authentication::Error,
+        source: crate::controller::build::authentication::Error,
     },
 
     #[snafu(display("failed to derive Druid memory settings from resources"))]
@@ -257,8 +258,7 @@ pub fn build_rolegroup_config_map(
 
         if let Some(auth_config) = druid_auth_config {
             conf.extend(
-                auth_config
-                    .generate_runtime_properties_config(role)
+                generate_auth_runtime_properties(auth_config, role)
                     .context(GenerateAuthenticationRuntimeSettingsSnafu)?,
             );
         };
