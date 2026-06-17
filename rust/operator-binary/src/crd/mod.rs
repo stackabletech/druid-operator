@@ -661,16 +661,6 @@ fn validate_logging(
 }
 
 /// A validated, merged role-group config.
-///
-/// This is the upstream [`stackable_operator::v2::role_utils::RoleGroupConfig`] (config plus the
-/// four merged override categories, role group winning over role), with the typed per-role config
-/// erased to the shared [`ValidatedDruidConfig`] view. The merged JVM argument overrides live in
-/// `product_specific_common_config`; the rendered per-file configs (runtime.properties /
-/// security.properties / jvm.config) are produced later, in the config-map build step.
-///
-/// The StatefulSet replicas come from [`RoleGroupConfig::replicas`], which is optional: an
-/// unspecified count is passed through as `None` to the StatefulSet so a HorizontalPodAutoscaler
-/// can own the replica count.
 pub type DruidRoleGroupConfig =
     RoleGroupConfig<ValidatedDruidConfig, JavaCommonConfig, DruidConfigOverrides>;
 
