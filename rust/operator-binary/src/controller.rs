@@ -223,13 +223,15 @@ pub async fn reconcile_druid(
         .await
         .context(ApplyRoleBindingSnafu)?;
 
+    // The internal secret is shared across all roles and role groups, so it only needs to be
+    // created once per reconcile rather than inside the role loop below.
+    create_shared_internal_secret(druid, client, DRUID_CONTROLLER_NAME)
+        .await
+        .context(FailedInternalSecretCreationSnafu)?;
+
     let mut ss_cond_builder = StatefulSetConditionBuilder::default();
 
     for (druid_role, groups) in validated_cluster.role_group_configs.iter() {
-        create_shared_internal_secret(druid, client, DRUID_CONTROLLER_NAME)
-            .await
-            .context(FailedInternalSecretCreationSnafu)?;
-
         for (rolegroup_name, rg) in groups.iter() {
             let rg_headless_service =
                 build_rolegroup_headless_service(&validated_cluster, druid_role, rolegroup_name);
