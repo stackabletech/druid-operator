@@ -7,7 +7,7 @@ All notable changes to this project will be documented in this file.
 ### Added
 
 - BREAKING: Add required CLI argument and env var to set the image repository used to construct final product image names: `IMAGE_REPOSITORY` (`--image-repository`), eg. `oci.example.org/my/namespace` ([#818]).
-- Add support OIDC `clientAuthenticationMethod` configuration ([#813]).
+- Add support for OIDC `clientAuthenticationMethod` configuration ([#813]).
 - Add support for Druid 37.0.0 ([#832]).
 
 ### Changed
