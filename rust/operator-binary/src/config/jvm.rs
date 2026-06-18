@@ -1,12 +1,13 @@
+use semver::Version;
 use snafu::{ResultExt, Snafu};
 use stackable_operator::{
+    crd::s3::v1alpha1::ConnectionSpec,
     memory::MemoryQuantity,
-    role_utils,
-    role_utils::{GenericRoleConfig, JavaCommonConfig, JvmArgumentOverrides, Role},
+    role_utils::{self, GenericRoleConfig, JavaCommonConfig, JvmArgumentOverrides, Role},
 };
 
 use crate::crd::{
-    DruidConfigOverrides, DruidRole, JVM_SECURITY_PROPERTIES_FILE, LOG4J2_CONFIG,
+    AWS_REGION, DruidConfigOverrides, DruidRole, JVM_SECURITY_PROPERTIES_FILE, LOG4J2_CONFIG,
     RW_CONFIG_DIRECTORY, STACKABLE_TRUST_STORE, STACKABLE_TRUST_STORE_PASSWORD,
 };
 
@@ -30,6 +31,9 @@ pub fn construct_jvm_args<T>(
     role_group: &str,
     heap: MemoryQuantity,
     direct_memory: Option<MemoryQuantity>,
+    s3_conn: Option<&ConnectionSpec>,
+    // TODO (@NickLarsenNZ): Remove this once we don't support Druid less than 37.0.0
+    druid_version: Result<Version, semver::Error>,
 ) -> Result<String, Error> {
     let heap_str = heap
         .format_for_java()
@@ -66,6 +70,18 @@ pub fn construct_jvm_args<T>(
     ]);
     if druid_role == &DruidRole::Coordinator {
         jvm_args.push("-Dderby.stream.error.file=/stackable/var/druid/derby.log".to_owned());
+    }
+    // TODO (@NickLarsenNZ): Remove the condition (keep the body) once we no longer support Druid
+    // less than 37.0.0
+    // Druid >= 37.0.0 uses the AWS SDK v2, which requires a region to be set via the JVM system
+    // property `aws.region`.
+    if matches!(&druid_version, Ok(v) if *v >= Version::new(37, 0, 0))
+        && let Some(s3) = s3_conn
+    {
+        jvm_args.push(format!(
+            "-D{AWS_REGION}={region_name}",
+            region_name = s3.region.name
+        ));
     }
 
     let operator_generated = JvmArgumentOverrides::new_with_only_additions(jvm_args);
@@ -299,6 +315,15 @@ mod tests {
             .get_memory_sizes(druid_role)
             .unwrap();
 
-        construct_jvm_args(druid_role, &role, "default", heap, direct).unwrap()
+        construct_jvm_args(
+            druid_role,
+            &role,
+            "default",
+            heap,
+            direct,
+            None,
+            semver::Version::parse("37.0.0"),
+        )
+        .unwrap()
     }
 }

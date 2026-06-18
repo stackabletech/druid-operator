@@ -105,6 +105,10 @@ pub const S3_ENDPOINT_URL: &str = "druid.s3.endpoint.url";
 pub const S3_ACCESS_KEY: &str = "druid.s3.accessKey";
 pub const S3_SECRET_KEY: &str = "druid.s3.secretKey";
 pub const S3_PATH_STYLE_ACCESS: &str = "druid.s3.enablePathStyleAccess";
+pub const S3_USE_TRANSFER_MANAGER: &str = "druid.storage.transfer.useTransferManager";
+/// AWS Region JVM System Property, passed to AWS SDK v2.
+/// See: https://druid.apache.org/docs/latest/development/extensions-core/s3/#aws-region
+pub const AWS_REGION: &str = "aws.region";
 // OPA
 pub const AUTH_AUTHORIZERS: &str = "druid.auth.authorizers";
 pub const AUTH_AUTHORIZERS_VALUE: &str = "[\"OpaAuthorizer\"]";
@@ -1534,16 +1538,7 @@ impl Configuration for MiddleManagerConfigFragment {
         _role_name: &str,
         file: &str,
     ) -> Result<BTreeMap<String, Option<String>>, ConfigError> {
-        let mut result = resource.common_compute_files(file)?;
-        result.insert(
-            INDEXER_JAVA_OPTS.to_string(),
-            Some(build_string_list(&[
-                format!("-Djavax.net.ssl.trustStore={STACKABLE_TRUST_STORE}"),
-                format!("-Djavax.net.ssl.trustStorePassword={STACKABLE_TRUST_STORE_PASSWORD}"),
-                "-Djavax.net.ssl.trustStoreType=pkcs12".to_owned(),
-            ])),
-        );
-        Ok(result)
+        resource.common_compute_files(file)
     }
 }
 
