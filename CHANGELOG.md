@@ -7,7 +7,8 @@ All notable changes to this project will be documented in this file.
 ### Added
 
 - BREAKING: Add required CLI argument and env var to set the image repository used to construct final product image names: `IMAGE_REPOSITORY` (`--image-repository`), eg. `oci.example.org/my/namespace` ([#818]).
-- Support OIDC `clientAuthenticationMethod` configuration ([#813]).
+- Add support for OIDC `clientAuthenticationMethod` configuration ([#813]).
+- Add support for Druid 37.0.0 ([#832]).
 
 ### Changed
 
@@ -23,7 +24,8 @@ All notable changes to this project will be documented in this file.
 
 ### Deleted
 
-- Removed all metadata storage related properties from product config ([#814]).
+- Remove all metadata storage related properties from product config ([#814]).
+- Remove support for Druid 34.0.0 ([#832]).
 
 [#810]: https://github.com/stackabletech/druid-operator/pull/810
 [#813]: https://github.com/stackabletech/druid-operator/pull/813
@@ -32,6 +34,7 @@ All notable changes to this project will be documented in this file.
 [#824]: https://github.com/stackabletech/druid-operator/pull/824
 [#826]: https://github.com/stackabletech/druid-operator/pull/826
 [#830]: https://github.com/stackabletech/druid-operator/pull/830
+[#832]: https://github.com/stackabletech/druid-operator/pull/832
 
 ## [26.3.0] - 2026-03-16
 

@@ -1,6 +1,8 @@
+use semver::Version;
 use snafu::{ResultExt, Snafu};
 use stackable_operator::{
-    memory::MemoryQuantity, v2::jvm_argument_overrides::JvmArgumentOverrides,
+    crd::s3::v1alpha1::ConnectionSpec, memory::MemoryQuantity,
+    v2::jvm_argument_overrides::JvmArgumentOverrides,
 };
 
 use super::properties::ConfigFileName;
@@ -11,6 +13,11 @@ use crate::crd::{
 
 /// The Derby error log file, written by the Coordinator's embedded Derby (default metadata store).
 const DERBY_LOG_FILE: &str = "/stackable/var/druid/derby.log";
+
+/// AWS Region JVM system property, passed to the AWS SDK v2 (used by Druid >= 37.0.0).
+/// Rendered both into `jvm.config` and into the MiddleManager Peon JVM opts.
+/// See: <https://druid.apache.org/docs/latest/development/extensions-core/s3/#aws-region>
+pub(crate) const AWS_REGION: &str = "aws.region";
 
 #[derive(Snafu, Debug)]
 pub enum Error {
@@ -28,6 +35,9 @@ pub fn construct_jvm_args(
     jvm_argument_overrides: &JvmArgumentOverrides,
     heap: MemoryQuantity,
     direct_memory: Option<MemoryQuantity>,
+    s3_conn: Option<&ConnectionSpec>,
+    // TODO (@NickLarsenNZ): Remove this once we don't support Druid less than 37.0.0
+    druid_version: Result<Version, semver::Error>,
 ) -> Result<String, Error> {
     let heap_str = heap
         .format_for_java()
@@ -66,6 +76,18 @@ pub fn construct_jvm_args(
     ]);
     if druid_role == &DruidRole::Coordinator {
         jvm_args.push(format!("-Dderby.stream.error.file={DERBY_LOG_FILE}"));
+    }
+    // TODO (@NickLarsenNZ): Remove the condition (keep the body) once we no longer support Druid
+    // less than 37.0.0
+    // Druid >= 37.0.0 uses the AWS SDK v2, which requires a region to be set via the JVM system
+    // property `aws.region`.
+    if matches!(&druid_version, Ok(v) if *v >= Version::new(37, 0, 0))
+        && let Some(s3) = s3_conn
+    {
+        jvm_args.push(format!(
+            "-D{AWS_REGION}={region_name}",
+            region_name = s3.region.name
+        ));
     }
 
     Ok(jvm_argument_overrides.apply_to(jvm_args).join("\n"))
@@ -258,6 +280,10 @@ mod tests {
             &rg.product_specific_common_config.jvm_argument_overrides,
             heap,
             direct,
+            // No S3 connection in these tests, so the region (and the version gating it) is never
+            // rendered into the JVM args.
+            None,
+            Version::parse("37.0.0"),
         )
         .unwrap()
     }

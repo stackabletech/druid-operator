@@ -13,6 +13,7 @@
 
 use std::collections::BTreeMap;
 
+use semver::Version;
 use snafu::{ResultExt, Snafu};
 use stackable_operator::{
     builder::configmap::ConfigMapBuilder,
@@ -26,7 +27,7 @@ use crate::{
     controller::{
         build::{
             authentication::generate_runtime_properties_config as generate_auth_runtime_properties,
-            jvm::construct_jvm_args,
+            jvm::{AWS_REGION, construct_jvm_args},
             properties::{
                 ConfigFileName,
                 extensions::get_extension_list,
@@ -51,6 +52,7 @@ const S3_ENDPOINT_URL: &str = "druid.s3.endpoint.url";
 const S3_ACCESS_KEY: &str = "druid.s3.accessKey";
 const S3_SECRET_KEY: &str = "druid.s3.secretKey";
 const S3_PATH_STYLE_ACCESS: &str = "druid.s3.enablePathStyleAccess";
+const S3_USE_TRANSFER_MANAGER: &str = "druid.storage.transfer.useTransferManager";
 const AUTH_AUTHORIZER_OPA_URI: &str = "druid.auth.authorizer.OpaAuthorizer.opaUri";
 
 #[derive(Snafu, Debug)]
@@ -101,15 +103,30 @@ const INDEXER_JAVA_OPTS: &str = "druid.indexer.runner.javaOptsArray";
 
 /// The `druid.indexer.runner.javaOptsArray` entry that must be present in *every* rendered file
 /// (runtime.properties and security.properties) for MiddleManagers.
-fn middlemanager_indexer_java_opts() -> (String, String) {
-    (
-        INDEXER_JAVA_OPTS.to_string(),
-        build_string_list(&[
-            format!("-Djavax.net.ssl.trustStore={STACKABLE_TRUST_STORE}"),
-            format!("-Djavax.net.ssl.trustStorePassword={STACKABLE_TRUST_STORE_PASSWORD}"),
-            format!("-Djavax.net.ssl.trustStoreType={STACKABLE_TRUST_STORE_TYPE}"),
-        ]),
-    )
+fn middlemanager_indexer_java_opts(
+    s3_conn: Option<&s3::v1alpha1::ConnectionSpec>,
+    druid_version: &Result<Version, semver::Error>,
+) -> (String, String) {
+    let mut java_opts = vec![
+        format!("-Djavax.net.ssl.trustStore={STACKABLE_TRUST_STORE}"),
+        format!("-Djavax.net.ssl.trustStorePassword={STACKABLE_TRUST_STORE_PASSWORD}"),
+        format!("-Djavax.net.ssl.trustStoreType={STACKABLE_TRUST_STORE_TYPE}"),
+    ];
+
+    // TODO (@NickLarsenNZ): Remove the condition (keep the body) once we no longer support Druid
+    // less than 37.0.0.
+    // Druid >= 37.0.0 uses the AWS SDK v2, which requires a region to be set via the JVM system
+    // property `aws.region` for the Peon processes spawned by the MiddleManager.
+    if matches!(druid_version, Ok(v) if *v >= Version::new(37, 0, 0))
+        && let Some(s3) = s3_conn
+    {
+        java_opts.push(format!(
+            "-D{AWS_REGION}={region_name}",
+            region_name = s3.region.name
+        ));
+    }
+
+    (INDEXER_JAVA_OPTS.to_string(), build_string_list(&java_opts))
 }
 
 /// Returns the user-supplied key/value overrides for the given config file from a
@@ -142,6 +159,8 @@ pub fn build_rolegroup_config_map(
     let opa_connstr = cluster_config.opa_connection_string.as_deref();
     let s3_conn = cluster_config.s3_connection.as_ref();
     let deep_storage_bucket_name = cluster_config.deep_storage_bucket_name.as_deref();
+    // TODO (@NickLarsenNZ): Remove this once we don't support Druid less than 37.0.0
+    let druid_version = Version::parse(&cluster.image.product_version);
 
     let mut cm_conf_data = BTreeMap::new(); // filename -> filecontent
     let metadata_database_connection_details = &cluster_config.metadata_db_connection;
@@ -220,15 +239,39 @@ pub fn build_rolegroup_config_map(
         }
 
         if let Some(s3) = s3_conn {
-            if !s3.region.is_default_config() {
-                // Raising this as warning instead of returning an error, better safe than sorry.
-                // It might still work out for the user.
-                tracing::warn!(
-                    region = ?s3.region,
-                    "You configured a non-default region on the S3Connection.
-                    The S3Connection region field is ignored because Druid uses the AWS SDK v1, which ignores the region if the endpoint is set. \
-                    The host is a required field, therefore the endpoint will always be set."
-                )
+            // TODO (@NickLarsenNZ): Remove the version condition once we no longer support Druid
+            // less than 37.0.0.
+            // Druid >= 37.0.0 uses the AWS SDK v2, which requires a region (set via the JVM system
+            // property `-Daws.region` in the jvm.config section below). Older versions use the AWS
+            // SDK v1, which ignores the region when an endpoint is set (and the endpoint is always
+            // set because `host` is a required field on the S3Connection).
+            match &druid_version {
+                Ok(v) if *v < Version::new(37, 0, 0) => {
+                    if !s3.region.is_default_config() {
+                        // Raising this as warning instead of returning an error, better safe than
+                        // sorry. It might still work out for the user.
+                        tracing::warn!(
+                            region = ?s3.region,
+                            "You configured a non-default region on the S3Connection. \
+                            The S3Connection region field is ignored because this Druid version uses the AWS SDK v1, which ignores the region if the endpoint is set. \
+                            The host is a required field, therefore the endpoint will always be set."
+                        );
+                    }
+                }
+                Err(err) => {
+                    tracing::warn!(
+                        %err,
+                        version = %cluster.image.product_version,
+                        "Failed to parse Druid product version, skipping S3 region configuration"
+                    );
+                }
+                // For Druid >= 37.0.0 the region is set via the JVM system property `-Daws.region`
+                // in the jvm.config section below.
+                Ok(_) => {
+                    // Disable the S3 Transfer Manager to avoid the AWS CRT async HTTP client, which
+                    // fails against non-AWS S3 endpoints.
+                    conf.insert(S3_USE_TRANSFER_MANAGER.to_string(), "false".to_string());
+                }
             }
 
             conf.insert(
@@ -271,7 +314,7 @@ pub fn build_rolegroup_config_map(
             cluster_config.opa_connection_string.is_some(),
         ));
         if *role == DruidRole::MiddleManager {
-            let (k, v) = middlemanager_indexer_java_opts();
+            let (k, v) = middlemanager_indexer_java_opts(s3_conn, &druid_version);
             conf.insert(k, v);
         }
         conf.extend(runtime_properties::defaults(role));
@@ -300,6 +343,10 @@ pub fn build_rolegroup_config_map(
             &rg.product_specific_common_config.jvm_argument_overrides,
             heap,
             direct,
+            s3_conn,
+            // `construct_jvm_args` takes the version by value and `semver::Error` is not `Clone`,
+            // so re-parse here rather than cloning the `druid_version` used by reference above.
+            Version::parse(&cluster.image.product_version),
         )
         .context(GetJvmConfigSnafu)?;
         cm_conf_data.insert(ConfigFileName::JvmConfig.to_string(), jvm_config);
@@ -309,7 +356,7 @@ pub fn build_rolegroup_config_map(
     {
         let mut security_config: BTreeMap<String, String> = BTreeMap::new();
         if *role == DruidRole::MiddleManager {
-            let (k, v) = middlemanager_indexer_java_opts();
+            let (k, v) = middlemanager_indexer_java_opts(s3_conn, &druid_version);
             security_config.insert(k, v);
         }
         let security_overrides =
