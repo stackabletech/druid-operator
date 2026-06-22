@@ -165,7 +165,7 @@ pub enum Error {
 
     #[snafu(display("invalid environment variable override name in role group {role_group:?}"))]
     ParseEnvVarName {
-        source: stackable_operator::v2::builder::pod::container::Error,
+        source: stackable_operator::v2::macros::attributed_string_type::Error,
         role_group: String,
     },
 
