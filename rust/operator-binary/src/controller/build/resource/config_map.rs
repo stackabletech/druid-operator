@@ -8,8 +8,8 @@
 //! Metadata, owner reference and recommended labels are derived entirely from `ValidatedCluster`
 //! (which carries the validated name/namespace/uid and implements `Resource`).
 //!
-//! The builder does not read the raw [`v1alpha1::DruidCluster`] at all: everything it needs is
-//! carried on `ValidatedCluster` (resolved during the validate step).
+//! The builder does not read the raw [`crate::crd::v1alpha1::DruidCluster`] at all: everything it
+//! needs is carried on `ValidatedCluster` (resolved during the validate step).
 
 use std::collections::BTreeMap;
 

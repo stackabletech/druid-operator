@@ -10,7 +10,8 @@ use stackable_operator::crd::authentication;
 use crate::crd::authentication::{AuthenticationClassResolved, AuthenticationClassesResolved};
 
 /// Type alias for Druid's OIDC client authentication options, opting in to the
-/// `clientAuthenticationMethod` field via [`oidc::v1alpha1::ClientAuthenticationMethodOption`].
+/// `clientAuthenticationMethod` field via
+/// [`authentication::oidc::v1alpha1::ClientAuthenticationMethodOption`].
 pub type DruidClientAuthenticationOptions =
     authentication::oidc::v1alpha1::ClientAuthenticationOptions<
         authentication::oidc::v1alpha1::ClientAuthenticationMethodOption,

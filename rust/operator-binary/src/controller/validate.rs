@@ -83,9 +83,9 @@ type Result<T, E = Error> = std::result::Result<T, E>;
 ///
 /// This is the upstream [`stackable_operator::v2::role_utils::RoleGroupConfig`] (config plus the
 /// four merged override categories), with the typed per-role config erased to
-/// [`ValidatedDruidConfig`] so that all roles share a single type. The rendered per-file configs
-/// (runtime.properties / security.properties / jvm.config) are produced later, in the config-map
-/// build step.
+/// [`crate::crd::ValidatedDruidConfig`] so that all roles share a single type. The rendered
+/// per-file configs (runtime.properties / security.properties / jvm.config) are produced later, in
+/// the config-map build step.
 ///
 /// Defined in [`crate::crd`] (where it has access to the private typed config fields) and
 /// re-exported here for the build step.

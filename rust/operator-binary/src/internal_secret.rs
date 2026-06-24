@@ -6,9 +6,13 @@ use stackable_operator::{
     client::Client,
     k8s_openapi::api::core::v1::{EnvVar, EnvVarSource, Secret, SecretKeySelector},
     kube::ResourceExt,
+    v2::builder::meta::ownerreference_from_resource,
 };
 
-use crate::crd::{COOKIE_PASSPHRASE_ENV, security::INTERNAL_INITIAL_CLIENT_PASSWORD_ENV, v1alpha1};
+use crate::{
+    controller::validate::ValidatedCluster,
+    crd::{COOKIE_PASSPHRASE_ENV, security::INTERNAL_INITIAL_CLIENT_PASSWORD_ENV},
+};
 
 #[derive(Snafu, Debug)]
 #[allow(clippy::enum_variant_names)]
@@ -30,19 +34,14 @@ pub enum Error {
 
     #[snafu(display("object defines no namespace"))]
     ObjectHasNoNamespace,
-
-    #[snafu(display("object is missing metadata to build owner reference"))]
-    ObjectMissingMetadataForOwnerRef {
-        source: stackable_operator::builder::meta::Error,
-    },
 }
 
 pub async fn create_shared_internal_secret(
-    druid: &v1alpha1::DruidCluster,
+    cluster: &ValidatedCluster,
     client: &Client,
     controller_name: &str,
 ) -> Result<(), Error> {
-    let secret = build_shared_internal_secret(druid)?;
+    let secret = build_shared_internal_secret(cluster);
     let existing_secret = client
         .get_opt::<Secret>(
             &secret.name_any(),
@@ -55,7 +54,7 @@ pub async fn create_shared_internal_secret(
         .context(FailedToRetrieveInternalSecretSnafu)?;
     let existing_immutable_secret = client
         .get_opt::<Secret>(
-            &build_immutable_shared_internal_secret_name(druid),
+            &build_immutable_shared_internal_secret_name(cluster),
             secret
                 .namespace()
                 .as_deref()
@@ -142,7 +141,7 @@ pub async fn create_shared_internal_secret(
     Ok(())
 }
 
-fn build_shared_internal_secret(druid: &v1alpha1::DruidCluster) -> Result<Secret, Error> {
+fn build_shared_internal_secret(cluster: &ValidatedCluster) -> Secret {
     let mut internal_secret = BTreeMap::new();
     internal_secret.insert(
         INTERNAL_INITIAL_CLIENT_PASSWORD_ENV.to_string(),
@@ -150,20 +149,19 @@ fn build_shared_internal_secret(druid: &v1alpha1::DruidCluster) -> Result<Secret
     );
     internal_secret.insert(COOKIE_PASSPHRASE_ENV.to_string(), get_random_base64());
 
-    Ok(Secret {
+    Secret {
         metadata: ObjectMetaBuilder::new()
-            .name(build_shared_internal_secret_name(druid))
-            .namespace_opt(druid.namespace())
-            .ownerreference_from_resource(druid, None, Some(true))
-            .context(ObjectMissingMetadataForOwnerRefSnafu)?
+            .name(build_shared_internal_secret_name(cluster))
+            .namespace_opt(cluster.namespace())
+            .ownerreference(ownerreference_from_resource(cluster, None, Some(true)))
             .build(),
         string_data: Some(internal_secret),
         ..Secret::default()
-    })
+    }
 }
 
-fn build_immutable_shared_internal_secret_name(druid: &v1alpha1::DruidCluster) -> String {
-    format!("{}-internal-secret", druid.name_any())
+fn build_immutable_shared_internal_secret_name(cluster: &ValidatedCluster) -> String {
+    format!("{}-internal-secret", cluster.name_any())
 }
 
 pub fn build_shared_internal_secret_name<T: ResourceExt>(owner: &T) -> String {

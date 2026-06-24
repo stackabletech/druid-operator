@@ -75,7 +75,8 @@ pub struct DereferencedObjects {
     /// and its connection.
     pub s3_deep_storage_bucket: Option<s3::v1alpha1::ResolvedBucket>,
     /// The raw, fetched `AuthenticationClass` objects (in spec order). Validation of these happens
-    /// in the validate step via [`AuthenticationClassesResolved::from_fetched`].
+    /// in the validate step via
+    /// [`crate::crd::authentication::AuthenticationClassesResolved::from_fetched`].
     pub authentication_classes: Vec<core::v1alpha1::AuthenticationClass>,
 }
 

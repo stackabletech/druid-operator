@@ -225,7 +225,7 @@ pub async fn reconcile_druid(
 
     // The internal secret is shared across all roles and role groups, so it only needs to be
     // created once per reconcile rather than inside the role loop below.
-    create_shared_internal_secret(druid, client, DRUID_CONTROLLER_NAME)
+    create_shared_internal_secret(&validated_cluster, client, DRUID_CONTROLLER_NAME)
         .await
         .context(FailedInternalSecretCreationSnafu)?;
 
