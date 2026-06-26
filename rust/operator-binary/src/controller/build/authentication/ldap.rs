@@ -9,32 +9,35 @@ use stackable_operator::{
 use super::{
     AddLdapVolumesSnafu, ConstructLdapEndpointUrlSnafu, Error, MissingLdapBindCredentialsSnafu,
 };
-use crate::crd::security::{STACKABLE_TLS_DIR, TLS_STORE_PASSWORD, add_cert_to_trust_store_cmd};
+use crate::crd::{
+    STACKABLE_TRUST_STORE_PASSWORD, file_reference,
+    security::{STACKABLE_TLS_DIR, add_cert_to_trust_store_cmd},
+};
+
+const LDAP_AUTHORIZER: &str = "LdapAuthorizer";
 
 fn add_authenticator_config(
     provider: &ldap::v1alpha1::AuthenticationProvider,
-    config: &mut BTreeMap<String, Option<String>>,
+    config: &mut BTreeMap<String, String>,
 ) -> Result<(), Error> {
     config.insert(
         "druid.auth.authenticator.Ldap.type".to_string(),
-        Some("basic".to_string()),
+        super::AUTHENTICATOR_TYPE_BASIC.to_string(),
     );
     config.insert(
         "druid.auth.authenticator.Ldap.enableCacheNotifications".to_string(),
-        Some("true".to_string()),
+        "true".to_string(),
     );
     config.insert(
         "druid.auth.authenticator.Ldap.credentialsValidator.type".to_string(),
-        Some("ldap".to_string()),
+        "ldap".to_string(),
     );
     config.insert(
         "druid.auth.authenticator.Ldap.credentialsValidator.url".to_string(),
-        Some(
-            provider
-                .endpoint_url()
-                .context(ConstructLdapEndpointUrlSnafu)?
-                .into(),
-        ),
+        provider
+            .endpoint_url()
+            .context(ConstructLdapEndpointUrlSnafu)?
+            .into(),
     );
 
     if let Some((ldap_bind_user_path, ldap_bind_password_path)) =
@@ -42,60 +45,46 @@ fn add_authenticator_config(
     {
         config.insert(
             "druid.auth.authenticator.Ldap.credentialsValidator.bindUser".to_string(),
-            Some(format!("${{file:UTF-8:{ldap_bind_user_path}}}").to_string()),
+            file_reference(ldap_bind_user_path),
         );
         config.insert(
             "druid.auth.authenticator.Ldap.credentialsValidator.bindPassword".to_string(),
-            Some(format!("${{file:UTF-8:{ldap_bind_password_path}}}").to_string()),
+            file_reference(ldap_bind_password_path),
         );
     }
 
     config.insert(
         "druid.auth.authenticator.Ldap.credentialsValidator.baseDn".to_string(),
-        Some(provider.search_base.to_string()),
+        provider.search_base.to_string(),
     );
     config.insert(
         "druid.auth.authenticator.Ldap.credentialsValidator.userAttribute".to_string(),
-        Some(provider.ldap_field_names.uid.to_string()),
+        provider.ldap_field_names.uid.to_string(),
     );
     config.insert(
         "druid.auth.authenticator.Ldap.credentialsValidator.userSearch".to_string(),
-        Some(provider.search_filter.to_string()),
+        provider.search_filter.to_string(),
     );
     config.insert(
         "druid.auth.authenticator.Ldap.authorizerName".to_string(),
-        Some("LdapAuthorizer".to_string()),
+        LDAP_AUTHORIZER.to_string(),
     );
-    config.insert(
-        "druid.auth.authenticatorChain".to_string(),
-        Some(r#"["DruidSystemAuthenticator", "Ldap"]"#.to_string()),
-    );
+    super::set_authenticator_chain(config, &["Ldap"]);
 
     Ok(())
 }
 
-fn add_authorizer_config(config: &mut BTreeMap<String, Option<String>>) {
-    config.insert(
-        "druid.auth.authorizers".to_string(),
-        Some(r#"["LdapAuthorizer", "DruidSystemAuthorizer"]"#.to_string()),
-    );
-    config.insert(
-        "druid.auth.authorizer.LdapAuthorizer.type".to_string(),
-        Some(r#"allowAll"#.to_string()),
-    );
-}
-
-pub fn generate_runtime_properties_config(
+pub(super) fn generate_runtime_properties_config(
     provider: &ldap::v1alpha1::AuthenticationProvider,
-    config: &mut BTreeMap<String, Option<String>>,
+    config: &mut BTreeMap<String, String>,
 ) -> Result<(), Error> {
     add_authenticator_config(provider, config)?;
-    add_authorizer_config(config);
+    super::add_authorizer_config(config, LDAP_AUTHORIZER);
 
     Ok(())
 }
 
-pub fn prepare_container_commands(
+pub(super) fn prepare_container_commands(
     provider: &ldap::v1alpha1::AuthenticationProvider,
     command: &mut Vec<String>,
 ) {
@@ -103,12 +92,12 @@ pub fn prepare_container_commands(
         command.extend(add_cert_to_trust_store_cmd(
             &tls_ca_cert_mount_path,
             STACKABLE_TLS_DIR,
-            TLS_STORE_PASSWORD,
+            STACKABLE_TRUST_STORE_PASSWORD,
         ))
     }
 }
 
-pub fn add_volumes_and_mounts(
+pub(super) fn add_volumes_and_mounts(
     provider: &ldap::v1alpha1::AuthenticationProvider,
     pb: &mut PodBuilder,
     cb_druid: &mut ContainerBuilder,

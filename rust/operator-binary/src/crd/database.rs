@@ -11,11 +11,11 @@ use stackable_operator::{
 };
 
 // metadata storage config properties
-pub const METADATA_STORAGE_TYPE: &str = "druid.metadata.storage.type";
-pub const METADATA_STORAGE_CONNECTOR_CONNECT_URI: &str =
+pub(crate) const METADATA_STORAGE_TYPE: &str = "druid.metadata.storage.type";
+pub(crate) const METADATA_STORAGE_CONNECTOR_CONNECT_URI: &str =
     "druid.metadata.storage.connector.connectURI";
-pub const METADATA_STORAGE_USER: &str = "druid.metadata.storage.connector.user";
-pub const METADATA_STORAGE_PASSWORD: &str = "druid.metadata.storage.connector.password";
+pub(crate) const METADATA_STORAGE_USER: &str = "druid.metadata.storage.connector.user";
+pub(crate) const METADATA_STORAGE_PASSWORD: &str = "druid.metadata.storage.connector.password";
 
 #[derive(Clone, Debug, Deserialize, JsonSchema, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]

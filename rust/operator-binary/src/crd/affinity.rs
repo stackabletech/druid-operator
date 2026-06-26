@@ -39,7 +39,7 @@ pub fn get_affinity(
             {
                 vec![affinity_between_role_pods(
                     "hdfs",
-                    hdfs_discovery_cm_name, // The discovery cm has the same name as the HdfsCluster itself
+                    hdfs_discovery_cm_name.as_ref(), // The discovery cm has the same name as the HdfsCluster itself
                     "datanode",
                     50,
                 )]
@@ -76,7 +76,7 @@ pub fn get_affinity(
 
 #[cfg(test)]
 mod tests {
-    use std::collections::BTreeMap;
+    use std::{collections::BTreeMap, str::FromStr};
 
     use rstest::rstest;
     use stackable_operator::{
@@ -87,6 +87,7 @@ mod tests {
             },
             apimachinery::pkg::apis::meta::v1::LabelSelector,
         },
+        v2::types::operator::RoleGroupName,
     };
 
     use super::*;
@@ -142,10 +143,9 @@ mod tests {
         let deserializer = serde_yaml::Deserializer::from_str(input);
         let druid: v1alpha1::DruidCluster =
             serde_yaml::with::singleton_map_recursive::deserialize(deserializer).unwrap();
-        let merged_config = druid
-            .merged_config()
-            .unwrap()
-            .common_config(&role, "default")
+        let merged_role = druid.merged_role(&role).unwrap();
+        let merged_config = merged_role
+            .get(&RoleGroupName::from_str("default").unwrap())
             .unwrap();
 
         let mut expected_affinities = vec![];
@@ -257,7 +257,7 @@ mod tests {
         };
 
         assert_eq!(
-            merged_config.affinity,
+            merged_config.config.affinity,
             StackableAffinity {
                 pod_affinity: Some(PodAffinity {
                     preferred_during_scheduling_ignored_during_execution: Some(expected_affinities),

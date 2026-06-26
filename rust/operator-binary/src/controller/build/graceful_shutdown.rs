@@ -26,37 +26,29 @@ pub fn add_graceful_shutdown_config(
     // This must be always set by the merge mechanism, as we provide a default value,
     // users can not disable graceful shutdown.
     if let Some(termination_grace_period) = graceful_shutdown_timeout {
-        match role {
-            DruidRole::Coordinator
-            | DruidRole::Broker
-            | DruidRole::Historical
-            | DruidRole::Router => {
-                pod_builder
-                    .termination_grace_period(&termination_grace_period)
-                    .context(SetTerminationGracePeriodSnafu)?;
-            }
-            DruidRole::MiddleManager => {
-                pod_builder
-                    .termination_grace_period(&termination_grace_period)
-                    .context(SetTerminationGracePeriodSnafu)?;
+        // Every role gets the termination grace period; only the MiddleManager additionally needs a
+        // pre-stop hook that drains running tasks before the period elapses.
+        pod_builder
+            .termination_grace_period(&termination_grace_period)
+            .context(SetTerminationGracePeriodSnafu)?;
 
-                let (protocol, port) = if tls_security.tls_enabled() {
-                    ("https", role.get_https_port())
-                } else {
-                    ("http", role.get_http_port())
-                };
+        if *role == DruidRole::MiddleManager {
+            let (protocol, port) = if tls_security.tls_enabled() {
+                ("https", role.get_https_port())
+            } else {
+                ("http", role.get_http_port())
+            };
 
-                let middle_manager_host = format!("{protocol}://127.0.0.1:{port}");
-                let debug_message =
-                    "$(date --utc +%FT%T,%3N) INFO [stackable_lifecycle_pre_stop] -";
-                let sleep_interval = 2;
+            let middle_manager_host = format!("{protocol}://127.0.0.1:{port}");
+            let debug_message = "$(date --utc +%FT%T,%3N) INFO [stackable_lifecycle_pre_stop] -";
+            let sleep_interval = 2;
 
-                // The middle manager can be terminated gracefully by disabling it, meaning
-                // the overlord will not send any new tasks and it will terminate after
-                // all tasks are finished or the termination grace period is exceeded.
-                // See: https://druid.apache.org/docs/latest/operations/rolling-updates/#rolling-restart-graceful-termination-based
-                // The DRUID_PID is set in the crd/src/lib.rs `main_container_start_command` method.
-                druid_builder.lifecycle_pre_stop(LifecycleHandler {
+            // The middle manager can be terminated gracefully by disabling it, meaning
+            // the overlord will not send any new tasks and it will terminate after
+            // all tasks are finished or the termination grace period is exceeded.
+            // See: https://druid.apache.org/docs/latest/operations/rolling-updates/#rolling-restart-graceful-termination-based
+            // The DRUID_PID is set in the crd/src/lib.rs `main_container_start_command` method.
+            druid_builder.lifecycle_pre_stop(LifecycleHandler {
                     exec: Some(ExecAction {
                         command: Some(vec![
                             "/bin/bash".to_string(),
@@ -103,7 +95,6 @@ pub fn add_graceful_shutdown_config(
                     }),
                     ..Default::default()
                 });
-            }
         }
     }
 

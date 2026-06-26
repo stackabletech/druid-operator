@@ -5,8 +5,8 @@ use stackable_operator::{
     builder,
     builder::pod::{PodBuilder, container::ContainerBuilder, volume::VolumeBuilder},
     commons::resources::{
-        CpuLimitsFragment, MemoryLimits, MemoryLimitsFragment, NoRuntimeLimits,
-        NoRuntimeLimitsFragment, Resources, ResourcesFragment,
+        CpuLimitsFragment, MemoryLimitsFragment, NoRuntimeLimits, NoRuntimeLimitsFragment,
+        Resources, ResourcesFragment,
     },
     k8s_openapi::{
         api::core::v1::{EmptyDirVolumeSource, ResourceRequirements},
@@ -14,20 +14,20 @@ use stackable_operator::{
     },
     memory::MemoryQuantity,
 };
-use strum::{EnumDiscriminants, IntoStaticStr};
 
 use crate::crd::{
-    DruidRole, PATH_SEGMENT_CACHE, PROP_SEGMENT_CACHE_LOCATIONS,
+    DruidRole, PROP_SEGMENT_CACHE_LOCATIONS,
     memory::{HistoricalDerivedSettings, RESERVED_OS_MEMORY},
     storage::{self, default_free_percentage_empty_dir_fragment},
 };
+
+const PATH_SEGMENT_CACHE: &str = "/stackable/var/druid/segment-cache";
 
 // volume names
 const SEGMENT_CACHE_VOLUME_NAME: &str = "segment-cache";
 
 /// This Error cannot derive PartialEq because fragment::ValidationError doesn't derive it
-#[derive(Snafu, Debug, EnumDiscriminants)]
-#[strum_discriminants(derive(IntoStaticStr))]
+#[derive(Snafu, Debug)]
 #[allow(clippy::enum_variant_names)]
 pub enum Error {
     #[snafu(display("failed to derive Druid settings from resources"))]
@@ -67,18 +67,11 @@ impl RoleResource {
         }
     }
 
-    pub fn as_memory_limits(&self) -> MemoryLimits<NoRuntimeLimits> {
-        match self {
-            Self::Druid(r) => r.memory.clone(),
-            Self::Historical(r) => r.memory.clone(),
-        }
-    }
-
     /// Update the given configuration file with resource properties.
     /// Currently it only adds historical-specific configs for direct memory buffers, thread counts and segment cache.
     pub fn update_druid_config_file(
         &self,
-        config: &mut BTreeMap<String, Option<String>>,
+        config: &mut BTreeMap<String, String>,
     ) -> Result<(), Error> {
         match self {
             Self::Historical(r) => {
@@ -87,10 +80,10 @@ impl RoleResource {
                 config
                     .entry(PROP_SEGMENT_CACHE_LOCATIONS.to_string())
                     .or_insert_with(|| {
-                        Some(format!(
+                        format!(
                             r#"[{{"path":"{}","maxSize":"{}","freeSpacePercent":"{}"}}]"#,
                             PATH_SEGMENT_CACHE, capacity.0, free_percentage
-                        ))
+                        )
                     });
 
                 let settings =
@@ -172,7 +165,7 @@ impl RoleResource {
     }
 }
 
-pub static MIDDLE_MANAGER_RESOURCES: LazyLock<
+pub(crate) static MIDDLE_MANAGER_RESOURCES: LazyLock<
     ResourcesFragment<storage::DruidStorage, NoRuntimeLimits>,
 > = LazyLock::new(|| ResourcesFragment {
     cpu: CpuLimitsFragment {
@@ -186,20 +179,21 @@ pub static MIDDLE_MANAGER_RESOURCES: LazyLock<
     storage: storage::DruidStorageFragment {},
 });
 
-pub static BROKER_RESOURCES: LazyLock<ResourcesFragment<storage::DruidStorage, NoRuntimeLimits>> =
-    LazyLock::new(|| ResourcesFragment {
-        cpu: CpuLimitsFragment {
-            min: Some(Quantity("300m".to_owned())),
-            max: Some(Quantity("1200m".to_owned())),
-        },
-        memory: MemoryLimitsFragment {
-            limit: Some(Quantity("1500Mi".to_owned())),
-            runtime_limits: NoRuntimeLimitsFragment {},
-        },
-        storage: storage::DruidStorageFragment {},
-    });
+pub(crate) static BROKER_RESOURCES: LazyLock<
+    ResourcesFragment<storage::DruidStorage, NoRuntimeLimits>,
+> = LazyLock::new(|| ResourcesFragment {
+    cpu: CpuLimitsFragment {
+        min: Some(Quantity("300m".to_owned())),
+        max: Some(Quantity("1200m".to_owned())),
+    },
+    memory: MemoryLimitsFragment {
+        limit: Some(Quantity("1500Mi".to_owned())),
+        runtime_limits: NoRuntimeLimitsFragment {},
+    },
+    storage: storage::DruidStorageFragment {},
+});
 
-pub static HISTORICAL_RESOURCES: LazyLock<
+pub(crate) static HISTORICAL_RESOURCES: LazyLock<
     ResourcesFragment<storage::HistoricalStorage, NoRuntimeLimits>,
 > = LazyLock::new(|| ResourcesFragment {
     cpu: CpuLimitsFragment {
@@ -215,7 +209,7 @@ pub static HISTORICAL_RESOURCES: LazyLock<
     },
 });
 
-pub static COORDINATOR_RESOURCES: LazyLock<
+pub(crate) static COORDINATOR_RESOURCES: LazyLock<
     ResourcesFragment<storage::DruidStorage, NoRuntimeLimits>,
 > = LazyLock::new(|| ResourcesFragment {
     cpu: CpuLimitsFragment {
@@ -229,35 +223,39 @@ pub static COORDINATOR_RESOURCES: LazyLock<
     storage: storage::DruidStorageFragment {},
 });
 
-pub static ROUTER_RESOURCES: LazyLock<ResourcesFragment<storage::DruidStorage, NoRuntimeLimits>> =
-    LazyLock::new(|| ResourcesFragment {
-        cpu: CpuLimitsFragment {
-            min: Some(Quantity("300m".to_owned())),
-            max: Some(Quantity("1200m".to_owned())),
-        },
-        memory: MemoryLimitsFragment {
-            limit: Some(Quantity("512Mi".to_owned())),
-            runtime_limits: NoRuntimeLimitsFragment {},
-        },
-        storage: storage::DruidStorageFragment {},
-    });
+pub(crate) static ROUTER_RESOURCES: LazyLock<
+    ResourcesFragment<storage::DruidStorage, NoRuntimeLimits>,
+> = LazyLock::new(|| ResourcesFragment {
+    cpu: CpuLimitsFragment {
+        min: Some(Quantity("300m".to_owned())),
+        max: Some(Quantity("1200m".to_owned())),
+    },
+    memory: MemoryLimitsFragment {
+        limit: Some(Quantity("512Mi".to_owned())),
+        runtime_limits: NoRuntimeLimitsFragment {},
+    },
+    storage: storage::DruidStorageFragment {},
+});
 
 #[cfg(test)]
 mod test {
+    use std::str::FromStr;
+
     use rstest::*;
     use stackable_operator::{
         commons::resources::{
             CpuLimits, CpuLimitsFragment, MemoryLimits, MemoryLimitsFragment,
             NoRuntimeLimitsFragment,
         },
+        config::{fragment, merge::Merge},
         k8s_openapi::apimachinery::pkg::api::resource::Quantity,
-        role_utils::{CommonConfiguration, RoleGroup},
         utils::yaml_from_str_singleton_map,
+        v2::types::operator::RoleGroupName,
     };
 
     use super::*;
     use crate::crd::{
-        MiddleManagerConfig,
+        DruidRole,
         storage::{HistoricalStorage, default_free_percentage_empty_dir},
         v1alpha1,
     };
@@ -395,11 +393,13 @@ mod test {
         #[case] third: Option<ResourcesFragment<HistoricalStorage>>,
         #[case] expected: Resources<HistoricalStorage>,
     ) {
-        let got = v1alpha1::DruidCluster::merged_rolegroup_config(
-            &first.unwrap_or_default(),
-            &second.unwrap_or_default(),
-            &third.unwrap_or_default(),
-        );
+        // Replicates the fragment merge done by `with_validated_config` /
+        // `RoleGroup::validate_config`: default <- role <- role group, then validate.
+        let mut role_config = second.unwrap_or_default();
+        role_config.merge(&third.unwrap_or_default());
+        let mut rolegroup_config = first.unwrap_or_default();
+        rolegroup_config.merge(&role_config);
+        let got = fragment::validate::<Resources<HistoricalStorage>>(rolegroup_config);
 
         assert_eq!(expected, got.unwrap());
     }
@@ -411,19 +411,11 @@ mod test {
         ))
         .expect("failed to parse YAML");
 
-        let config = cluster.merged_config().unwrap();
-        if let Some(RoleGroup {
-            config:
-                CommonConfiguration {
-                    config:
-                        MiddleManagerConfig {
-                            resources: middlemanager_resources_from_rg,
-                            ..
-                        },
-                    ..
-                },
-            ..
-        }) = config.middle_managers.get("resources-from-role-group")
+        let middle_managers = cluster.merged_role(&DruidRole::MiddleManager).unwrap();
+
+        if let Some(RoleResource::Druid(middlemanager_resources_from_rg)) = middle_managers
+            .get(&RoleGroupName::from_str("resources-from-role-group").unwrap())
+            .map(|rg| &rg.config.resources)
         {
             let expected = Resources {
                 cpu: CpuLimits {
@@ -445,18 +437,9 @@ mod test {
             panic!("No role group named [resources-from-role-group] found");
         }
 
-        if let Some(RoleGroup {
-            config:
-                CommonConfiguration {
-                    config:
-                        MiddleManagerConfig {
-                            resources: middlemanager_resources_from_rg,
-                            ..
-                        },
-                    ..
-                },
-            ..
-        }) = config.middle_managers.get("resources-from-role")
+        if let Some(RoleResource::Druid(middlemanager_resources_from_rg)) = middle_managers
+            .get(&RoleGroupName::from_str("resources-from-role").unwrap())
+            .map(|rg| &rg.config.resources)
         {
             let expected = Resources {
                 cpu: CpuLimits {
@@ -488,11 +471,13 @@ mod test {
         ))
         .expect("failed to parse YAML");
 
+        let historicals = cluster.merged_role(&DruidRole::Historical).unwrap();
+
         // ---------- default role group
-        let config = cluster.merged_config().unwrap();
-        let res = config
-            .common_config(&DruidRole::Historical, "default")
+        let res = &historicals
+            .get(&RoleGroupName::from_str("default").unwrap())
             .unwrap()
+            .config
             .resources;
         let mut got = BTreeMap::new();
 
@@ -500,13 +485,14 @@ mod test {
         assert!(got.contains_key(PROP_SEGMENT_CACHE_LOCATIONS));
 
         let value = got.get(PROP_SEGMENT_CACHE_LOCATIONS).unwrap();
-        let expected = Some(r#"[{"path":"/stackable/var/druid/segment-cache","maxSize":"5g","freeSpacePercent":"3"}]"#.to_string());
+        let expected = r#"[{"path":"/stackable/var/druid/segment-cache","maxSize":"5g","freeSpacePercent":"3"}]"#.to_string();
         assert_eq!(value, &expected, "primary");
 
         // ---------- secondary role group
-        let res = config
-            .common_config(&DruidRole::Historical, "secondary")
+        let res = &historicals
+            .get(&RoleGroupName::from_str("secondary").unwrap())
             .unwrap()
+            .config
             .resources;
         let mut got = BTreeMap::new();
 
@@ -514,7 +500,7 @@ mod test {
         assert!(got.contains_key(PROP_SEGMENT_CACHE_LOCATIONS));
 
         let value = got.get(PROP_SEGMENT_CACHE_LOCATIONS).unwrap();
-        let expected = Some(r#"[{"path":"/stackable/var/druid/segment-cache","maxSize":"2g","freeSpacePercent":"7"}]"#.to_string());
+        let expected = r#"[{"path":"/stackable/var/druid/segment-cache","maxSize":"2g","freeSpacePercent":"7"}]"#.to_string();
         assert_eq!(value, &expected, "secondary");
 
         Ok(())

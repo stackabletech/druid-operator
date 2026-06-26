@@ -9,20 +9,21 @@ use stackable_operator::{
 
 use super::{AddOidcVolumesSnafu, ConstructOidcWellKnownUrlSnafu, Error};
 use crate::{
-    crd::{COOKIE_PASSPHRASE_ENV, DruidRole, security::add_cert_to_jvm_trust_store_cmd},
+    authentication::DruidClientAuthenticationOptions,
+    crd::{
+        COOKIE_PASSPHRASE_ENV, DruidRole, env_var_reference,
+        security::add_cert_to_jvm_trust_store_cmd,
+    },
     internal_secret::env_var_from_secret,
 };
 
-/// Type alias for Druid's OIDC client authentication options, opting in to the
-/// `clientAuthenticationMethod` field via [`oidc::v1alpha1::ClientAuthenticationMethodOption`].
-pub type DruidClientAuthenticationOptions =
-    oidc::v1alpha1::ClientAuthenticationOptions<oidc::v1alpha1::ClientAuthenticationMethodOption>;
+const OIDC_AUTHORIZER: &str = "OidcAuthorizer";
 
 /// Creates OIDC authenticator config using the pac4j extension for Druid: <https://druid.apache.org/docs/latest/development/extensions-core/druid-pac4j>.
 fn add_authenticator_config(
     provider: &oidc::v1alpha1::AuthenticationProvider,
     oidc: &DruidClientAuthenticationOptions,
-    config: &mut BTreeMap<String, Option<String>>,
+    config: &mut BTreeMap<String, String>,
 ) -> Result<(), Error> {
     let well_known_url = &provider
         .well_known_config_url()
@@ -38,36 +39,33 @@ fn add_authenticator_config(
 
     config.insert(
         "druid.auth.authenticator.Oidc.type".to_string(),
-        Some(r#"pac4j"#.to_string()),
+        r#"pac4j"#.to_string(),
     );
     config.insert(
         "druid.auth.authenticator.Oidc.authorizerName".to_string(),
-        Some(r#"OidcAuthorizer"#.to_string()),
+        OIDC_AUTHORIZER.to_string(),
     );
     config.insert(
         "druid.auth.pac4j.cookiePassphrase".to_string(),
-        Some(format!("${{env:{COOKIE_PASSPHRASE_ENV}}}").to_string()),
+        env_var_reference(COOKIE_PASSPHRASE_ENV),
     );
     config.insert(
         "druid.auth.pac4j.oidc.clientID".to_string(),
-        Some(format!("${{env:{oidc_client_id_env}}}").to_string()),
+        env_var_reference(oidc_client_id_env),
     );
     config.insert(
         "druid.auth.pac4j.oidc.clientSecret".to_string(),
-        Some(format!("${{env:{oidc_client_secret_env}}}").to_string()),
+        env_var_reference(oidc_client_secret_env),
     );
     config.insert(
         "druid.auth.pac4j.oidc.discoveryURI".to_string(),
-        Some(well_known_url.to_string()),
+        well_known_url.to_string(),
     );
     config.insert(
         "druid.auth.pac4j.oidc.oidcClaim".to_string(),
-        Some(provider.principal_claim.to_string()),
+        provider.principal_claim.to_string(),
     );
-    config.insert(
-        "druid.auth.pac4j.oidc.scope".to_string(),
-        Some(scopes.join(" ")),
-    );
+    config.insert("druid.auth.pac4j.oidc.scope".to_string(), scopes.join(" "));
 
     let method_string = oidc
         .product_specific_fields
@@ -75,53 +73,36 @@ fn add_authenticator_config(
         .as_ref();
     config.insert(
         "druid.auth.pac4j.oidc.clientAuthenticationMethod".to_string(),
-        Some(method_string.to_string()),
+        method_string.to_string(),
     );
 
-    config.insert(
-        "druid.auth.authenticatorChain".to_string(),
-        Some(r#"["DruidSystemAuthenticator", "Oidc"]"#.to_string()),
-    );
+    super::set_authenticator_chain(config, &["Oidc"]);
 
     Ok(())
-}
-
-fn add_authorizer_config(config: &mut BTreeMap<String, Option<String>>) {
-    config.insert(
-        "druid.auth.authorizers".to_string(),
-        Some(r#"["OidcAuthorizer", "DruidSystemAuthorizer"]"#.to_string()),
-    );
-    config.insert(
-        "druid.auth.authorizer.OidcAuthorizer.type".to_string(),
-        Some(r#"allowAll"#.to_string()),
-    );
 }
 
 /// Creates the OIDC parts of the runtime.properties config file.
 /// OIDC authentication is not configured on middlemanagers, because end users don't interact with them directly using the web console and
 /// turning on OIDC will lead to problems with the communication with coordinators during data ingest.
-pub fn generate_runtime_properties_config(
+pub(super) fn generate_runtime_properties_config(
     provider: &oidc::v1alpha1::AuthenticationProvider,
     oidc: &DruidClientAuthenticationOptions,
     role: &DruidRole,
-    config: &mut BTreeMap<String, Option<String>>,
+    config: &mut BTreeMap<String, String>,
 ) -> Result<(), Error> {
     match role {
         DruidRole::MiddleManager => {
-            config.insert(
-                "druid.auth.authenticatorChain".to_string(),
-                Some(r#"["DruidSystemAuthenticator"]"#.to_string()),
-            );
+            super::set_authenticator_chain(config, &[]);
         }
         _ => {
             add_authenticator_config(provider, oidc, config)?;
-            add_authorizer_config(config)
+            super::add_authorizer_config(config, OIDC_AUTHORIZER);
         }
     }
     Ok(())
 }
 
-pub fn main_container_commands(
+pub(super) fn main_container_commands(
     provider: &oidc::v1alpha1::AuthenticationProvider,
     command: &mut Vec<String>,
 ) {
@@ -132,7 +113,7 @@ pub fn main_container_commands(
 
 /// Mounts the OIDC credentials secret and the auto-generated internal secret containing the cookie passphrase.
 /// Not necessary on middlemanagers, because OIDC is not configured on them.
-pub fn get_env_var_mounts(
+pub(super) fn get_env_var_mounts(
     role: &DruidRole,
     oidc: &DruidClientAuthenticationOptions,
     internal_secret_name: &str,
@@ -156,7 +137,7 @@ pub fn get_env_var_mounts(
     envs
 }
 
-pub fn add_volumes_and_mounts(
+pub(super) fn add_volumes_and_mounts(
     provider: &oidc::v1alpha1::AuthenticationProvider,
     pb: &mut PodBuilder,
     cb_druid: &mut ContainerBuilder,
@@ -171,22 +152,14 @@ pub fn add_volumes_and_mounts(
 #[cfg(test)]
 mod tests {
     use rstest::rstest;
-    use stackable_operator::commons::tls_verification::{Tls, TlsClientDetails};
+    use stackable_operator::commons::tls_verification::{
+        CaCert, Tls, TlsClientDetails, TlsServerVerification, TlsVerification,
+    };
 
     use super::*;
 
-    #[rstest]
-    #[case("/realms/sdp")]
-    #[case("/realms/sdp/")]
-    #[case("/realms/sdp/////")]
-    fn test_add_authenticator_config(#[case] root_path: String) {
-        use stackable_operator::{
-            commons::tls_verification::{CaCert, TlsServerVerification, TlsVerification},
-            crd::authentication::oidc,
-        };
-
-        let mut properties = BTreeMap::new();
-        let provider = oidc::v1alpha1::AuthenticationProvider::new(
+    fn test_provider(root_path: String) -> oidc::v1alpha1::AuthenticationProvider {
+        oidc::v1alpha1::AuthenticationProvider::new(
             "keycloak.mycorp.org".to_owned().try_into().unwrap(),
             Some(443),
             root_path,
@@ -200,53 +173,135 @@ mod tests {
             "preferred_username".to_owned(),
             vec!["openid".to_owned()],
             Some(oidc::v1alpha1::IdentityProviderHint::Keycloak),
-        );
-        let oidc = DruidClientAuthenticationOptions {
+        )
+    }
+
+    fn test_options() -> DruidClientAuthenticationOptions {
+        DruidClientAuthenticationOptions {
             client_credentials_secret_ref: "nifi-keycloak-client".to_owned(),
             extra_scopes: vec![],
             product_specific_fields: oidc::v1alpha1::ClientAuthenticationMethodOption {
                 client_authentication_method:
                     oidc::v1alpha1::ClientAuthenticationMethod::ClientSecretPost,
             },
-        };
+        }
+    }
+
+    #[rstest]
+    #[case("/realms/sdp")]
+    #[case("/realms/sdp/")]
+    #[case("/realms/sdp/////")]
+    fn test_add_authenticator_config(#[case] root_path: String) {
+        let provider = test_provider(root_path);
+        let oidc = test_options();
+        let mut properties = BTreeMap::new();
 
         add_authenticator_config(&provider, &oidc, &mut properties)
             .expect("OIDC config adding failed");
 
         assert_eq!(
             properties.get("druid.auth.authenticator.Oidc.type"),
-            Some(&Some("pac4j".to_owned()))
+            Some(&"pac4j".to_owned())
         );
         assert_eq!(
             properties.get("druid.auth.pac4j.oidc.oidcClaim"),
-            Some(&Some("preferred_username".to_owned()))
+            Some(&"preferred_username".to_owned())
         );
         assert_eq!(
             properties.get("druid.auth.pac4j.oidc.scope"),
-            Some(&Some("openid".to_owned()))
+            Some(&"openid".to_owned())
         );
         assert_eq!(
             properties.get("druid.auth.authenticator.Oidc.authorizerName"),
-            Some(&Some("OidcAuthorizer".to_owned()))
+            Some(&"OidcAuthorizer".to_owned())
         );
         assert_eq!(
             properties.get("druid.auth.authenticatorChain"),
-            Some(&Some("[\"DruidSystemAuthenticator\", \"Oidc\"]".to_owned()))
+            Some(&"[\"DruidSystemAuthenticator\", \"Oidc\"]".to_owned())
         );
         assert_eq!(
             properties.get("druid.auth.pac4j.oidc.discoveryURI"),
-            Some(&Some(
-                "https://keycloak.mycorp.org/realms/sdp/.well-known/openid-configuration"
+            Some(
+                &"https://keycloak.mycorp.org/realms/sdp/.well-known/openid-configuration"
                     .to_owned()
-            ))
+            )
         );
 
         assert_eq!(
             properties.get("druid.auth.pac4j.oidc.clientAuthenticationMethod"),
-            Some(&Some("client_secret_post".to_owned()))
+            Some(&"client_secret_post".to_owned())
         );
         assert!(properties.contains_key("druid.auth.pac4j.oidc.clientID"));
         assert!(properties.contains_key("druid.auth.pac4j.oidc.clientSecret"));
         assert!(properties.contains_key("druid.auth.pac4j.cookiePassphrase"));
+    }
+
+    /// The MiddleManager must not get an Oidc authenticator/authorizer, only the Druid system
+    /// authenticator in the chain (OIDC on MiddleManagers breaks coordinator<->mm ingest).
+    #[test]
+    fn middlemanager_is_not_configured_for_oidc() {
+        let provider = test_provider("/realms/sdp".to_owned());
+        let oidc = test_options();
+        let mut config = BTreeMap::new();
+
+        generate_runtime_properties_config(
+            &provider,
+            &oidc,
+            &DruidRole::MiddleManager,
+            &mut config,
+        )
+        .expect("generate runtime properties");
+
+        assert_eq!(
+            config.get("druid.auth.authenticatorChain"),
+            Some(&r#"["DruidSystemAuthenticator"]"#.to_owned())
+        );
+        assert!(!config.contains_key("druid.auth.authenticator.Oidc.type"));
+        assert!(!config.contains_key("druid.auth.authorizers"));
+    }
+
+    /// Every non-MiddleManager role gets the full Oidc authenticator and authorizer.
+    #[test]
+    fn non_middlemanager_is_configured_for_oidc() {
+        let provider = test_provider("/realms/sdp".to_owned());
+        let oidc = test_options();
+        let mut config = BTreeMap::new();
+
+        generate_runtime_properties_config(&provider, &oidc, &DruidRole::Broker, &mut config)
+            .expect("generate runtime properties");
+
+        assert_eq!(
+            config.get("druid.auth.authenticator.Oidc.type"),
+            Some(&"pac4j".to_owned())
+        );
+        assert_eq!(
+            config.get("druid.auth.authenticator.Oidc.authorizerName"),
+            Some(&"OidcAuthorizer".to_owned())
+        );
+        assert!(config.contains_key("druid.auth.authorizers"));
+    }
+
+    /// The MiddleManager mounts no OIDC env vars (OIDC is not configured on it).
+    #[test]
+    fn middlemanager_gets_no_oidc_env_vars() {
+        let oidc = test_options();
+
+        let envs = get_env_var_mounts(&DruidRole::MiddleManager, &oidc, "internal-secret");
+
+        assert!(envs.is_empty());
+    }
+
+    /// Non-MiddleManager roles mount the OIDC credentials and the cookie-passphrase env var.
+    #[test]
+    fn non_middlemanager_gets_oidc_env_vars() {
+        let oidc = test_options();
+
+        let envs = get_env_var_mounts(&DruidRole::Broker, &oidc, "internal-secret");
+
+        assert!(
+            envs.iter()
+                .any(|e| e.name.as_str() == COOKIE_PASSPHRASE_ENV),
+            "expected the cookie passphrase env var to be mounted"
+        );
     }
 }

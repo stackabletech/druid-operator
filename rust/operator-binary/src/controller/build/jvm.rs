@@ -1,15 +1,23 @@
 use semver::Version;
 use snafu::{ResultExt, Snafu};
 use stackable_operator::{
-    crd::s3::v1alpha1::ConnectionSpec,
-    memory::MemoryQuantity,
-    role_utils::{self, GenericRoleConfig, JavaCommonConfig, JvmArgumentOverrides, Role},
+    crd::s3::v1alpha1::ConnectionSpec, memory::MemoryQuantity,
+    v2::jvm_argument_overrides::JvmArgumentOverrides,
 };
 
+use super::properties::ConfigFileName;
 use crate::crd::{
-    AWS_REGION, DruidConfigOverrides, DruidRole, JVM_SECURITY_PROPERTIES_FILE, LOG4J2_CONFIG,
-    RW_CONFIG_DIRECTORY, STACKABLE_TRUST_STORE, STACKABLE_TRUST_STORE_PASSWORD,
+    DruidRole, RW_CONFIG_DIRECTORY, STACKABLE_TRUST_STORE, STACKABLE_TRUST_STORE_PASSWORD,
+    STACKABLE_TRUST_STORE_TYPE,
 };
+
+/// The Derby error log file, written by the Coordinator's embedded Derby (default metadata store).
+const DERBY_LOG_FILE: &str = "/stackable/var/druid/derby.log";
+
+/// AWS Region JVM system property, passed to the AWS SDK v2 (used by Druid >= 37.0.0).
+/// Rendered both into `jvm.config` and into the MiddleManager Peon JVM opts.
+/// See: <https://druid.apache.org/docs/latest/development/extensions-core/s3/#aws-region>
+pub(crate) const AWS_REGION: &str = "aws.region";
 
 #[derive(Snafu, Debug)]
 pub enum Error {
@@ -18,17 +26,13 @@ pub enum Error {
         value: MemoryQuantity,
         source: stackable_operator::memory::Error,
     },
-
-    #[snafu(display("failed to merge jvm argument overrides"))]
-    MergeJvmArgumentOverrides { source: role_utils::Error },
 }
 
 /// Please note that this function is slightly different than all other operators, because memory
 /// management is far more advanced in this operator.
-pub fn construct_jvm_args<T>(
+pub fn construct_jvm_args(
     druid_role: &DruidRole,
-    role: &Role<T, DruidConfigOverrides, GenericRoleConfig, JavaCommonConfig>,
-    role_group: &str,
+    jvm_argument_overrides: &JvmArgumentOverrides,
     heap: MemoryQuantity,
     direct_memory: Option<MemoryQuantity>,
     s3_conn: Option<&ConnectionSpec>,
@@ -55,21 +59,23 @@ pub fn construct_jvm_args<T>(
     if let Some(direct_memory) = direct_memory_str {
         jvm_args.push(format!("-XX:MaxDirectMemorySize={direct_memory}"));
     }
+    let security_properties_file = ConfigFileName::SecurityProperties;
+    let log4j2_config_file = ConfigFileName::Log4j2Properties;
     jvm_args.extend([
         "-XX:+ExitOnOutOfMemoryError".to_owned(),
         "-XX:+UseG1GC".to_owned(),
-        format!("-Djava.security.properties={RW_CONFIG_DIRECTORY}/{JVM_SECURITY_PROPERTIES_FILE}"),
+        format!("-Djava.security.properties={RW_CONFIG_DIRECTORY}/{security_properties_file}"),
         "-Duser.timezone=UTC".to_owned(),
         "-Dfile.encoding=UTF-8".to_owned(),
         "-Djava.io.tmpdir=/tmp".to_owned(),
         "-Djava.util.logging.manager=org.apache.logging.log4j.jul.LogManager".to_owned(),
-        format!("-Dlog4j.configurationFile={RW_CONFIG_DIRECTORY}/{LOG4J2_CONFIG}"),
+        format!("-Dlog4j.configurationFile={RW_CONFIG_DIRECTORY}/{log4j2_config_file}"),
         format!("-Djavax.net.ssl.trustStore={STACKABLE_TRUST_STORE}"),
         format!("-Djavax.net.ssl.trustStorePassword={STACKABLE_TRUST_STORE_PASSWORD}"),
-        "-Djavax.net.ssl.trustStoreType=pkcs12".to_owned(),
+        format!("-Djavax.net.ssl.trustStoreType={STACKABLE_TRUST_STORE_TYPE}"),
     ]);
     if druid_role == &DruidRole::Coordinator {
-        jvm_args.push("-Dderby.stream.error.file=/stackable/var/druid/derby.log".to_owned());
+        jvm_args.push(format!("-Dderby.stream.error.file={DERBY_LOG_FILE}"));
     }
     // TODO (@NickLarsenNZ): Remove the condition (keep the body) once we no longer support Druid
     // less than 37.0.0
@@ -84,68 +90,26 @@ pub fn construct_jvm_args<T>(
         ));
     }
 
-    let operator_generated = JvmArgumentOverrides::new_with_only_additions(jvm_args);
-    let merged_jvm_argument_overrides = role
-        .get_merged_jvm_argument_overrides(role_group, &operator_generated)
-        .context(MergeJvmArgumentOverridesSnafu)?;
-
-    Ok(merged_jvm_argument_overrides
-        .effective_jvm_config_after_merging()
-        .join("\n"))
+    Ok(jvm_argument_overrides.apply_to(jvm_args).join("\n"))
 }
 
 #[cfg(test)]
 mod tests {
+    use std::str::FromStr;
+
     use indoc::indoc;
+    use stackable_operator::v2::types::operator::RoleGroupName;
 
     use super::*;
-    use crate::crd::v1alpha1::DruidCluster;
 
     #[test]
     fn test_construct_jvm_arguments_defaults() {
-        let input = r#"
-        apiVersion: druid.stackable.tech/v1alpha1
-        kind: DruidCluster
-        metadata:
-          name: simple-druid
-        spec:
-          image:
-            productVersion: 30.0.0
-          clusterConfig:
-            deepStorage:
-              hdfs:
-                configMapName: simple-hdfs
-                directory: /druid
-            metadataDatabase:
-              postgresql:
-                host: druid-postgresql
-                database: druid
-                credentialsSecretName: mySecret
-            zookeeperConfigMapName: simple-druid-znode
-          brokers:
-            roleGroups:
-              default:
-                replicas: 1
-          coordinators:
-            roleGroups:
-              default:
-                replicas: 1
-          historicals:
-            roleGroups:
-              default:
-                replicas: 1
-          middleManagers:
-            roleGroups:
-              default:
-                replicas: 1
-          routers:
-            roleGroups:
-              default:
-                replicas: 1
-        "#;
+        use crate::controller::validate::test_support::MINIMAL_DRUID_YAML;
 
-        let coordinator_jvm_config = construct_jvm_config_for_test(input, &DruidRole::Coordinator);
-        let historical_jvm_config = construct_jvm_config_for_test(input, &DruidRole::Historical);
+        let coordinator_jvm_config =
+            construct_jvm_config_for_test(MINIMAL_DRUID_YAML, &DruidRole::Coordinator);
+        let historical_jvm_config =
+            construct_jvm_config_for_test(MINIMAL_DRUID_YAML, &DruidRole::Historical);
 
         assert_eq!(
             coordinator_jvm_config,
@@ -302,27 +266,24 @@ mod tests {
     }
 
     fn construct_jvm_config_for_test(druid_cluster: &str, druid_role: &DruidRole) -> String {
-        let deserializer = serde_yaml::Deserializer::from_str(druid_cluster);
-        let druid: DruidCluster =
-            serde_yaml::with::singleton_map_recursive::deserialize(deserializer).unwrap();
+        use crate::controller::validate::test_support::druid_from_yaml;
 
-        let role = druid.get_role(druid_role);
-        let merged_config = druid.merged_config().unwrap();
-        let (heap, direct) = merged_config
-            .common_config(druid_role, "default")
-            .unwrap()
-            .resources
-            .get_memory_sizes(druid_role)
+        let druid = druid_from_yaml(druid_cluster);
+        let merged_role = druid.merged_role(druid_role).unwrap();
+        let rg = merged_role
+            .get(&RoleGroupName::from_str("default").unwrap())
             .unwrap();
+        let (heap, direct) = rg.config.resources.get_memory_sizes(druid_role).unwrap();
 
         construct_jvm_args(
             druid_role,
-            &role,
-            "default",
+            &rg.product_specific_common_config.jvm_argument_overrides,
             heap,
             direct,
+            // No S3 connection in these tests, so the region (and the version gating it) is never
+            // rendered into the JVM args.
             None,
-            semver::Version::parse("37.0.0"),
+            Version::parse("37.0.0"),
         )
         .unwrap()
     }

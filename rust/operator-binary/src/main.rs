@@ -6,7 +6,7 @@ use std::sync::Arc;
 
 use anyhow::anyhow;
 use clap::Parser;
-use controller::{DRUID_CONTROLLER_NAME, FULL_CONTROLLER_NAME};
+use controller::FULL_CONTROLLER_NAME;
 use futures::{FutureExt, StreamExt, TryFutureExt};
 use stackable_operator::{
     YamlSchema,
@@ -38,16 +38,9 @@ use crate::{
 };
 
 mod authentication;
-mod config;
 mod controller;
 mod crd;
-mod discovery;
-mod extensions;
 mod internal_secret;
-mod listener;
-mod operations;
-mod product_logging;
-mod service;
 mod webhooks;
 
 mod built_info {
@@ -70,7 +63,7 @@ async fn main() -> anyhow::Result<()> {
         Command::Run(RunArguments {
             operator_environment,
             watch_namespace,
-            product_config,
+            product_config: _,
             maintenance,
             common,
         }) => {
@@ -117,11 +110,6 @@ async fn main() -> anyhow::Result<()> {
                 .run(sigterm_watcher.handle())
                 .map_err(|err| anyhow!(err).context("failed to run webhook server"));
 
-            let product_config = product_config.load(&[
-                "deploy/config-spec/properties.yaml",
-                "/etc/stackable/druid-operator/config-spec/properties.yaml",
-            ])?;
-
             let event_recorder = Arc::new(Recorder::new(
                 client.as_kube_client(),
                 Reporter {
@@ -166,7 +154,6 @@ async fn main() -> anyhow::Result<()> {
                     Arc::new(controller::Ctx {
                         client: client.clone(),
                         operator_environment,
-                        product_config,
                     }),
                 )
                 // We can let the reporting happen in the background
@@ -208,7 +195,12 @@ fn references_config_map(
         return false;
     };
 
-    druid.spec.cluster_config.zookeeper_config_map_name == config_map.name_any()
+    druid
+        .spec
+        .cluster_config
+        .zookeeper_config_map_name
+        .to_string()
+        == config_map.name_any()
         || match &druid.spec.cluster_config.authorization {
             Some(druid_authorization) => {
                 druid_authorization.opa.config_map_name == config_map.name_any()
@@ -217,7 +209,7 @@ fn references_config_map(
         }
         || match &druid.spec.cluster_config.deep_storage {
             crd::DeepStorageSpec::Hdfs(hdfs_spec) => {
-                hdfs_spec.config_map_name == config_map.name_any()
+                hdfs_spec.config_map_name.to_string() == config_map.name_any()
             }
             _ => false,
         }
