@@ -1,24 +1,48 @@
 //! The validate step in the DruidCluster controller
 //!
 //! Synchronously validates inputs that don't require a Kubernetes client. Produces
-//! [`ValidatedInputs`], consumed by the rest of `reconcile_druid`.
+//! [`ValidatedCluster`], consumed by the rest of `reconcile_druid`.
 
-use product_config::ProductConfigManager;
-use snafu::{ResultExt, Snafu};
+use std::{
+    borrow::Cow,
+    collections::{BTreeMap, HashSet},
+    str::FromStr,
+};
+
+use snafu::{ResultExt, Snafu, ensure};
 use stackable_operator::{
+    builder::meta::ObjectMetaBuilder,
     cli::OperatorEnvironmentOptions,
-    commons::product_image_selection::{self, ResolvedProductImage},
+    commons::{
+        pdb::PdbConfig,
+        product_image_selection::{self, ResolvedProductImage},
+    },
     crd::s3,
-    product_config_utils::{
-        ValidatedRoleConfigByPropertyKind, transform_all_roles_to_config,
-        validate_all_roles_and_groups_config,
+    database_connections::drivers::jdbc::{JdbcDatabaseConnection, JdbcDatabaseConnectionDetails},
+    k8s_openapi::api::core::v1::Volume,
+    kube::{Resource, api::ObjectMeta},
+    kvp::Labels,
+    v2::{
+        HasName, HasUid, NameIsValidLabelValue,
+        builder::meta::ownerreference_from_resource,
+        controller_utils::{get_cluster_name, get_namespace, get_uid},
+        kvp::label::{recommended_labels, role_group_selector},
+        role_group_utils::ResourceNames,
+        types::{
+            kubernetes::{ListenerClassName, NamespaceName, Uid},
+            operator::{ClusterName, ProductVersion, RoleGroupName},
+        },
     },
 };
+use strum::IntoEnumIterator;
 
 use crate::{
     authentication::DruidAuthenticationConfig,
-    controller::dereference::DereferencedObjects,
-    crd::{security::DruidTlsSecurity, v1alpha1},
+    controller::{controller_name, dereference::DereferencedObjects, operator_name, product_name},
+    crd::{
+        DeepStorageSpec, DruidRole, authentication::AuthenticationClassesResolved,
+        database::MetadataDatabaseConnection, security::DruidTlsSecurity, v1alpha1,
+    },
 };
 
 #[derive(Snafu, Debug)]
@@ -29,34 +53,268 @@ pub enum Error {
         source: product_image_selection::Error,
     },
 
-    #[snafu(display("invalid authentication configuration"))]
-    InvalidDruidAuthenticationConfig {
-        source: crate::authentication::Error,
+    #[snafu(display("failed to resolve and merge config for role and role group"))]
+    FailedToResolveConfig { source: crate::crd::Error },
+
+    #[snafu(display("failed to determine the cluster's name, namespace, or uid"))]
+    ClusterIdentity {
+        source: stackable_operator::v2::controller_utils::Error,
     },
 
-    #[snafu(display("failed to transform configs"))]
-    ProductConfigTransform {
-        source: stackable_operator::product_config_utils::Error,
+    #[snafu(display("invalid metadata database connection"))]
+    InvalidMetadataDatabaseConnection {
+        source: stackable_operator::database_connections::Error,
     },
 
-    #[snafu(display("invalid product configuration"))]
-    InvalidProductConfig {
-        source: stackable_operator::product_config_utils::Error,
+    #[snafu(display("failed to resolve authentication classes"))]
+    ResolveAuthenticationClasses {
+        source: crate::crd::authentication::Error,
     },
+
+    #[snafu(display(
+        "two differing S3 connections were given (ingestion and deep storage), this is unsupported by Druid"
+    ))]
+    IncompatibleS3Connections,
 }
 
 type Result<T, E = Error> = std::result::Result<T, E>;
 
-/// Synchronous inputs the rest of `reconcile_druid` needs after dereferencing.
-pub struct ValidatedInputs {
+/// A validated, merged role-group config.
+///
+/// This is the upstream [`stackable_operator::v2::role_utils::RoleGroupConfig`] (config plus the
+/// four merged override categories), with the typed per-role config erased to
+/// [`crate::crd::ValidatedDruidConfig`] so that all roles share a single type. The rendered
+/// per-file configs (runtime.properties / security.properties / jvm.config) are produced later, in
+/// the config-map build step.
+///
+/// Defined in [`crate::crd`] (where it has access to the private typed config fields) and
+/// re-exported here for the build step.
+pub use crate::crd::DruidRoleGroupConfig;
+
+/// Cluster-wide resolved fields that are not role/rolegroup specific.
+pub struct ValidatedClusterConfig {
     pub zookeeper_connection_string: String,
     pub opa_connection_string: Option<String>,
     pub s3_connection: Option<s3::v1alpha1::ConnectionSpec>,
     pub deep_storage_bucket_name: Option<String>,
-    pub resolved_product_image: ResolvedProductImage,
     pub druid_tls_security: DruidTlsSecurity,
     pub druid_auth_config: Option<DruidAuthenticationConfig>,
-    pub validated_role_config: ValidatedRoleConfigByPropertyKind,
+    /// The configured metadata database, carried so the build step can derive the
+    /// `druid.metadata.storage.type` value and the metadata-storage extension.
+    pub metadata_database: MetadataDatabaseConnection,
+    /// User-supplied additional `druid.extensions.loadList` entries, carried so the build step can
+    /// assemble the full extension list.
+    pub additional_extensions: HashSet<String>,
+    /// The JDBC connection details (URL plus credential env vars) for the metadata database.
+    pub metadata_db_connection: JdbcDatabaseConnectionDetails,
+    /// The deep-storage spec, carried so the build step can derive the cluster-level
+    /// `runtime.properties` (deep storage type / directory / base key) without the raw
+    /// `DruidCluster`.
+    pub deep_storage: DeepStorageSpec,
+    /// User-supplied extra volumes, mounted into every container, carried so the build step does
+    /// not read the raw `DruidCluster`.
+    pub extra_volumes: Vec<Volume>,
+}
+
+impl ValidatedClusterConfig {
+    /// Whether the cluster uses S3, for deep storage or ingestion.
+    pub fn uses_s3(&self) -> bool {
+        self.s3_connection.is_some()
+    }
+}
+
+/// Per-role configuration extracted during validation, so the reconcile/build steps consume this
+/// instead of re-reading the raw [`v1alpha1::DruidCluster`].
+#[derive(Clone, Debug)]
+pub struct ValidatedRoleConfig {
+    pub pdb: PdbConfig,
+    /// The role's listener class, or `None` for roles without a listener
+    /// ([`DruidRole::Historical`]/[`DruidRole::MiddleManager`]).
+    pub listener_class: Option<ListenerClassName>,
+}
+
+/// Synchronous inputs the rest of `reconcile_druid` needs after dereferencing.
+pub struct ValidatedCluster {
+    /// Mirrors `name`/`namespace`/`uid` below so that `ValidatedCluster` can implement
+    /// [`Resource`] and be passed directly to the metadata/owner-reference builders.
+    metadata: ObjectMeta,
+    pub name: ClusterName,
+    pub namespace: NamespaceName,
+    pub uid: Uid,
+    pub image: ResolvedProductImage,
+    /// The product version as a valid label value, used for the recommended
+    /// `app.kubernetes.io/version` label. Parsed once from the resolved image's app version label
+    /// value, so the build steps don't re-parse it per resource.
+    pub product_version: ProductVersion,
+    pub cluster_config: ValidatedClusterConfig,
+    /// The per-role config (PDB and listener class) for every [`DruidRole`].
+    pub role_configs: BTreeMap<DruidRole, ValidatedRoleConfig>,
+    pub role_group_configs: BTreeMap<DruidRole, BTreeMap<RoleGroupName, DruidRoleGroupConfig>>,
+}
+
+impl ValidatedCluster {
+    #[allow(clippy::too_many_arguments)]
+    pub(crate) fn new(
+        name: ClusterName,
+        namespace: NamespaceName,
+        uid: Uid,
+        image: ResolvedProductImage,
+        cluster_config: ValidatedClusterConfig,
+        role_configs: BTreeMap<DruidRole, ValidatedRoleConfig>,
+        role_group_configs: BTreeMap<DruidRole, BTreeMap<RoleGroupName, DruidRoleGroupConfig>>,
+    ) -> Self {
+        let metadata = ObjectMeta {
+            name: Some(name.to_string()),
+            namespace: Some(namespace.to_string()),
+            uid: Some(uid.to_string()),
+            ..ObjectMeta::default()
+        };
+        // `app_version_label_value` is constructed to be a valid label value, so it is also a valid
+        // `ProductVersion`.
+        let product_version = ProductVersion::from_str(&image.app_version_label_value)
+            .expect("the app version label value is a valid product version");
+        Self {
+            metadata,
+            name,
+            namespace,
+            uid,
+            image,
+            product_version,
+            cluster_config,
+            role_configs,
+            role_group_configs,
+        }
+    }
+
+    /// The validated per-role config (PDB and listener class) for the given role.
+    pub(crate) fn role_config(&self, role: &DruidRole) -> &ValidatedRoleConfig {
+        self.role_configs
+            .get(role)
+            .expect("every DruidRole has a validated role config")
+    }
+
+    /// Recommended labels for a role-group resource, using the given product version.
+    ///
+    /// Kept separate so the listener PVC templates (which require an immutable, version-independent
+    /// label set) can pass the unversioned product version.
+    pub(crate) fn recommended_labels_for(
+        &self,
+        role: &DruidRole,
+        product_version: &ProductVersion,
+        role_group_name: &RoleGroupName,
+    ) -> Labels {
+        recommended_labels(
+            self,
+            &product_name(),
+            product_version,
+            &operator_name(),
+            &controller_name(),
+            &role.to_role_name(),
+            role_group_name,
+        )
+    }
+
+    /// Recommended labels for a role-group resource.
+    pub(crate) fn recommended_labels(
+        &self,
+        role: &DruidRole,
+        role_group_name: &RoleGroupName,
+    ) -> Labels {
+        self.recommended_labels_for(role, &self.product_version, role_group_name)
+    }
+
+    /// Selector labels matching the pods of a role group.
+    pub(crate) fn role_group_selector(
+        &self,
+        role: &DruidRole,
+        role_group_name: &RoleGroupName,
+    ) -> Labels {
+        role_group_selector(self, &product_name(), &role.to_role_name(), role_group_name)
+    }
+
+    /// Returns an [`ObjectMetaBuilder`] pre-filled with the namespace, an owner reference back to
+    /// this cluster, and the recommended labels for a resource named `name` in `role`/`role_group_name`.
+    ///
+    /// Consolidates the metadata chain repeated by the child-resource builders. Call sites that need
+    /// extra labels/annotations chain them onto the returned builder.
+    pub(crate) fn object_meta(
+        &self,
+        name: impl Into<String>,
+        role: &DruidRole,
+        role_group_name: &RoleGroupName,
+    ) -> ObjectMetaBuilder {
+        let mut builder = ObjectMetaBuilder::new();
+        builder
+            .name_and_namespace(self)
+            .name(name)
+            .ownerreference(ownerreference_from_resource(self, None, Some(true)))
+            .with_labels(self.recommended_labels(role, role_group_name));
+        builder
+    }
+
+    /// Type-safe names for the resources of the given role's role group.
+    pub(crate) fn resource_names(
+        &self,
+        role: &DruidRole,
+        role_group_name: &RoleGroupName,
+    ) -> ResourceNames {
+        ResourceNames {
+            cluster_name: self.name.clone(),
+            role_name: role.to_role_name(),
+            role_group_name: role_group_name.clone(),
+        }
+    }
+}
+
+// Implementing `Resource` (plus `HasName`/`HasUid`) lets `ValidatedCluster` stand in for the raw
+// `DruidCluster` when building child-object metadata and owner references. The identity-bearing
+// methods are backed by the `metadata` built in `new`, while kind/group/version/plural delegate to
+// the CRD so produced owner references are byte-identical to the previous raw-cluster ones.
+impl Resource for ValidatedCluster {
+    type DynamicType = <v1alpha1::DruidCluster as Resource>::DynamicType;
+    type Scope = <v1alpha1::DruidCluster as Resource>::Scope;
+
+    fn kind(dt: &Self::DynamicType) -> Cow<'_, str> {
+        v1alpha1::DruidCluster::kind(dt)
+    }
+
+    fn group(dt: &Self::DynamicType) -> Cow<'_, str> {
+        v1alpha1::DruidCluster::group(dt)
+    }
+
+    fn version(dt: &Self::DynamicType) -> Cow<'_, str> {
+        v1alpha1::DruidCluster::version(dt)
+    }
+
+    fn plural(dt: &Self::DynamicType) -> Cow<'_, str> {
+        v1alpha1::DruidCluster::plural(dt)
+    }
+
+    fn meta(&self) -> &ObjectMeta {
+        &self.metadata
+    }
+
+    fn meta_mut(&mut self) -> &mut ObjectMeta {
+        &mut self.metadata
+    }
+}
+
+impl HasName for ValidatedCluster {
+    fn to_name(&self) -> String {
+        self.name.to_string()
+    }
+}
+
+impl HasUid for ValidatedCluster {
+    fn to_uid(&self) -> Uid {
+        self.uid.clone()
+    }
+}
+
+impl NameIsValidLabelValue for ValidatedCluster {
+    fn to_label_value(&self) -> String {
+        self.name.to_label_value()
+    }
 }
 
 /// Validates the cluster spec and the dereferenced inputs.
@@ -64,9 +322,8 @@ pub fn validate(
     druid: &v1alpha1::DruidCluster,
     dereferenced_objects: &DereferencedObjects,
     operator_environment: &OperatorEnvironmentOptions,
-    product_config: &ProductConfigManager,
-) -> Result<ValidatedInputs> {
-    let resolved_product_image = druid
+) -> Result<ValidatedCluster> {
+    let image = druid
         .spec
         .image
         .resolve(
@@ -76,35 +333,353 @@ pub fn validate(
         )
         .context(ResolveProductImageSnafu)?;
 
-    let druid_tls_security = DruidTlsSecurity::new_from_druid_cluster(
-        druid,
-        &dereferenced_objects.resolved_authentication_classes,
-    );
-
-    let druid_auth_config = DruidAuthenticationConfig::try_from(
-        dereferenced_objects.resolved_authentication_classes.clone(),
+    let resolved_authentication_classes = AuthenticationClassesResolved::from_fetched(
+        &druid.spec.cluster_config,
+        &dereferenced_objects.authentication_classes,
     )
-    .context(InvalidDruidAuthenticationConfigSnafu)?;
+    .context(ResolveAuthenticationClassesSnafu)?;
 
-    let role_config = transform_all_roles_to_config(druid, &druid.build_role_properties())
-        .context(ProductConfigTransformSnafu)?;
-    let validated_role_config = validate_all_roles_and_groups_config(
-        &resolved_product_image.product_version,
-        &role_config,
-        product_config,
-        false,
-        false,
-    )
-    .context(InvalidProductConfigSnafu)?;
+    let druid_tls_security =
+        DruidTlsSecurity::new_from_druid_cluster(druid, &resolved_authentication_classes);
 
-    Ok(ValidatedInputs {
-        zookeeper_connection_string: dereferenced_objects.zookeeper_connection_string.clone(),
-        opa_connection_string: dereferenced_objects.opa_connection_string.clone(),
-        s3_connection: dereferenced_objects.s3_connection.clone(),
-        deep_storage_bucket_name: dereferenced_objects.deep_storage_bucket_name.clone(),
-        resolved_product_image,
-        druid_tls_security,
-        druid_auth_config,
-        validated_role_config,
-    })
+    let druid_auth_config =
+        DruidAuthenticationConfig::from_auth_classes(resolved_authentication_classes);
+
+    let mut role_group_configs: BTreeMap<DruidRole, BTreeMap<RoleGroupName, DruidRoleGroupConfig>> =
+        BTreeMap::new();
+    let mut role_configs: BTreeMap<DruidRole, ValidatedRoleConfig> = BTreeMap::new();
+
+    for druid_role in DruidRole::iter() {
+        let group_map = druid
+            .merged_role(&druid_role)
+            .context(FailedToResolveConfigSnafu)?;
+        role_group_configs.insert(druid_role.clone(), group_map);
+
+        role_configs.insert(
+            druid_role.clone(),
+            ValidatedRoleConfig {
+                pdb: druid
+                    .generic_role_config(&druid_role)
+                    .pod_disruption_budget
+                    .clone(),
+                listener_class: druid_role.listener_class_name(druid),
+            },
+        );
+    }
+
+    let name = get_cluster_name(druid).context(ClusterIdentitySnafu)?;
+    let namespace = get_namespace(druid).context(ClusterIdentitySnafu)?;
+    let uid = get_uid(druid).context(ClusterIdentitySnafu)?;
+
+    let metadata_db_connection = druid
+        .spec
+        .cluster_config
+        .metadata_database
+        .jdbc_connection_details("metadata")
+        .context(InvalidMetadataDatabaseConnectionSnafu)?;
+
+    // The deep storage bucket carries its own S3 connection; if ingestion also configures one, the
+    // two must be identical, as Druid only supports a single S3 connection.
+    let s3_deep_storage_connection = dereferenced_objects
+        .s3_deep_storage_bucket
+        .as_ref()
+        .map(|bucket| &bucket.connection);
+    let s3_connection = match (
+        dereferenced_objects.s3_ingestion_connection.as_ref(),
+        s3_deep_storage_connection,
+    ) {
+        (Some(ingestion), Some(deep_storage)) => {
+            ensure!(ingestion == deep_storage, IncompatibleS3ConnectionsSnafu);
+            Some(ingestion.clone())
+        }
+        (Some(connection), None) | (None, Some(connection)) => Some(connection.clone()),
+        (None, None) => None,
+    };
+    let deep_storage_bucket_name = dereferenced_objects
+        .s3_deep_storage_bucket
+        .as_ref()
+        .map(|bucket| bucket.bucket_name.clone());
+
+    // The dereference step fetched the rule-agnostic OPA document URL; append the authorization
+    // rule Druid queries.
+    // TODO(@maltesander): This would rather be a preprocess step?
+    let opa_connection_string = dereferenced_objects
+        .opa_base_document_url
+        .as_ref()
+        .map(|base_url| format!("{base_url}/allow"));
+
+    Ok(ValidatedCluster::new(
+        name,
+        namespace,
+        uid,
+        image,
+        ValidatedClusterConfig {
+            zookeeper_connection_string: dereferenced_objects.zookeeper_connection_string.clone(),
+            opa_connection_string,
+            s3_connection,
+            deep_storage_bucket_name,
+            druid_tls_security,
+            druid_auth_config,
+            metadata_database: druid.spec.cluster_config.metadata_database.clone(),
+            additional_extensions: druid.spec.cluster_config.additional_extensions.clone(),
+            metadata_db_connection,
+            deep_storage: druid.spec.cluster_config.deep_storage.clone(),
+            extra_volumes: druid.spec.cluster_config.extra_volumes.clone(),
+        },
+        role_configs,
+        role_group_configs,
+    ))
+}
+
+#[cfg(test)]
+pub(crate) mod test_support {
+    use std::{collections::BTreeMap, str::FromStr};
+
+    use stackable_operator::{
+        database_connections::drivers::jdbc::JdbcDatabaseConnection,
+        kube::ResourceExt,
+        v2::types::{
+            kubernetes::{NamespaceName, SecretClassName, Uid},
+            operator::ClusterName,
+        },
+    };
+    use strum::IntoEnumIterator;
+
+    use super::{RoleGroupName, ValidatedCluster, ValidatedClusterConfig, ValidatedRoleConfig};
+    use crate::{
+        controller::CONTAINER_IMAGE_BASE_NAME,
+        crd::{DruidRole, security::DruidTlsSecurity, v1alpha1},
+    };
+
+    /// A minimal but fully-valid `DruidCluster` with one role group per role.
+    pub const MINIMAL_DRUID_YAML: &str = r#"
+apiVersion: druid.stackable.tech/v1alpha1
+kind: DruidCluster
+metadata:
+  name: simple-druid
+  namespace: default
+  uid: c27b3971-ca72-42c1-80a4-abdfc1db0ddd
+spec:
+  image:
+    productVersion: 30.0.0
+  clusterConfig:
+    deepStorage:
+      hdfs:
+        configMapName: simple-hdfs
+        directory: /druid
+    metadataDatabase:
+      postgresql:
+        host: druid-postgresql
+        database: druid
+        credentialsSecretName: mySecret
+    zookeeperConfigMapName: simple-druid-znode
+  brokers:
+    roleGroups:
+      default:
+        replicas: 1
+  coordinators:
+    roleGroups:
+      default:
+        replicas: 1
+  historicals:
+    roleGroups:
+      default:
+        replicas: 1
+  middleManagers:
+    roleGroups:
+      default:
+        replicas: 1
+  routers:
+    roleGroups:
+      default:
+        replicas: 1
+"#;
+
+    /// Parses a `DruidCluster` from YAML the same way the operator does (singleton-map enums).
+    pub fn druid_from_yaml(yaml: &str) -> v1alpha1::DruidCluster {
+        let deserializer = serde_yaml::Deserializer::from_str(yaml);
+        serde_yaml::with::singleton_map_recursive::deserialize(deserializer)
+            .expect("invalid test DruidCluster YAML")
+    }
+
+    /// Builds a [`ValidatedCluster`] from a `DruidCluster` using test defaults for the
+    /// dereferenced/cluster-wide fields (no S3, no auth, fixed zookeeper string). Runs the real
+    /// `merged_role` pipeline for every role.
+    pub fn validated_cluster(druid: &v1alpha1::DruidCluster) -> ValidatedCluster {
+        let image = druid
+            .spec
+            .image
+            .resolve(
+                CONTAINER_IMAGE_BASE_NAME,
+                "oci.example.org",
+                crate::built_info::PKG_VERSION,
+            )
+            .expect("test: resolvable product image");
+
+        let druid_tls_security = DruidTlsSecurity::new(
+            false,
+            Some(SecretClassName::from_str("tls").expect("test: valid secret class")),
+        );
+
+        let mut role_group_configs: BTreeMap<DruidRole, BTreeMap<RoleGroupName, _>> =
+            BTreeMap::new();
+        let mut role_configs: BTreeMap<DruidRole, ValidatedRoleConfig> = BTreeMap::new();
+        for role in DruidRole::iter() {
+            role_group_configs.insert(
+                role.clone(),
+                druid.merged_role(&role).expect("test: merged role"),
+            );
+            role_configs.insert(
+                role.clone(),
+                ValidatedRoleConfig {
+                    pdb: druid
+                        .generic_role_config(&role)
+                        .pod_disruption_budget
+                        .clone(),
+                    listener_class: role.listener_class_name(druid),
+                },
+            );
+        }
+
+        let metadata_db_connection = druid
+            .spec
+            .cluster_config
+            .metadata_database
+            .jdbc_connection_details("metadata")
+            .expect("test: valid metadata db connection");
+
+        ValidatedCluster::new(
+            ClusterName::from_str(&druid.name_any()).expect("test: valid cluster name"),
+            NamespaceName::from_str("default").expect("test: valid namespace"),
+            Uid::from_str("c27b3971-ca72-42c1-80a4-abdfc1db0ddd").expect("test: valid uid"),
+            image,
+            ValidatedClusterConfig {
+                zookeeper_connection_string: "zookeeper-connection-string".to_string(),
+                opa_connection_string: None,
+                s3_connection: None,
+                deep_storage_bucket_name: None,
+                druid_tls_security,
+                druid_auth_config: None,
+                metadata_database: druid.spec.cluster_config.metadata_database.clone(),
+                additional_extensions: druid.spec.cluster_config.additional_extensions.clone(),
+                metadata_db_connection,
+                deep_storage: druid.spec.cluster_config.deep_storage.clone(),
+                extra_volumes: druid.spec.cluster_config.extra_volumes.clone(),
+            },
+            role_configs,
+            role_group_configs,
+        )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use stackable_operator::cli::OperatorEnvironmentOptions;
+    use strum::IntoEnumIterator;
+
+    use super::{
+        Error,
+        test_support::{MINIMAL_DRUID_YAML, druid_from_yaml},
+        validate,
+    };
+    use crate::{controller::dereference::DereferencedObjects, crd::DruidRole};
+
+    /// Dereferenced inputs with test defaults: no S3, no OPA, no auth, a fixed ZooKeeper string.
+    fn dereferenced_objects() -> DereferencedObjects {
+        DereferencedObjects {
+            zookeeper_connection_string: "zookeeper-connection-string".to_string(),
+            opa_base_document_url: None,
+            s3_ingestion_connection: None,
+            s3_deep_storage_bucket: None,
+            authentication_classes: Vec::new(),
+        }
+    }
+
+    fn operator_environment() -> OperatorEnvironmentOptions {
+        OperatorEnvironmentOptions {
+            operator_namespace: "stackable-operators".to_string(),
+            operator_service_name: "druid-operator".to_string(),
+            image_repository: "oci.example.org".to_string(),
+        }
+    }
+
+    #[test]
+    fn test_validate_ok() {
+        let druid = druid_from_yaml(MINIMAL_DRUID_YAML);
+
+        let validated = validate(&druid, &dereferenced_objects(), &operator_environment())
+            .expect("the minimal cluster validates");
+
+        assert_eq!(validated.name.to_string(), "simple-druid");
+        assert_eq!(validated.namespace.to_string(), "default");
+        assert_eq!(
+            validated.uid.to_string(),
+            "c27b3971-ca72-42c1-80a4-abdfc1db0ddd"
+        );
+
+        // Every role is merged and gets a role config.
+        for role in DruidRole::iter() {
+            assert!(
+                validated.role_group_configs.contains_key(&role),
+                "missing role-group configs for {role}"
+            );
+            assert!(
+                validated.role_configs.contains_key(&role),
+                "missing role config for {role}"
+            );
+        }
+
+        // Only Broker/Coordinator/Router carry a listener class; Historical/MiddleManager don't.
+        assert!(
+            validated
+                .role_config(&DruidRole::Broker)
+                .listener_class
+                .is_some()
+        );
+        assert!(
+            validated
+                .role_config(&DruidRole::Coordinator)
+                .listener_class
+                .is_some()
+        );
+        assert!(
+            validated
+                .role_config(&DruidRole::Router)
+                .listener_class
+                .is_some()
+        );
+        assert!(
+            validated
+                .role_config(&DruidRole::Historical)
+                .listener_class
+                .is_none()
+        );
+        assert!(
+            validated
+                .role_config(&DruidRole::MiddleManager)
+                .listener_class
+                .is_none()
+        );
+
+        // Defaults from the dereferenced inputs flow through.
+        assert!(validated.cluster_config.druid_auth_config.is_none());
+        assert!(!validated.cluster_config.uses_s3());
+        assert_eq!(
+            validated.cluster_config.zookeeper_connection_string,
+            "zookeeper-connection-string"
+        );
+    }
+
+    #[test]
+    fn test_validate_err_missing_uid() {
+        let mut druid = druid_from_yaml(MINIMAL_DRUID_YAML);
+        druid.metadata.uid = None;
+
+        let result = validate(&druid, &dereferenced_objects(), &operator_environment());
+
+        assert!(
+            matches!(result, Err(Error::ClusterIdentity { .. })),
+            "expected a ClusterIdentity error when the cluster has no uid"
+        );
+    }
 }

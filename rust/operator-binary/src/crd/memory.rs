@@ -7,10 +7,12 @@ use stackable_operator::{
     memory::{BinaryMultiple, MemoryQuantity},
 };
 
-use crate::crd::{
-    PROCESSING_BUFFER_SIZE_BYTES, PROCESSING_NUM_MERGE_BUFFERS, PROCESSING_NUM_THREADS,
-    storage::HistoricalStorage,
-};
+use crate::crd::storage::HistoricalStorage;
+
+// Druid historical processing config-property keys, only used for the memory calculations here.
+const PROCESSING_BUFFER_SIZE_BYTES: &str = "druid.processing.buffer.sizeBytes";
+const PROCESSING_NUM_MERGE_BUFFERS: &str = "druid.processing.numMergeBuffers";
+const PROCESSING_NUM_THREADS: &str = "druid.processing.numThreads";
 
 static MIN_HEAP_RATIO: f32 = 0.75;
 
@@ -19,7 +21,7 @@ pub static RESERVED_OS_MEMORY: LazyLock<MemoryQuantity> =
 
 /// Max size for direct access buffers. This is defined in Druid to be 2GB:
 /// <https://druid.apache.org/docs/latest/configuration/index.html#processing-1>
-pub static MAX_DIRECT_BUFFER_SIZE: LazyLock<MemoryQuantity> =
+static MAX_DIRECT_BUFFER_SIZE: LazyLock<MemoryQuantity> =
     LazyLock::new(|| MemoryQuantity::from_gibi(2.));
 
 #[derive(Snafu, Debug)]
@@ -53,7 +55,7 @@ pub struct HistoricalDerivedSettings {
 }
 
 impl HistoricalDerivedSettings {
-    pub fn new(total_memory: MemoryQuantity, cpu_millis: CpuQuantity) -> Self {
+    fn new(total_memory: MemoryQuantity, cpu_millis: CpuQuantity) -> Self {
         Self {
             total_memory,
             cpu_millis,
@@ -120,18 +122,18 @@ impl HistoricalDerivedSettings {
     }
 
     /// Adds derived runtime settings to the given config
-    pub fn add_settings(&self, config: &mut BTreeMap<String, Option<String>>) {
+    pub fn add_settings(&self, config: &mut BTreeMap<String, String>) {
         config.insert(
             PROCESSING_NUM_THREADS.to_owned(),
-            Some(self.num_threads().to_string()),
+            self.num_threads().to_string(),
         );
         config.insert(
             PROCESSING_NUM_MERGE_BUFFERS.to_owned(),
-            Some(self.num_merge_buffers().to_string()),
+            self.num_merge_buffers().to_string(),
         );
         config.insert(
             PROCESSING_BUFFER_SIZE_BYTES.to_owned(),
-            Some(format_for_druid(&self.buffer_size())),
+            format_for_druid(&self.buffer_size()),
         );
     }
 }
