@@ -201,6 +201,7 @@ pub mod versioned {
     /// Find more information on how to use it and the resources that the operator generates in the
     /// [operator documentation](DOCS_BASE_URL_PLACEHOLDER/druid/).
     #[versioned(crd(
+        doc = "A Druid cluster stacklet. This resource is managed by the Stackable operator for Apache Druid.",
         group = "druid.stackable.tech",
         kind = "DruidCluster",
         plural = "druidclusters",
