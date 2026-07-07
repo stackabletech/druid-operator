@@ -12,6 +12,7 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- Bump stackable-operator to 0.113.3 ([#840]).
 - BREAKING: `configOverrides` now only accepts the supported config file names `runtime.properties`, `jvm.config` and `security.properties`. Previously arbitrary keys were silently accepted but ignored ([#813]).
 - BREAKING: Implement generic database connection for metadata storage ([#814]).
   The `.clusterConfig.metadataStorageDatabase` has subfields according to the supported db types: `postgresql`, `mysql` and `derby`.
@@ -35,6 +36,7 @@ All notable changes to this project will be documented in this file.
 [#826]: https://github.com/stackabletech/druid-operator/pull/826
 [#830]: https://github.com/stackabletech/druid-operator/pull/830
 [#832]: https://github.com/stackabletech/druid-operator/pull/832
+[#840]: https://github.com/stackabletech/druid-operator/pull/840
 
 ## [26.3.0] - 2026-03-16
 
