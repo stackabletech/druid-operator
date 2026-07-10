@@ -96,29 +96,6 @@ pub enum Error {
         source: stackable_operator::cluster_resources::Error,
     },
 
-    #[snafu(display("failed to apply Service for role group {role_group}"))]
-    ApplyRoleGroupService {
-        source: stackable_operator::cluster_resources::Error,
-        role_group: String,
-    },
-
-    #[snafu(display("failed to apply ConfigMap for role group {role_group}"))]
-    ApplyRoleGroupConfig {
-        source: stackable_operator::cluster_resources::Error,
-        role_group: String,
-    },
-
-    #[snafu(display("failed to build StatefulSet"))]
-    BuildRoleGroupStatefulSet {
-        source: build::resource::statefulset::Error,
-    },
-
-    #[snafu(display("failed to apply StatefulSet for role group {role_group}"))]
-    ApplyRoleGroupStatefulSet {
-        source: stackable_operator::cluster_resources::Error,
-        role_group: String,
-    },
-
     #[snafu(display("failed to dereference cluster objects"))]
     Dereference { source: dereference::Error },
 
@@ -160,11 +137,6 @@ pub enum Error {
         source: stackable_operator::commons::rbac::Error,
     },
 
-    #[snafu(display("failed to apply PodDisruptionBudget"))]
-    ApplyPdb {
-        source: stackable_operator::cluster_resources::Error,
-    },
-
     #[snafu(display("failed to get required labels"))]
     GetRequiredLabels {
         source: KeyValuePairError<LabelValueError>,
@@ -182,11 +154,6 @@ pub enum Error {
 
     #[snafu(display("failed to validate cluster"))]
     ValidateCluster { source: validate::Error },
-
-    #[snafu(display("failed to build rolegroup ConfigMap"))]
-    BuildConfigMap {
-        source: build::resource::config_map::Error,
-    },
 }
 
 type Result<T, E = Error> = std::result::Result<T, E>;
