@@ -16,11 +16,10 @@ use stackable_operator::{
         DeepMerge,
         api::{
             apps::v1::{StatefulSet, StatefulSetSpec},
-            core::v1::{EnvVar, PersistentVolumeClaim, ServiceAccount},
+            core::v1::{EnvVar, PersistentVolumeClaim},
         },
         apimachinery::pkg::apis::meta::v1::LabelSelector,
     },
-    kube::ResourceExt,
     product_logging,
     v2::{
         builder::pod::container::{EnvVarSet, new_container_builder},
@@ -114,7 +113,7 @@ pub fn build_rolegroup_statefulset(
     role: &DruidRole,
     role_group_name: &RoleGroupName,
     rg: &DruidRoleGroupConfig,
-    service_account: &ServiceAccount,
+    service_account_name: &str,
 ) -> Result<StatefulSet> {
     let merged_rolegroup_config = &rg.config;
     let resource_names = cluster.resource_names(role, role_group_name);
@@ -322,7 +321,7 @@ pub fn build_rolegroup_statefulset(
         .add_init_container(cb_prepare.build())
         .add_container(cb_druid.build())
         .metadata(metadata)
-        .service_account_name(service_account.name_any())
+        .service_account_name(service_account_name)
         .security_context(PodSecurityContextBuilder::new().fs_group(1000).build());
 
     // The Vector agent reads the static `vector.yaml` (added to the rolegroup ConfigMap) from the

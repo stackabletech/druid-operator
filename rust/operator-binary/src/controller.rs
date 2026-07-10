@@ -10,6 +10,7 @@ use stackable_operator::{
     cluster_resources::ClusterResourceApplyStrategy,
     commons::rbac::build_rbac_resources,
     kube::{
+        ResourceExt,
         core::{DeserializeGuard, error_boundary},
         runtime::controller::Action,
     },
@@ -213,9 +214,13 @@ pub async fn reconcile_druid(
             .context(GetRequiredLabelsSnafu)?,
     )
     .context(BuildRbacResourcesSnafu)?;
+
+    // The ServiceAccount name is deterministic on the built object, so the StatefulSet builder only
+    // needs the name and does not depend on the applied ServiceAccount.
+    let service_account_name = rbac_sa.name_any();
+
     cluster_resources
-        // We clone rbac_sa because we need to reuse it below
-        .add(client, rbac_sa.clone())
+        .add(client, rbac_sa)
         .await
         .context(ApplyServiceAccountSnafu)?;
     cluster_resources
@@ -250,7 +255,7 @@ pub async fn reconcile_druid(
                 druid_role,
                 rolegroup_name,
                 rg,
-                &rbac_sa,
+                &service_account_name,
             )
             .context(BuildRoleGroupStatefulSetSnafu)?;
 
