@@ -46,7 +46,7 @@ use stackable_operator::{
         types::{
             common::Port,
             kubernetes::{ConfigMapName, ContainerName, ListenerClassName},
-            operator::{RoleGroupName, RoleName},
+            operator::RoleGroupName,
         },
     },
     versioned::versioned,
@@ -631,12 +631,6 @@ pub enum DruidRole {
 }
 
 impl DruidRole {
-    /// Returns the typed role name used for Kubernetes labels and selectors.
-    pub fn to_role_name(&self) -> RoleName {
-        RoleName::from_str(&self.to_string())
-            .expect("a DruidRole always serializes to a valid role name")
-    }
-
     /// Returns the name of the internal druid process name associated with the role.
     /// These strings are used by druid internally to identify processes.
     fn get_process_name(&self) -> &str {

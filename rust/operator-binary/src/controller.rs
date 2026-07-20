@@ -8,19 +8,17 @@ use snafu::{ResultExt, Snafu};
 use stackable_operator::{
     cli::OperatorEnvironmentOptions,
     cluster_resources::ClusterResourceApplyStrategy,
-    commons::rbac::build_rbac_resources,
     crd::listener::v1alpha1::Listener,
     k8s_openapi::api::{
         apps::v1::StatefulSet,
-        core::v1::{ConfigMap, Service},
+        core::v1::{ConfigMap, Service, ServiceAccount},
         policy::v1::PodDisruptionBudget,
+        rbac::v1::RoleBinding,
     },
     kube::{
-        ResourceExt,
         core::{DeserializeGuard, error_boundary},
         runtime::controller::Action,
     },
-    kvp::{KeyValuePairError, LabelValueError},
     logging::controller::ReconcilerError,
     shared::time::Duration,
     status::condition::{
@@ -83,6 +81,8 @@ pub struct KubernetesResources {
     pub listeners: Vec<Listener>,
     pub config_maps: Vec<ConfigMap>,
     pub pod_disruption_budgets: Vec<PodDisruptionBudget>,
+    pub service_accounts: Vec<ServiceAccount>,
+    pub role_bindings: Vec<RoleBinding>,
 }
 
 #[derive(Snafu, Debug, EnumDiscriminants)]
@@ -120,26 +120,6 @@ pub enum Error {
     #[snafu(display("failed to retrieve secret for internal communications"))]
     FailedInternalSecretCreation {
         source: crate::internal_secret::Error,
-    },
-
-    #[snafu(display("failed to create RBAC service account"))]
-    ApplyServiceAccount {
-        source: stackable_operator::cluster_resources::Error,
-    },
-
-    #[snafu(display("failed to create RBAC role binding"))]
-    ApplyRoleBinding {
-        source: stackable_operator::cluster_resources::Error,
-    },
-
-    #[snafu(display("failed to build RBAC resources"))]
-    BuildRbacResources {
-        source: stackable_operator::commons::rbac::Error,
-    },
-
-    #[snafu(display("failed to get required labels"))]
-    GetRequiredLabels {
-        source: KeyValuePairError<LabelValueError>,
     },
 
     #[snafu(display("DruidCluster object is invalid"))]
@@ -196,38 +176,29 @@ pub async fn reconcile_druid(
         &druid.spec.object_overrides,
     );
 
-    let (rbac_sa, rbac_rolebinding) = build_rbac_resources(
-        druid,
-        APP_NAME,
-        cluster_resources
-            .get_required_labels()
-            .context(GetRequiredLabelsSnafu)?,
-    )
-    .context(BuildRbacResourcesSnafu)?;
-
-    // The ServiceAccount name is deterministic on the built object, so the StatefulSet builder only
-    // needs the name and does not depend on the applied ServiceAccount.
-    let service_account_name = rbac_sa.name_any();
-
-    cluster_resources
-        .add(client, rbac_sa)
-        .await
-        .context(ApplyServiceAccountSnafu)?;
-    cluster_resources
-        .add(client, rbac_rolebinding)
-        .await
-        .context(ApplyRoleBindingSnafu)?;
-
     // The internal secret is shared across all roles and role groups, so it only needs to be
     // created once per reconcile rather than inside the role loop below.
     create_shared_internal_secret(&validated_cluster, client, DRUID_CONTROLLER_NAME)
         .await
         .context(FailedInternalSecretCreationSnafu)?;
 
-    let resources =
-        build::build(&validated_cluster, &service_account_name).context(BuildResourcesSnafu)?;
+    let resources = build::build(&validated_cluster).context(BuildResourcesSnafu)?;
 
     let mut ss_cond_builder = StatefulSetConditionBuilder::default();
+
+    for service_account in resources.service_accounts {
+        cluster_resources
+            .add(client, service_account)
+            .await
+            .context(ApplyResourceSnafu)?;
+    }
+
+    for role_binding in resources.role_bindings {
+        cluster_resources
+            .add(client, role_binding)
+            .await
+            .context(ApplyResourceSnafu)?;
+    }
 
     // Apply order: everything a Pod mounts (ConfigMaps) must exist before the StatefulSets, so the
     // StatefulSets are applied last to prevent unnecessary Pod restarts.
