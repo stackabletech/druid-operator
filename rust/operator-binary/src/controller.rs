@@ -9,7 +9,14 @@ use stackable_operator::{
     cli::OperatorEnvironmentOptions,
     cluster_resources::ClusterResourceApplyStrategy,
     commons::rbac::build_rbac_resources,
+    crd::listener::v1alpha1::Listener,
+    k8s_openapi::api::{
+        apps::v1::StatefulSet,
+        core::v1::{ConfigMap, Service},
+        policy::v1::PodDisruptionBudget,
+    },
     kube::{
+        ResourceExt,
         core::{DeserializeGuard, error_boundary},
         runtime::controller::Action,
     },
@@ -28,11 +35,7 @@ use stackable_operator::{
 use strum::{EnumDiscriminants, IntoStaticStr};
 
 use crate::{
-    controller::build::resource::{
-        listener::{build_group_listener, group_listener_name},
-        pdb::build_pdb,
-        service::{build_rolegroup_headless_service, build_rolegroup_metrics_service},
-    },
+    controller::build::resource::listener::{build_group_listener, group_listener_name},
     crd::{APP_NAME, DruidClusterStatus, DruidRole, OPERATOR_NAME, v1alpha1},
     internal_secret::create_shared_internal_secret,
 };
@@ -69,30 +72,28 @@ pub struct Ctx {
     pub operator_environment: OperatorEnvironmentOptions,
 }
 
+/// Every Kubernetes resource produced by the client-free [`build`](build::build) step.
+///
+/// The Router group `Listener` and the discovery `ConfigMap`s are intentionally *not* yet part of this
+/// bundle: the discovery `ConfigMap` derives from the *applied* Router listener's ingress address,
+/// so both are built and applied in the reconcile step instead.
+pub struct KubernetesResources {
+    pub stateful_sets: Vec<StatefulSet>,
+    pub services: Vec<Service>,
+    pub listeners: Vec<Listener>,
+    pub config_maps: Vec<ConfigMap>,
+    pub pod_disruption_budgets: Vec<PodDisruptionBudget>,
+}
+
 #[derive(Snafu, Debug, EnumDiscriminants)]
 #[strum_discriminants(derive(IntoStaticStr))]
 pub enum Error {
-    #[snafu(display("failed to apply Service for role group {role_group}"))]
-    ApplyRoleGroupService {
-        source: stackable_operator::cluster_resources::Error,
-        role_group: String,
-    },
+    #[snafu(display("failed to build the Kubernetes resources"))]
+    BuildResources { source: build::Error },
 
-    #[snafu(display("failed to apply ConfigMap for role group {role_group}"))]
-    ApplyRoleGroupConfig {
+    #[snafu(display("failed to apply Kubernetes resource"))]
+    ApplyResource {
         source: stackable_operator::cluster_resources::Error,
-        role_group: String,
-    },
-
-    #[snafu(display("failed to build StatefulSet"))]
-    BuildRoleGroupStatefulSet {
-        source: build::resource::statefulset::Error,
-    },
-
-    #[snafu(display("failed to apply StatefulSet for role group {role_group}"))]
-    ApplyRoleGroupStatefulSet {
-        source: stackable_operator::cluster_resources::Error,
-        role_group: String,
     },
 
     #[snafu(display("failed to dereference cluster objects"))]
@@ -136,11 +137,6 @@ pub enum Error {
         source: stackable_operator::commons::rbac::Error,
     },
 
-    #[snafu(display("failed to apply PodDisruptionBudget"))]
-    ApplyPdb {
-        source: stackable_operator::cluster_resources::Error,
-    },
-
     #[snafu(display("failed to get required labels"))]
     GetRequiredLabels {
         source: KeyValuePairError<LabelValueError>,
@@ -158,11 +154,6 @@ pub enum Error {
 
     #[snafu(display("failed to validate cluster"))]
     ValidateCluster { source: validate::Error },
-
-    #[snafu(display("failed to build rolegroup ConfigMap"))]
-    BuildConfigMap {
-        source: build::resource::config_map::Error,
-    },
 }
 
 type Result<T, E = Error> = std::result::Result<T, E>;
@@ -213,9 +204,13 @@ pub async fn reconcile_druid(
             .context(GetRequiredLabelsSnafu)?,
     )
     .context(BuildRbacResourcesSnafu)?;
+
+    // The ServiceAccount name is deterministic on the built object, so the StatefulSet builder only
+    // needs the name and does not depend on the applied ServiceAccount.
+    let service_account_name = rbac_sa.name_any();
+
     cluster_resources
-        // We clone rbac_sa because we need to reuse it below
-        .add(client, rbac_sa.clone())
+        .add(client, rbac_sa)
         .await
         .context(ApplyServiceAccountSnafu)?;
     cluster_resources
@@ -229,99 +224,76 @@ pub async fn reconcile_druid(
         .await
         .context(FailedInternalSecretCreationSnafu)?;
 
+    let resources =
+        build::build(&validated_cluster, &service_account_name).context(BuildResourcesSnafu)?;
+
     let mut ss_cond_builder = StatefulSetConditionBuilder::default();
 
-    for (druid_role, groups) in validated_cluster.role_group_configs.iter() {
-        for (rolegroup_name, rg) in groups.iter() {
-            let rg_headless_service =
-                build_rolegroup_headless_service(&validated_cluster, druid_role, rolegroup_name);
-            let rg_metrics_service =
-                build_rolegroup_metrics_service(&validated_cluster, druid_role, rolegroup_name);
-
-            let rg_configmap = build::resource::config_map::build_rolegroup_config_map(
-                &validated_cluster,
-                druid_role,
-                rolegroup_name,
-                rg,
-            )
-            .context(BuildConfigMapSnafu)?;
-            let rg_statefulset = build::resource::statefulset::build_rolegroup_statefulset(
-                &validated_cluster,
-                druid_role,
-                rolegroup_name,
-                rg,
-                &rbac_sa,
-            )
-            .context(BuildRoleGroupStatefulSetSnafu)?;
-
+    // Apply order: everything a Pod mounts (ConfigMaps) must exist before the StatefulSets, so the
+    // StatefulSets are applied last to prevent unnecessary Pod restarts.
+    // See https://github.com/stackabletech/commons-operator/issues/111 for details.
+    for service in resources.services {
+        cluster_resources
+            .add(client, service)
+            .await
+            .context(ApplyResourceSnafu)?;
+    }
+    for listener in resources.listeners {
+        cluster_resources
+            .add(client, listener)
+            .await
+            .context(ApplyResourceSnafu)?;
+    }
+    for config_map in resources.config_maps {
+        cluster_resources
+            .add(client, config_map)
+            .await
+            .context(ApplyResourceSnafu)?;
+    }
+    for pdb in resources.pod_disruption_budgets {
+        cluster_resources
+            .add(client, pdb)
+            .await
+            .context(ApplyResourceSnafu)?;
+    }
+    for stateful_set in resources.stateful_sets {
+        ss_cond_builder.add(
             cluster_resources
-                .add(client, rg_headless_service)
+                .add(client, stateful_set)
                 .await
-                .with_context(|_| ApplyRoleGroupServiceSnafu {
-                    role_group: rolegroup_name.to_string(),
-                })?;
-            cluster_resources
-                .add(client, rg_metrics_service)
-                .await
-                .with_context(|_| ApplyRoleGroupServiceSnafu {
-                    role_group: rolegroup_name.to_string(),
-                })?;
-            cluster_resources
-                .add(client, rg_configmap)
-                .await
-                .with_context(|_| ApplyRoleGroupConfigSnafu {
-                    role_group: rolegroup_name.to_string(),
-                })?;
+                .context(ApplyResourceSnafu)?,
+        );
+    }
 
-            // Note: The StatefulSet needs to be applied after all ConfigMaps and Secrets it mounts
-            // to prevent unnecessary Pod restarts.
-            // See https://github.com/stackabletech/commons-operator/issues/111 for details.
-            ss_cond_builder.add(
-                cluster_resources
-                    .add(client, rg_statefulset)
-                    .await
-                    .with_context(|_| ApplyRoleGroupStatefulSetSnafu {
-                        role_group: rolegroup_name.to_string(),
-                    })?,
-            );
-        }
+    // The Router group Listener and its discovery ConfigMaps are applied here rather than in the
+    // build step: the discovery ConfigMap derives from the *applied* Router listener's ingress
+    // address, which is only known after the Listener has been applied.
+    if let Some(listener_class) = &validated_cluster
+        .role_config(&DruidRole::Router)
+        .listener_class
+        && let Some(listener_group_name) =
+            group_listener_name(&validated_cluster, &DruidRole::Router)
+    {
+        let router_listener = build_group_listener(
+            &validated_cluster,
+            listener_class,
+            listener_group_name,
+            &DruidRole::Router,
+        );
 
-        if let Some(listener_class) = &validated_cluster.role_config(druid_role).listener_class
-            && let Some(listener_group_name) = group_listener_name(&validated_cluster, druid_role)
+        let listener = cluster_resources
+            .add(client, router_listener)
+            .await
+            .context(ApplyGroupListenerSnafu)?;
+
+        for discovery_cm in build_discovery_configmaps(&validated_cluster, listener)
+            .await
+            .context(BuildDiscoveryConfigSnafu)?
         {
-            let role_group_listener = build_group_listener(
-                &validated_cluster,
-                listener_class,
-                listener_group_name,
-                druid_role,
-            );
-
-            let listener = cluster_resources
-                .add(client, role_group_listener)
-                .await
-                .context(ApplyGroupListenerSnafu)?;
-
-            if *druid_role == DruidRole::Router {
-                // discovery
-                for discovery_cm in build_discovery_configmaps(&validated_cluster, listener)
-                    .await
-                    .context(BuildDiscoveryConfigSnafu)?
-                {
-                    cluster_resources
-                        .add(client, discovery_cm)
-                        .await
-                        .context(ApplyDiscoveryConfigSnafu)?;
-                }
-            }
-        }
-
-        let role_config = validated_cluster.role_config(druid_role);
-
-        if let Some(pdb) = build_pdb(&role_config.pdb, &validated_cluster, druid_role) {
             cluster_resources
-                .add(client, pdb)
+                .add(client, discovery_cm)
                 .await
-                .context(ApplyPdbSnafu)?;
+                .context(ApplyDiscoveryConfigSnafu)?;
         }
     }
 
