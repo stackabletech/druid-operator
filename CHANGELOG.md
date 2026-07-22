@@ -34,6 +34,13 @@ All notable changes to this project will be documented in this file.
 - BREAKING: Removed product-config machinery. This is a breaking change in terms of configuration.
   Users relying on the product-config `properties.yaml` file have to set these properties via the CRD ([#830]).
 
+### Deprecated
+
+- Stackable's support for Apache Druid is deprecated and is planned for removal from the SDP in SDP 27.11.
+  This concerns only the Apache Druid integration in the SDP (this operator); Apache Druid itself is not affected.
+  SDP 27.7 is planned to be the last release that includes Apache Druid.
+  We have not seen adoption of Apache Druid among our customers; if you rely on it, please [contact us](https://stackable.tech/) ([#853]).
+
 ### Deleted
 
 - Remove all metadata storage related properties from product config ([#814]).
@@ -48,6 +55,7 @@ All notable changes to this project will be documented in this file.
 [#830]: https://github.com/stackabletech/druid-operator/pull/830
 [#832]: https://github.com/stackabletech/druid-operator/pull/832
 [#840]: https://github.com/stackabletech/druid-operator/pull/840
+[#853]: https://github.com/stackabletech/druid-operator/pull/853
 
 ## [26.3.0] - 2026-03-16
 
