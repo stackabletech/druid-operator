@@ -151,7 +151,7 @@ pub fn build_rolegroup_config_map(
     role_group_name: &RoleGroupName,
     rg: &DruidRoleGroupConfig,
 ) -> Result<ConfigMap> {
-    let resource_names = cluster.resource_names(role, role_group_name);
+    let resource_names = cluster.role_group_resource_names(role, role_group_name);
     let cluster_config = &cluster.cluster_config;
     let druid_tls_security = &cluster_config.druid_tls_security;
     let druid_auth_config = &cluster_config.druid_auth_config;

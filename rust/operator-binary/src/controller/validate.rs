@@ -281,7 +281,7 @@ impl ValidatedCluster {
 
     /// Type-safe names for the per-cluster RBAC resources: the ServiceAccount shared by all
     /// Pods, its (namespaced) RoleBinding, and the operator-deployed ClusterRole it binds.
-    pub fn rbac_resource_names(&self) -> role_utils::ResourceNames {
+    pub fn cluster_resource_names(&self) -> role_utils::ResourceNames {
         role_utils::ResourceNames {
             cluster_name: self.name.clone(),
             product_name: product_name(),
@@ -289,7 +289,7 @@ impl ValidatedCluster {
     }
 
     /// Type-safe names for the resources of the given role's role group.
-    pub(crate) fn resource_names(
+    pub(crate) fn role_group_resource_names(
         &self,
         role: &DruidRole,
         role_group_name: &RoleGroupName,
@@ -614,7 +614,7 @@ mod tests {
     use strum::IntoEnumIterator;
 
     use super::{
-        Error,
+        Error, ValidatedCluster,
         test_support::{MINIMAL_DRUID_YAML, druid_from_yaml},
         validate,
     };
@@ -717,5 +717,14 @@ mod tests {
             matches!(result, Err(Error::ClusterIdentity { .. })),
             "expected a ClusterIdentity error when the cluster has no uid"
         );
+    }
+
+    /// Locks the invariant behind the `expect` in [`ValidatedCluster::role_name`]: every
+    /// `DruidRole` variant (present and future) must serialise to a valid `RoleName`.
+    #[test]
+    fn every_druid_role_serialises_to_a_valid_role_name() {
+        for role in DruidRole::iter() {
+            ValidatedCluster::role_name(&role);
+        }
     }
 }

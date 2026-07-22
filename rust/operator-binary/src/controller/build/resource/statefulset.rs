@@ -115,7 +115,7 @@ pub fn build_rolegroup_statefulset(
     rg: &DruidRoleGroupConfig,
 ) -> Result<StatefulSet> {
     let merged_rolegroup_config = &rg.config;
-    let resource_names = cluster.resource_names(role, role_group_name);
+    let resource_names = cluster.role_group_resource_names(role, role_group_name);
     // Everything below used to be threaded in as separate parameters; it all lives on the
     // `ValidatedCluster` now.
     let resolved_product_image = &cluster.image;
@@ -319,7 +319,7 @@ pub fn build_rolegroup_statefulset(
         .metadata(metadata)
         .service_account_name(
             cluster
-                .rbac_resource_names()
+                .cluster_resource_names()
                 .service_account_name()
                 .to_string(),
         )
