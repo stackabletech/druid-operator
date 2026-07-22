@@ -2,6 +2,13 @@
 // This is a separate file, since it is used by both the direct Druid documentation, and the overarching
 // Stackable Platform documentation.
 
+[NOTE]
+====
+Stackable's support for Apache Druid is deprecated and is planned for removal from the SDP in SDP 27.11.
+The last SDP release to include Apache Druid is planned to be 27.7.
+Apache Druid itself is not affected; only its inclusion in the SDP is being discontinued.
+====
+
 - 37.0.0 (LTS)
 - 35.0.1 (Deprecated)
 - 30.0.1 (Deprecated)

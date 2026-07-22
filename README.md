@@ -12,6 +12,13 @@
 
 [Documentation](https://docs.stackable.tech/home/stable/druid) | [Stackable Data Platform](https://stackable.tech/) | [Platform Docs](https://docs.stackable.tech/) | [Discussions](https://github.com/orgs/stackabletech/discussions) | [Discord](https://discord.gg/7kZ3BNnCAF)
 
+> [!WARNING]
+> **Stackable support for Apache Druid is deprecated and will be removed from the Stackable Data Platform (SDP).**
+> This concerns only the Apache Druid integration in the SDP (this operator); Apache Druid itself is an independent, actively maintained project and is not affected.
+> Stackable's support is deprecated as of SDP 26.7 and is planned for removal in SDP 27.11; SDP 27.7 is planned to be the last release that includes it.
+> We have taken this decision because we have not seen adoption of Apache Druid among our customers.
+> There is no direct replacement within the SDP. If you rely on this integration — or would be willing to fund its continued development — please contact us via our [homepage](https://stackable.tech/) or the [Discussions forum](https://github.com/orgs/stackabletech/discussions).
+
 This is a Kubernetes operator to manage [Apache Druid](https://druid.apache.org/) ensembles.
 
 <!-- markdownlint-disable MD041 MD051 -->
