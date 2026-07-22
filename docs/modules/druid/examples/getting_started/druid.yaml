@@ -5,7 +5,7 @@ metadata:
   name: simple-druid
 spec:
   image:
-    productVersion: 35.0.1
+    productVersion: 37.0.0
   clusterConfig:
     zookeeperConfigMapName: simple-druid-znode
     deepStorage:
