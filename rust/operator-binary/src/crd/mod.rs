@@ -46,7 +46,7 @@ use stackable_operator::{
         types::{
             common::Port,
             kubernetes::{ConfigMapName, ContainerName, ListenerClassName},
-            operator::RoleGroupName,
+            operator::{RoleGroupName, RoleName},
         },
     },
     versioned::versioned,
@@ -628,6 +628,20 @@ pub enum DruidRole {
     MiddleManager,
     #[strum(serialize = "router")]
     Router,
+}
+
+impl From<DruidRole> for RoleName {
+    fn from(value: DruidRole) -> Self {
+        RoleName::from_str(&value.to_string())
+            .expect("a DruidRole always serializes to a valid role name")
+    }
+}
+
+impl From<&DruidRole> for RoleName {
+    fn from(value: &DruidRole) -> Self {
+        RoleName::from_str(&value.to_string())
+            .expect("a DruidRole always serializes to a valid role name")
+    }
 }
 
 impl DruidRole {

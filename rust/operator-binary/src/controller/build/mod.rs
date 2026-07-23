@@ -54,8 +54,8 @@ pub enum Error {
 /// Builds the Kubernetes resources for the given validated cluster.
 ///
 /// Does not need a Kubernetes client: every reference to another Kubernetes resource is already
-/// dereferenced and validated by this point. The remaining errors are resource-assembly failures
-/// only.
+/// dereferenced and validated by this point.
+/// The remaining errors are resource-assembly failures only.
 ///
 /// `service_account_name` is the name of the RBAC `ServiceAccount` the role-group Pods run under
 /// (RBAC resources are built and applied separately, in the reconcile step).

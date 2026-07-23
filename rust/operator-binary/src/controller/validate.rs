@@ -197,12 +197,6 @@ impl ValidatedCluster {
             .expect("every DruidRole has a validated role config")
     }
 
-    /// The type-safe role name for a Druid role.
-    pub(crate) fn role_name(role: &DruidRole) -> RoleName {
-        RoleName::from_str(&role.to_string())
-            .expect("a DruidRole always serializes to a valid role name")
-    }
-
     fn recommended_labels_with(
         &self,
         product_version: &ProductVersion,
@@ -232,7 +226,7 @@ impl ValidatedCluster {
 
     /// Recommended labels for a role-group resource.
     pub fn recommended_labels(&self, role: &DruidRole, role_group_name: &RoleGroupName) -> Labels {
-        self.recommended_labels_for(&Self::role_name(role), role_group_name)
+        self.recommended_labels_for(&role.into(), role_group_name)
     }
 
     /// Recommended labels with the constant [`UNVERSIONED_PRODUCT_VERSION`], for PVC templates
@@ -242,21 +236,12 @@ impl ValidatedCluster {
         role: &DruidRole,
         role_group_name: &RoleGroupName,
     ) -> Labels {
-        self.recommended_labels_with(
-            &UNVERSIONED_PRODUCT_VERSION,
-            &Self::role_name(role),
-            role_group_name,
-        )
+        self.recommended_labels_with(&UNVERSIONED_PRODUCT_VERSION, &role.into(), role_group_name)
     }
 
     /// Selector labels matching the pods of a role group.
     pub fn role_group_selector(&self, role: &DruidRole, role_group_name: &RoleGroupName) -> Labels {
-        role_group_selector(
-            self,
-            &product_name(),
-            &Self::role_name(role),
-            role_group_name,
-        )
+        role_group_selector(self, &product_name(), &role.into(), role_group_name)
     }
 
     /// Returns an [`ObjectMetaBuilder`] pre-filled with the namespace, an owner reference back to
@@ -296,7 +281,7 @@ impl ValidatedCluster {
     ) -> ResourceNames {
         ResourceNames {
             cluster_name: self.name.clone(),
-            role_name: Self::role_name(role),
+            role_name: role.into(),
             role_group_name: role_group_name.clone(),
         }
     }
@@ -610,11 +595,11 @@ spec:
 
 #[cfg(test)]
 mod tests {
-    use stackable_operator::cli::OperatorEnvironmentOptions;
+    use stackable_operator::{cli::OperatorEnvironmentOptions, v2::types::operator::RoleName};
     use strum::IntoEnumIterator;
 
     use super::{
-        Error, ValidatedCluster,
+        Error,
         test_support::{MINIMAL_DRUID_YAML, druid_from_yaml},
         validate,
     };
@@ -719,12 +704,13 @@ mod tests {
         );
     }
 
-    /// Locks the invariant behind the `expect` in [`ValidatedCluster::role_name`]: every
-    /// `DruidRole` variant (present and future) must serialise to a valid `RoleName`.
+    /// Locks the invariant behind the `expect` in the `From<DruidRole> for RoleName` impls:
+    /// every `DruidRole` variant (present and future) must serialise to a valid `RoleName`.
     #[test]
     fn every_druid_role_serialises_to_a_valid_role_name() {
         for role in DruidRole::iter() {
-            ValidatedCluster::role_name(&role);
+            let _: RoleName = (&role).into();
+            let _: RoleName = role.into();
         }
     }
 }
