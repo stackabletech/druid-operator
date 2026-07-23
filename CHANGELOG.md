@@ -10,9 +10,11 @@ All notable changes to this project will be documented in this file.
   assembles all relevant Kubernetes resources before anything is applied ([#841]).
 - The RBAC ServiceAccount and RoleBinding are now built with the operator-rs `v2::rbac`
   functions and carry the full set of recommended labels ([#846]).
+- Bump stackable-operator to 0.114.0 ([#855]).
 
 [#841]: https://github.com/stackabletech/druid-operator/pull/841
 [#846]: https://github.com/stackabletech/druid-operator/pull/846
+[#855]: https://github.com/stackabletech/druid-operator/pull/855
 
 ## [26.7.0] - 2026-07-21
 
