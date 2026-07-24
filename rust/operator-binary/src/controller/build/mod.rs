@@ -57,9 +57,6 @@ pub enum Error {
 /// dereferenced and validated by this point.
 /// The remaining errors are resource-assembly failures only.
 ///
-/// `service_account_name` is the name of the RBAC `ServiceAccount` the role-group Pods run under
-/// (RBAC resources are built and applied separately, in the reconcile step).
-///
 /// The Router group `Listener` and the discovery `ConfigMap`s are not built here: the discovery
 /// `ConfigMap` derives from the *applied* Router listener's ingress address, so both are built and
 /// applied in the reconcile step instead.
