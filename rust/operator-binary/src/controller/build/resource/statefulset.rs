@@ -34,7 +34,7 @@ use stackable_operator::{
 use crate::{
     controller::{
         build::{
-            UNVERSIONED_PRODUCT_VERSION, authentication,
+            authentication,
             graceful_shutdown::add_graceful_shutdown_config,
             properties::product_logging::MAX_DRUID_LOG_FILES_SIZE,
             resource::listener::{
@@ -113,10 +113,9 @@ pub fn build_rolegroup_statefulset(
     role: &DruidRole,
     role_group_name: &RoleGroupName,
     rg: &DruidRoleGroupConfig,
-    service_account_name: &str,
 ) -> Result<StatefulSet> {
     let merged_rolegroup_config = &rg.config;
-    let resource_names = cluster.resource_names(role, role_group_name);
+    let resource_names = cluster.role_group_resource_names(role, role_group_name);
     // Everything below used to be threaded in as separate parameters; it all lives on the
     // `ValidatedCluster` now.
     let resolved_product_image = &cluster.image;
@@ -301,11 +300,8 @@ pub fn build_rolegroup_statefulset(
             .add_volume_mount(&*LISTENER_VOLUME_NAME, LISTENER_VOLUME_DIR)
             .context(AddVolumeMountSnafu)?;
 
-        // Used for PVC templates that cannot be modified once they are deployed
-        // A version value is required, and we do want to use the "recommended" format for the
-        // other desired labels, hence the unversioned product version.
         let unversioned_recommended_labels =
-            cluster.recommended_labels_for(role, &UNVERSIONED_PRODUCT_VERSION, role_group_name);
+            cluster.unversioned_recommended_labels(role, role_group_name);
 
         pvcs = Some(vec![build_group_listener_pvc(
             &group_listener_name,
@@ -321,7 +317,12 @@ pub fn build_rolegroup_statefulset(
         .add_init_container(cb_prepare.build())
         .add_container(cb_druid.build())
         .metadata(metadata)
-        .service_account_name(service_account_name)
+        .service_account_name(
+            cluster
+                .cluster_resource_names()
+                .service_account_name()
+                .to_string(),
+        )
         .security_context(PodSecurityContextBuilder::new().fs_group(1000).build());
 
     // The Vector agent reads the static `vector.yaml` (added to the rolegroup ConfigMap) from the

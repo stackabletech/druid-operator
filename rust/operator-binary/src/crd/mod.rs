@@ -630,13 +630,21 @@ pub enum DruidRole {
     Router,
 }
 
-impl DruidRole {
-    /// Returns the typed role name used for Kubernetes labels and selectors.
-    pub fn to_role_name(&self) -> RoleName {
-        RoleName::from_str(&self.to_string())
+impl From<DruidRole> for RoleName {
+    fn from(value: DruidRole) -> Self {
+        RoleName::from_str(&value.to_string())
             .expect("a DruidRole always serializes to a valid role name")
     }
+}
 
+impl From<&DruidRole> for RoleName {
+    fn from(value: &DruidRole) -> Self {
+        RoleName::from_str(&value.to_string())
+            .expect("a DruidRole always serializes to a valid role name")
+    }
+}
+
+impl DruidRole {
     /// Returns the name of the internal druid process name associated with the role.
     /// These strings are used by druid internally to identify processes.
     fn get_process_name(&self) -> &str {

@@ -15,7 +15,7 @@ use stackable_operator::{
 
 use crate::{
     controller::{
-        build::{PLACEHOLDER_LISTENER_ROLE_GROUP, security::listener_ports},
+        build::{NONE_ROLE_GROUP_NAME, security::listener_ports},
         validate::ValidatedCluster,
     },
     crd::{
@@ -52,7 +52,7 @@ pub fn build_group_listener(
             .object_meta(
                 listener_group_name.to_string(),
                 druid_role,
-                &PLACEHOLDER_LISTENER_ROLE_GROUP,
+                &NONE_ROLE_GROUP_NAME,
             )
             .build(),
         spec: listener::v1alpha1::ListenerSpec {

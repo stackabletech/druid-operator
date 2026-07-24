@@ -28,9 +28,10 @@ use stackable_operator::{
         controller_utils::{get_cluster_name, get_namespace, get_uid},
         kvp::label::{recommended_labels, role_group_selector},
         role_group_utils::ResourceNames,
+        role_utils,
         types::{
             kubernetes::{ListenerClassName, NamespaceName, Uid},
-            operator::{ClusterName, ProductVersion, RoleGroupName},
+            operator::{ClusterName, ProductVersion, RoleGroupName, RoleName},
         },
     },
 };
@@ -90,6 +91,9 @@ type Result<T, E = Error> = std::result::Result<T, E>;
 /// Defined in [`crate::crd`] (where it has access to the private typed config fields) and
 /// re-exported here for the build step.
 pub use crate::crd::DruidRoleGroupConfig;
+
+// Placeholder version label value for resources whose labels must not change after deployment.
+stackable_operator::constant!(UNVERSIONED_PRODUCT_VERSION: ProductVersion = "none");
 
 /// Cluster-wide resolved fields that are not role/rolegroup specific.
 pub struct ValidatedClusterConfig {
@@ -193,14 +197,10 @@ impl ValidatedCluster {
             .expect("every DruidRole has a validated role config")
     }
 
-    /// Recommended labels for a role-group resource, using the given product version.
-    ///
-    /// Kept separate so the listener PVC templates (which require an immutable, version-independent
-    /// label set) can pass the unversioned product version.
-    pub(crate) fn recommended_labels_for(
+    fn recommended_labels_with(
         &self,
-        role: &DruidRole,
         product_version: &ProductVersion,
+        role_name: &RoleName,
         role_group_name: &RoleGroupName,
     ) -> Labels {
         recommended_labels(
@@ -209,27 +209,39 @@ impl ValidatedCluster {
             product_version,
             &operator_name(),
             &controller_name(),
-            &role.to_role_name(),
+            role_name,
             role_group_name,
         )
     }
 
+    /// Recommended labels for a resource that is not tied to a concrete [`DruidRole`] (e.g. the
+    /// cluster-shared RBAC resources), using a free-form role/role-group label value.
+    pub fn recommended_labels_for(
+        &self,
+        role_name: &RoleName,
+        role_group_name: &RoleGroupName,
+    ) -> Labels {
+        self.recommended_labels_with(&self.product_version, role_name, role_group_name)
+    }
+
     /// Recommended labels for a role-group resource.
-    pub(crate) fn recommended_labels(
+    pub fn recommended_labels(&self, role: &DruidRole, role_group_name: &RoleGroupName) -> Labels {
+        self.recommended_labels_for(&role.into(), role_group_name)
+    }
+
+    /// Recommended labels with the constant [`UNVERSIONED_PRODUCT_VERSION`], for PVC templates
+    /// that cannot be modified after deployment (keeps the labels stable across version upgrades).
+    pub fn unversioned_recommended_labels(
         &self,
         role: &DruidRole,
         role_group_name: &RoleGroupName,
     ) -> Labels {
-        self.recommended_labels_for(role, &self.product_version, role_group_name)
+        self.recommended_labels_with(&UNVERSIONED_PRODUCT_VERSION, &role.into(), role_group_name)
     }
 
     /// Selector labels matching the pods of a role group.
-    pub(crate) fn role_group_selector(
-        &self,
-        role: &DruidRole,
-        role_group_name: &RoleGroupName,
-    ) -> Labels {
-        role_group_selector(self, &product_name(), &role.to_role_name(), role_group_name)
+    pub fn role_group_selector(&self, role: &DruidRole, role_group_name: &RoleGroupName) -> Labels {
+        role_group_selector(self, &product_name(), &role.into(), role_group_name)
     }
 
     /// Returns an [`ObjectMetaBuilder`] pre-filled with the namespace, an owner reference back to
@@ -252,15 +264,24 @@ impl ValidatedCluster {
         builder
     }
 
+    /// Type-safe names for the per-cluster RBAC resources: the ServiceAccount shared by all
+    /// Pods, its (namespaced) RoleBinding, and the operator-deployed ClusterRole it binds.
+    pub fn cluster_resource_names(&self) -> role_utils::ResourceNames {
+        role_utils::ResourceNames {
+            cluster_name: self.name.clone(),
+            product_name: product_name(),
+        }
+    }
+
     /// Type-safe names for the resources of the given role's role group.
-    pub(crate) fn resource_names(
+    pub(crate) fn role_group_resource_names(
         &self,
         role: &DruidRole,
         role_group_name: &RoleGroupName,
     ) -> ResourceNames {
         ResourceNames {
             cluster_name: self.name.clone(),
-            role_name: role.to_role_name(),
+            role_name: role.into(),
             role_group_name: role_group_name.clone(),
         }
     }
@@ -574,7 +595,7 @@ spec:
 
 #[cfg(test)]
 mod tests {
-    use stackable_operator::cli::OperatorEnvironmentOptions;
+    use stackable_operator::{cli::OperatorEnvironmentOptions, v2::types::operator::RoleName};
     use strum::IntoEnumIterator;
 
     use super::{
@@ -681,5 +702,15 @@ mod tests {
             matches!(result, Err(Error::ClusterIdentity { .. })),
             "expected a ClusterIdentity error when the cluster has no uid"
         );
+    }
+
+    /// Locks the invariant behind the `expect` in the `From<DruidRole> for RoleName` impls:
+    /// every `DruidRole` variant (present and future) must serialise to a valid `RoleName`.
+    #[test]
+    fn every_druid_role_serialises_to_a_valid_role_name() {
+        for role in DruidRole::iter() {
+            let _: RoleName = (&role).into();
+            let _: RoleName = role.into();
+        }
     }
 }
