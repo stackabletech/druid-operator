@@ -15,7 +15,7 @@ use stackable_operator::{
 
 use crate::{
     controller::{
-        build::{NONE_ROLE_GROUP_NAME, security::listener_ports},
+        build::{NONE_ROLE_GROUP_NAME, object_meta, security::listener_ports},
         validate::ValidatedCluster,
     },
     crd::{
@@ -48,13 +48,12 @@ pub fn build_group_listener(
     // The group listener is a role-level (not role-group-level) object, so there is no real
     // role-group name; the placeholder is used for the recommended labels.
     Listener {
-        metadata: cluster
-            .object_meta(
-                listener_group_name.to_string(),
-                druid_role,
-                &NONE_ROLE_GROUP_NAME,
-            )
-            .build(),
+        metadata: object_meta(
+            cluster,
+            listener_group_name.to_string(),
+            cluster.recommended_labels(druid_role, &NONE_ROLE_GROUP_NAME),
+        )
+        .build(),
         spec: listener::v1alpha1::ListenerSpec {
             class_name: Some(listener_class.to_string()),
             ports: Some(listener_ports(

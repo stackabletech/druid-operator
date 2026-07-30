@@ -3,7 +3,11 @@
 use std::str::FromStr;
 
 use snafu::{ResultExt, Snafu};
-use stackable_operator::v2::types::operator::RoleGroupName;
+use stackable_operator::{
+    builder::meta::ObjectMetaBuilder,
+    kvp::Labels,
+    v2::{builder::meta::ownerreference_from_resource, types::operator::RoleGroupName},
+};
 
 use crate::{
     controller::{
@@ -35,6 +39,25 @@ pub mod jvm;
 pub mod properties;
 pub mod resource;
 pub mod security;
+
+/// Returns an [`ObjectMetaBuilder`] pre-filled with the cluster's namespace, an owner
+/// reference back to the cluster, the resource `name` and the given `recommended_labels`.
+///
+/// Consolidates the metadata chain repeated by the child-resource builders. Call sites that
+/// need extra labels/annotations chain them onto the returned builder.
+pub(crate) fn object_meta(
+    cluster: &ValidatedCluster,
+    name: impl Into<String>,
+    recommended_labels: Labels,
+) -> ObjectMetaBuilder {
+    let mut builder = ObjectMetaBuilder::new();
+    builder
+        .name_and_namespace(cluster)
+        .name(name)
+        .ownerreference(ownerreference_from_resource(cluster, None, Some(true)))
+        .with_labels(recommended_labels);
+    builder
+}
 
 #[derive(Snafu, Debug)]
 pub enum Error {

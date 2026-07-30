@@ -10,7 +10,8 @@ use stackable_operator::{
 use crate::{
     controller::{
         build::{
-            PLACEHOLDER_DISCOVERY_ROLE_GROUP, resource::listener::build_listener_connection_string,
+            PLACEHOLDER_DISCOVERY_ROLE_GROUP, object_meta,
+            resource::listener::build_listener_connection_string,
         },
         validate::ValidatedCluster,
     },
@@ -57,13 +58,12 @@ fn build_discovery_configmap(
 
     ConfigMapBuilder::new()
         .metadata(
-            cluster
-                .object_meta(
-                    cluster.name.to_string(),
-                    &DruidRole::Router,
-                    &PLACEHOLDER_DISCOVERY_ROLE_GROUP,
-                )
-                .build(),
+            object_meta(
+                cluster,
+                cluster.name.to_string(),
+                cluster.recommended_labels(&DruidRole::Router, &PLACEHOLDER_DISCOVERY_ROLE_GROUP),
+            )
+            .build(),
         )
         .add_data("DRUID_ROUTER", router_host)
         .add_data("DRUID_SQLALCHEMY", sqlalchemy_conn_str)
