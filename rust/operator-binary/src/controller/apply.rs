@@ -5,7 +5,7 @@ use std::{
     marker::PhantomData,
 };
 
-use snafu::{OptionExt, ResultExt, Snafu};
+use snafu::{ResultExt, Snafu};
 use stackable_operator::{
     builder::meta::ObjectMetaBuilder,
     client::Client,
@@ -53,9 +53,6 @@ pub enum Error {
     FailedToRetrieveInternalSecret {
         source: stackable_operator::client::Error,
     },
-
-    #[snafu(display("object defines no namespace"))]
-    ObjectHasNoNamespace,
 }
 
 type Result<T, E = Error> = std::result::Result<T, E>;
@@ -175,22 +172,13 @@ pub async fn ensure_internal_secret(client: &Client, cluster: &ValidatedCluster)
     let controller_name = controller_name.as_ref();
     let secret = build_shared_internal_secret(cluster);
     let existing_secret = client
-        .get_opt::<Secret>(
-            &secret.name_any(),
-            secret
-                .namespace()
-                .as_deref()
-                .context(ObjectHasNoNamespaceSnafu)?,
-        )
+        .get_opt::<Secret>(&secret.name_any(), cluster.namespace.as_ref())
         .await
         .context(FailedToRetrieveInternalSecretSnafu)?;
     let existing_immutable_secret = client
         .get_opt::<Secret>(
             &build_immutable_shared_internal_secret_name(cluster),
-            secret
-                .namespace()
-                .as_deref()
-                .context(ObjectHasNoNamespaceSnafu)?,
+            cluster.namespace.as_ref(),
         )
         .await
         .context(FailedToRetrieveInternalSecretSnafu)?;
@@ -298,6 +286,9 @@ fn build_immutable_shared_internal_secret_name(cluster: &ValidatedCluster) -> St
 
 fn get_random_base64() -> String {
     let mut buf = [0; 512];
-    openssl::rand::rand_bytes(&mut buf).unwrap();
+    openssl::rand::rand_bytes(&mut buf).expect(
+        "the OpenSSL CSPRNG could not supply random bytes (e.g. it is not seeded); \
+         continuing would turn the zero-initialized buffer into a predictable secret",
+    );
     openssl::base64::encode_block(&buf)
 }

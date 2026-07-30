@@ -117,11 +117,6 @@ pub enum Error {
     #[snafu(display("failed to build the Kubernetes resources"))]
     BuildResources { source: build::Error },
 
-    #[snafu(display("failed to apply Kubernetes resource"))]
-    ApplyResource {
-        source: stackable_operator::cluster_resources::Error,
-    },
-
     #[snafu(display("failed to dereference cluster objects"))]
     Dereference { source: dereference::Error },
 
@@ -130,11 +125,6 @@ pub enum Error {
 
     #[snafu(display("failed to apply discovery ConfigMap"))]
     ApplyDiscoveryConfig { source: apply::Error },
-
-    #[snafu(display("failed to apply cluster status"))]
-    ApplyStatus {
-        source: stackable_operator::client::Error,
-    },
 
     #[snafu(display("failed to update the cluster status"))]
     UpdateStatus { source: update_status::Error },

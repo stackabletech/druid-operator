@@ -1,4 +1,4 @@
-//! The update_status step in the AirflowCluster controller.
+//! The update_status step in the DruidCluster controller.
 
 use snafu::{ResultExt, Snafu};
 use stackable_operator::{
@@ -31,7 +31,7 @@ type Result<T, E = Error> = std::result::Result<T, E>;
 /// proves the status derives from applied resources, not merely built ones.
 pub async fn update_status(
     client: &Client,
-    airflow: &v1alpha1::DruidCluster,
+    druid: &v1alpha1::DruidCluster,
     applied: &KubernetesResources<Applied>,
 ) -> Result<()> {
     let mut ss_cond_builder = StatefulSetConditionBuilder::default();
@@ -40,17 +40,14 @@ pub async fn update_status(
     }
 
     let cluster_operation_cond_builder =
-        ClusterOperationsConditionBuilder::new(&airflow.spec.cluster_operation);
+        ClusterOperationsConditionBuilder::new(&druid.spec.cluster_operation);
 
     let status = DruidClusterStatus {
-        conditions: compute_conditions(
-            airflow,
-            &[&ss_cond_builder, &cluster_operation_cond_builder],
-        ),
+        conditions: compute_conditions(druid, &[&ss_cond_builder, &cluster_operation_cond_builder]),
     };
 
     client
-        .apply_patch_status(OPERATOR_NAME, airflow, &status)
+        .apply_patch_status(OPERATOR_NAME, druid, &status)
         .await
         .context(ApplyStatusSnafu)?;
 
