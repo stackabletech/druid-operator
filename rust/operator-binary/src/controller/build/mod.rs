@@ -161,6 +161,18 @@ mod tests {
         MINIMAL_DRUID_YAML, druid_from_yaml, validated_cluster,
     };
 
+    /// The expected `app.kubernetes.io/version` label value for the given product version.
+    ///
+    /// The `-stackable` suffix carries the operator's own version, which is `0.0.0-dev` on main
+    /// but rewritten by the release process — so tests must derive it rather than hardcode it,
+    /// or they fail on release branches.
+    fn app_version_label(product_version: &str) -> String {
+        format!(
+            "{product_version}-stackable{}",
+            crate::built_info::PKG_VERSION
+        )
+    }
+
     fn sorted_names(resources: &[impl Resource]) -> Vec<&str> {
         let mut names: Vec<&str> = resources
             .iter()
@@ -222,18 +234,18 @@ mod tests {
 
         let expected_labels = BTreeMap::from(
             [
-                ("app.kubernetes.io/component", "none"),
-                ("app.kubernetes.io/instance", "simple-druid"),
+                ("app.kubernetes.io/component", "none".to_string()),
+                ("app.kubernetes.io/instance", "simple-druid".to_string()),
                 (
                     "app.kubernetes.io/managed-by",
-                    "druid.stackable.tech_druidcluster",
+                    "druid.stackable.tech_druidcluster".to_string(),
                 ),
-                ("app.kubernetes.io/name", "druid"),
-                ("app.kubernetes.io/role-group", "none"),
-                ("app.kubernetes.io/version", "30.0.0-stackable0.0.0-dev"),
-                ("stackable.tech/vendor", "Stackable"),
+                ("app.kubernetes.io/name", "druid".to_string()),
+                ("app.kubernetes.io/role-group", "none".to_string()),
+                ("app.kubernetes.io/version", app_version_label("30.0.0")),
+                ("stackable.tech/vendor", "Stackable".to_string()),
             ]
-            .map(|(key, value)| (key.to_string(), value.to_string())),
+            .map(|(key, value)| (key.to_string(), value)),
         );
         let service_account = resources
             .service_accounts
