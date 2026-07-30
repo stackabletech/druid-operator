@@ -1,7 +1,7 @@
 //! Ensures that `Pod`s are configured and running for each [`DruidCluster`][v1alpha1]
 //!
 //! [v1alpha1]: v1alpha1::DruidCluster
-use std::{str::FromStr, sync::Arc};
+use std::{marker::PhantomData, str::FromStr, sync::Arc};
 
 use const_format::concatcp;
 use snafu::{ResultExt, Snafu};
@@ -21,25 +21,23 @@ use stackable_operator::{
     },
     logging::controller::ReconcilerError,
     shared::time::Duration,
-    status::condition::{
-        compute_conditions, operations::ClusterOperationsConditionBuilder,
-        statefulset::StatefulSetConditionBuilder,
-    },
-    v2::{
-        cluster_resources::cluster_resources_new,
-        types::operator::{ControllerName, OperatorName, ProductName},
-    },
+    v2::types::operator::{ControllerName, OperatorName, ProductName},
 };
 use strum::{EnumDiscriminants, IntoStaticStr};
 
 use crate::{
-    controller::build::resource::listener::{build_group_listener, group_listener_name},
-    crd::{APP_NAME, DruidClusterStatus, DruidRole, OPERATOR_NAME, v1alpha1},
-    internal_secret::create_shared_internal_secret,
+    controller::{
+        apply::{Applier, ensure_internal_secret},
+        build::resource::listener::group_listener_name,
+        update_status::update_status,
+    },
+    crd::{APP_NAME, DruidRole, OPERATOR_NAME, v1alpha1},
 };
 
+mod apply;
 mod build;
 mod dereference;
+mod update_status;
 pub(crate) mod validate;
 
 use build::resource::discovery::{self, build_discovery_configmaps};
@@ -70,12 +68,22 @@ pub struct Ctx {
     pub operator_environment: OperatorEnvironmentOptions,
 }
 
-/// Every Kubernetes resource produced by the client-free [`build`](build::build) step.
+/// Marker for prepared Kubernetes resources which are not applied yet.
+pub struct Prepared;
+
+/// Marker for applied Kubernetes resources.
+pub struct Applied;
+
+/// Every Kubernetes resource produced by the build step.
 ///
 /// The Router group `Listener` and the discovery `ConfigMap`s are intentionally *not* yet part of this
 /// bundle: the discovery `ConfigMap` derives from the *applied* Router listener's ingress address,
 /// so both are built and applied in the reconcile step instead.
-pub struct KubernetesResources {
+///
+/// `T` is a marker that indicates if these resources are only [`Prepared`] or already [`Applied`].
+/// The marker is useful e.g. to ensure that the cluster status is updated based on the applied
+/// resources.
+pub struct KubernetesResources<T> {
     pub stateful_sets: Vec<StatefulSet>,
     pub services: Vec<Service>,
     pub listeners: Vec<Listener>,
@@ -83,11 +91,15 @@ pub struct KubernetesResources {
     pub pod_disruption_budgets: Vec<PodDisruptionBudget>,
     pub service_accounts: Vec<ServiceAccount>,
     pub role_bindings: Vec<RoleBinding>,
+    pub status: PhantomData<T>,
 }
 
 #[derive(Snafu, Debug, EnumDiscriminants)]
 #[strum_discriminants(derive(IntoStaticStr))]
 pub enum Error {
+    #[snafu(display("failed to apply the Kubernetes resources"))]
+    ApplyResources { source: apply::Error },
+
     #[snafu(display("failed to build the Kubernetes resources"))]
     BuildResources { source: build::Error },
 
@@ -103,33 +115,25 @@ pub enum Error {
     BuildDiscoveryConfig { source: discovery::Error },
 
     #[snafu(display("failed to apply discovery ConfigMap"))]
-    ApplyDiscoveryConfig {
-        source: stackable_operator::cluster_resources::Error,
-    },
+    ApplyDiscoveryConfig { source: apply::Error },
 
     #[snafu(display("failed to apply cluster status"))]
     ApplyStatus {
         source: stackable_operator::client::Error,
     },
 
+    #[snafu(display("failed to update the cluster status"))]
+    UpdateStatus { source: update_status::Error },
+
     #[snafu(display("failed to delete orphaned resources"))]
-    DeleteOrphanedResources {
-        source: stackable_operator::cluster_resources::Error,
-    },
+    DeleteOrphanedResources { source: apply::Error },
 
     #[snafu(display("failed to retrieve secret for internal communications"))]
-    FailedInternalSecretCreation {
-        source: crate::internal_secret::Error,
-    },
+    FailedInternalSecretCreation { source: apply::Error },
 
     #[snafu(display("DruidCluster object is invalid"))]
     InvalidDruidCluster {
         source: error_boundary::InvalidObject,
-    },
-
-    #[snafu(display("failed to apply group listener"))]
-    ApplyGroupListener {
-        source: stackable_operator::cluster_resources::Error,
     },
 
     #[snafu(display("failed to validate cluster"))]
@@ -165,124 +169,50 @@ pub async fn reconcile_druid(
         validate::validate(druid, &dereferenced_objects, &ctx.operator_environment)
             .context(ValidateClusterSnafu)?;
 
-    let mut cluster_resources = cluster_resources_new(
-        &product_name(),
-        &operator_name(),
-        &controller_name(),
-        &validated_cluster.name,
-        &validated_cluster.namespace,
-        &validated_cluster.uid,
+    let resources = build::build(&validated_cluster).context(BuildResourcesSnafu)?;
+
+    ensure_internal_secret(client, &validated_cluster)
+        .await
+        .context(FailedInternalSecretCreationSnafu)?;
+
+    let mut applier = Applier::new(
+        client,
+        &validated_cluster,
         ClusterResourceApplyStrategy::from(&druid.spec.cluster_operation),
         &druid.spec.object_overrides,
     );
 
-    // The internal secret is shared across all roles and role groups, so it only needs to be
-    // created once per reconcile rather than inside the role loop below.
-    create_shared_internal_secret(&validated_cluster, client, DRUID_CONTROLLER_NAME)
+    let applied = applier
+        .apply(resources)
         .await
-        .context(FailedInternalSecretCreationSnafu)?;
+        .context(ApplyResourcesSnafu)?;
 
-    let resources = build::build(&validated_cluster).context(BuildResourcesSnafu)?;
-
-    let mut ss_cond_builder = StatefulSetConditionBuilder::default();
-
-    for service_account in resources.service_accounts {
-        cluster_resources
-            .add(client, service_account)
-            .await
-            .context(ApplyResourceSnafu)?;
-    }
-
-    for role_binding in resources.role_bindings {
-        cluster_resources
-            .add(client, role_binding)
-            .await
-            .context(ApplyResourceSnafu)?;
-    }
-
-    // Apply order: everything a Pod mounts (ConfigMaps) must exist before the StatefulSets, so the
-    // StatefulSets are applied last to prevent unnecessary Pod restarts.
-    // See https://github.com/stackabletech/commons-operator/issues/111 for details.
-    for service in resources.services {
-        cluster_resources
-            .add(client, service)
-            .await
-            .context(ApplyResourceSnafu)?;
-    }
-    for listener in resources.listeners {
-        cluster_resources
-            .add(client, listener)
-            .await
-            .context(ApplyResourceSnafu)?;
-    }
-    for config_map in resources.config_maps {
-        cluster_resources
-            .add(client, config_map)
-            .await
-            .context(ApplyResourceSnafu)?;
-    }
-    for pdb in resources.pod_disruption_budgets {
-        cluster_resources
-            .add(client, pdb)
-            .await
-            .context(ApplyResourceSnafu)?;
-    }
-    for stateful_set in resources.stateful_sets {
-        ss_cond_builder.add(
-            cluster_resources
-                .add(client, stateful_set)
-                .await
-                .context(ApplyResourceSnafu)?,
-        );
-    }
-
-    // The Router group Listener and its discovery ConfigMaps are applied here rather than in the
-    // build step: the discovery ConfigMap derives from the *applied* Router listener's ingress
-    // address, which is only known after the Listener has been applied.
-    if let Some(listener_class) = &validated_cluster
-        .role_config(&DruidRole::Router)
-        .listener_class
-        && let Some(listener_group_name) =
-            group_listener_name(&validated_cluster, &DruidRole::Router)
+    // Second apply phase: the discovery ConfigMaps derive from the *applied*
+    // Router listener's ingress address, which is only known after the Listener
+    // has been applied. They must go through the same Applier, so that the
+    // orphan deletion in `finish` sees them.
+    if let Some(listener_group_name) = group_listener_name(&validated_cluster, &DruidRole::Router)
+        && let Some(router_listener) = applied.listeners.iter().find(|listener| {
+            listener.metadata.name.as_deref() == Some(listener_group_name.as_ref())
+        })
     {
-        let router_listener = build_group_listener(
-            &validated_cluster,
-            listener_class,
-            listener_group_name,
-            &DruidRole::Router,
-        );
-
-        let listener = cluster_resources
-            .add(client, router_listener)
+        let discovery_config_maps =
+            build_discovery_configmaps(&validated_cluster, router_listener.clone())
+                .context(BuildDiscoveryConfigSnafu)?;
+        applier
+            .apply_config_maps(discovery_config_maps)
             .await
-            .context(ApplyGroupListenerSnafu)?;
-
-        for discovery_cm in build_discovery_configmaps(&validated_cluster, listener)
-            .await
-            .context(BuildDiscoveryConfigSnafu)?
-        {
-            cluster_resources
-                .add(client, discovery_cm)
-                .await
-                .context(ApplyDiscoveryConfigSnafu)?;
-        }
+            .context(ApplyDiscoveryConfigSnafu)?;
     }
 
-    let cluster_operation_cond_builder =
-        ClusterOperationsConditionBuilder::new(&druid.spec.cluster_operation);
-
-    let status = DruidClusterStatus {
-        conditions: compute_conditions(druid, &[&ss_cond_builder, &cluster_operation_cond_builder]),
-    };
-
-    cluster_resources
-        .delete_orphaned_resources(client)
+    applier
+        .finish()
         .await
         .context(DeleteOrphanedResourcesSnafu)?;
-    client
-        .apply_patch_status(OPERATOR_NAME, druid, &status)
+
+    update_status(client, druid, &applied)
         .await
-        .context(ApplyStatusSnafu)?;
+        .context(UpdateStatusSnafu)?;
 
     Ok(Action::await_change())
 }

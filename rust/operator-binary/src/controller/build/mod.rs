@@ -1,6 +1,6 @@
 //! Build steps that turn a `ValidatedCluster` into Kubernetes resources.
 
-use std::str::FromStr;
+use std::{marker::PhantomData, str::FromStr};
 
 use snafu::{ResultExt, Snafu};
 use stackable_operator::{
@@ -9,20 +9,17 @@ use stackable_operator::{
     v2::{builder::meta::ownerreference_from_resource, types::operator::RoleGroupName},
 };
 
-use crate::{
-    controller::{
-        KubernetesResources,
-        build::resource::{
-            config_map::build_rolegroup_config_map,
-            listener::{build_group_listener, group_listener_name},
-            pdb::build_pdb,
-            rbac::{build_role_binding, build_service_account},
-            service::{build_rolegroup_headless_service, build_rolegroup_metrics_service},
-            statefulset::build_rolegroup_statefulset,
-        },
-        validate::ValidatedCluster,
+use crate::controller::{
+    KubernetesResources, Prepared,
+    build::resource::{
+        config_map::build_rolegroup_config_map,
+        listener::{build_group_listener, group_listener_name},
+        pdb::build_pdb,
+        rbac::{build_role_binding, build_service_account},
+        service::{build_rolegroup_headless_service, build_rolegroup_metrics_service},
+        statefulset::build_rolegroup_statefulset,
     },
-    crd::DruidRole,
+    validate::ValidatedCluster,
 };
 
 // Placeholder role-group name used for the recommended labels of the role-level discovery
@@ -80,10 +77,10 @@ pub enum Error {
 /// dereferenced and validated by this point.
 /// The remaining errors are resource-assembly failures only.
 ///
-/// The Router group `Listener` and the discovery `ConfigMap`s are not built here: the discovery
-/// `ConfigMap` derives from the *applied* Router listener's ingress address, so both are built and
-/// applied in the reconcile step instead.
-pub fn build(cluster: &ValidatedCluster) -> Result<KubernetesResources, Error> {
+/// The discovery `ConfigMap`s are not built here: they derive from the *applied* Router
+/// listener's ingress address, which is only known after the Listener has been applied. They are
+/// built in the reconcile step and applied as a second phase, before orphan deletion.
+pub fn build(cluster: &ValidatedCluster) -> Result<KubernetesResources<Prepared>, Error> {
     let mut stateful_sets = vec![];
     let mut services = vec![];
     let mut listeners = vec![];
@@ -97,10 +94,7 @@ pub fn build(cluster: &ValidatedCluster) -> Result<KubernetesResources, Error> {
             pod_disruption_budgets.push(pdb);
         }
 
-        // The Router group Listener is built and applied in the reconcile step instead (see the
-        // module docs and [`KubernetesResources`]), so it is skipped here.
-        if *druid_role != DruidRole::Router
-            && let Some(listener_class) = &role_config.listener_class
+        if let Some(listener_class) = &role_config.listener_class
             && let Some(listener_group_name) = group_listener_name(cluster, druid_role)
         {
             listeners.push(build_group_listener(
@@ -147,6 +141,7 @@ pub fn build(cluster: &ValidatedCluster) -> Result<KubernetesResources, Error> {
         pod_disruption_budgets,
         service_accounts: vec![build_service_account(cluster)],
         role_bindings: vec![build_role_binding(cluster)],
+        status: PhantomData,
     })
 }
 
@@ -205,12 +200,15 @@ mod tests {
             expected_role_group_names
         );
 
-        // Group Listeners are built for the externally reachable roles except the Router (whose
-        // Listener is applied in the reconcile step): Broker and Coordinator.
-        // TODO: add router listener here once properly build in the built step.
+        // Group Listeners are built for the externally reachable roles: Broker, Coordinator and
+        // Router.
         assert_eq!(
             sorted_names(&resources.listeners),
-            ["simple-druid-broker", "simple-druid-coordinator"]
+            [
+                "simple-druid-broker",
+                "simple-druid-coordinator",
+                "simple-druid-router"
+            ]
         );
     }
 

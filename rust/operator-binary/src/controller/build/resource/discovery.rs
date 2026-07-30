@@ -32,7 +32,7 @@ pub enum Error {
 }
 
 /// Builds discovery [`ConfigMap`]s for connecting to a Druid cluster.
-pub async fn build_discovery_configmaps(
+pub fn build_discovery_configmaps(
     cluster: &ValidatedCluster,
     listener: Listener,
 ) -> Result<Vec<ConfigMap>, Error> {
