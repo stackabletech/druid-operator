@@ -102,8 +102,8 @@ pub fn build_listener_connection_string(
     // We only need the first address corresponding to the role
     let listener_address = listener
         .status
-        .clone()
-        .and_then(|s| s.ingress_addresses?.into_iter().next())
+        .as_ref()
+        .and_then(|status| status.ingress_addresses.as_ref()?.first())
         .context(RoleListenerHasNoAddressSnafu { role_name })?;
     let port_name = match druid_tls_security.tls_enabled() {
         true => TLS_PORT_NAME,

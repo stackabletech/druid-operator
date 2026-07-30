@@ -231,12 +231,7 @@ pub async fn ensure_internal_secret(client: &Client, cluster: &ValidatedCluster)
                 .unwrap_or_default()
                 .into_keys()
                 .collect::<HashSet<_>>();
-            for required in secret
-                .string_data
-                .as_ref()
-                .expect("Secret data must be set by the `build_shared_internal_secret` function")
-                .keys()
-            {
+            for required in INTERNAL_SECRET_KEYS {
                 if !current_secret_keys.contains(required) {
                     tracing::info!(
                         secret_name = secret.name_any(),
@@ -261,13 +256,16 @@ pub async fn ensure_internal_secret(client: &Client, cluster: &ValidatedCluster)
     Ok(())
 }
 
+/// The keys the shared internal Secret must contain. Single source for both
+/// [`build_shared_internal_secret`] and the missing-key check in [`ensure_internal_secret`].
+const INTERNAL_SECRET_KEYS: [&str; 2] =
+    [INTERNAL_INITIAL_CLIENT_PASSWORD_ENV, COOKIE_PASSPHRASE_ENV];
+
 fn build_shared_internal_secret(cluster: &ValidatedCluster) -> Secret {
-    let mut internal_secret = BTreeMap::new();
-    internal_secret.insert(
-        INTERNAL_INITIAL_CLIENT_PASSWORD_ENV.to_string(),
-        get_random_base64(),
-    );
-    internal_secret.insert(COOKIE_PASSPHRASE_ENV.to_string(), get_random_base64());
+    let internal_secret: BTreeMap<String, String> = INTERNAL_SECRET_KEYS
+        .iter()
+        .map(|key| (key.to_string(), get_random_base64()))
+        .collect();
 
     Secret {
         metadata: ObjectMetaBuilder::new()

@@ -243,6 +243,42 @@ mod test {
         crd::PROP_SEGMENT_CACHE_LOCATIONS,
     };
 
+    /// `group_listener` finds the applied group Listener of a role by its name, and yields
+    /// `None` for roles that expose no Listener (here: Historical).
+    #[test]
+    fn group_listener_finds_the_role_listener_by_name() {
+        let druid = crate::controller::validate::test_support::druid_from_yaml(
+            crate::controller::validate::test_support::MINIMAL_DRUID_YAML,
+        );
+        let cluster = crate::controller::validate::test_support::validated_cluster(&druid);
+        let built = build::build(&cluster).expect("the test cluster builds");
+        // `KubernetesResources<Applied>` normally only exists after an apply; constructing it
+        // from the built resources is fine here because the lookup only reads names.
+        let applied = KubernetesResources::<Applied> {
+            stateful_sets: built.stateful_sets,
+            services: built.services,
+            listeners: built.listeners,
+            config_maps: built.config_maps,
+            pod_disruption_budgets: built.pod_disruption_budgets,
+            service_accounts: built.service_accounts,
+            role_bindings: built.role_bindings,
+            status: std::marker::PhantomData,
+        };
+
+        let router_listener = applied
+            .group_listener(&cluster, &DruidRole::Router)
+            .expect("the Router exposes a group Listener");
+        assert_eq!(
+            router_listener.metadata.name.as_deref(),
+            Some("simple-druid-router")
+        );
+        assert!(
+            applied
+                .group_listener(&cluster, &DruidRole::Historical)
+                .is_none()
+        );
+    }
+
     #[rstest]
     #[case(
         "segment_cache.yaml",
