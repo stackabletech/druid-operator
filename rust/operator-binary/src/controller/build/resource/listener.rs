@@ -95,13 +95,14 @@ pub fn group_listener_name(
 
 // Builds the connection string with respect to the listener provided objects
 pub fn build_listener_connection_string(
-    listener: Listener,
+    listener: &Listener,
     druid_tls_security: &DruidTlsSecurity,
     role_name: &String,
 ) -> Result<String, Error> {
     // We only need the first address corresponding to the role
     let listener_address = listener
         .status
+        .clone()
         .and_then(|s| s.ingress_addresses?.into_iter().next())
         .context(RoleListenerHasNoAddressSnafu { role_name })?;
     let port_name = match druid_tls_security.tls_enabled() {
@@ -199,7 +200,7 @@ mod tests {
     fn connection_string_uses_plaintext_port_without_tls() {
         let tls = DruidTlsSecurity::new(false, None);
         let conn = build_listener_connection_string(
-            listener_with_both_ports(),
+            &listener_with_both_ports(),
             &tls,
             &"router".to_string(),
         )
@@ -211,7 +212,7 @@ mod tests {
     fn connection_string_uses_tls_port_with_tls() {
         let tls = DruidTlsSecurity::new(false, Some(SecretClassName::from_str("tls").unwrap()));
         let conn = build_listener_connection_string(
-            listener_with_both_ports(),
+            &listener_with_both_ports(),
             &tls,
             &"router".to_string(),
         )

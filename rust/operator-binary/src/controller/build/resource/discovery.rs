@@ -34,7 +34,7 @@ pub enum Error {
 /// Builds discovery [`ConfigMap`]s for connecting to a Druid cluster.
 pub fn build_discovery_configmaps(
     cluster: &ValidatedCluster,
-    listener: Listener,
+    listener: &Listener,
 ) -> Result<Vec<ConfigMap>, Error> {
     Ok(vec![build_discovery_configmap(cluster, listener)?])
 }
@@ -42,7 +42,7 @@ pub fn build_discovery_configmaps(
 /// Build a discovery [`ConfigMap`] containing information about how to connect to a certain Druid cluster.
 fn build_discovery_configmap(
     cluster: &ValidatedCluster,
-    listener: Listener,
+    listener: &Listener,
 ) -> Result<ConfigMap, Error> {
     let router_host = build_listener_connection_string(
         listener,

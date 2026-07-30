@@ -76,9 +76,9 @@ pub struct Applied;
 
 /// Every Kubernetes resource produced by the build step.
 ///
-/// The Router group `Listener` and the discovery `ConfigMap`s are intentionally *not* yet part of this
-/// bundle: the discovery `ConfigMap` derives from the *applied* Router listener's ingress address,
-/// so both are built and applied in the reconcile step instead.
+/// The discovery `ConfigMap`s are intentionally *not* part of this bundle: they derive from the
+/// *applied* Router listener's ingress address, so they are built after the first apply phase
+/// and applied through the same [`apply::Applier`] before its orphan deletion runs.
 ///
 /// `T` is a marker that indicates if these resources are only [`Prepared`] or already [`Applied`].
 /// The marker is useful e.g. to ensure that the cluster status is updated based on the applied
@@ -92,6 +92,20 @@ pub struct KubernetesResources<T> {
     pub service_accounts: Vec<ServiceAccount>,
     pub role_bindings: Vec<RoleBinding>,
     pub status: PhantomData<T>,
+}
+
+impl KubernetesResources<Applied> {
+    /// The applied group [`Listener`] of the given role, if the role exposes one.
+    pub fn group_listener(
+        &self,
+        cluster: &validate::ValidatedCluster,
+        role: &DruidRole,
+    ) -> Option<&Listener> {
+        let listener_name = group_listener_name(cluster, role)?;
+        self.listeners
+            .iter()
+            .find(|listener| listener.metadata.name.as_deref() == Some(listener_name.as_ref()))
+    }
 }
 
 #[derive(Snafu, Debug, EnumDiscriminants)]
@@ -187,18 +201,14 @@ pub async fn reconcile_druid(
         .await
         .context(ApplyResourcesSnafu)?;
 
-    // Second apply phase: the discovery ConfigMaps derive from the *applied*
-    // Router listener's ingress address, which is only known after the Listener
-    // has been applied. They must go through the same Applier, so that the
-    // orphan deletion in `finish` sees them.
-    if let Some(listener_group_name) = group_listener_name(&validated_cluster, &DruidRole::Router)
-        && let Some(router_listener) = applied.listeners.iter().find(|listener| {
-            listener.metadata.name.as_deref() == Some(listener_group_name.as_ref())
-        })
-    {
-        let discovery_config_maps =
-            build_discovery_configmaps(&validated_cluster, router_listener.clone())
-                .context(BuildDiscoveryConfigSnafu)?;
+    // Second apply phase: the discovery ConfigMaps derive from the *applied* Router listener's
+    // ingress address, which is only known after the Listener has been applied. The Router
+    // listener itself is built in `build()` and applied with all the other listeners in the
+    // first apply phase above; here it is only read back. The discovery ConfigMaps must go
+    // through the same Applier, so that the orphan deletion in `finish` sees them.
+    if let Some(router_listener) = applied.group_listener(&validated_cluster, &DruidRole::Router) {
+        let discovery_config_maps = build_discovery_configmaps(&validated_cluster, router_listener)
+            .context(BuildDiscoveryConfigSnafu)?;
         applier
             .apply_config_maps(discovery_config_maps)
             .await

@@ -1,4 +1,4 @@
-//! The apply step in the AirflowCluster controller.
+//! The apply step in the DruidCluster controller.
 
 use std::{
     collections::{BTreeMap, HashSet},
