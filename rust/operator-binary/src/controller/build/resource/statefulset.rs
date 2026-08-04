@@ -296,7 +296,7 @@ pub fn build_rolegroup_statefulset(
 
     let mut pvcs: Option<Vec<PersistentVolumeClaim>> = None;
 
-    if let Some(group_listener_name) = group_listener_name(cluster, role) {
+    if let Some(group_listener_name) = group_listener_name(&cluster.name, role) {
         cb_druid
             .add_volume_mount(&*LISTENER_VOLUME_NAME, LISTENER_VOLUME_DIR)
             .context(AddVolumeMountSnafu)?;

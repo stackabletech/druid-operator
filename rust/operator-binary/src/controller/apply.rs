@@ -11,7 +11,7 @@ use stackable_operator::{
     client::Client,
     cluster_resources::{ClusterResource, ClusterResourceApplyStrategy, ClusterResources},
     deep_merger::ObjectOverrides,
-    k8s_openapi::api::core::v1::{ConfigMap, Secret},
+    k8s_openapi::api::core::v1::Secret,
     kube::ResourceExt,
     v2::{builder::meta::ownerreference_from_resource, cluster_resources::cluster_resources_new},
 };
@@ -90,13 +90,13 @@ impl<'a> Applier<'a> {
         }
     }
 
-    /// Applies the given Kubernetes resources and marks them as applied.
+    /// Applies the given Kubernetes resources, deletes resources from earlier reconcile runs
+    /// that were not applied in this one, and marks the resources as applied.
     ///
-    /// Resources derived from the applied state (the discovery `ConfigMap`s) can be applied
-    /// afterwards via [`Self::apply_config_maps`]; [`Self::finish`] must be called once all
-    /// resources are applied, so that orphaned resources are deleted exactly once at the end.
+    /// Consumes the applier: a resource applied after the orphan deletion would itself be
+    /// treated as an orphan and deleted by the next reconcile run.
     pub async fn apply(
-        &mut self,
+        mut self,
         resources: KubernetesResources<Prepared>,
     ) -> Result<KubernetesResources<Applied>> {
         // Destructured without `..`, so adding a field to [`KubernetesResources`] fails to
@@ -123,6 +123,11 @@ impl<'a> Applier<'a> {
         let pod_disruption_budgets = self.add_resources(pod_disruption_budgets).await?;
         let stateful_sets = self.add_resources(stateful_sets).await?;
 
+        self.cluster_resources
+            .delete_orphaned_resources(self.client)
+            .await
+            .context(DeleteOrphanedResourcesSnafu)?;
+
         Ok(KubernetesResources {
             stateful_sets,
             services,
@@ -133,26 +138,6 @@ impl<'a> Applier<'a> {
             role_bindings,
             status: PhantomData,
         })
-    }
-
-    /// Applies `ConfigMap`s that are derived from already-applied resources (the discovery
-    /// `ConfigMap`s, which need the applied Router listener's address).
-    pub async fn apply_config_maps(
-        &mut self,
-        config_maps: Vec<ConfigMap>,
-    ) -> Result<Vec<ConfigMap>> {
-        self.add_resources(config_maps).await
-    }
-
-    /// Deletes resources from earlier reconcile runs that were not applied in this one.
-    ///
-    /// Must be called exactly once, after every apply phase: a resource applied after this call
-    /// would be treated as an orphan and deleted by the next reconcile run.
-    pub async fn finish(self) -> Result<()> {
-        self.cluster_resources
-            .delete_orphaned_resources(self.client)
-            .await
-            .context(DeleteOrphanedResourcesSnafu)
     }
 
     async fn add_resources<T: ClusterResource + Sync>(

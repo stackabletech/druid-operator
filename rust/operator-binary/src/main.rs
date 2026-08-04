@@ -11,6 +11,7 @@ use futures::{FutureExt, StreamExt, TryFutureExt};
 use stackable_operator::{
     YamlSchema,
     cli::{Command, RunArguments},
+    crd::listener::v1alpha1::Listener,
     eos::EndOfSupportChecker,
     k8s_openapi::api::{
         apps::v1::StatefulSet,
@@ -133,6 +134,10 @@ async fn main() -> anyhow::Result<()> {
                 )
                 .owns(
                     watch_namespace.get_api::<ConfigMap>(&client),
+                    watcher::Config::default(),
+                )
+                .owns(
+                    watch_namespace.get_api::<Listener>(&client),
                     watcher::Config::default(),
                 )
                 .watches(

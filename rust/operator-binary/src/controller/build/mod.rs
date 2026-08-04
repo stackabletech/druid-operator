@@ -13,6 +13,7 @@ use crate::controller::{
     KubernetesResources, Prepared,
     build::resource::{
         config_map::build_rolegroup_config_map,
+        discovery::build_discovery_configmaps,
         listener::{build_group_listener, group_listener_name},
         pdb::build_pdb,
         rbac::{build_role_binding, build_service_account},
@@ -69,6 +70,9 @@ pub enum Error {
         source: resource::statefulset::Error,
         role_group: RoleGroupName,
     },
+
+    #[snafu(display("failed to build the discovery ConfigMap"))]
+    DiscoveryConfigMap { source: resource::discovery::Error },
 }
 
 /// Builds the Kubernetes resources for the given validated cluster.
@@ -76,10 +80,6 @@ pub enum Error {
 /// Does not need a Kubernetes client: every reference to another Kubernetes resource is already
 /// dereferenced and validated by this point.
 /// The remaining errors are resource-assembly failures only.
-///
-/// The discovery `ConfigMap`s are not built here: they derive from the *applied* Router
-/// listener's ingress address, which is only known after the Listener has been applied. They are
-/// built in the reconcile step and applied as a second phase, before orphan deletion.
 pub fn build(cluster: &ValidatedCluster) -> Result<KubernetesResources<Prepared>, Error> {
     let mut stateful_sets = vec![];
     let mut services = vec![];
@@ -95,7 +95,7 @@ pub fn build(cluster: &ValidatedCluster) -> Result<KubernetesResources<Prepared>
         }
 
         if let Some(listener_class) = &role_config.listener_class
-            && let Some(listener_group_name) = group_listener_name(cluster, druid_role)
+            && let Some(listener_group_name) = group_listener_name(&cluster.name, druid_role)
         {
             listeners.push(build_group_listener(
                 cluster,
@@ -133,6 +133,25 @@ pub fn build(cluster: &ValidatedCluster) -> Result<KubernetesResources<Prepared>
         }
     }
 
+    // The discovery ConfigMap needs the Router group Listener's ingress address, which only the
+    // listener-operator writes. Around the first reconcile runs the dereferenced Listener is
+    // absent or still address-less; the ConfigMap is skipped then instead of failing the whole
+    // run -- the Listener watch triggers a new run once the address is set. In that window an
+    // already existing discovery ConfigMap is deleted as an orphan (only reachable when the
+    // Listener is deleted and re-created) and re-created by the next run.
+    if let Some(router_listener) = &cluster.router_listener
+        && router_listener
+            .status
+            .as_ref()
+            .and_then(|status| status.ingress_addresses.as_ref()?.first())
+            .is_some()
+    {
+        config_maps.extend(
+            build_discovery_configmaps(cluster, router_listener)
+                .context(DiscoveryConfigMapSnafu)?,
+        );
+    }
+
     Ok(KubernetesResources {
         stateful_sets,
         services,
@@ -149,11 +168,17 @@ pub fn build(cluster: &ValidatedCluster) -> Result<KubernetesResources<Prepared>
 mod tests {
     use std::collections::BTreeMap;
 
-    use stackable_operator::kube::Resource;
+    use stackable_operator::{
+        crd::listener::{self, v1alpha1::Listener},
+        kube::{Resource, api::ObjectMeta},
+    };
 
-    use super::build;
-    use crate::controller::validate::test_support::{
-        MINIMAL_DRUID_YAML, druid_from_yaml, validated_cluster,
+    use super::{KubernetesResources, Prepared, build};
+    use crate::{
+        controller::validate::test_support::{
+            MINIMAL_DRUID_YAML, druid_from_yaml, validated_cluster,
+        },
+        crd::security::TLS_PORT_NAME,
     };
 
     /// The expected `app.kubernetes.io/version` label value for the given product version.
@@ -210,6 +235,80 @@ mod tests {
                 "simple-druid-router"
             ]
         );
+    }
+
+    /// A Router group Listener whose status carries an ingress address, as the listener-operator
+    /// eventually writes it. The `validated_cluster` fixture enables TLS, so the address exposes
+    /// the TLS port.
+    fn router_listener_with_address() -> Listener {
+        Listener {
+            metadata: ObjectMeta::default(),
+            spec: listener::v1alpha1::ListenerSpec::default(),
+            status: Some(listener::v1alpha1::ListenerStatus {
+                service_name: None,
+                ingress_addresses: Some(vec![listener::v1alpha1::ListenerIngress {
+                    address: "druid.example.com".to_string(),
+                    address_type: listener::v1alpha1::AddressType::Hostname,
+                    ports: BTreeMap::from([(TLS_PORT_NAME.to_string(), 9088)]),
+                }]),
+                node_ports: None,
+            }),
+        }
+    }
+
+    /// The built discovery ConfigMap (named after the cluster itself), if any.
+    fn discovery_config_map(
+        resources: &KubernetesResources<Prepared>,
+    ) -> Option<&stackable_operator::k8s_openapi::api::core::v1::ConfigMap> {
+        resources
+            .config_maps
+            .iter()
+            .find(|config_map| config_map.metadata.name.as_deref() == Some("simple-druid"))
+    }
+
+    #[test]
+    fn build_adds_the_discovery_config_map_once_the_router_listener_has_an_address() {
+        let druid = druid_from_yaml(MINIMAL_DRUID_YAML);
+        let mut cluster = validated_cluster(&druid);
+        cluster.router_listener = Some(router_listener_with_address());
+
+        let resources = build(&cluster).expect("build succeeds");
+
+        let data = discovery_config_map(&resources)
+            .expect("the discovery ConfigMap is built")
+            .data
+            .as_ref()
+            .expect("the discovery ConfigMap carries data");
+        assert_eq!(
+            data.get("DRUID_ROUTER").map(String::as_str),
+            Some("druid.example.com:9088")
+        );
+    }
+
+    /// While the Listener carries no ingress address (the listener-operator has not reconciled
+    /// it yet), the discovery ConfigMap is skipped, *without* failing the build: the Listener
+    /// watch triggers a new reconcile run once the address is set.
+    #[test]
+    fn build_skips_the_discovery_config_map_while_the_router_listener_has_no_address() {
+        let druid = druid_from_yaml(MINIMAL_DRUID_YAML);
+        let mut cluster = validated_cluster(&druid);
+
+        let no_status = None;
+        let no_addresses = Some(listener::v1alpha1::ListenerStatus {
+            service_name: None,
+            ingress_addresses: Some(vec![]),
+            node_ports: None,
+        });
+        for status in [no_status, no_addresses] {
+            cluster.router_listener = Some(Listener {
+                status,
+                ..router_listener_with_address()
+            });
+
+            let resources = build(&cluster).expect("build succeeds without a listener address");
+
+            assert!(discovery_config_map(&resources).is_none());
+        }
     }
 
     /// Locks the RBAC resource names, the roleRef, and the recommended label set against

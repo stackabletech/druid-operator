@@ -28,10 +28,9 @@ use strum::{EnumDiscriminants, IntoStaticStr};
 use crate::{
     controller::{
         apply::{Applier, ensure_internal_secret},
-        build::resource::listener::group_listener_name,
         update_status::update_status,
     },
-    crd::{APP_NAME, DruidRole, OPERATOR_NAME, v1alpha1},
+    crd::{APP_NAME, OPERATOR_NAME, v1alpha1},
 };
 
 mod apply;
@@ -39,8 +38,6 @@ mod build;
 mod dereference;
 mod update_status;
 pub(crate) mod validate;
-
-use build::resource::discovery::{self, build_discovery_configmaps};
 
 pub const DRUID_CONTROLLER_NAME: &str = "druidcluster";
 pub const FULL_CONTROLLER_NAME: &str = concatcp!(DRUID_CONTROLLER_NAME, '.', OPERATOR_NAME);
@@ -76,10 +73,6 @@ pub struct Applied;
 
 /// Every Kubernetes resource produced by the build step.
 ///
-/// The discovery `ConfigMap`s are intentionally *not* part of this bundle: they derive from the
-/// *applied* Router listener's ingress address, so they are built after the first apply phase
-/// and applied through the same [`apply::Applier`] before its orphan deletion runs.
-///
 /// `T` is a marker that indicates if these resources are only [`Prepared`] or already [`Applied`].
 /// The marker is useful e.g. to ensure that the cluster status is updated based on the applied
 /// resources.
@@ -94,20 +87,6 @@ pub struct KubernetesResources<T> {
     pub status: PhantomData<T>,
 }
 
-impl KubernetesResources<Applied> {
-    /// The applied group [`Listener`] of the given role, if the role exposes one.
-    pub fn group_listener(
-        &self,
-        cluster: &validate::ValidatedCluster,
-        role: &DruidRole,
-    ) -> Option<&Listener> {
-        let listener_name = group_listener_name(cluster, role)?;
-        self.listeners
-            .iter()
-            .find(|listener| listener.metadata.name.as_deref() == Some(listener_name.as_ref()))
-    }
-}
-
 #[derive(Snafu, Debug, EnumDiscriminants)]
 #[strum_discriminants(derive(IntoStaticStr))]
 pub enum Error {
@@ -120,17 +99,8 @@ pub enum Error {
     #[snafu(display("failed to dereference cluster objects"))]
     Dereference { source: dereference::Error },
 
-    #[snafu(display("failed to build discovery ConfigMap"))]
-    BuildDiscoveryConfig { source: discovery::Error },
-
-    #[snafu(display("failed to apply discovery ConfigMap"))]
-    ApplyDiscoveryConfig { source: apply::Error },
-
     #[snafu(display("failed to update the cluster status"))]
     UpdateStatus { source: update_status::Error },
-
-    #[snafu(display("failed to delete orphaned resources"))]
-    DeleteOrphanedResources { source: apply::Error },
 
     #[snafu(display("failed to retrieve secret for internal communications"))]
     FailedInternalSecretCreation { source: apply::Error },
@@ -179,7 +149,7 @@ pub async fn reconcile_druid(
         .await
         .context(FailedInternalSecretCreationSnafu)?;
 
-    let mut applier = Applier::new(
+    let applier = Applier::new(
         client,
         &validated_cluster,
         ClusterResourceApplyStrategy::from(&druid.spec.cluster_operation),
@@ -190,25 +160,6 @@ pub async fn reconcile_druid(
         .apply(resources)
         .await
         .context(ApplyResourcesSnafu)?;
-
-    // Second apply phase: the discovery ConfigMaps derive from the *applied* Router listener's
-    // ingress address, which is only known after the Listener has been applied. The Router
-    // listener itself is built in `build()` and applied with all the other listeners in the
-    // first apply phase above; here it is only read back. The discovery ConfigMaps must go
-    // through the same Applier, so that the orphan deletion in `finish` sees them.
-    if let Some(router_listener) = applied.group_listener(&validated_cluster, &DruidRole::Router) {
-        let discovery_config_maps = build_discovery_configmaps(&validated_cluster, router_listener)
-            .context(BuildDiscoveryConfigSnafu)?;
-        applier
-            .apply_config_maps(discovery_config_maps)
-            .await
-            .context(ApplyDiscoveryConfigSnafu)?;
-    }
-
-    applier
-        .finish()
-        .await
-        .context(DeleteOrphanedResourcesSnafu)?;
 
     update_status(client, druid, &applied)
         .await
@@ -235,49 +186,12 @@ mod test {
     use rstest::*;
     use stackable_operator::v2::types::operator::RoleGroupName;
 
-    use super::*;
     use crate::{
         controller::build::{
             properties::ConfigFileName, resource::config_map::build_rolegroup_config_map,
         },
-        crd::PROP_SEGMENT_CACHE_LOCATIONS,
+        crd::{DruidRole, PROP_SEGMENT_CACHE_LOCATIONS},
     };
-
-    /// `group_listener` finds the applied group Listener of a role by its name, and yields
-    /// `None` for roles that expose no Listener (here: Historical).
-    #[test]
-    fn group_listener_finds_the_role_listener_by_name() {
-        let druid = crate::controller::validate::test_support::druid_from_yaml(
-            crate::controller::validate::test_support::MINIMAL_DRUID_YAML,
-        );
-        let cluster = crate::controller::validate::test_support::validated_cluster(&druid);
-        let built = build::build(&cluster).expect("the test cluster builds");
-        // `KubernetesResources<Applied>` normally only exists after an apply; constructing it
-        // from the built resources is fine here because the lookup only reads names.
-        let applied = KubernetesResources::<Applied> {
-            stateful_sets: built.stateful_sets,
-            services: built.services,
-            listeners: built.listeners,
-            config_maps: built.config_maps,
-            pod_disruption_budgets: built.pod_disruption_budgets,
-            service_accounts: built.service_accounts,
-            role_bindings: built.role_bindings,
-            status: std::marker::PhantomData,
-        };
-
-        let router_listener = applied
-            .group_listener(&cluster, &DruidRole::Router)
-            .expect("the Router exposes a group Listener");
-        assert_eq!(
-            router_listener.metadata.name.as_deref(),
-            Some("simple-druid-router")
-        );
-        assert!(
-            applied
-                .group_listener(&cluster, &DruidRole::Historical)
-                .is_none()
-        );
-    }
 
     #[rstest]
     #[case(

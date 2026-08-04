@@ -4,13 +4,17 @@ use snafu::{OptionExt, ResultExt, Snafu};
 use stackable_operator::{
     client::Client,
     commons::opa::OpaApiVersion,
-    crd::{authentication::core, s3},
+    crd::{authentication::core, listener::v1alpha1::Listener, s3},
     k8s_openapi::api::core::v1::ConfigMap,
+    v2::controller_utils::get_cluster_name,
 };
 
-use crate::crd::{
-    DeepStorageSpec, authentication::fetch_authentication_classes,
-    authorization::DruidAuthorization, v1alpha1,
+use crate::{
+    controller::build::resource::listener::group_listener_name,
+    crd::{
+        DeepStorageSpec, DruidRole, authentication::fetch_authentication_classes,
+        authorization::DruidAuthorization, v1alpha1,
+    },
 };
 
 #[derive(Snafu, Debug)]
@@ -57,6 +61,17 @@ pub enum Error {
     AuthenticationClassRetrieval {
         source: crate::crd::authentication::Error,
     },
+
+    #[snafu(display("failed to determine the cluster's name"))]
+    ClusterIdentity {
+        source: stackable_operator::v2::controller_utils::Error,
+    },
+
+    #[snafu(display("failed to get the Router group Listener {listener_name}"))]
+    GetRouterListener {
+        source: stackable_operator::client::Error,
+        listener_name: String,
+    },
 }
 
 type Result<T, E = Error> = std::result::Result<T, E>;
@@ -78,6 +93,12 @@ pub struct DereferencedObjects {
     /// in the validate step via
     /// [`crate::crd::authentication::AuthenticationClassesResolved::from_fetched`].
     pub authentication_classes: Vec<core::v1alpha1::AuthenticationClass>,
+    /// The Router group [`Listener`] as currently stored in the cluster, fetched because the
+    /// discovery `ConfigMap` is built from its ingress address. Unlike the other fields it is not
+    /// referenced from the spec but created by this operator itself: `None` on the first reconcile
+    /// run (the apply step has not created it yet), and its status is only populated
+    /// asynchronously by the listener-operator, so it can still be address-less here.
+    pub router_listener: Option<Listener>,
 }
 
 /// Fetches all Kubernetes objects referenced from the [`v1alpha1::DruidCluster`] spec.
@@ -161,11 +182,23 @@ pub async fn dereference(
         .await
         .context(AuthenticationClassRetrievalSnafu)?;
 
+    let cluster_name = get_cluster_name(druid).context(ClusterIdentitySnafu)?;
+    let router_listener = match group_listener_name(&cluster_name, &DruidRole::Router) {
+        Some(listener_name) => client
+            .get_opt::<Listener>(listener_name.as_ref(), namespace)
+            .await
+            .context(GetRouterListenerSnafu {
+                listener_name: listener_name.as_ref(),
+            })?,
+        None => None,
+    };
+
     Ok(DereferencedObjects {
         zookeeper_connection_string,
         opa_base_document_url,
         s3_ingestion_connection,
         s3_deep_storage_bucket,
         authentication_classes,
+        router_listener,
     })
 }

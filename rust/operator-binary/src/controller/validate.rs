@@ -16,7 +16,7 @@ use stackable_operator::{
         pdb::PdbConfig,
         product_image_selection::{self, ResolvedProductImage},
     },
-    crd::s3,
+    crd::{listener::v1alpha1::Listener, s3},
     database_connections::drivers::jdbc::{JdbcDatabaseConnection, JdbcDatabaseConnectionDetails},
     k8s_openapi::api::core::v1::Volume,
     kube::{Resource, api::ObjectMeta},
@@ -152,6 +152,7 @@ pub struct ValidatedCluster {
     /// The per-role config (PDB and listener class) for every [`DruidRole`].
     pub role_configs: BTreeMap<DruidRole, ValidatedRoleConfig>,
     pub role_group_configs: BTreeMap<DruidRole, BTreeMap<RoleGroupName, DruidRoleGroupConfig>>,
+    pub router_listener: Option<Listener>,
 }
 
 impl ValidatedCluster {
@@ -164,6 +165,7 @@ impl ValidatedCluster {
         cluster_config: ValidatedClusterConfig,
         role_configs: BTreeMap<DruidRole, ValidatedRoleConfig>,
         role_group_configs: BTreeMap<DruidRole, BTreeMap<RoleGroupName, DruidRoleGroupConfig>>,
+        router_listener: Option<Listener>,
     ) -> Self {
         let metadata = ObjectMeta {
             name: Some(name.to_string()),
@@ -185,6 +187,7 @@ impl ValidatedCluster {
             cluster_config,
             role_configs,
             role_group_configs,
+            router_listener,
         }
     }
 
@@ -427,6 +430,7 @@ pub fn validate(
         },
         role_configs,
         role_group_configs,
+        dereferenced_objects.router_listener.clone(),
     ))
 }
 
@@ -567,6 +571,7 @@ spec:
             },
             role_configs,
             role_group_configs,
+            None,
         )
     }
 }
@@ -591,6 +596,7 @@ mod tests {
             s3_ingestion_connection: None,
             s3_deep_storage_bucket: None,
             authentication_classes: Vec::new(),
+            router_listener: None,
         }
     }
 
