@@ -5,7 +5,7 @@ use stackable_operator::{
     client::Client,
     commons::opa::OpaApiVersion,
     crd::{authentication::core, listener::v1alpha1::Listener, s3},
-    k8s_openapi::api::core::v1::ConfigMap,
+    k8s_openapi::api::core::v1::{ConfigMap, Secret},
     v2::controller_utils::get_cluster_name,
 };
 
@@ -15,6 +15,7 @@ use crate::{
         DeepStorageSpec, DruidRole, authentication::fetch_authentication_classes,
         authorization::DruidAuthorization, v1alpha1,
     },
+    internal_secret::build_shared_internal_secret_name,
 };
 
 #[derive(Snafu, Debug)]
@@ -72,6 +73,12 @@ pub enum Error {
         source: stackable_operator::client::Error,
         listener_name: String,
     },
+
+    #[snafu(display("failed to get the shared internal Secret {secret_name}"))]
+    GetInternalSecret {
+        source: stackable_operator::client::Error,
+        secret_name: String,
+    },
 }
 
 type Result<T, E = Error> = std::result::Result<T, E>;
@@ -99,6 +106,11 @@ pub struct DereferencedObjects {
     /// run (the apply step has not created it yet), and its status is only populated
     /// asynchronously by the listener-operator, so it can still be address-less here.
     pub router_listener: Option<Listener>,
+    /// The shared internal [`Secret`] as currently stored in the cluster. Like the Router group
+    /// `Listener` it is not referenced from the spec but created by this operator itself: `None`
+    /// on the first reconcile run. Fetched so that the build step only produces a replacement
+    /// (with freshly generated contents) when the Secret is absent or missing a required key.
+    pub internal_secret: Option<Secret>,
 }
 
 /// Fetches all Kubernetes objects referenced from the [`v1alpha1::DruidCluster`] spec.
@@ -193,6 +205,12 @@ pub async fn dereference(
         None => None,
     };
 
+    let secret_name = build_shared_internal_secret_name(druid);
+    let internal_secret = client
+        .get_opt::<Secret>(&secret_name, namespace)
+        .await
+        .context(GetInternalSecretSnafu { secret_name })?;
+
     Ok(DereferencedObjects {
         zookeeper_connection_string,
         opa_base_document_url,
@@ -200,5 +218,6 @@ pub async fn dereference(
         s3_deep_storage_bucket,
         authentication_classes,
         router_listener,
+        internal_secret,
     })
 }

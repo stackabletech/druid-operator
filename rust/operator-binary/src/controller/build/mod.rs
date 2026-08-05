@@ -1,26 +1,36 @@
 //! Build steps that turn a `ValidatedCluster` into Kubernetes resources.
 
-use std::{marker::PhantomData, str::FromStr};
+use std::{
+    collections::{BTreeMap, HashSet},
+    marker::PhantomData,
+    str::FromStr,
+};
 
 use snafu::{ResultExt, Snafu};
 use stackable_operator::{
     builder::meta::ObjectMetaBuilder,
+    k8s_openapi::api::core::v1::Secret,
+    kube::ResourceExt,
     kvp::Labels,
     v2::{builder::meta::ownerreference_from_resource, types::operator::RoleGroupName},
 };
 
-use crate::controller::{
-    KubernetesResources, Prepared,
-    build::resource::{
-        config_map::build_rolegroup_config_map,
-        discovery::build_discovery_configmaps,
-        listener::{build_group_listener, group_listener_name},
-        pdb::build_pdb,
-        rbac::{build_role_binding, build_service_account},
-        service::{build_rolegroup_headless_service, build_rolegroup_metrics_service},
-        statefulset::build_rolegroup_statefulset,
+use crate::{
+    controller::{
+        KubernetesResources, Prepared,
+        build::resource::{
+            config_map::build_rolegroup_config_map,
+            discovery::build_discovery_configmaps,
+            listener::{build_group_listener, group_listener_name},
+            pdb::build_pdb,
+            rbac::{build_role_binding, build_service_account},
+            service::{build_rolegroup_headless_service, build_rolegroup_metrics_service},
+            statefulset::build_rolegroup_statefulset,
+        },
+        validate::ValidatedCluster,
     },
-    validate::ValidatedCluster,
+    crd::{COOKIE_PASSPHRASE_ENV, security::INTERNAL_INITIAL_CLIENT_PASSWORD_ENV},
+    internal_secret::build_shared_internal_secret_name,
 };
 
 // Placeholder role-group name used for the recommended labels of the role-level discovery
@@ -156,6 +166,42 @@ pub fn build(cluster: &ValidatedCluster) -> Result<KubernetesResources<Prepared>
         );
     }
 
+    let internal_secret = match &cluster.internal_secret {
+        None => {
+            let secret = build_shared_internal_secret(cluster);
+            tracing::info!(
+                secret_name = secret.name_any(),
+                "Did not find a shared internal secret with the necessary data, so one will be \
+                 created"
+            );
+            Some(secret)
+        }
+        Some(existing) => {
+            let current_keys: HashSet<_> = existing
+                .data
+                .clone()
+                .unwrap_or_default()
+                .into_keys()
+                .collect();
+            if let Some(missing_key) = INTERNAL_SECRET_KEYS
+                .iter()
+                .find(|key| !current_keys.contains(**key))
+            {
+                let secret = build_shared_internal_secret(cluster);
+                tracing::warn!(
+                    secret_name = secret.name_any(),
+                    "Found shared internal secret, which is missing the key {missing_key}: this \
+                    will be patched. This should only happen once and will change the contents of \
+                    the Secret. This might cause a short downtime of Druid, as the changed \
+                    internal Secrets need to propagate through all Druid nodes"
+                );
+                Some(secret)
+            } else {
+                None
+            }
+        }
+    };
+
     Ok(KubernetesResources {
         stateful_sets,
         services,
@@ -164,8 +210,40 @@ pub fn build(cluster: &ValidatedCluster) -> Result<KubernetesResources<Prepared>
         pod_disruption_budgets,
         service_accounts: vec![build_service_account(cluster)],
         role_bindings: vec![build_role_binding(cluster)],
+        internal_secret,
         status: PhantomData,
     })
+}
+
+/// The keys the shared internal Secret must contain. Single source for both
+/// [`build_shared_internal_secret`] and the missing-key check in [`build`].
+const INTERNAL_SECRET_KEYS: [&str; 2] =
+    [INTERNAL_INITIAL_CLIENT_PASSWORD_ENV, COOKIE_PASSPHRASE_ENV];
+
+fn build_shared_internal_secret(cluster: &ValidatedCluster) -> Secret {
+    let internal_secret: BTreeMap<String, String> = INTERNAL_SECRET_KEYS
+        .iter()
+        .map(|key| (key.to_string(), get_random_base64()))
+        .collect();
+
+    Secret {
+        metadata: ObjectMetaBuilder::new()
+            .name(build_shared_internal_secret_name(cluster))
+            .namespace_opt(cluster.namespace())
+            .ownerreference(ownerreference_from_resource(cluster, None, Some(true)))
+            .build(),
+        string_data: Some(internal_secret),
+        ..Secret::default()
+    }
+}
+
+fn get_random_base64() -> String {
+    let mut buf = [0; 512];
+    openssl::rand::rand_bytes(&mut buf).expect(
+        "the OpenSSL CSPRNG could not supply random bytes (e.g. it is not seeded); \
+         continuing would turn the zero-initialized buffer into a predictable secret",
+    );
+    openssl::base64::encode_block(&buf)
 }
 
 #[cfg(test)]
@@ -174,10 +252,11 @@ mod tests {
 
     use stackable_operator::{
         crd::listener::{self, v1alpha1::Listener},
+        k8s_openapi::{ByteString, api::core::v1::Secret},
         kube::{Resource, api::ObjectMeta},
     };
 
-    use super::{KubernetesResources, Prepared, build};
+    use super::{INTERNAL_SECRET_KEYS, KubernetesResources, Prepared, build};
     use crate::{
         controller::validate::test_support::{
             MINIMAL_DRUID_YAML, druid_from_yaml, validated_cluster,
@@ -313,6 +392,81 @@ mod tests {
 
             assert!(discovery_config_map(&resources).is_none());
         }
+    }
+
+    /// An existing shared internal Secret carrying the given keys in `data`, shaped as the
+    /// dereference step fetches it from the cluster.
+    fn internal_secret_with_keys(keys: &[&str]) -> Secret {
+        Secret {
+            data: Some(
+                keys.iter()
+                    .map(|key| (key.to_string(), ByteString(b"value".to_vec())))
+                    .collect(),
+            ),
+            ..Secret::default()
+        }
+    }
+
+    #[test]
+    fn build_creates_the_internal_secret_when_none_exists() {
+        let druid = druid_from_yaml(MINIMAL_DRUID_YAML);
+        let cluster = validated_cluster(&druid);
+        assert!(cluster.internal_secret.is_none(), "fixture precondition");
+
+        let resources = build(&cluster).expect("build succeeds");
+
+        let secret = resources
+            .internal_secret
+            .as_ref()
+            .expect("a fresh internal secret is built");
+        assert_eq!(
+            secret.metadata.name.as_deref(),
+            Some("simple-druid-shared-internal-secret")
+        );
+        let data = secret
+            .string_data
+            .as_ref()
+            .expect("the built secret carries generated contents");
+        for key in INTERNAL_SECRET_KEYS {
+            assert!(
+                data.contains_key(key),
+                "generated secret must contain {key}"
+            );
+        }
+    }
+
+    #[test]
+    fn build_replaces_the_internal_secret_when_a_required_key_is_missing() {
+        let druid = druid_from_yaml(MINIMAL_DRUID_YAML);
+        let mut cluster = validated_cluster(&druid);
+        cluster.internal_secret = Some(internal_secret_with_keys(&INTERNAL_SECRET_KEYS[..1]));
+
+        let resources = build(&cluster).expect("build succeeds");
+
+        let data = resources
+            .internal_secret
+            .as_ref()
+            .expect("a replacement internal secret is built")
+            .string_data
+            .as_ref()
+            .expect("the replacement carries generated contents")
+            .clone();
+        for key in INTERNAL_SECRET_KEYS {
+            assert!(data.contains_key(key), "replacement must contain {key}");
+        }
+    }
+
+    #[test]
+    fn build_keeps_the_internal_secret_when_it_contains_all_required_keys() {
+        let druid = druid_from_yaml(MINIMAL_DRUID_YAML);
+        let mut cluster = validated_cluster(&druid);
+        cluster.internal_secret = Some(internal_secret_with_keys(&INTERNAL_SECRET_KEYS));
+
+        let resources = build(&cluster).expect("build succeeds");
+
+        // No replacement may be built: applying a freshly generated secret would rotate the
+        // contents on every reconcile run.
+        assert!(resources.internal_secret.is_none());
     }
 
     /// Locks the RBAC resource names, the roleRef, and the recommended label set against

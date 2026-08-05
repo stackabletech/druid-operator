@@ -11,7 +11,7 @@ use stackable_operator::{
     crd::listener::v1alpha1::Listener,
     k8s_openapi::api::{
         apps::v1::StatefulSet,
-        core::v1::{ConfigMap, Service, ServiceAccount},
+        core::v1::{ConfigMap, Secret, Service, ServiceAccount},
         policy::v1::PodDisruptionBudget,
         rbac::v1::RoleBinding,
     },
@@ -26,16 +26,14 @@ use stackable_operator::{
 use strum::{EnumDiscriminants, IntoStaticStr};
 
 use crate::{
-    controller::{
-        apply::{Applier, ensure_internal_secret},
-        update_status::update_status,
-    },
+    controller::{apply::Applier, update_status::update_status},
     crd::{APP_NAME, OPERATOR_NAME, v1alpha1},
 };
 
 mod apply;
 mod build;
 mod dereference;
+mod migrate;
 mod update_status;
 pub(crate) mod validate;
 
@@ -84,6 +82,7 @@ pub struct KubernetesResources<T> {
     pub pod_disruption_budgets: Vec<PodDisruptionBudget>,
     pub service_accounts: Vec<ServiceAccount>,
     pub role_bindings: Vec<RoleBinding>,
+    pub internal_secret: Option<Secret>,
     pub status: PhantomData<T>,
 }
 
@@ -102,8 +101,8 @@ pub enum Error {
     #[snafu(display("failed to update the cluster status"))]
     UpdateStatus { source: update_status::Error },
 
-    #[snafu(display("failed to retrieve secret for internal communications"))]
-    FailedInternalSecretCreation { source: apply::Error },
+    #[snafu(display("failed to migrate the immutable internal secret"))]
+    MigrateInternalSecret { source: migrate::Error },
 
     #[snafu(display("DruidCluster object is invalid"))]
     InvalidDruidCluster {
@@ -145,9 +144,10 @@ pub async fn reconcile_druid(
 
     let resources = build::build(&validated_cluster).context(BuildResourcesSnafu)?;
 
-    ensure_internal_secret(client, &validated_cluster)
+    // Temporary migration step; remove together with the [`migrate`] module.
+    migrate::delete_immutable_internal_secret(client, &validated_cluster)
         .await
-        .context(FailedInternalSecretCreationSnafu)?;
+        .context(MigrateInternalSecretSnafu)?;
 
     let applier = Applier::new(
         client,
