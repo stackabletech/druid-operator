@@ -150,6 +150,10 @@ pub fn build(cluster: &ValidatedCluster) -> Result<KubernetesResources<Prepared>
             build_discovery_configmaps(cluster, router_listener)
                 .context(DiscoveryConfigMapSnafu)?,
         );
+    } else {
+        tracing::debug!(
+            "the Router group Listener has no ingress address yet, skipping the discovery ConfigMap"
+        );
     }
 
     Ok(KubernetesResources {
