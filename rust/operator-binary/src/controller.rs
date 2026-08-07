@@ -82,7 +82,7 @@ pub struct KubernetesResources<T> {
     pub pod_disruption_budgets: Vec<PodDisruptionBudget>,
     pub service_accounts: Vec<ServiceAccount>,
     pub role_bindings: Vec<RoleBinding>,
-    pub internal_secret: Option<Secret>,
+    pub internal_secret: Secret,
     pub status: PhantomData<T>,
 }
 

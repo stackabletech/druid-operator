@@ -108,8 +108,10 @@ pub struct DereferencedObjects {
     pub router_listener: Option<Listener>,
     /// The shared internal [`Secret`] as currently stored in the cluster. Like the Router group
     /// `Listener` it is not referenced from the spec but created by this operator itself: `None`
-    /// on the first reconcile run. Fetched so that the build step only produces a replacement
-    /// (with freshly generated contents) when the Secret is absent or missing a required key.
+    /// on the first reconcile run. Fetched so that the build step can re-emit the existing
+    /// contents unchanged (they are randomly generated at creation and cannot be rebuilt); a
+    /// replacement with fresh contents is only generated when the Secret is absent or missing a
+    /// required key.
     pub internal_secret: Option<Secret>,
 }
 

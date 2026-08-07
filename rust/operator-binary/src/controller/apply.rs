@@ -28,11 +28,6 @@ pub enum Error {
     DeleteOrphanedResources {
         source: stackable_operator::cluster_resources::Error,
     },
-
-    #[snafu(display("failed to apply internal secret"))]
-    ApplyInternalSecret {
-        source: stackable_operator::client::Error,
-    },
 }
 
 type Result<T, E = Error> = std::result::Result<T, E>;
@@ -103,19 +98,17 @@ impl<'a> Applier<'a> {
         let config_maps = self.add_resources(config_maps).await?;
         let pod_disruption_budgets = self.add_resources(pod_disruption_budgets).await?;
 
-        // The internal Secret is deliberately not tracked in [`ClusterResources`] (applied
-        // directly instead of via `add_resources`), so it survives the orphan deletion below:
-        // the build step only produces it when it is absent or incomplete, so on most runs no
-        // Secret is applied and a tracked one would be deleted as an orphan.
-        if let Some(internal_secret) = &internal_secret {
-            let controller_name = controller_name();
-            let controller_name = controller_name.as_ref();
-            self.client
-                .apply_patch(controller_name, internal_secret, internal_secret)
-                .await
-                .context(ApplyInternalSecretSnafu)?;
-        }
+        // The internal Secret is emitted by the build step on every run -- freshly generated
+        // when absent or incomplete, otherwise the existing contents re-emitted unchanged (a
+        // no-op apply) -- precisely so that it can be tracked here like every other resource
+        // without being deleted as an orphan; see `build_internal_secret`.
+        let internal_secret = self
+            .add_resources(vec![internal_secret])
+            .await?
+            .pop()
+            .expect("add_resources returns one applied resource per given resource");
 
+        // The StatefulSets are applied last to avoid unnecessary restarts.
         let stateful_sets = self.add_resources(stateful_sets).await?;
 
         self.cluster_resources

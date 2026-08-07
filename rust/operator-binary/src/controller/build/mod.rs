@@ -12,7 +12,10 @@ use stackable_operator::{
     k8s_openapi::api::core::v1::Secret,
     kube::ResourceExt,
     kvp::Labels,
-    v2::{builder::meta::ownerreference_from_resource, types::operator::RoleGroupName},
+    v2::{
+        builder::meta::ownerreference_from_resource,
+        types::operator::{RoleGroupName, RoleName},
+    },
 };
 
 use crate::{
@@ -40,6 +43,10 @@ stackable_operator::constant!(pub(crate) PLACEHOLDER_DISCOVERY_ROLE_GROUP: RoleG
 // Placeholder role-group name used for the recommended labels of the role-level `Listener`
 // (which is not tied to a single role group).
 stackable_operator::constant!(pub(crate) NONE_ROLE_GROUP_NAME: RoleGroupName = "none");
+
+// Placeholder role name used for the recommended labels of cluster-shared resources like the
+// internal Secret (which are not tied to a role at all).
+stackable_operator::constant!(NONE_ROLE_NAME: RoleName = "none");
 
 pub mod authentication;
 pub mod graceful_shutdown;
@@ -149,7 +156,32 @@ pub fn build(cluster: &ValidatedCluster) -> Result<KubernetesResources<Prepared>
         config_maps.push(discovery_config_map);
     }
 
-    let internal_secret = match &cluster.internal_secret {
+    Ok(KubernetesResources {
+        stateful_sets,
+        services,
+        listeners,
+        config_maps,
+        pod_disruption_budgets,
+        service_accounts: vec![build_service_account(cluster)],
+        role_bindings: vec![build_role_binding(cluster)],
+        internal_secret: build_internal_secret(cluster),
+        status: PhantomData,
+    })
+}
+
+/// The shared internal Secret, emitted on *every* run so the apply step can track it in
+/// `ClusterResources` like every other resource (a tracked resource that is not re-added in a
+/// run would be deleted as an orphan).
+///
+/// Its contents are randomly generated, so an identical Secret can never be *rebuilt*. Instead:
+///
+/// - absent: a fresh Secret with random values for all required keys is generated;
+/// - missing a required key: likewise replaced with a fresh Secret (warned about, as the changed
+///   values cause a short Druid downtime);
+/// - complete: the fetched values are re-emitted unchanged via [`reemit_internal_secret`],
+///   making the apply of this Secret a no-op.
+fn build_internal_secret(cluster: &ValidatedCluster) -> Secret {
+    match &cluster.internal_secret {
         None => {
             let secret = build_shared_internal_secret(cluster);
             tracing::info!(
@@ -157,7 +189,7 @@ pub fn build(cluster: &ValidatedCluster) -> Result<KubernetesResources<Prepared>
                 "Did not find a shared internal secret with the necessary data, so one will be \
                  created"
             );
-            Some(secret)
+            secret
         }
         Some(existing) => {
             let current_keys: HashSet<_> = existing
@@ -178,28 +210,16 @@ pub fn build(cluster: &ValidatedCluster) -> Result<KubernetesResources<Prepared>
                     the Secret. This might cause a short downtime of Druid, as the changed \
                     internal Secrets need to propagate through all Druid nodes"
                 );
-                Some(secret)
+                secret
             } else {
-                None
+                reemit_internal_secret(cluster, existing)
             }
         }
-    };
-
-    Ok(KubernetesResources {
-        stateful_sets,
-        services,
-        listeners,
-        config_maps,
-        pod_disruption_budgets,
-        service_accounts: vec![build_service_account(cluster)],
-        role_bindings: vec![build_role_binding(cluster)],
-        internal_secret,
-        status: PhantomData,
-    })
+    }
 }
 
 /// The keys the shared internal Secret must contain. Single source for both
-/// [`build_shared_internal_secret`] and the missing-key check in [`build`].
+/// [`build_shared_internal_secret`] and the missing-key check in [`build_internal_secret`].
 const INTERNAL_SECRET_KEYS: [&str; 2] =
     [INTERNAL_INITIAL_CLIENT_PASSWORD_ENV, COOKIE_PASSPHRASE_ENV];
 
@@ -210,14 +230,41 @@ fn build_shared_internal_secret(cluster: &ValidatedCluster) -> Secret {
         .collect();
 
     Secret {
-        metadata: ObjectMetaBuilder::new()
-            .name(build_shared_internal_secret_name(cluster))
-            .namespace_opt(cluster.namespace())
-            .ownerreference(ownerreference_from_resource(cluster, None, Some(true)))
-            .build(),
+        metadata: internal_secret_meta(cluster).build(),
         string_data: Some(internal_secret),
         ..Secret::default()
     }
+}
+
+/// Re-emits an existing complete internal Secret so that the apply step can track it in
+/// `ClusterResources` like every other resource.
+///
+/// The fetched `data` is carried over unchanged: the values are randomly generated at creation
+/// and cannot be rebuilt, so echoing them back is the only way to always emit a Secret without
+/// rotating the credentials. Applying identical content via server-side apply changes nothing on
+/// the server (a no-op: no watch event, no propagation into the Pods, no restart).
+///
+/// The metadata is built fresh instead of echoing the fetched metadata: a fetched object carries
+/// server-populated fields (`resourceVersion`, `uid`, `managedFields`) that must not appear in an
+/// apply patch, and the labels required by `ClusterResources::add` are added here.
+fn reemit_internal_secret(cluster: &ValidatedCluster, existing: &Secret) -> Secret {
+    Secret {
+        metadata: internal_secret_meta(cluster).build(),
+        data: existing.data.clone(),
+        ..Secret::default()
+    }
+}
+
+/// Shared metadata for both the freshly generated and the re-emitted internal Secret, so that
+/// the two are identical apart from their contents.
+fn internal_secret_meta(cluster: &ValidatedCluster) -> ObjectMetaBuilder {
+    // The internal Secret is shared by the whole cluster rather than tied to a role or role
+    // group, so the recommended labels carry `none` for both values (like the RBAC resources).
+    object_meta(
+        cluster,
+        build_shared_internal_secret_name(cluster),
+        cluster.recommended_labels_for(&NONE_ROLE_NAME, &NONE_ROLE_GROUP_NAME),
+    )
 }
 
 fn get_random_base64() -> String {
@@ -403,10 +450,7 @@ mod tests {
 
         let resources = build(&cluster).expect("build succeeds");
 
-        let secret = resources
-            .internal_secret
-            .as_ref()
-            .expect("a fresh internal secret is built");
+        let secret = &resources.internal_secret;
         assert_eq!(
             secret.metadata.name.as_deref(),
             Some("simple-druid-shared-internal-secret")
@@ -421,6 +465,7 @@ mod tests {
                 "generated secret must contain {key}"
             );
         }
+        assert_required_cluster_resource_labels(&secret.metadata);
     }
 
     #[test]
@@ -433,28 +478,64 @@ mod tests {
 
         let data = resources
             .internal_secret
-            .as_ref()
-            .expect("a replacement internal secret is built")
             .string_data
             .as_ref()
-            .expect("the replacement carries generated contents")
-            .clone();
+            .expect("the replacement carries generated contents");
         for key in INTERNAL_SECRET_KEYS {
             assert!(data.contains_key(key), "replacement must contain {key}");
         }
     }
 
+    /// An existing complete Secret is re-emitted with its fetched values unchanged (nothing is
+    /// regenerated), so applying it is a no-op, and with the labels required by
+    /// `ClusterResources::add` so it can be tracked like every other resource.
     #[test]
-    fn build_keeps_the_internal_secret_when_it_contains_all_required_keys() {
+    fn reemits_existing_internal_secret_when_complete() {
         let druid = druid_from_yaml(MINIMAL_DRUID_YAML);
         let mut cluster = validated_cluster(&druid);
         cluster.internal_secret = Some(internal_secret_with_keys(&INTERNAL_SECRET_KEYS));
 
         let resources = build(&cluster).expect("build succeeds");
 
-        // No replacement may be built: applying a freshly generated secret would rotate the
-        // contents on every reconcile run.
-        assert!(resources.internal_secret.is_none());
+        let secret = &resources.internal_secret;
+        assert_eq!(
+            secret.metadata.name.as_deref(),
+            Some("simple-druid-shared-internal-secret")
+        );
+        assert_eq!(
+            secret.data,
+            internal_secret_with_keys(&INTERNAL_SECRET_KEYS).data,
+            "the fetched values must be carried over unchanged"
+        );
+        assert!(
+            secret.string_data.is_none(),
+            "no contents may be regenerated for a complete secret"
+        );
+        assert_required_cluster_resource_labels(&secret.metadata);
+    }
+
+    /// Asserts the labels [`ClusterResources::add`] requires; without them the apply step
+    /// rejects the resource.
+    ///
+    /// [`ClusterResources::add`]: stackable_operator::cluster_resources::ClusterResources::add
+    fn assert_required_cluster_resource_labels(
+        metadata: &stackable_operator::kube::api::ObjectMeta,
+    ) {
+        let labels = metadata.labels.as_ref().expect("labels are set");
+        for (key, value) in [
+            ("app.kubernetes.io/instance", "simple-druid"),
+            ("app.kubernetes.io/name", "druid"),
+            (
+                "app.kubernetes.io/managed-by",
+                "druid.stackable.tech_druidcluster",
+            ),
+        ] {
+            assert_eq!(
+                labels.get(key).map(String::as_str),
+                Some(value),
+                "label {key} must be set"
+            );
+        }
     }
 
     /// Locks the RBAC resource names, the roleRef, and the recommended label set against
