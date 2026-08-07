@@ -20,7 +20,7 @@ use crate::{
         KubernetesResources, Prepared,
         build::resource::{
             config_map::build_rolegroup_config_map,
-            discovery::build_discovery_configmaps,
+            discovery::build_discovery_configmap,
             listener::{build_group_listener, group_listener_name},
             pdb::build_pdb,
             rbac::{build_role_binding, build_service_account},
@@ -143,27 +143,10 @@ pub fn build(cluster: &ValidatedCluster) -> Result<KubernetesResources<Prepared>
         }
     }
 
-    // The discovery ConfigMap needs the Router group Listener's ingress address, which only the
-    // listener-operator writes. Around the first reconcile runs the dereferenced Listener is
-    // absent or still address-less; the ConfigMap is skipped then instead of failing the whole
-    // run -- the Listener watch triggers a new run once the address is set. In that window an
-    // already existing discovery ConfigMap is deleted as an orphan (only reachable when the
-    // Listener is deleted and re-created) and re-created by the next run.
-    if let Some(router_listener) = &cluster.router_listener
-        && router_listener
-            .status
-            .as_ref()
-            .and_then(|status| status.ingress_addresses.as_ref()?.first())
-            .is_some()
+    if let Some(discovery_config_map) =
+        build_discovery_configmap(cluster).context(DiscoveryConfigMapSnafu)?
     {
-        config_maps.extend(
-            build_discovery_configmaps(cluster, router_listener)
-                .context(DiscoveryConfigMapSnafu)?,
-        );
-    } else {
-        tracing::debug!(
-            "the Router group Listener has no ingress address yet, skipping the discovery ConfigMap"
-        );
+        config_maps.push(discovery_config_map);
     }
 
     let internal_secret = match &cluster.internal_secret {
@@ -350,7 +333,7 @@ mod tests {
     }
 
     #[test]
-    fn build_adds_the_discovery_config_map_once_the_router_listener_has_an_address() {
+    fn builds_discovery_config_map_with_listener_address() {
         let druid = druid_from_yaml(MINIMAL_DRUID_YAML);
         let mut cluster = validated_cluster(&druid);
         cluster.router_listener = Some(router_listener_with_address());
@@ -368,25 +351,30 @@ mod tests {
         );
     }
 
-    /// While the Listener carries no ingress address (the listener-operator has not reconciled
-    /// it yet), the discovery ConfigMap is skipped, *without* failing the build: the Listener
-    /// watch triggers a new reconcile run once the address is set.
+    /// While the Listener is absent (the apply step has not created it yet) or carries no
+    /// ingress address (the listener-operator has not reconciled it yet), the discovery
+    /// ConfigMap is skipped, *without* failing the build: the Listener watch triggers a new
+    /// reconcile run once the address is set.
     #[test]
-    fn build_skips_the_discovery_config_map_while_the_router_listener_has_no_address() {
+    fn skips_discovery_config_map_without_listener_address() {
         let druid = druid_from_yaml(MINIMAL_DRUID_YAML);
         let mut cluster = validated_cluster(&druid);
 
-        let no_status = None;
-        let no_addresses = Some(listener::v1alpha1::ListenerStatus {
-            service_name: None,
-            ingress_addresses: Some(vec![]),
-            node_ports: None,
+        let no_listener = None;
+        let no_status = Some(Listener {
+            status: None,
+            ..router_listener_with_address()
         });
-        for status in [no_status, no_addresses] {
-            cluster.router_listener = Some(Listener {
-                status,
-                ..router_listener_with_address()
-            });
+        let no_addresses = Some(Listener {
+            status: Some(listener::v1alpha1::ListenerStatus {
+                service_name: None,
+                ingress_addresses: Some(vec![]),
+                node_ports: None,
+            }),
+            ..router_listener_with_address()
+        });
+        for router_listener in [no_listener, no_status, no_addresses] {
+            cluster.router_listener = router_listener;
 
             let resources = build(&cluster).expect("build succeeds without a listener address");
 

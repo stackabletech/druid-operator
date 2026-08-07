@@ -3,8 +3,7 @@
 //! a gateway to the cluster for client queries.
 use snafu::{ResultExt, Snafu};
 use stackable_operator::{
-    builder::configmap::ConfigMapBuilder, crd::listener::v1alpha1::Listener,
-    k8s_openapi::api::core::v1::ConfigMap,
+    builder::configmap::ConfigMapBuilder, k8s_openapi::api::core::v1::ConfigMap,
 };
 
 use crate::{
@@ -31,21 +30,31 @@ pub enum Error {
     },
 }
 
-/// Builds discovery [`ConfigMap`]s for connecting to a Druid cluster.
-pub fn build_discovery_configmaps(
-    cluster: &ValidatedCluster,
-    listener: &Listener,
-) -> Result<Vec<ConfigMap>, Error> {
-    Ok(vec![build_discovery_configmap(cluster, listener)?])
-}
+/// Builds the discovery [`ConfigMap`] containing information about how to connect to a certain
+/// Druid cluster, or `None` while the Router group Listener is absent or has no ingress address.
+///
+/// The ConfigMap needs the Router group Listener's ingress address, which only the
+/// listener-operator writes. Around the first reconcile runs the dereferenced Listener is absent
+/// or still address-less; the ConfigMap is skipped then instead of failing the whole run -- the
+/// Listener watch triggers a new run once the address is set. In that window an already existing
+/// discovery ConfigMap is deleted as an orphan (only reachable when the Listener is deleted and
+/// re-created) and re-created by the next run.
+pub fn build_discovery_configmap(cluster: &ValidatedCluster) -> Result<Option<ConfigMap>, Error> {
+    let Some(listener_address) = cluster
+        .router_listener
+        .as_ref()
+        .and_then(|listener| listener.status.as_ref())
+        .and_then(|status| status.ingress_addresses.as_ref()?.first())
+    else {
+        tracing::debug!(
+            "the Router group Listener has no ingress address yet, \
+               skipping the discovery ConfigMap"
+        );
+        return Ok(None);
+    };
 
-/// Build a discovery [`ConfigMap`] containing information about how to connect to a certain Druid cluster.
-fn build_discovery_configmap(
-    cluster: &ValidatedCluster,
-    listener: &Listener,
-) -> Result<ConfigMap, Error> {
     let router_host = build_listener_connection_string(
-        listener,
+        listener_address,
         &cluster.cluster_config.druid_tls_security,
         &DruidRole::Router.to_string(),
     )
@@ -56,7 +65,7 @@ fn build_discovery_configmap(
         router_host
     );
 
-    ConfigMapBuilder::new()
+    let config_map = ConfigMapBuilder::new()
         .metadata(
             object_meta(
                 cluster,
@@ -69,5 +78,7 @@ fn build_discovery_configmap(
         .add_data("DRUID_SQLALCHEMY", sqlalchemy_conn_str)
         .add_data("DRUID_AVATICA_JDBC", avatica_conn_str)
         .build()
-        .context(BuildConfigMapSnafu)
+        .context(BuildConfigMapSnafu)?;
+
+    Ok(Some(config_map))
 }
