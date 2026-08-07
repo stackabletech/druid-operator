@@ -323,7 +323,11 @@ pub fn build_rolegroup_statefulset(
                 .service_account_name()
                 .to_string(),
         )
-        .security_context(PodSecurityContextBuilder::new().fs_group(1000).build());
+        .security_context(
+            PodSecurityContextBuilder::with_stackable_defaults()
+                .fs_group(1000)
+                .build(),
+        );
 
     // The Vector agent reads the static `vector.yaml` (added to the rolegroup ConfigMap) from the
     // config volume; the validated aggregator address comes from the up-front `ValidatedLogging`.
