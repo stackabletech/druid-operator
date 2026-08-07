@@ -11,20 +11,18 @@ use std::{
 
 use snafu::{ResultExt, Snafu, ensure};
 use stackable_operator::{
-    builder::meta::ObjectMetaBuilder,
     cli::OperatorEnvironmentOptions,
     commons::{
         pdb::PdbConfig,
         product_image_selection::{self, ResolvedProductImage},
     },
-    crd::s3,
+    crd::{listener::v1alpha1::Listener, s3},
     database_connections::drivers::jdbc::{JdbcDatabaseConnection, JdbcDatabaseConnectionDetails},
-    k8s_openapi::api::core::v1::Volume,
+    k8s_openapi::api::core::v1::{Secret, Volume},
     kube::{Resource, api::ObjectMeta},
     kvp::Labels,
     v2::{
         HasName, HasUid, NameIsValidLabelValue,
-        builder::meta::ownerreference_from_resource,
         controller_utils::{get_cluster_name, get_namespace, get_uid},
         kvp::label::{recommended_labels, role_group_selector},
         role_group_utils::ResourceNames,
@@ -154,6 +152,8 @@ pub struct ValidatedCluster {
     /// The per-role config (PDB and listener class) for every [`DruidRole`].
     pub role_configs: BTreeMap<DruidRole, ValidatedRoleConfig>,
     pub role_group_configs: BTreeMap<DruidRole, BTreeMap<RoleGroupName, DruidRoleGroupConfig>>,
+    pub router_listener: Option<Listener>,
+    pub internal_secret: Option<Secret>,
 }
 
 impl ValidatedCluster {
@@ -166,6 +166,8 @@ impl ValidatedCluster {
         cluster_config: ValidatedClusterConfig,
         role_configs: BTreeMap<DruidRole, ValidatedRoleConfig>,
         role_group_configs: BTreeMap<DruidRole, BTreeMap<RoleGroupName, DruidRoleGroupConfig>>,
+        router_listener: Option<Listener>,
+        internal_secret: Option<Secret>,
     ) -> Self {
         let metadata = ObjectMeta {
             name: Some(name.to_string()),
@@ -187,6 +189,8 @@ impl ValidatedCluster {
             cluster_config,
             role_configs,
             role_group_configs,
+            router_listener,
+            internal_secret,
         }
     }
 
@@ -242,26 +246,6 @@ impl ValidatedCluster {
     /// Selector labels matching the pods of a role group.
     pub fn role_group_selector(&self, role: &DruidRole, role_group_name: &RoleGroupName) -> Labels {
         role_group_selector(self, &product_name(), &role.into(), role_group_name)
-    }
-
-    /// Returns an [`ObjectMetaBuilder`] pre-filled with the namespace, an owner reference back to
-    /// this cluster, and the recommended labels for a resource named `name` in `role`/`role_group_name`.
-    ///
-    /// Consolidates the metadata chain repeated by the child-resource builders. Call sites that need
-    /// extra labels/annotations chain them onto the returned builder.
-    pub(crate) fn object_meta(
-        &self,
-        name: impl Into<String>,
-        role: &DruidRole,
-        role_group_name: &RoleGroupName,
-    ) -> ObjectMetaBuilder {
-        let mut builder = ObjectMetaBuilder::new();
-        builder
-            .name_and_namespace(self)
-            .name(name)
-            .ownerreference(ownerreference_from_resource(self, None, Some(true)))
-            .with_labels(self.recommended_labels(role, role_group_name));
-        builder
     }
 
     /// Type-safe names for the per-cluster RBAC resources: the ServiceAccount shared by all
@@ -449,6 +433,8 @@ pub fn validate(
         },
         role_configs,
         role_group_configs,
+        dereferenced_objects.router_listener.clone(),
+        dereferenced_objects.internal_secret.clone(),
     ))
 }
 
@@ -589,6 +575,8 @@ spec:
             },
             role_configs,
             role_group_configs,
+            None,
+            None,
         )
     }
 }
@@ -613,6 +601,8 @@ mod tests {
             s3_ingestion_connection: None,
             s3_deep_storage_bucket: None,
             authentication_classes: Vec::new(),
+            router_listener: None,
+            internal_secret: None,
         }
     }
 

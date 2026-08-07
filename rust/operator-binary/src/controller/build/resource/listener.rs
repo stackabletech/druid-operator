@@ -2,20 +2,26 @@ use std::str::FromStr;
 
 use snafu::{OptionExt, Snafu};
 use stackable_operator::{
-    crd::listener::{self, v1alpha1::Listener},
+    crd::listener::{
+        self,
+        v1alpha1::{Listener, ListenerIngress},
+    },
     k8s_openapi::api::core::v1::PersistentVolumeClaim,
     kvp::Labels,
     v2::{
         builder::pod::volume::{
             ListenerReference, listener_operator_volume_source_builder_build_pvc,
         },
-        types::kubernetes::{ListenerClassName, ListenerName, PersistentVolumeClaimName},
+        types::{
+            kubernetes::{ListenerClassName, ListenerName, PersistentVolumeClaimName},
+            operator::ClusterName,
+        },
     },
 };
 
 use crate::{
     controller::{
-        build::{NONE_ROLE_GROUP_NAME, security::listener_ports},
+        build::{NONE_ROLE_GROUP_NAME, object_meta, security::listener_ports},
         validate::ValidatedCluster,
     },
     crd::{
@@ -29,9 +35,6 @@ pub const LISTENER_VOLUME_DIR: &str = "/stackable/listener";
 
 #[derive(Snafu, Debug)]
 pub enum Error {
-    #[snafu(display("{role_name} listener has no adress"))]
-    RoleListenerHasNoAddress { role_name: String },
-
     #[snafu(display("could not find port [{port_name}] for rolegroup listener {role_name}"))]
     NoServicePort {
         port_name: String,
@@ -48,13 +51,12 @@ pub fn build_group_listener(
     // The group listener is a role-level (not role-group-level) object, so there is no real
     // role-group name; the placeholder is used for the recommended labels.
     Listener {
-        metadata: cluster
-            .object_meta(
-                listener_group_name.to_string(),
-                druid_role,
-                &NONE_ROLE_GROUP_NAME,
-            )
-            .build(),
+        metadata: object_meta(
+            cluster,
+            listener_group_name.to_string(),
+            cluster.recommended_labels(druid_role, &NONE_ROLE_GROUP_NAME),
+        )
+        .build(),
         spec: listener::v1alpha1::ListenerSpec {
             class_name: Some(listener_class.to_string()),
             ports: Some(listener_ports(
@@ -78,33 +80,35 @@ pub fn build_group_listener_pvc(
     )
 }
 
+/// The name of the group [`Listener`] of the given role, or `None` for roles that expose no
+/// Listener.
 pub fn group_listener_name(
-    cluster: &ValidatedCluster,
+    cluster_name: &ClusterName,
     druid_role: &DruidRole,
 ) -> Option<ListenerName> {
     match druid_role {
-        DruidRole::Coordinator | DruidRole::Broker | DruidRole::Router => Some(
-            ListenerName::from_str(&format!(
-                "{cluster_name}-{druid_role}",
-                cluster_name = cluster.name,
-            ))
-            .expect("a valid listener name"),
-        ),
+        DruidRole::Coordinator | DruidRole::Broker | DruidRole::Router => {
+            Some(general_group_listener_name(cluster_name, druid_role))
+        }
         DruidRole::Historical | DruidRole::MiddleManager => None,
     }
 }
 
+/// Returns the name of the group listener for a specific role, without
+/// checking if the role actually exposes one.
+pub fn general_group_listener_name(
+    cluster_name: &ClusterName,
+    druid_role: &DruidRole,
+) -> ListenerName {
+    ListenerName::from_str(&format!("{cluster_name}-{druid_role}")).expect("a valid listener name")
+}
+
 // Builds the connection string with respect to the listener provided objects
 pub fn build_listener_connection_string(
-    listener: Listener,
+    listener_address: &ListenerIngress,
     druid_tls_security: &DruidTlsSecurity,
     role_name: &String,
 ) -> Result<String, Error> {
-    // We only need the first address corresponding to the role
-    let listener_address = listener
-        .status
-        .and_then(|s| s.ingress_addresses?.into_iter().next())
-        .context(RoleListenerHasNoAddressSnafu { role_name })?;
     let port_name = match druid_tls_security.tls_enabled() {
         true => TLS_PORT_NAME,
         false => PLAINTEXT_PORT_NAME,
@@ -137,7 +141,7 @@ pub fn secret_volume_listener_scope(role: &DruidRole) -> Option<String> {
 mod tests {
     use std::{collections::BTreeMap, str::FromStr};
 
-    use stackable_operator::{kube::api::ObjectMeta, v2::types::kubernetes::SecretClassName};
+    use stackable_operator::v2::types::kubernetes::SecretClassName;
 
     use super::*;
     use crate::controller::validate::test_support::{
@@ -150,18 +154,18 @@ mod tests {
 
     #[test]
     fn group_listener_name_only_for_externally_reachable_roles() {
-        let cluster = cluster();
-        assert!(group_listener_name(&cluster, &DruidRole::Broker).is_some());
-        assert!(group_listener_name(&cluster, &DruidRole::Coordinator).is_some());
-        assert!(group_listener_name(&cluster, &DruidRole::Router).is_some());
-        assert!(group_listener_name(&cluster, &DruidRole::Historical).is_none());
-        assert!(group_listener_name(&cluster, &DruidRole::MiddleManager).is_none());
+        let cluster_name = cluster().name;
+        assert!(group_listener_name(&cluster_name, &DruidRole::Broker).is_some());
+        assert!(group_listener_name(&cluster_name, &DruidRole::Coordinator).is_some());
+        assert!(group_listener_name(&cluster_name, &DruidRole::Router).is_some());
+        assert!(group_listener_name(&cluster_name, &DruidRole::Historical).is_none());
+        assert!(group_listener_name(&cluster_name, &DruidRole::MiddleManager).is_none());
     }
 
     #[test]
     fn group_listener_name_is_cluster_and_role_scoped() {
-        let name =
-            group_listener_name(&cluster(), &DruidRole::Broker).expect("broker has a listener");
+        let name = group_listener_name(&cluster().name, &DruidRole::Broker)
+            .expect("broker has a listener");
         assert_eq!(name.to_string(), "simple-druid-broker");
     }
 
@@ -175,24 +179,16 @@ mod tests {
         assert!(secret_volume_listener_scope(&DruidRole::MiddleManager).is_none());
     }
 
-    /// A listener exposing both the plaintext and TLS ports, so the connection-string builder's
+    /// An ingress address exposing both the plaintext and TLS ports, so the connection-string builder's
     /// port selection can be exercised.
-    fn listener_with_both_ports() -> Listener {
-        Listener {
-            metadata: ObjectMeta::default(),
-            spec: listener::v1alpha1::ListenerSpec::default(),
-            status: Some(listener::v1alpha1::ListenerStatus {
-                service_name: None,
-                ingress_addresses: Some(vec![listener::v1alpha1::ListenerIngress {
-                    address: "druid.example.com".to_string(),
-                    address_type: listener::v1alpha1::AddressType::Hostname,
-                    ports: BTreeMap::from([
-                        (PLAINTEXT_PORT_NAME.to_string(), 8888),
-                        (TLS_PORT_NAME.to_string(), 9088),
-                    ]),
-                }]),
-                node_ports: None,
-            }),
+    fn ingress_with_both_ports() -> ListenerIngress {
+        ListenerIngress {
+            address: "druid.example.com".to_string(),
+            address_type: listener::v1alpha1::AddressType::Hostname,
+            ports: BTreeMap::from([
+                (PLAINTEXT_PORT_NAME.to_string(), 8888),
+                (TLS_PORT_NAME.to_string(), 9088),
+            ]),
         }
     }
 
@@ -200,7 +196,7 @@ mod tests {
     fn connection_string_uses_plaintext_port_without_tls() {
         let tls = DruidTlsSecurity::new(false, None);
         let conn = build_listener_connection_string(
-            listener_with_both_ports(),
+            &ingress_with_both_ports(),
             &tls,
             &"router".to_string(),
         )
@@ -212,7 +208,7 @@ mod tests {
     fn connection_string_uses_tls_port_with_tls() {
         let tls = DruidTlsSecurity::new(false, Some(SecretClassName::from_str("tls").unwrap()));
         let conn = build_listener_connection_string(
-            listener_with_both_ports(),
+            &ingress_with_both_ports(),
             &tls,
             &"router".to_string(),
         )

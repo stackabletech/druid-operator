@@ -7,7 +7,10 @@ use stackable_operator::{
 };
 
 use crate::{
-    controller::{build::security::service_ports, validate::ValidatedCluster},
+    controller::{
+        build::{object_meta, security::service_ports},
+        validate::ValidatedCluster,
+    },
     crd::{DruidRole, METRICS_PORT, METRICS_PORT_NAME},
 };
 
@@ -19,16 +22,15 @@ pub fn build_rolegroup_headless_service(
     role_group_name: &RoleGroupName,
 ) -> Service {
     Service {
-        metadata: cluster
-            .object_meta(
-                cluster
-                    .role_group_resource_names(druid_role, role_group_name)
-                    .headless_service_name()
-                    .to_string(),
-                druid_role,
-                role_group_name,
-            )
-            .build(),
+        metadata: object_meta(
+            cluster,
+            cluster
+                .role_group_resource_names(druid_role, role_group_name)
+                .headless_service_name()
+                .to_string(),
+            cluster.recommended_labels(druid_role, role_group_name),
+        )
+        .build(),
         spec: Some(ServiceSpec {
             // Internal communication does not need to be exposed
             type_: Some("ClusterIP".to_string()),
@@ -56,23 +58,22 @@ pub fn build_rolegroup_metrics_service(
     role_group_name: &RoleGroupName,
 ) -> Service {
     Service {
-        metadata: cluster
-            .object_meta(
-                cluster
-                    .role_group_resource_names(druid_role, role_group_name)
-                    .metrics_service_name()
-                    .to_string(),
-                druid_role,
-                role_group_name,
-            )
-            .with_labels(prometheus_labels(&Scraping::Enabled))
-            .with_annotations(prometheus_annotations(
-                &Scraping::Enabled,
-                &Scheme::Http,
-                "/metrics",
-                &METRICS_PORT,
-            ))
-            .build(),
+        metadata: object_meta(
+            cluster,
+            cluster
+                .role_group_resource_names(druid_role, role_group_name)
+                .metrics_service_name()
+                .to_string(),
+            cluster.recommended_labels(druid_role, role_group_name),
+        )
+        .with_labels(prometheus_labels(&Scraping::Enabled))
+        .with_annotations(prometheus_annotations(
+            &Scraping::Enabled,
+            &Scheme::Http,
+            "/metrics",
+            &METRICS_PORT,
+        ))
+        .build(),
         spec: Some(ServiceSpec {
             // Internal communication does not need to be exposed
             type_: Some("ClusterIP".to_string()),

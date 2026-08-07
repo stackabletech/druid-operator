@@ -36,6 +36,7 @@ use crate::{
         build::{
             authentication,
             graceful_shutdown::add_graceful_shutdown_config,
+            object_meta,
             properties::product_logging::MAX_DRUID_LOG_FILES_SIZE,
             resource::listener::{
                 LISTENER_VOLUME_DIR, LISTENER_VOLUME_NAME, build_group_listener_pvc,
@@ -295,7 +296,7 @@ pub fn build_rolegroup_statefulset(
 
     let mut pvcs: Option<Vec<PersistentVolumeClaim>> = None;
 
-    if let Some(group_listener_name) = group_listener_name(cluster, role) {
+    if let Some(group_listener_name) = group_listener_name(&cluster.name, role) {
         cb_druid
             .add_volume_mount(&*LISTENER_VOLUME_NAME, LISTENER_VOLUME_DIR)
             .context(AddVolumeMountSnafu)?;
@@ -344,14 +345,13 @@ pub fn build_rolegroup_statefulset(
     pod_template.merge_from(rg.pod_overrides.clone());
 
     Ok(StatefulSet {
-        metadata: cluster
-            .object_meta(
-                resource_names.stateful_set_name().to_string(),
-                role,
-                role_group_name,
-            )
-            .with_label(RESTART_CONTROLLER_ENABLED_LABEL.to_owned())
-            .build(),
+        metadata: object_meta(
+            cluster,
+            resource_names.stateful_set_name().to_string(),
+            cluster.recommended_labels(role, role_group_name),
+        )
+        .with_label(RESTART_CONTROLLER_ENABLED_LABEL.to_owned())
+        .build(),
         spec: Some(StatefulSetSpec {
             pod_management_policy: Some("Parallel".to_string()),
             // Leave `replicas` unset when the role group does not specify a count, so a
