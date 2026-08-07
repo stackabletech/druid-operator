@@ -10,7 +10,7 @@ use stackable_operator::{
 };
 
 use crate::{
-    controller::build::resource::listener::group_listener_name,
+    controller::build::resource::listener::general_group_listener_name,
     crd::{
         DeepStorageSpec, DruidRole, authentication::fetch_authentication_classes,
         authorization::DruidAuthorization, v1alpha1,
@@ -195,15 +195,14 @@ pub async fn dereference(
         .context(AuthenticationClassRetrievalSnafu)?;
 
     let cluster_name = get_cluster_name(druid).context(ClusterIdentitySnafu)?;
-    let router_listener = match group_listener_name(&cluster_name, &DruidRole::Router) {
-        Some(listener_name) => client
-            .get_opt::<Listener>(listener_name.as_ref(), namespace)
-            .await
-            .context(GetRouterListenerSnafu {
-                listener_name: listener_name.as_ref(),
-            })?,
-        None => None,
-    };
+    let listener_name = general_group_listener_name(&cluster_name, &DruidRole::Router);
+
+    let router_listener = client
+        .get_opt::<Listener>(listener_name.as_ref(), namespace)
+        .await
+        .context(GetRouterListenerSnafu {
+            listener_name: listener_name.as_ref(),
+        })?;
 
     let secret_name = build_shared_internal_secret_name(druid);
     let internal_secret = client

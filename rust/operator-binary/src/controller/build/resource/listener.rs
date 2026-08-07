@@ -88,12 +88,19 @@ pub fn group_listener_name(
     druid_role: &DruidRole,
 ) -> Option<ListenerName> {
     match druid_role {
-        DruidRole::Coordinator | DruidRole::Broker | DruidRole::Router => Some(
-            ListenerName::from_str(&format!("{cluster_name}-{druid_role}"))
-                .expect("a valid listener name"),
-        ),
+        DruidRole::Coordinator | DruidRole::Broker | DruidRole::Router => {
+            Some(general_group_listener_name(cluster_name, druid_role))
+        }
         DruidRole::Historical | DruidRole::MiddleManager => None,
     }
+}
+
+/// Returns the name of the group listener for a specific role, without checking if the role actually exposes one.
+pub fn general_group_listener_name(
+    cluster_name: &ClusterName,
+    druid_role: &DruidRole,
+) -> ListenerName {
+    ListenerName::from_str(&format!("{cluster_name}-{druid_role}")).expect("a valid listener name")
 }
 
 // Builds the connection string with respect to the listener provided objects

@@ -9,9 +9,7 @@
 use snafu::{ResultExt, Snafu};
 use stackable_operator::{client::Client, k8s_openapi::api::core::v1::Secret, kube::ResourceExt};
 
-use crate::{
-    controller::validate::ValidatedCluster, internal_secret::build_shared_internal_secret_name,
-};
+use crate::controller::validate::ValidatedCluster;
 
 #[derive(Snafu, Debug)]
 pub enum Error {
@@ -35,13 +33,10 @@ pub async fn delete_immutable_internal_secret(
     client: &Client,
     cluster: &ValidatedCluster,
 ) -> Result<()> {
-    let secret_name = build_shared_internal_secret_name(cluster);
+    let existing_immutable_secret_name = build_immutable_shared_internal_secret_name(cluster);
 
     let existing_immutable_secret = client
-        .get_opt::<Secret>(
-            &build_immutable_shared_internal_secret_name(cluster),
-            cluster.namespace.as_ref(),
-        )
+        .get_opt::<Secret>(&existing_immutable_secret_name, cluster.namespace.as_ref())
         .await
         .context(GetImmutableInternalSecretSnafu)?;
 
@@ -54,9 +49,8 @@ pub async fn delete_immutable_internal_secret(
             // (see <https://github.com/kubernetes/website/issues/42359#issuecomment-2136192995>).
             // We *could* read in the contents and use them during the re-creation (so we don't change the contents to avoid downtime),
             // but we strive that our operators don't handle Secret contents and it's a one time migration.
-
             tracing::warn!(
-                secret_name,
+                existing_immutable_secret_name,
                 "Shared internal secret found, which is immutable. Deleting it, as we can not modify it or re-create it \
                         with the same name; a mutable replacement with a new name is created in the same reconcile run. \
                         This should only happen once and will change the contents of the Secret. This might cause a short \
