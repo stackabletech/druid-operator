@@ -102,7 +102,6 @@ impl<'a> Applier<'a> {
         let listeners = self.add_resources(listeners).await?;
         let config_maps = self.add_resources(config_maps).await?;
         let pod_disruption_budgets = self.add_resources(pod_disruption_budgets).await?;
-        let stateful_sets = self.add_resources(stateful_sets).await?;
 
         // The internal Secret is deliberately not tracked in [`ClusterResources`] (applied
         // directly instead of via `add_resources`), so it survives the orphan deletion below:
@@ -116,6 +115,8 @@ impl<'a> Applier<'a> {
                 .await
                 .context(ApplyInternalSecretSnafu)?;
         }
+
+        let stateful_sets = self.add_resources(stateful_sets).await?;
 
         self.cluster_resources
             .delete_orphaned_resources(self.client)

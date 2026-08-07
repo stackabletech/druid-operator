@@ -1,5 +1,6 @@
 //! Pure helpers around the shared internal Secret: its name and the env vars that reference
-//! it. The Secret itself is ensured by `ensure_internal_secret` in the apply step.
+//! it. The Secret itself is produced by `build_shared_internal_secret` in the build step (only
+//! when it is absent or incomplete) and applied in the apply step.
 
 use stackable_operator::{
     k8s_openapi::api::core::v1::{EnvVar, EnvVarSource, SecretKeySelector},
