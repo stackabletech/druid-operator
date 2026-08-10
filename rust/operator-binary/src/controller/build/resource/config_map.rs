@@ -28,6 +28,7 @@ use crate::{
         build::{
             authentication::generate_runtime_properties_config as generate_auth_runtime_properties,
             jvm::{AWS_REGION, construct_jvm_args},
+            object_meta,
             properties::{
                 ConfigFileName,
                 extensions::get_extension_list,
@@ -375,13 +376,12 @@ pub fn build_rolegroup_config_map(
 
     let mut config_map_builder = ConfigMapBuilder::new();
     config_map_builder.metadata(
-        cluster
-            .object_meta(
-                resource_names.role_group_config_map().to_string(),
-                role,
-                role_group_name,
-            )
-            .build(),
+        object_meta(
+            cluster,
+            resource_names.role_group_config_map().to_string(),
+            cluster.recommended_labels(role, role_group_name),
+        )
+        .build(),
     );
 
     for (filename, file_content) in cm_conf_data.iter() {

@@ -4,13 +4,18 @@ use snafu::{OptionExt, ResultExt, Snafu};
 use stackable_operator::{
     client::Client,
     commons::opa::OpaApiVersion,
-    crd::{authentication::core, s3},
-    k8s_openapi::api::core::v1::ConfigMap,
+    crd::{authentication::core, listener::v1alpha1::Listener, s3},
+    k8s_openapi::api::core::v1::{ConfigMap, Secret},
+    v2::controller_utils::get_cluster_name,
 };
 
-use crate::crd::{
-    DeepStorageSpec, authentication::fetch_authentication_classes,
-    authorization::DruidAuthorization, v1alpha1,
+use crate::{
+    controller::build::resource::listener::general_group_listener_name,
+    crd::{
+        DeepStorageSpec, DruidRole, authentication::fetch_authentication_classes,
+        authorization::DruidAuthorization, v1alpha1,
+    },
+    internal_secret::build_shared_internal_secret_name,
 };
 
 #[derive(Snafu, Debug)]
@@ -57,6 +62,29 @@ pub enum Error {
     AuthenticationClassRetrieval {
         source: crate::crd::authentication::Error,
     },
+
+    #[snafu(display("failed to determine the cluster's name"))]
+    ClusterIdentity {
+        source: stackable_operator::v2::controller_utils::Error,
+    },
+
+    #[snafu(display("failed to get the Router group Listener {listener_name}"))]
+    GetRouterListener {
+        source: stackable_operator::client::Error,
+        listener_name: String,
+    },
+
+    #[snafu(display("failed to get the shared internal Secret {secret_name}"))]
+    GetInternalSecret {
+        source: stackable_operator::client::Error,
+        secret_name: String,
+    },
+
+    #[snafu(display("failed to get the discovery ConfigMap {config_map_name}"))]
+    GetDiscoveryConfigMap {
+        source: stackable_operator::client::Error,
+        config_map_name: String,
+    },
 }
 
 type Result<T, E = Error> = std::result::Result<T, E>;
@@ -78,6 +106,25 @@ pub struct DereferencedObjects {
     /// in the validate step via
     /// [`crate::crd::authentication::AuthenticationClassesResolved::from_fetched`].
     pub authentication_classes: Vec<core::v1alpha1::AuthenticationClass>,
+    /// The Router group [`Listener`] as currently stored in the cluster, fetched because the
+    /// discovery `ConfigMap` is built from its ingress address. Unlike the other fields it is not
+    /// referenced from the spec but created by this operator itself: `None` on the first reconcile
+    /// run (the apply step has not created it yet), and its status is only populated
+    /// asynchronously by the listener-operator, so it can still be address-less here.
+    pub router_listener: Option<Listener>,
+    /// The shared internal [`Secret`] as currently stored in the cluster. Like the Router group
+    /// `Listener` it is not referenced from the spec but created by this operator itself: `None`
+    /// on the first reconcile run. Fetched so that the build step can re-emit the existing
+    /// contents unchanged (they are randomly generated at creation and cannot be rebuilt); a
+    /// replacement with fresh contents is only generated when the Secret is absent or missing a
+    /// required key.
+    pub internal_secret: Option<Secret>,
+    /// The discovery [`ConfigMap`] (named after the cluster) as currently stored in the cluster.
+    /// Like the Router group `Listener` it is not referenced from the spec but created by this
+    /// operator itself: `None` until it has been built once. Fetched so that the build step can
+    /// re-emit it unchanged while no fresh ConfigMap can be built (the Router group Listener has
+    /// no usable ingress address then), instead of letting the apply step delete it as an orphan.
+    pub discovery_config_map: Option<ConfigMap>,
 }
 
 /// Fetches all Kubernetes objects referenced from the [`v1alpha1::DruidCluster`] spec.
@@ -161,11 +208,38 @@ pub async fn dereference(
         .await
         .context(AuthenticationClassRetrievalSnafu)?;
 
+    let cluster_name = get_cluster_name(druid).context(ClusterIdentitySnafu)?;
+    let listener_name = general_group_listener_name(&cluster_name, &DruidRole::Router);
+
+    let router_listener = client
+        .get_opt::<Listener>(listener_name.as_ref(), namespace)
+        .await
+        .context(GetRouterListenerSnafu {
+            listener_name: listener_name.as_ref(),
+        })?;
+
+    let secret_name = build_shared_internal_secret_name(druid);
+    let internal_secret = client
+        .get_opt::<Secret>(&secret_name, namespace)
+        .await
+        .context(GetInternalSecretSnafu { secret_name })?;
+
+    // The discovery ConfigMap is named after the cluster itself.
+    let discovery_config_map = client
+        .get_opt::<ConfigMap>(cluster_name.as_ref(), namespace)
+        .await
+        .context(GetDiscoveryConfigMapSnafu {
+            config_map_name: cluster_name.as_ref(),
+        })?;
+
     Ok(DereferencedObjects {
         zookeeper_connection_string,
         opa_base_document_url,
         s3_ingestion_connection,
         s3_deep_storage_bucket,
         authentication_classes,
+        router_listener,
+        internal_secret,
+        discovery_config_map,
     })
 }
