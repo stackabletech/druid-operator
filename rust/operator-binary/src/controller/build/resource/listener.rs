@@ -1,6 +1,5 @@
 use std::str::FromStr;
 
-use snafu::{OptionExt, Snafu};
 use stackable_operator::{
     crd::listener::{
         self,
@@ -32,15 +31,6 @@ use crate::{
 
 stackable_operator::constant!(pub LISTENER_VOLUME_NAME: PersistentVolumeClaimName = "listener");
 pub const LISTENER_VOLUME_DIR: &str = "/stackable/listener";
-
-#[derive(Snafu, Debug)]
-pub enum Error {
-    #[snafu(display("could not find port [{port_name}] for rolegroup listener {role_name}"))]
-    NoServicePort {
-        port_name: String,
-        role_name: String,
-    },
-}
 
 pub fn build_group_listener(
     cluster: &ValidatedCluster,
@@ -103,27 +93,24 @@ pub fn general_group_listener_name(
     ListenerName::from_str(&format!("{cluster_name}-{druid_role}")).expect("a valid listener name")
 }
 
-// Builds the connection string with respect to the listener provided objects
+/// The connection string (`<address>:<port>`) for the given ingress address, or `None` when the
+/// address does not expose the expected (TLS or plaintext, depending on the TLS decision) port.
+///
+/// The port can be missing right after TLS is toggled on a running cluster: only the
+/// listener-operator rewrites the Listener status, and only after it has seen the updated
+/// Listener spec, so the fetched status still carries the old port name for a while.
 pub fn build_listener_connection_string(
     listener_address: &ListenerIngress,
     druid_tls_security: &DruidTlsSecurity,
-    role_name: &String,
-) -> Result<String, Error> {
+) -> Option<String> {
     let port_name = match druid_tls_security.tls_enabled() {
         true => TLS_PORT_NAME,
         false => PLAINTEXT_PORT_NAME,
     };
-    Ok(format!(
+    let port = listener_address.ports.get(port_name)?;
+    Some(format!(
         "{address}:{port}",
-        address = listener_address.address,
-        port = listener_address
-            .ports
-            .get(port_name)
-            .copied()
-            .context(NoServicePortSnafu {
-                port_name,
-                role_name
-            })?
+        address = listener_address.address
     ))
 }
 
@@ -195,24 +182,34 @@ mod tests {
     #[test]
     fn connection_string_uses_plaintext_port_without_tls() {
         let tls = DruidTlsSecurity::new(false, None);
-        let conn = build_listener_connection_string(
-            &ingress_with_both_ports(),
-            &tls,
-            &"router".to_string(),
-        )
-        .expect("a connection string");
+        let conn = build_listener_connection_string(&ingress_with_both_ports(), &tls)
+            .expect("a connection string");
         assert_eq!(conn, "druid.example.com:8888");
     }
 
     #[test]
     fn connection_string_uses_tls_port_with_tls() {
-        let tls = DruidTlsSecurity::new(false, Some(SecretClassName::from_str("tls").unwrap()));
-        let conn = build_listener_connection_string(
-            &ingress_with_both_ports(),
-            &tls,
-            &"router".to_string(),
-        )
-        .expect("a connection string");
+        let tls = DruidTlsSecurity::new(
+            false,
+            Some(SecretClassName::from_str("tls").expect("test: valid secret class")),
+        );
+        let conn = build_listener_connection_string(&ingress_with_both_ports(), &tls)
+            .expect("a connection string");
         assert_eq!(conn, "druid.example.com:9088");
+    }
+
+    /// Right after a TLS toggle the fetched Listener status still carries only the old port name,
+    /// so the expected port is absent and no connection string can be built.
+    #[test]
+    fn connection_string_is_none_without_the_expected_port() {
+        let tls = DruidTlsSecurity::new(
+            false,
+            Some(SecretClassName::from_str("tls").expect("test: valid secret class")),
+        );
+        let plaintext_only = ListenerIngress {
+            ports: BTreeMap::from([(PLAINTEXT_PORT_NAME.to_string(), 8888)]),
+            ..ingress_with_both_ports()
+        };
+        assert!(build_listener_connection_string(&plaintext_only, &tls).is_none());
     }
 }

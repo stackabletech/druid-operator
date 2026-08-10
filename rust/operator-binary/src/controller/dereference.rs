@@ -79,6 +79,12 @@ pub enum Error {
         source: stackable_operator::client::Error,
         secret_name: String,
     },
+
+    #[snafu(display("failed to get the discovery ConfigMap {config_map_name}"))]
+    GetDiscoveryConfigMap {
+        source: stackable_operator::client::Error,
+        config_map_name: String,
+    },
 }
 
 type Result<T, E = Error> = std::result::Result<T, E>;
@@ -113,6 +119,12 @@ pub struct DereferencedObjects {
     /// replacement with fresh contents is only generated when the Secret is absent or missing a
     /// required key.
     pub internal_secret: Option<Secret>,
+    /// The discovery [`ConfigMap`] (named after the cluster) as currently stored in the cluster.
+    /// Like the Router group `Listener` it is not referenced from the spec but created by this
+    /// operator itself: `None` until it has been built once. Fetched so that the build step can
+    /// re-emit it unchanged while no fresh ConfigMap can be built (the Router group Listener has
+    /// no usable ingress address then), instead of letting the apply step delete it as an orphan.
+    pub discovery_config_map: Option<ConfigMap>,
 }
 
 /// Fetches all Kubernetes objects referenced from the [`v1alpha1::DruidCluster`] spec.
@@ -212,6 +224,14 @@ pub async fn dereference(
         .await
         .context(GetInternalSecretSnafu { secret_name })?;
 
+    // The discovery ConfigMap is named after the cluster itself.
+    let discovery_config_map = client
+        .get_opt::<ConfigMap>(cluster_name.as_ref(), namespace)
+        .await
+        .context(GetDiscoveryConfigMapSnafu {
+            config_map_name: cluster_name.as_ref(),
+        })?;
+
     Ok(DereferencedObjects {
         zookeeper_connection_string,
         opa_base_document_url,
@@ -220,5 +240,6 @@ pub async fn dereference(
         authentication_classes,
         router_listener,
         internal_secret,
+        discovery_config_map,
     })
 }

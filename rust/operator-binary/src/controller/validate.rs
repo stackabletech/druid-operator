@@ -18,7 +18,7 @@ use stackable_operator::{
     },
     crd::{listener::v1alpha1::Listener, s3},
     database_connections::drivers::jdbc::{JdbcDatabaseConnection, JdbcDatabaseConnectionDetails},
-    k8s_openapi::api::core::v1::{Secret, Volume},
+    k8s_openapi::api::core::v1::{ConfigMap, Secret, Volume},
     kube::{Resource, api::ObjectMeta},
     kvp::Labels,
     v2::{
@@ -154,6 +154,7 @@ pub struct ValidatedCluster {
     pub role_group_configs: BTreeMap<DruidRole, BTreeMap<RoleGroupName, DruidRoleGroupConfig>>,
     pub router_listener: Option<Listener>,
     pub internal_secret: Option<Secret>,
+    pub discovery_config_map: Option<ConfigMap>,
 }
 
 impl ValidatedCluster {
@@ -168,6 +169,7 @@ impl ValidatedCluster {
         role_group_configs: BTreeMap<DruidRole, BTreeMap<RoleGroupName, DruidRoleGroupConfig>>,
         router_listener: Option<Listener>,
         internal_secret: Option<Secret>,
+        discovery_config_map: Option<ConfigMap>,
     ) -> Self {
         let metadata = ObjectMeta {
             name: Some(name.to_string()),
@@ -191,6 +193,7 @@ impl ValidatedCluster {
             role_group_configs,
             router_listener,
             internal_secret,
+            discovery_config_map,
         }
     }
 
@@ -435,6 +438,7 @@ pub fn validate(
         role_group_configs,
         dereferenced_objects.router_listener.clone(),
         dereferenced_objects.internal_secret.clone(),
+        dereferenced_objects.discovery_config_map.clone(),
     ))
 }
 
@@ -577,6 +581,7 @@ spec:
             role_group_configs,
             None,
             None,
+            None,
         )
     }
 }
@@ -603,6 +608,7 @@ mod tests {
             authentication_classes: Vec::new(),
             router_listener: None,
             internal_secret: None,
+            discovery_config_map: None,
         }
     }
 
