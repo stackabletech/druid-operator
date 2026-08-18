@@ -1,7 +1,7 @@
 //! Ensures that `Pod`s are configured and running for each [`DruidCluster`][v1alpha1]
 //!
 //! [v1alpha1]: v1alpha1::DruidCluster
-use std::{marker::PhantomData, sync::Arc};
+use std::{marker::PhantomData, str::FromStr, sync::Arc};
 
 use const_format::concatcp;
 use snafu::{ResultExt, Snafu};
