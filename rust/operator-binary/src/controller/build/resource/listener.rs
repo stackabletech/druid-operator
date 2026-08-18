@@ -92,7 +92,7 @@ pub fn general_group_listener_name(
 ) -> ListenerName {
     ListenerName::from_str(&format!(
         "{cluster_name}-{druid_role}",
-        druid_role = **druid_role
+        druid_role = druid_role.as_ref()
     ))
     .expect("a valid listener name")
 }
