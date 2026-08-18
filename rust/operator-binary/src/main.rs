@@ -34,7 +34,7 @@ use stackable_operator::{
 };
 
 use crate::{
-    crd::{DruidCluster, DruidClusterVersion, OPERATOR_NAME, v1alpha1},
+    crd::{DRUID_OPERATOR_NAME, DruidCluster, DruidClusterVersion, v1alpha1},
     webhooks::conversion::create_webhook_server,
 };
 
@@ -94,7 +94,7 @@ async fn main() -> anyhow::Result<()> {
                     .map(anyhow::Ok);
 
             let client = stackable_operator::client::initialize_operator(
-                Some(OPERATOR_NAME.to_string()),
+                Some(DRUID_OPERATOR_NAME.to_string()),
                 &common.cluster_info,
             )
             .await?;

@@ -4,17 +4,16 @@ use snafu::ResultExt;
 use stackable_operator::{
     builder::pod::{PodBuilder, container::ContainerBuilder},
     crd::authentication::oidc,
-    k8s_openapi::api::core::v1::EnvVar,
+    v2::{builder::pod::container::EnvVarSet, types::kubernetes::SecretName},
 };
 
 use super::{AddOidcVolumesSnafu, ConstructOidcWellKnownUrlSnafu, Error};
 use crate::{
     authentication::DruidClientAuthenticationOptions,
     crd::{
-        COOKIE_PASSPHRASE_ENV, DruidRole, env_var_reference,
+        COOKIE_PASSPHRASE_ENV, COOKIE_PASSPHRASE_SECRET_KEY, DruidRole, env_var_reference,
         security::add_cert_to_jvm_trust_store_cmd,
     },
-    internal_secret::env_var_from_secret,
 };
 
 const OIDC_AUTHORIZER: &str = "OidcAuthorizer";
@@ -47,7 +46,7 @@ fn add_authenticator_config(
     );
     config.insert(
         "druid.auth.pac4j.cookiePassphrase".to_string(),
-        env_var_reference(COOKIE_PASSPHRASE_ENV),
+        env_var_reference(&*COOKIE_PASSPHRASE_ENV),
     );
     config.insert(
         "druid.auth.pac4j.oidc.clientID".to_string(),
@@ -116,25 +115,28 @@ pub(super) fn main_container_commands(
 pub(super) fn get_env_var_mounts(
     role: &DruidRole,
     oidc: &DruidClientAuthenticationOptions,
-    internal_secret_name: &str,
-) -> Vec<EnvVar> {
-    let mut envs = vec![];
+    internal_secret_name: &SecretName,
+) -> EnvVarSet {
+    let mut env_vars = EnvVarSet::new();
     match role {
         DruidRole::MiddleManager => (),
         _ => {
-            envs.extend(
-                oidc::v1alpha1::AuthenticationProvider::client_credentials_env_var_mounts(
-                    oidc.client_credentials_secret_ref.to_owned(),
-                ),
-            );
-            envs.push(env_var_from_secret(
+            for env_var in oidc::v1alpha1::AuthenticationProvider::client_credentials_env_var_mounts(
+                oidc.client_credentials_secret_ref.to_owned(),
+            ) {
+                env_vars = env_vars.with_env_var(env_var).expect(
+                    "env_var name is valid because it is either OIDC_<16-hex-characters>_CLIENT_ID \
+                     or OIDC_<16-hex-characters>_CLIENT_SECRET",
+                );
+            }
+            env_vars = env_vars.with_secret_key_ref(
+                &COOKIE_PASSPHRASE_ENV,
                 internal_secret_name,
-                None,
-                COOKIE_PASSPHRASE_ENV,
-            ))
+                &COOKIE_PASSPHRASE_SECRET_KEY,
+            );
         }
     }
-    envs
+    env_vars
 }
 
 pub(super) fn add_volumes_and_mounts(
@@ -281,14 +283,18 @@ mod tests {
         assert!(config.contains_key("druid.auth.authorizers"));
     }
 
+    fn internal_secret_name() -> SecretName {
+        SecretName::from_str_unsafe("internal-secret")
+    }
+
     /// The MiddleManager mounts no OIDC env vars (OIDC is not configured on it).
     #[test]
     fn middlemanager_gets_no_oidc_env_vars() {
         let oidc = test_options();
 
-        let envs = get_env_var_mounts(&DruidRole::MiddleManager, &oidc, "internal-secret");
+        let envs = get_env_var_mounts(&DruidRole::MiddleManager, &oidc, &internal_secret_name());
 
-        assert!(envs.is_empty());
+        assert!(envs.iter().next().is_none());
     }
 
     /// Non-MiddleManager roles mount the OIDC credentials and the cookie-passphrase env var.
@@ -296,11 +302,10 @@ mod tests {
     fn non_middlemanager_gets_oidc_env_vars() {
         let oidc = test_options();
 
-        let envs = get_env_var_mounts(&DruidRole::Broker, &oidc, "internal-secret");
+        let envs = get_env_var_mounts(&DruidRole::Broker, &oidc, &internal_secret_name());
 
         assert!(
-            envs.iter()
-                .any(|e| e.name.as_str() == COOKIE_PASSPHRASE_ENV),
+            envs.get(&COOKIE_PASSPHRASE_ENV).is_some(),
             "expected the cookie passphrase env var to be mounted"
         );
     }

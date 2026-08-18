@@ -10,21 +10,23 @@ use std::collections::BTreeMap;
 use snafu::Snafu;
 use stackable_operator::{
     builder::pod::{PodBuilder, container::ContainerBuilder},
-    k8s_openapi::api::core::v1::EnvVar,
+    v2::builder::pod::container::EnvVarSet,
 };
 
 use crate::{
     authentication::DruidAuthenticationConfig,
     controller::validate::ValidatedCluster,
-    crd::{DruidRole, env_var_reference, security::INTERNAL_INITIAL_CLIENT_PASSWORD_ENV},
-    internal_secret::{build_shared_internal_secret_name, env_var_from_secret},
+    crd::{
+        DruidRole, env_var_reference,
+        security::{
+            INTERNAL_INITIAL_CLIENT_PASSWORD_ENV, INTERNAL_INITIAL_CLIENT_PASSWORD_SECRET_KEY,
+        },
+    },
+    internal_secret::build_shared_internal_secret_name,
 };
 
 pub mod ldap;
 pub mod oidc;
-
-// It seems this needs to be the same password for Druid to work, so we re-use the existing env variable.
-const ESCALATOR_INTERNAL_CLIENT_PASSWORD_ENV: &str = INTERNAL_INITIAL_CLIENT_PASSWORD_ENV;
 
 // Authorizer/authenticator names and types used in the Druid runtime.properties auth config.
 // These are shared across the LDAP and OIDC providers (in the child modules).
@@ -147,19 +149,18 @@ pub fn get_env_var_mounts(
     auth: &DruidAuthenticationConfig,
     cluster: &ValidatedCluster,
     role: &DruidRole,
-) -> Vec<EnvVar> {
-    let mut envs = vec![];
-    let internal_secret_name = build_shared_internal_secret_name(cluster);
-    envs.push(env_var_from_secret(
+) -> EnvVarSet {
+    let internal_secret_name = build_shared_internal_secret_name(&cluster.name);
+    let mut env_vars = EnvVarSet::new().with_secret_key_ref(
+        &INTERNAL_INITIAL_CLIENT_PASSWORD_ENV,
         &internal_secret_name,
-        None,
-        INTERNAL_INITIAL_CLIENT_PASSWORD_ENV,
-    ));
+        &INTERNAL_INITIAL_CLIENT_PASSWORD_SECRET_KEY,
+    );
 
     if let DruidAuthenticationConfig::Oidc { oidc, .. } = auth {
-        envs.extend(oidc::get_env_var_mounts(role, oidc, &internal_secret_name))
+        env_vars = env_vars.merge(oidc::get_env_var_mounts(role, oidc, &internal_secret_name));
     }
-    envs
+    env_vars
 }
 
 pub fn add_volumes_and_mounts(
@@ -196,7 +197,7 @@ fn add_druid_system_authenticator_config(config: &mut BTreeMap<String, String>) 
     config.insert(
         "druid.auth.authenticator.DruidSystemAuthenticator.initialInternalClientPassword"
             .to_string(),
-        env_var_reference(INTERNAL_INITIAL_CLIENT_PASSWORD_ENV),
+        env_var_reference(&*INTERNAL_INITIAL_CLIENT_PASSWORD_ENV),
     );
     config.insert(
         "druid.auth.authenticator.DruidSystemAuthenticator.authorizerName".to_string(),
@@ -221,7 +222,9 @@ fn add_escalator_config(config: &mut BTreeMap<String, String>) {
     );
     config.insert(
         "druid.escalator.internalClientPassword".to_string(),
-        env_var_reference(ESCALATOR_INTERNAL_CLIENT_PASSWORD_ENV),
+        // The escalator needs the same password for Druid to work, so the existing env
+        // variable is re-used.
+        env_var_reference(&*INTERNAL_INITIAL_CLIENT_PASSWORD_ENV),
     );
     config.insert(
         "druid.escalator.authorizerName".to_string(),

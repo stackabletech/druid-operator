@@ -35,6 +35,7 @@ use crate::{
                 product_logging::{build_log4j2, vector_config_file_content},
                 runtime_properties, security_properties,
             },
+            recommended_labels_for_role_group_resources,
             security::add_tls_config_properties,
         },
         validate::{DruidRoleGroupConfig, ValidatedCluster},
@@ -379,7 +380,7 @@ pub fn build_rolegroup_config_map(
         object_meta(
             cluster,
             resource_names.role_group_config_map().to_string(),
-            cluster.recommended_labels(role, role_group_name),
+            recommended_labels_for_role_group_resources(cluster, role, role_group_name),
         )
         .build(),
     );

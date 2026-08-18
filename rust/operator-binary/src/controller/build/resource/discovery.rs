@@ -10,7 +10,7 @@ use stackable_operator::{
 use crate::{
     controller::{
         build::{
-            PLACEHOLDER_DISCOVERY_ROLE_GROUP, object_meta,
+            object_meta, recommended_labels_for_role_resources,
             resource::listener::build_listener_connection_string,
         },
         validate::ValidatedCluster,
@@ -109,12 +109,13 @@ fn reemit_discovery_configmap(cluster: &ValidatedCluster, existing: &ConfigMap) 
 
 /// Shared metadata for both the freshly built and the re-emitted discovery ConfigMap, so that
 /// the two are identical apart from their contents. The discovery ConfigMap is named after the
-/// cluster itself.
+/// cluster itself. Discovery is a role-level object (it exposes the Router role), so it carries
+/// the role-level recommended labels.
 fn discovery_configmap_meta(cluster: &ValidatedCluster) -> ObjectMetaBuilder {
     object_meta(
         cluster,
         cluster.name.to_string(),
-        cluster.recommended_labels(&DruidRole::Router, &PLACEHOLDER_DISCOVERY_ROLE_GROUP),
+        recommended_labels_for_role_resources(cluster, &DruidRole::Router),
     )
 }
 

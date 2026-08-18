@@ -20,7 +20,7 @@ use stackable_operator::{
 
 use crate::{
     controller::{
-        build::{NONE_ROLE_GROUP_NAME, object_meta, security::listener_ports},
+        build::{object_meta, recommended_labels_for_role_resources, security::listener_ports},
         validate::ValidatedCluster,
     },
     crd::{
@@ -38,13 +38,13 @@ pub fn build_group_listener(
     listener_group_name: ListenerName,
     druid_role: &DruidRole,
 ) -> Listener {
-    // The group listener is a role-level (not role-group-level) object, so there is no real
-    // role-group name; the placeholder is used for the recommended labels.
+    // The group listener is a role-level (not role-group-level) object, so it carries the
+    // role-level recommended labels.
     Listener {
         metadata: object_meta(
             cluster,
             listener_group_name.to_string(),
-            cluster.recommended_labels(druid_role, &NONE_ROLE_GROUP_NAME),
+            recommended_labels_for_role_resources(cluster, druid_role),
         )
         .build(),
         spec: listener::v1alpha1::ListenerSpec {
@@ -90,7 +90,11 @@ pub fn general_group_listener_name(
     cluster_name: &ClusterName,
     druid_role: &DruidRole,
 ) -> ListenerName {
-    ListenerName::from_str(&format!("{cluster_name}-{druid_role}")).expect("a valid listener name")
+    ListenerName::from_str(&format!(
+        "{cluster_name}-{druid_role}",
+        druid_role = druid_role.as_ref()
+    ))
+    .expect("a valid listener name")
 }
 
 /// The connection string (`<address>:<port>`) for the given ingress address, or `None` when the
@@ -137,6 +141,12 @@ mod tests {
 
     fn cluster() -> ValidatedCluster {
         validated_cluster(&druid_from_yaml(MINIMAL_DRUID_YAML))
+    }
+
+    #[test]
+    fn test_constants() {
+        // Test that dereferencing the constants does not panic.
+        let _ = *LISTENER_VOLUME_NAME;
     }
 
     #[test]

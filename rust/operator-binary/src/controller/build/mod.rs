@@ -3,7 +3,6 @@
 use std::{
     collections::{BTreeMap, HashSet},
     marker::PhantomData,
-    str::FromStr,
 };
 
 use snafu::{ResultExt, Snafu};
@@ -14,13 +13,17 @@ use stackable_operator::{
     kvp::Labels,
     v2::{
         builder::meta::ownerreference_from_resource,
-        types::operator::{RoleGroupName, RoleName},
+        kvp::label,
+        types::{
+            kubernetes::SecretKey,
+            operator::{RoleGroupName, RoleName},
+        },
     },
 };
 
 use crate::{
     controller::{
-        KubernetesResources, Prepared,
+        CONTROLLER_NAME, KubernetesResources, OPERATOR_NAME, PRODUCT_NAME, Prepared,
         build::resource::{
             config_map::build_rolegroup_config_map,
             discovery::build_discovery_configmap,
@@ -32,21 +35,9 @@ use crate::{
         },
         validate::ValidatedCluster,
     },
-    crd::{COOKIE_PASSPHRASE_ENV, security::INTERNAL_INITIAL_CLIENT_PASSWORD_ENV},
+    crd::{COOKIE_PASSPHRASE_SECRET_KEY, security::INTERNAL_INITIAL_CLIENT_PASSWORD_SECRET_KEY},
     internal_secret::build_shared_internal_secret_name,
 };
-
-// Placeholder role-group name used for the recommended labels of the role-level discovery
-// `ConfigMap` (which is not tied to a single role group).
-stackable_operator::constant!(pub(crate) PLACEHOLDER_DISCOVERY_ROLE_GROUP: RoleGroupName = "discovery");
-
-// Placeholder role-group name used for the recommended labels of the role-level `Listener`
-// (which is not tied to a single role group).
-stackable_operator::constant!(pub(crate) NONE_ROLE_GROUP_NAME: RoleGroupName = "none");
-
-// Placeholder role name used for the recommended labels of cluster-shared resources like the
-// internal Secret (which are not tied to a role at all).
-stackable_operator::constant!(NONE_ROLE_NAME: RoleName = "none");
 
 pub mod authentication;
 pub mod graceful_shutdown;
@@ -72,6 +63,70 @@ pub(crate) fn object_meta(
         .ownerreference(ownerreference_from_resource(cluster, None, Some(true)))
         .with_labels(recommended_labels);
     builder
+}
+
+pub(crate) fn recommended_labels_for_cluster_resources(cluster: &ValidatedCluster) -> Labels {
+    label::recommended_labels_for_cluster_resources(
+        &cluster.name,
+        &PRODUCT_NAME,
+        &cluster.product_version,
+        &OPERATOR_NAME,
+        &CONTROLLER_NAME,
+    )
+}
+
+pub(crate) fn recommended_labels_for_role_resources(
+    cluster: &ValidatedCluster,
+    role_name: &RoleName,
+) -> Labels {
+    label::recommended_labels_for_role_resources(
+        &cluster.name,
+        &PRODUCT_NAME,
+        &cluster.product_version,
+        &OPERATOR_NAME,
+        &CONTROLLER_NAME,
+        role_name,
+    )
+}
+
+pub(crate) fn recommended_labels_for_role_group_resources(
+    cluster: &ValidatedCluster,
+    role_name: &RoleName,
+    role_group_name: &RoleGroupName,
+) -> Labels {
+    label::recommended_labels_for_role_group_resources(
+        &cluster.name,
+        &PRODUCT_NAME,
+        &cluster.product_version,
+        &OPERATOR_NAME,
+        &CONTROLLER_NAME,
+        role_name,
+        role_group_name,
+    )
+}
+
+pub(crate) fn recommended_labels_for_unversioned_role_group_resources(
+    cluster: &ValidatedCluster,
+    role_name: &RoleName,
+    role_group_name: &RoleGroupName,
+) -> Labels {
+    label::recommended_labels_for_unversioned_role_group_resources(
+        &cluster.name,
+        &PRODUCT_NAME,
+        &OPERATOR_NAME,
+        &CONTROLLER_NAME,
+        role_name,
+        role_group_name,
+    )
+}
+
+/// Selector labels matching the pods of a role group.
+pub(crate) fn role_group_selector(
+    cluster: &ValidatedCluster,
+    role_name: &RoleName,
+    role_group_name: &RoleGroupName,
+) -> Labels {
+    label::role_group_selector(&cluster.name, &PRODUCT_NAME, role_name, role_group_name)
 }
 
 #[derive(Snafu, Debug)]
@@ -198,9 +253,9 @@ fn build_internal_secret(cluster: &ValidatedCluster) -> Secret {
                 .unwrap_or_default()
                 .into_keys()
                 .collect();
-            if let Some(missing_key) = INTERNAL_SECRET_KEYS
-                .iter()
-                .find(|key| !current_keys.contains(**key))
+            if let Some(missing_key) = internal_secret_keys()
+                .into_iter()
+                .find(|key| !current_keys.contains(key.as_ref()))
             {
                 let secret = build_shared_internal_secret(cluster);
                 tracing::warn!(
@@ -220,11 +275,15 @@ fn build_internal_secret(cluster: &ValidatedCluster) -> Secret {
 
 /// The keys the shared internal Secret must contain. Single source for both
 /// [`build_shared_internal_secret`] and the missing-key check in [`build_internal_secret`].
-const INTERNAL_SECRET_KEYS: [&str; 2] =
-    [INTERNAL_INITIAL_CLIENT_PASSWORD_ENV, COOKIE_PASSPHRASE_ENV];
+fn internal_secret_keys() -> [&'static SecretKey; 2] {
+    [
+        &INTERNAL_INITIAL_CLIENT_PASSWORD_SECRET_KEY,
+        &COOKIE_PASSPHRASE_SECRET_KEY,
+    ]
+}
 
 fn build_shared_internal_secret(cluster: &ValidatedCluster) -> Secret {
-    let internal_secret: BTreeMap<String, String> = INTERNAL_SECRET_KEYS
+    let internal_secret: BTreeMap<String, String> = internal_secret_keys()
         .iter()
         .map(|key| (key.to_string(), get_random_base64()))
         .collect();
@@ -259,11 +318,11 @@ fn reemit_internal_secret(cluster: &ValidatedCluster, existing: &Secret) -> Secr
 /// the two are identical apart from their contents.
 fn internal_secret_meta(cluster: &ValidatedCluster) -> ObjectMetaBuilder {
     // The internal Secret is shared by the whole cluster rather than tied to a role or role
-    // group, so the recommended labels carry `none` for both values (like the RBAC resources).
+    // group, so it carries the cluster-resource labels (like the RBAC resources).
     object_meta(
         cluster,
-        build_shared_internal_secret_name(cluster),
-        cluster.recommended_labels_for(&NONE_ROLE_NAME, &NONE_ROLE_GROUP_NAME),
+        build_shared_internal_secret_name(&cluster.name).to_string(),
+        recommended_labels_for_cluster_resources(cluster),
     )
 }
 
@@ -286,7 +345,7 @@ mod tests {
         kube::{Resource, api::ObjectMeta},
     };
 
-    use super::{INTERNAL_SECRET_KEYS, KubernetesResources, Prepared, build};
+    use super::{KubernetesResources, Prepared, SecretKey, build, internal_secret_keys};
     use crate::{
         controller::validate::test_support::{
             MINIMAL_DRUID_YAML, druid_from_yaml, validated_cluster,
@@ -431,7 +490,7 @@ mod tests {
 
     /// An existing shared internal Secret carrying the given keys in `data`, shaped as the
     /// dereference step fetches it from the cluster.
-    fn internal_secret_with_keys(keys: &[&str]) -> Secret {
+    fn internal_secret_with_keys(keys: &[&SecretKey]) -> Secret {
         Secret {
             data: Some(
                 keys.iter()
@@ -459,9 +518,9 @@ mod tests {
             .string_data
             .as_ref()
             .expect("the built secret carries generated contents");
-        for key in INTERNAL_SECRET_KEYS {
+        for key in internal_secret_keys() {
             assert!(
-                data.contains_key(key),
+                data.contains_key(key.as_ref()),
                 "generated secret must contain {key}"
             );
         }
@@ -472,7 +531,7 @@ mod tests {
     fn build_replaces_the_internal_secret_when_a_required_key_is_missing() {
         let druid = druid_from_yaml(MINIMAL_DRUID_YAML);
         let mut cluster = validated_cluster(&druid);
-        cluster.internal_secret = Some(internal_secret_with_keys(&INTERNAL_SECRET_KEYS[..1]));
+        cluster.internal_secret = Some(internal_secret_with_keys(&internal_secret_keys()[..1]));
 
         let resources = build(&cluster).expect("build succeeds");
 
@@ -481,8 +540,11 @@ mod tests {
             .string_data
             .as_ref()
             .expect("the replacement carries generated contents");
-        for key in INTERNAL_SECRET_KEYS {
-            assert!(data.contains_key(key), "replacement must contain {key}");
+        for key in internal_secret_keys() {
+            assert!(
+                data.contains_key(key.as_ref()),
+                "replacement must contain {key}"
+            );
         }
     }
 
@@ -493,7 +555,7 @@ mod tests {
     fn reemits_existing_internal_secret_when_complete() {
         let druid = druid_from_yaml(MINIMAL_DRUID_YAML);
         let mut cluster = validated_cluster(&druid);
-        cluster.internal_secret = Some(internal_secret_with_keys(&INTERNAL_SECRET_KEYS));
+        cluster.internal_secret = Some(internal_secret_with_keys(&internal_secret_keys()));
 
         let resources = build(&cluster).expect("build succeeds");
 
@@ -504,7 +566,7 @@ mod tests {
         );
         assert_eq!(
             secret.data,
-            internal_secret_with_keys(&INTERNAL_SECRET_KEYS).data,
+            internal_secret_with_keys(&internal_secret_keys()).data,
             "the fetched values must be carried over unchanged"
         );
         assert!(
@@ -558,14 +620,12 @@ mod tests {
 
         let expected_labels = BTreeMap::from(
             [
-                ("app.kubernetes.io/component", "none".to_string()),
                 ("app.kubernetes.io/instance", "simple-druid".to_string()),
                 (
                     "app.kubernetes.io/managed-by",
                     "druid.stackable.tech_druidcluster".to_string(),
                 ),
                 ("app.kubernetes.io/name", "druid".to_string()),
-                ("app.kubernetes.io/role-group", "none".to_string()),
                 ("app.kubernetes.io/version", app_version_label("30.0.0")),
                 ("stackable.tech/vendor", "Stackable".to_string()),
             ]

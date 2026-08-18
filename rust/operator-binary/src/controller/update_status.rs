@@ -12,7 +12,7 @@ use strum::{EnumDiscriminants, IntoStaticStr};
 
 use crate::{
     controller::{Applied, KubernetesResources},
-    crd::{DruidClusterStatus, OPERATOR_NAME, v1alpha1},
+    crd::{DRUID_OPERATOR_NAME, DruidClusterStatus, v1alpha1},
 };
 
 #[derive(Snafu, Debug, EnumDiscriminants)]
@@ -47,7 +47,7 @@ pub async fn update_status(
     };
 
     client
-        .apply_patch_status(OPERATOR_NAME, druid, &status)
+        .apply_patch_status(DRUID_OPERATOR_NAME, druid, &status)
         .await
         .context(ApplyStatusSnafu)?;
 

@@ -1,5 +1,6 @@
 use std::{
     collections::{BTreeMap, HashSet},
+    ops::Deref,
     str::FromStr,
 };
 
@@ -18,6 +19,7 @@ use stackable_operator::{
         fragment::{Fragment, ValidationError},
         merge::Merge,
     },
+    constant,
     crd::{
         authentication::{core, oidc},
         s3,
@@ -30,28 +32,28 @@ use stackable_operator::{
         framework::{create_vector_shutdown_file_command, remove_vector_shutdown_file_command},
         spec::Logging,
     },
-    role_utils::{GenericRoleConfig, Role},
+    role_utils::GenericRoleConfig,
     schemars::{self, JsonSchema},
     shared::time::Duration,
     status::condition::{ClusterCondition, HasStatusCondition},
     utils::{COMMON_BASH_TRAP_FUNCTIONS, crds::raw_object_list_schema},
     v2::{
-        builder::pod::container::{EnvVarName, EnvVarSet},
+        builder::pod::container::EnvVarName,
         config_overrides::KeyValueConfigOverrides,
         product_logging::framework::{
             STACKABLE_LOG_DIR, ValidatedContainerLogConfigChoice, VectorContainerLogConfig,
             validate_logging_configuration_for_container,
         },
-        role_utils::{JavaCommonConfig, RoleGroupConfig, with_validated_config},
+        role_utils::{JavaCommonConfig, Role, RoleGroupConfig, with_validated_config},
         types::{
             common::Port,
-            kubernetes::{ConfigMapName, ContainerName, ListenerClassName},
+            kubernetes::{ConfigMapName, ContainerName, ListenerClassName, SecretKey},
             operator::{RoleGroupName, RoleName},
         },
     },
     versioned::versioned,
 };
-use strum::{Display, EnumIter, EnumString};
+use strum::{Display, EnumIter};
 
 use crate::crd::{
     affinity::get_affinity,
@@ -72,7 +74,7 @@ pub mod storage;
 pub mod tls;
 
 pub const APP_NAME: &str = "druid";
-pub const OPERATOR_NAME: &str = "druid.stackable.tech";
+pub const DRUID_OPERATOR_NAME: &str = "druid.stackable.tech";
 
 // config directories
 pub const DRUID_CONFIG_DIRECTORY: &str = "/stackable/config";
@@ -96,7 +98,10 @@ pub const PROP_SEGMENT_CACHE_LOCATIONS: &str = "druid.segmentCache.locations";
 pub const METRICS_PORT_NAME: &str = "metrics";
 pub const METRICS_PORT: Port = Port(9090);
 
-pub const COOKIE_PASSPHRASE_ENV: &str = "OIDC_COOKIE_PASSPHRASE";
+// The env var that carries the OIDC cookie passphrase, and the key of the shared internal
+// Secret it is mounted from (the same string, as the env var name is used as the Secret key).
+constant!(pub COOKIE_PASSPHRASE_ENV: EnvVarName = "OIDC_COOKIE_PASSPHRASE");
+constant!(pub COOKIE_PASSPHRASE_SECRET_KEY: SecretKey = "OIDC_COOKIE_PASSPHRASE");
 
 /// Formats a Druid [dynamic config](https://druid.apache.org/docs/latest/operations/dynamic-config-provider)
 /// reference to an environment variable, i.e. `${env:NAME}`.
@@ -160,12 +165,6 @@ pub enum Error {
     #[snafu(display("failed to merge and validate config for role group {role_group:?}"))]
     FailedToMergeRoleGroupConfig {
         source: ValidationError,
-        role_group: String,
-    },
-
-    #[snafu(display("invalid environment variable override name in role group {role_group:?}"))]
-    ParseEnvVarName {
-        source: stackable_operator::v2::macros::attributed_string_type::Error,
         role_group: String,
     },
 
@@ -409,20 +408,6 @@ impl v1alpha1::DruidCluster {
                             .requested_secret_lifetime
                             .context(MissingSecretLifetimeSnafu)?,
                     };
-                    // Upstream returns env overrides as a `HashMap`; the build step consumes an
-                    // `EnvVarSet`. Convert here, validating each name. (Role/role-group precedence
-                    // is already resolved by `with_validated_config`.)
-                    let mut env_overrides = EnvVarSet::new();
-                    for (name, value) in validated.config.env_overrides {
-                        env_overrides = env_overrides.with_value(
-                            &EnvVarName::from_str(&name).with_context(|_| {
-                                ParseEnvVarNameSnafu {
-                                    role_group: rg_name.clone(),
-                                }
-                            })?,
-                            value,
-                        );
-                    }
                     let role_group_name = RoleGroupName::from_str(rg_name).with_context(|_| {
                         ParseRoleGroupNameSnafu {
                             role_group: rg_name.clone(),
@@ -434,7 +419,7 @@ impl v1alpha1::DruidCluster {
                             replicas: validated.replicas,
                             config: common,
                             config_overrides: validated.config.config_overrides,
-                            env_overrides,
+                            env_overrides: validated.config.env_overrides.into(),
                             cli_overrides: validated.config.cli_overrides,
                             pod_overrides: validated.config.pod_overrides,
                             product_specific_common_config: validated
@@ -602,45 +587,32 @@ fn druid_default_listener_class() -> ListenerClassName {
     ListenerClassName::from_str("cluster-internal").expect("a valid listener class name")
 }
 
-#[derive(
-    Clone,
-    Debug,
-    Deserialize,
-    Display,
-    EnumIter,
-    Eq,
-    Hash,
-    JsonSchema,
-    Ord,
-    PartialEq,
-    PartialOrd,
-    Serialize,
-    EnumString,
-)]
+constant!(COORDINATOR_ROLE_NAME: RoleName = "coordinator");
+constant!(BROKER_ROLE_NAME: RoleName = "broker");
+constant!(HISTORICAL_ROLE_NAME: RoleName = "historical");
+constant!(MIDDLE_MANAGER_ROLE_NAME: RoleName = "middlemanager");
+constant!(ROUTER_ROLE_NAME: RoleName = "router");
+
+#[derive(Clone, Debug, EnumIter, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub enum DruidRole {
-    #[strum(serialize = "coordinator")]
     Coordinator,
-    #[strum(serialize = "broker")]
     Broker,
-    #[strum(serialize = "historical")]
     Historical,
-    #[strum(serialize = "middlemanager")]
     MiddleManager,
-    #[strum(serialize = "router")]
     Router,
 }
 
-impl From<DruidRole> for RoleName {
-    fn from(value: DruidRole) -> Self {
-        RoleName::from_str(&value.to_string())
-            .expect("a DruidRole always serializes to a valid role name")
-    }
-}
+impl Deref for DruidRole {
+    type Target = RoleName;
 
-impl From<&DruidRole> for RoleName {
-    fn from(value: &DruidRole) -> Self {
-        RoleName::from_str(&value.to_string())
-            .expect("a DruidRole always serializes to a valid role name")
+    fn deref(&self) -> &Self::Target {
+        match self {
+            DruidRole::Coordinator => &COORDINATOR_ROLE_NAME,
+            DruidRole::Broker => &BROKER_ROLE_NAME,
+            DruidRole::Historical => &HISTORICAL_ROLE_NAME,
+            DruidRole::MiddleManager => &MIDDLE_MANAGER_ROLE_NAME,
+            DruidRole::Router => &ROUTER_ROLE_NAME,
+        }
     }
 }
 
@@ -932,7 +904,20 @@ pub fn build_string_list(strings: &[String]) -> String {
 mod tests {
     use stackable_operator::versioned::test_utils::RoundtripTestData;
 
+    use super::*;
     use crate::crd::v1alpha1;
+
+    #[test]
+    fn test_constants() {
+        // Test that dereferencing the constants does not panic.
+        let _ = *COORDINATOR_ROLE_NAME;
+        let _ = *BROKER_ROLE_NAME;
+        let _ = *HISTORICAL_ROLE_NAME;
+        let _ = *MIDDLE_MANAGER_ROLE_NAME;
+        let _ = *ROUTER_ROLE_NAME;
+        let _ = *COOKIE_PASSPHRASE_ENV;
+        let _ = *COOKIE_PASSPHRASE_SECRET_KEY;
+    }
 
     impl RoundtripTestData for v1alpha1::DruidClusterSpec {
         fn roundtrip_test_data() -> Vec<Self> {

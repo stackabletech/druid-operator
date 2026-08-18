@@ -8,6 +8,7 @@ use snafu::{ResultExt, Snafu};
 use stackable_operator::{
     cli::OperatorEnvironmentOptions,
     cluster_resources::ClusterResourceApplyStrategy,
+    constant,
     crd::listener::v1alpha1::Listener,
     k8s_openapi::api::{
         apps::v1::StatefulSet,
@@ -27,7 +28,7 @@ use strum::{EnumDiscriminants, IntoStaticStr};
 
 use crate::{
     controller::{apply::Applier, update_status::update_status},
-    crd::{APP_NAME, OPERATOR_NAME, v1alpha1},
+    crd::{APP_NAME, DRUID_OPERATOR_NAME, v1alpha1},
 };
 
 mod apply;
@@ -38,25 +39,13 @@ mod update_status;
 pub(crate) mod validate;
 
 pub const DRUID_CONTROLLER_NAME: &str = "druidcluster";
-pub const FULL_CONTROLLER_NAME: &str = concatcp!(DRUID_CONTROLLER_NAME, '.', OPERATOR_NAME);
+pub const FULL_CONTROLLER_NAME: &str = concatcp!(DRUID_CONTROLLER_NAME, '.', DRUID_OPERATOR_NAME);
 
 pub(super) const CONTAINER_IMAGE_BASE_NAME: &str = "druid";
 
-/// The product name (`druid`) as a type-safe label value.
-pub(crate) fn product_name() -> ProductName {
-    ProductName::from_str(APP_NAME).expect("'druid' is a valid product name")
-}
-
-/// The operator name as a type-safe label value.
-pub(crate) fn operator_name() -> OperatorName {
-    OperatorName::from_str(OPERATOR_NAME).expect("the operator name is a valid label value")
-}
-
-/// The controller name as a type-safe label value.
-pub(crate) fn controller_name() -> ControllerName {
-    ControllerName::from_str(DRUID_CONTROLLER_NAME)
-        .expect("the controller name is a valid label value")
-}
+constant!(PRODUCT_NAME: ProductName = APP_NAME);
+constant!(OPERATOR_NAME: OperatorName = DRUID_OPERATOR_NAME);
+constant!(CONTROLLER_NAME: ControllerName = DRUID_CONTROLLER_NAME);
 
 pub struct Ctx {
     pub client: stackable_operator::client::Client,
@@ -186,12 +175,21 @@ mod test {
     use rstest::*;
     use stackable_operator::v2::types::operator::RoleGroupName;
 
+    use super::{CONTROLLER_NAME, OPERATOR_NAME, PRODUCT_NAME};
     use crate::{
         controller::build::{
             properties::ConfigFileName, resource::config_map::build_rolegroup_config_map,
         },
         crd::{DruidRole, PROP_SEGMENT_CACHE_LOCATIONS},
     };
+
+    #[test]
+    fn test_constants() {
+        // Test that dereferencing the constants does not panic.
+        let _ = *PRODUCT_NAME;
+        let _ = *OPERATOR_NAME;
+        let _ = *CONTROLLER_NAME;
+    }
 
     #[rstest]
     #[case(
