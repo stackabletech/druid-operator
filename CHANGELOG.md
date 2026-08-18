@@ -10,10 +10,17 @@ All notable changes to this project will be documented in this file.
   assembles all relevant Kubernetes resources before anything is applied ([#841]).
 - The RBAC ServiceAccount and RoleBinding are now built with the operator-rs `v2::rbac`
   functions and carry the full set of recommended labels ([#846]).
-- Bump stackable-operator to 0.114.0 ([#855]).
+- Bump stackable-operator to 0.116.0 ([#855], [#865]).
 - The reconciler now applies resources and derives the cluster status in discrete
   apply and update_status steps ([#856]).
 - All product containers now run with `securityContext.runAsNonRoot` set to `true` to improve security ([#860]).
+- `envOverrides` names are now validated by the shared `EnvVarName` type rather than by
+  operator-specific validation code ([#XXX]).
+- BREAKING: Remove the `app.kubernetes.io/component` and `app.kubernetes.io/role-group` labels
+  from the resources they don't apply to (previously set to `none` or a placeholder value).
+  StatefulSets created by older operator versions cannot be updated in place: after the
+  operator upgrade, delete each broker, coordinator and router StatefulSet so that the operator
+  immediately recreates it with the new labels ([#XXX]).
 
 ### Fixed
 
@@ -26,6 +33,7 @@ All notable changes to this project will be documented in this file.
 [#855]: https://github.com/stackabletech/druid-operator/pull/855
 [#856]: https://github.com/stackabletech/druid-operator/pull/856
 [#860]: https://github.com/stackabletech/druid-operator/pull/860
+[#XXX]: https://github.com/stackabletech/druid-operator/pull/XXX
 
 ## [26.7.0] - 2026-07-21
 

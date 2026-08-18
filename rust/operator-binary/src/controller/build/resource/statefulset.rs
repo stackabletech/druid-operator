@@ -38,10 +38,13 @@ use crate::{
             graceful_shutdown::add_graceful_shutdown_config,
             object_meta,
             properties::product_logging::MAX_DRUID_LOG_FILES_SIZE,
+            recommended_labels_for_role_group_resources,
+            recommended_labels_for_unversioned_role_group_resources,
             resource::listener::{
                 LISTENER_VOLUME_DIR, LISTENER_VOLUME_NAME, build_group_listener_pvc,
                 group_listener_name, secret_volume_listener_scope,
             },
+            role_group_selector,
             security::{
                 add_tls_volume_and_volume_mounts, build_tls_key_stores_cmd, container_ports,
                 get_tcp_socket_probe,
@@ -301,8 +304,10 @@ pub fn build_rolegroup_statefulset(
             .add_volume_mount(&*LISTENER_VOLUME_NAME, LISTENER_VOLUME_DIR)
             .context(AddVolumeMountSnafu)?;
 
+        // Used for PVC templates, which cannot be modified once they are deployed. The version
+        // label is omitted so the labels stay stable across version upgrades.
         let unversioned_recommended_labels =
-            cluster.unversioned_recommended_labels(role, role_group_name);
+            recommended_labels_for_unversioned_role_group_resources(cluster, role, role_group_name);
 
         pvcs = Some(vec![build_group_listener_pvc(
             &group_listener_name,
@@ -311,7 +316,11 @@ pub fn build_rolegroup_statefulset(
     }
 
     let metadata = ObjectMetaBuilder::new()
-        .with_labels(cluster.recommended_labels(role, role_group_name))
+        .with_labels(recommended_labels_for_role_group_resources(
+            cluster,
+            role,
+            role_group_name,
+        ))
         .build();
 
     pb.image_pull_secrets_from_product_image(resolved_product_image)
@@ -352,7 +361,7 @@ pub fn build_rolegroup_statefulset(
         metadata: object_meta(
             cluster,
             resource_names.stateful_set_name().to_string(),
-            cluster.recommended_labels(role, role_group_name),
+            recommended_labels_for_role_group_resources(cluster, role, role_group_name),
         )
         .with_label(RESTART_CONTROLLER_ENABLED_LABEL.to_owned())
         .build(),
@@ -362,7 +371,7 @@ pub fn build_rolegroup_statefulset(
             // HorizontalPodAutoscaler can own the replica count without the operator fighting it.
             replicas: rg.replicas.map(i32::from),
             selector: LabelSelector {
-                match_labels: Some(cluster.role_group_selector(role, role_group_name).into()),
+                match_labels: Some(role_group_selector(cluster, role, role_group_name).into()),
                 ..LabelSelector::default()
             },
             service_name: Some(resource_names.headless_service_name().to_string()),

@@ -3,7 +3,6 @@
 use std::{
     collections::{BTreeMap, HashSet},
     marker::PhantomData,
-    str::FromStr,
 };
 
 use snafu::{ResultExt, Snafu};
@@ -14,13 +13,14 @@ use stackable_operator::{
     kvp::Labels,
     v2::{
         builder::meta::ownerreference_from_resource,
+        kvp::label,
         types::operator::{RoleGroupName, RoleName},
     },
 };
 
 use crate::{
     controller::{
-        KubernetesResources, Prepared,
+        CONTROLLER_NAME, KubernetesResources, OPERATOR_NAME, PRODUCT_NAME, Prepared,
         build::resource::{
             config_map::build_rolegroup_config_map,
             discovery::build_discovery_configmap,
@@ -35,18 +35,6 @@ use crate::{
     crd::{COOKIE_PASSPHRASE_ENV, security::INTERNAL_INITIAL_CLIENT_PASSWORD_ENV},
     internal_secret::build_shared_internal_secret_name,
 };
-
-// Placeholder role-group name used for the recommended labels of the role-level discovery
-// `ConfigMap` (which is not tied to a single role group).
-stackable_operator::constant!(pub(crate) PLACEHOLDER_DISCOVERY_ROLE_GROUP: RoleGroupName = "discovery");
-
-// Placeholder role-group name used for the recommended labels of the role-level `Listener`
-// (which is not tied to a single role group).
-stackable_operator::constant!(pub(crate) NONE_ROLE_GROUP_NAME: RoleGroupName = "none");
-
-// Placeholder role name used for the recommended labels of cluster-shared resources like the
-// internal Secret (which are not tied to a role at all).
-stackable_operator::constant!(NONE_ROLE_NAME: RoleName = "none");
 
 pub mod authentication;
 pub mod graceful_shutdown;
@@ -72,6 +60,70 @@ pub(crate) fn object_meta(
         .ownerreference(ownerreference_from_resource(cluster, None, Some(true)))
         .with_labels(recommended_labels);
     builder
+}
+
+pub(crate) fn recommended_labels_for_cluster_resources(cluster: &ValidatedCluster) -> Labels {
+    label::recommended_labels_for_cluster_resources(
+        &cluster.name,
+        &PRODUCT_NAME,
+        &cluster.product_version,
+        &OPERATOR_NAME,
+        &CONTROLLER_NAME,
+    )
+}
+
+pub(crate) fn recommended_labels_for_role_resources(
+    cluster: &ValidatedCluster,
+    role_name: &RoleName,
+) -> Labels {
+    label::recommended_labels_for_role_resources(
+        &cluster.name,
+        &PRODUCT_NAME,
+        &cluster.product_version,
+        &OPERATOR_NAME,
+        &CONTROLLER_NAME,
+        role_name,
+    )
+}
+
+pub(crate) fn recommended_labels_for_role_group_resources(
+    cluster: &ValidatedCluster,
+    role_name: &RoleName,
+    role_group_name: &RoleGroupName,
+) -> Labels {
+    label::recommended_labels_for_role_group_resources(
+        &cluster.name,
+        &PRODUCT_NAME,
+        &cluster.product_version,
+        &OPERATOR_NAME,
+        &CONTROLLER_NAME,
+        role_name,
+        role_group_name,
+    )
+}
+
+pub(crate) fn recommended_labels_for_unversioned_role_group_resources(
+    cluster: &ValidatedCluster,
+    role_name: &RoleName,
+    role_group_name: &RoleGroupName,
+) -> Labels {
+    label::recommended_labels_for_unversioned_role_group_resources(
+        &cluster.name,
+        &PRODUCT_NAME,
+        &OPERATOR_NAME,
+        &CONTROLLER_NAME,
+        role_name,
+        role_group_name,
+    )
+}
+
+/// Selector labels matching the pods of a role group.
+pub(crate) fn role_group_selector(
+    cluster: &ValidatedCluster,
+    role_name: &RoleName,
+    role_group_name: &RoleGroupName,
+) -> Labels {
+    label::role_group_selector(&cluster.name, &PRODUCT_NAME, role_name, role_group_name)
 }
 
 #[derive(Snafu, Debug)]
@@ -259,11 +311,11 @@ fn reemit_internal_secret(cluster: &ValidatedCluster, existing: &Secret) -> Secr
 /// the two are identical apart from their contents.
 fn internal_secret_meta(cluster: &ValidatedCluster) -> ObjectMetaBuilder {
     // The internal Secret is shared by the whole cluster rather than tied to a role or role
-    // group, so the recommended labels carry `none` for both values (like the RBAC resources).
+    // group, so it carries the cluster-resource labels (like the RBAC resources).
     object_meta(
         cluster,
         build_shared_internal_secret_name(cluster),
-        cluster.recommended_labels_for(&NONE_ROLE_NAME, &NONE_ROLE_GROUP_NAME),
+        recommended_labels_for_cluster_resources(cluster),
     )
 }
 
@@ -558,14 +610,12 @@ mod tests {
 
         let expected_labels = BTreeMap::from(
             [
-                ("app.kubernetes.io/component", "none".to_string()),
                 ("app.kubernetes.io/instance", "simple-druid".to_string()),
                 (
                     "app.kubernetes.io/managed-by",
                     "druid.stackable.tech_druidcluster".to_string(),
                 ),
                 ("app.kubernetes.io/name", "druid".to_string()),
-                ("app.kubernetes.io/role-group", "none".to_string()),
                 ("app.kubernetes.io/version", app_version_label("30.0.0")),
                 ("stackable.tech/vendor", "Stackable".to_string()),
             ]
