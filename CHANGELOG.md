@@ -16,6 +16,10 @@ All notable changes to this project will be documented in this file.
 - All product containers now run with `securityContext.runAsNonRoot` set to `true` to improve security ([#860]).
 - `envOverrides` names are now validated by the shared `EnvVarName` type rather than by
   operator-specific validation code ([#865]).
+- Environment variable overrides (`envOverrides`) are now applied after all environment
+  variables set by the operator. In particular, `CONTAINERDEBUG_LOG_DIRECTORY` and the
+  authentication-related environment variables can now be overridden, whereas previously the
+  operator's values always took precedence ([#865]).
 - BREAKING: Remove the `app.kubernetes.io/component` and `app.kubernetes.io/role-group` labels
   from the resources they don't apply to (previously set to `none` or a placeholder value).
   StatefulSets created by older operator versions cannot be updated in place: after the

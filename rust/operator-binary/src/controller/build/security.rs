@@ -400,3 +400,15 @@ pub fn get_tcp_socket_probe(
         ..Default::default()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_constants() {
+        // Test that dereferencing the constants does not panic.
+        let _ = *TLS_VOLUME_NAME;
+        let _ = *TLS_MOUNT_VOLUME_NAME;
+    }
+}

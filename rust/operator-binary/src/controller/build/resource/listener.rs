@@ -144,6 +144,12 @@ mod tests {
     }
 
     #[test]
+    fn test_constants() {
+        // Test that dereferencing the constants does not panic.
+        let _ = *LISTENER_VOLUME_NAME;
+    }
+
+    #[test]
     fn group_listener_name_only_for_externally_reachable_roles() {
         let cluster_name = cluster().name;
         assert!(group_listener_name(&cluster_name, &DruidRole::Broker).is_some());

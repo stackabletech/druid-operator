@@ -218,11 +218,13 @@ pub async fn dereference(
             listener_name: listener_name.as_ref(),
         })?;
 
-    let secret_name = build_shared_internal_secret_name(druid);
+    let secret_name = build_shared_internal_secret_name(&cluster_name);
     let internal_secret = client
-        .get_opt::<Secret>(&secret_name, namespace)
+        .get_opt::<Secret>(secret_name.as_ref(), namespace)
         .await
-        .context(GetInternalSecretSnafu { secret_name })?;
+        .context(GetInternalSecretSnafu {
+            secret_name: secret_name.as_ref(),
+        })?;
 
     // The discovery ConfigMap is named after the cluster itself.
     let discovery_config_map = client

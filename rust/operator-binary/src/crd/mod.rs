@@ -38,6 +38,7 @@ use stackable_operator::{
     status::condition::{ClusterCondition, HasStatusCondition},
     utils::{COMMON_BASH_TRAP_FUNCTIONS, crds::raw_object_list_schema},
     v2::{
+        builder::pod::container::EnvVarName,
         config_overrides::KeyValueConfigOverrides,
         product_logging::framework::{
             STACKABLE_LOG_DIR, ValidatedContainerLogConfigChoice, VectorContainerLogConfig,
@@ -46,7 +47,7 @@ use stackable_operator::{
         role_utils::{JavaCommonConfig, Role, RoleGroupConfig, with_validated_config},
         types::{
             common::Port,
-            kubernetes::{ConfigMapName, ContainerName, ListenerClassName},
+            kubernetes::{ConfigMapName, ContainerName, ListenerClassName, SecretKey},
             operator::{RoleGroupName, RoleName},
         },
     },
@@ -97,7 +98,10 @@ pub const PROP_SEGMENT_CACHE_LOCATIONS: &str = "druid.segmentCache.locations";
 pub const METRICS_PORT_NAME: &str = "metrics";
 pub const METRICS_PORT: Port = Port(9090);
 
-pub const COOKIE_PASSPHRASE_ENV: &str = "OIDC_COOKIE_PASSPHRASE";
+// The env var that carries the OIDC cookie passphrase, and the key of the shared internal
+// Secret it is mounted from (the same string, as the env var name is used as the Secret key).
+constant!(pub COOKIE_PASSPHRASE_ENV: EnvVarName = "OIDC_COOKIE_PASSPHRASE");
+constant!(pub COOKIE_PASSPHRASE_SECRET_KEY: SecretKey = "OIDC_COOKIE_PASSPHRASE");
 
 /// Formats a Druid [dynamic config](https://druid.apache.org/docs/latest/operations/dynamic-config-provider)
 /// reference to an environment variable, i.e. `${env:NAME}`.
@@ -911,6 +915,8 @@ mod tests {
         let _ = *HISTORICAL_ROLE_NAME;
         let _ = *MIDDLE_MANAGER_ROLE_NAME;
         let _ = *ROUTER_ROLE_NAME;
+        let _ = *COOKIE_PASSPHRASE_ENV;
+        let _ = *COOKIE_PASSPHRASE_SECRET_KEY;
     }
 
     impl RoundtripTestData for v1alpha1::DruidClusterSpec {

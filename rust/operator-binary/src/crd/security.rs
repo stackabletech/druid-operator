@@ -1,4 +1,12 @@
-use stackable_operator::v2::types::kubernetes::SecretClassName;
+use std::str::FromStr;
+
+use stackable_operator::{
+    constant,
+    v2::{
+        builder::pod::container::EnvVarName,
+        types::kubernetes::{SecretClassName, SecretKey},
+    },
+};
 
 use crate::crd::{
     STACKABLE_TRUST_STORE_PASSWORD, TRUST_STORE_FILE,
@@ -22,7 +30,11 @@ pub const TLS_PORT_NAME: &str = "https";
 // Misc TLS (shared with the build-side renderer and the LDAP authentication module)
 pub const STACKABLE_TLS_DIR: &str = "/stackable/tls";
 
-pub const INTERNAL_INITIAL_CLIENT_PASSWORD_ENV: &str = "INTERNAL_INITIAL_CLIENT_PASSWORD";
+// The env var that carries the internal initial client password, and the key of the shared
+// internal Secret it is mounted from (the same string, as the env var name is used as the
+// Secret key).
+constant!(pub INTERNAL_INITIAL_CLIENT_PASSWORD_ENV: EnvVarName = "INTERNAL_INITIAL_CLIENT_PASSWORD");
+constant!(pub INTERNAL_INITIAL_CLIENT_PASSWORD_SECRET_KEY: SecretKey = "INTERNAL_INITIAL_CLIENT_PASSWORD");
 
 impl DruidTlsSecurity {
     #[cfg(test)]
@@ -92,4 +104,16 @@ pub fn add_cert_to_trust_store_cmd(
 /// Generate a bash command to add a CA to the truststore that is passed to the JVM
 pub fn add_cert_to_jvm_trust_store_cmd(cert_file: &str) -> Vec<String> {
     add_cert_to_trust_store_cmd(cert_file, "/stackable", STACKABLE_TRUST_STORE_PASSWORD)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_constants() {
+        // Test that dereferencing the constants does not panic.
+        let _ = *INTERNAL_INITIAL_CLIENT_PASSWORD_ENV;
+        let _ = *INTERNAL_INITIAL_CLIENT_PASSWORD_SECRET_KEY;
+    }
 }
