@@ -365,15 +365,43 @@ metadata:
 spec:
   image:
     productVersion: 3.2.2
+  clusterConfig:
+    deepStorage:
+      hdfs:
+        configMapName: druid-hdfs
+        directory: /druid
+    metadataDatabase:
+      derby: {}
+    zookeeperConfigMapName: druid-znode
+  brokers:
+    roleGroups:
+      default:
+        replicas: 1
+  coordinators:
+    roleGroups:
+      default:
+        replicas: 1
+  historicals:
+    roleGroups:
+      default:
+        replicas: 1
+  middleManagers:
+    roleGroups:
+      default:
+        replicas: 1
+  routers:
+    roleGroups:
+      default:
+        replicas: 1
 "#,
         )
         .expect("valid cluster YAML");
 
-        let _result = reconcile(druid);
+        let result = reconcile(druid);
 
-        // assert!(
-        //     matches!(result, Err(Error::EnsureSecrets { .. })),
-        //     "a live cluster must reach the API and fail creating the random Secrets against the unreachable test server: {result:?}"
-        // );
+        assert!(
+            matches!(result, Err(Error::Dereference { .. })),
+            "a live cluster must reach the API but when dereferencing against the unreachable test server: {result:?}"
+        );
     }
 }
