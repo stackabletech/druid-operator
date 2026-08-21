@@ -290,7 +290,7 @@ mod test {
             ),
             operator_environment: OperatorEnvironmentOptions {
                 operator_namespace: "stackable-operators".to_owned(),
-                operator_service_name: "airflow-operator".to_owned(),
+                operator_service_name: "druid-operator".to_owned(),
                 image_repository: "oci.stackable.tech/sdp".to_owned(),
             },
         })
