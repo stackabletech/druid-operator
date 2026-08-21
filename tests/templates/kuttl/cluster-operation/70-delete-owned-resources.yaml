@@ -1,4 +1,3 @@
-# ---
 # Every resource the operator applies carries an ownerReference and a `.owns()` watch
 # (main.rs); deleting it must trigger a reconcile of the DruidCluster, which re-applies
 # it. This step checks that chain — the ClusterRole's `watch` verbs plus the `.owns()`
@@ -15,6 +14,7 @@
 # deletion below triggers a reconcile that re-emits it, so testing it later would pass whether
 # or not `.owns(Secret)` is registered. Going first, the only thing that can bring it back is
 # its own watch.
+---
 apiVersion: kuttl.dev/v1beta1
 kind: TestStep
 metadata:
