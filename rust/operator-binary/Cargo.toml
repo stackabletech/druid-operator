@@ -32,6 +32,7 @@ uuid.workspace = true
 built.workspace = true
 
 [dev-dependencies]
+http.workspace = true
 rstest.workspace = true
 serde_yaml.workspace = true
 stackable-operator = { workspace = true, features = ["test-support"] }
