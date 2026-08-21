@@ -1,0 +1,296 @@
+---
+# The recreated StatefulSets must bring the cluster back to ready, and the recreated
+# objects must carry an owner reference back to the DruidCluster so that garbage
+# collection still works for them.
+apiVersion: kuttl.dev/v1beta1
+kind: TestAssert
+metadata:
+  name: recreate-owned-resources
+timeout: 600
+commands:
+  - script: kubectl -n $NAMESPACE wait --for=condition=available druidclusters.druid.stackable.tech/derby-druid --timeout 601s
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: derby-druid-broker-default
+  ownerReferences:
+    - apiVersion: druid.stackable.tech/v1alpha1
+      controller: true
+      kind: DruidCluster
+      name: derby-druid
+status:
+  readyReplicas: 1
+  replicas: 1
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: derby-druid-coordinator-default
+  ownerReferences:
+    - apiVersion: druid.stackable.tech/v1alpha1
+      controller: true
+      kind: DruidCluster
+      name: derby-druid
+status:
+  readyReplicas: 1
+  replicas: 1
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: derby-druid-historical-default
+  ownerReferences:
+    - apiVersion: druid.stackable.tech/v1alpha1
+      controller: true
+      kind: DruidCluster
+      name: derby-druid
+status:
+  readyReplicas: 1
+  replicas: 1
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: derby-druid-middlemanager-default
+  ownerReferences:
+    - apiVersion: druid.stackable.tech/v1alpha1
+      controller: true
+      kind: DruidCluster
+      name: derby-druid
+status:
+  readyReplicas: 1
+  replicas: 1
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: derby-druid-router-default
+  ownerReferences:
+    - apiVersion: druid.stackable.tech/v1alpha1
+      controller: true
+      kind: DruidCluster
+      name: derby-druid
+status:
+  readyReplicas: 1
+  replicas: 1
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: derby-druid-shared-internal-secret
+  ownerReferences:
+    - apiVersion: druid.stackable.tech/v1alpha1
+      controller: true
+      kind: DruidCluster
+      name: derby-druid
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: derby-druid-serviceaccount
+  ownerReferences:
+    - apiVersion: druid.stackable.tech/v1alpha1
+      controller: true
+      kind: DruidCluster
+      name: derby-druid
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: derby-druid-rolebinding
+  ownerReferences:
+    - apiVersion: druid.stackable.tech/v1alpha1
+      controller: true
+      kind: DruidCluster
+      name: derby-druid
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: derby-druid-broker
+  ownerReferences:
+    - apiVersion: druid.stackable.tech/v1alpha1
+      controller: true
+      kind: DruidCluster
+      name: derby-druid
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: derby-druid-coordinator
+  ownerReferences:
+    - apiVersion: druid.stackable.tech/v1alpha1
+      controller: true
+      kind: DruidCluster
+      name: derby-druid
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: derby-druid-historical
+  ownerReferences:
+    - apiVersion: druid.stackable.tech/v1alpha1
+      controller: true
+      kind: DruidCluster
+      name: derby-druid
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: derby-druid-middlemanager
+  ownerReferences:
+    - apiVersion: druid.stackable.tech/v1alpha1
+      controller: true
+      kind: DruidCluster
+      name: derby-druid
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: derby-druid-router
+  ownerReferences:
+    - apiVersion: druid.stackable.tech/v1alpha1
+      controller: true
+      kind: DruidCluster
+      name: derby-druid
+---
+apiVersion: listeners.stackable.tech/v1alpha1
+kind: Listener
+metadata:
+  name: derby-druid-broker
+  ownerReferences:
+    - apiVersion: druid.stackable.tech/v1alpha1
+      controller: true
+      kind: DruidCluster
+      name: derby-druid
+---
+apiVersion: listeners.stackable.tech/v1alpha1
+kind: Listener
+metadata:
+  name: derby-druid-coordinator
+  ownerReferences:
+    - apiVersion: druid.stackable.tech/v1alpha1
+      controller: true
+      kind: DruidCluster
+      name: derby-druid
+---
+apiVersion: listeners.stackable.tech/v1alpha1
+kind: Listener
+metadata:
+  name: derby-druid-router
+  ownerReferences:
+    - apiVersion: druid.stackable.tech/v1alpha1
+      controller: true
+      kind: DruidCluster
+      name: derby-druid
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: derby-druid
+  ownerReferences:
+    - apiVersion: druid.stackable.tech/v1alpha1
+      controller: true
+      kind: DruidCluster
+      name: derby-druid
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: derby-druid-broker-default-headless
+  ownerReferences:
+    - apiVersion: druid.stackable.tech/v1alpha1
+      controller: true
+      kind: DruidCluster
+      name: derby-druid
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: derby-druid-broker-default-metrics
+  ownerReferences:
+    - apiVersion: druid.stackable.tech/v1alpha1
+      controller: true
+      kind: DruidCluster
+      name: derby-druid
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: derby-druid-coordinator-default-headless
+  ownerReferences:
+    - apiVersion: druid.stackable.tech/v1alpha1
+      controller: true
+      kind: DruidCluster
+      name: derby-druid
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: derby-druid-coordinator-default-metrics
+  ownerReferences:
+    - apiVersion: druid.stackable.tech/v1alpha1
+      controller: true
+      kind: DruidCluster
+      name: derby-druid
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: derby-druid-historical-default-headless
+  ownerReferences:
+    - apiVersion: druid.stackable.tech/v1alpha1
+      controller: true
+      kind: DruidCluster
+      name: derby-druid
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: derby-druid-historical-default-metrics
+  ownerReferences:
+    - apiVersion: druid.stackable.tech/v1alpha1
+      controller: true
+      kind: DruidCluster
+      name: derby-druid
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: derby-druid-middlemanager-default-headless
+  ownerReferences:
+    - apiVersion: druid.stackable.tech/v1alpha1
+      controller: true
+      kind: DruidCluster
+      name: derby-druid
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: derby-druid-middlemanager-default-metrics
+  ownerReferences:
+    - apiVersion: druid.stackable.tech/v1alpha1
+      controller: true
+      kind: DruidCluster
+      name: derby-druid
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: derby-druid-router-default-headless
+  ownerReferences:
+    - apiVersion: druid.stackable.tech/v1alpha1
+      controller: true
+      kind: DruidCluster
+      name: derby-druid
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: derby-druid-router-default-metrics
+  ownerReferences:
+    - apiVersion: druid.stackable.tech/v1alpha1
+      controller: true
+      kind: DruidCluster
+      name: derby-druid

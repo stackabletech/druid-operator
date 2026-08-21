@@ -1,0 +1,72 @@
+# ---
+# Every resource the operator applies carries an ownerReference and a `.owns()` watch
+# (main.rs); deleting it must trigger a reconcile of the DruidCluster, which re-applies
+# it. This step checks that chain — the ClusterRole's `watch` verbs plus the `.owns()`
+# routing — and lives here because this test already cycles the pods. The `.watches()`
+# registration (ConfigMaps referenced but not owned: ZooKeeper, OPA, HDFS) can't be
+# tested by deletion: the operator never recreates what it didn't apply.
+#
+# Recreation is proven by UID change: mere existence could pass without any deletion.
+# TestStep commands run exactly once (no kuttl retry loop), so the polling stays quiet.
+#
+# The ConfigMap deleted here is the discovery one, named after the cluster.
+#
+# The shared internal Secret is deleted first, before anything else, on purpose: every other
+# deletion below triggers a reconcile that re-emits it, so testing it later would pass whether
+# or not `.owns(Secret)` is registered. Going first, the only thing that can bring it back is
+# its own watch.
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+metadata:
+  name: delete-owned-resources
+timeout: 300
+commands:
+  - script: |
+      set -eu
+
+      delete_and_await_recreation() {
+        kind=$1
+        name=$2
+        old_uid=$(kubectl get -n "$NAMESPACE" "$kind" "$name" -o jsonpath='{.metadata.uid}')
+        kubectl delete -n "$NAMESPACE" "$kind" "$name" --wait=false
+        # Recreation is a single reconcile away, so this normally succeeds on the
+        # first iteration; 30s is a generous upper bound well below the step timeout.
+        for _ in $(seq 1 30); do
+          new_uid=$(kubectl get -n "$NAMESPACE" "$kind" "$name" -o jsonpath='{.metadata.uid}' 2>/dev/null || true)
+          if [ -n "$new_uid" ] && [ "$new_uid" != "$old_uid" ]; then
+            return 0
+          fi
+          sleep 1
+        done
+        echo "$kind/$name was not recreated (old uid: $old_uid, current: '${new_uid:-}')" >&2
+        return 1
+      }
+
+      delete_and_await_recreation secret               derby-druid-shared-internal-secret
+      delete_and_await_recreation serviceaccount       derby-druid-serviceaccount
+      delete_and_await_recreation rolebinding          derby-druid-rolebinding
+      delete_and_await_recreation poddisruptionbudget  derby-druid-broker
+      delete_and_await_recreation poddisruptionbudget  derby-druid-coordinator
+      delete_and_await_recreation poddisruptionbudget  derby-druid-historical
+      delete_and_await_recreation poddisruptionbudget  derby-druid-middlemanager
+      delete_and_await_recreation poddisruptionbudget  derby-druid-router
+      # Group Listeners exist for the externally reachable roles only.
+      delete_and_await_recreation listener             derby-druid-broker
+      delete_and_await_recreation listener             derby-druid-coordinator
+      delete_and_await_recreation listener             derby-druid-router
+      delete_and_await_recreation configmap            derby-druid
+      delete_and_await_recreation service              derby-druid-broker-default-headless
+      delete_and_await_recreation service              derby-druid-broker-default-metrics
+      delete_and_await_recreation service              derby-druid-coordinator-default-headless
+      delete_and_await_recreation service              derby-druid-coordinator-default-metrics
+      delete_and_await_recreation service              derby-druid-historical-default-headless
+      delete_and_await_recreation service              derby-druid-historical-default-metrics
+      delete_and_await_recreation service              derby-druid-middlemanager-default-headless
+      delete_and_await_recreation service              derby-druid-middlemanager-default-metrics
+      delete_and_await_recreation service              derby-druid-router-default-headless
+      delete_and_await_recreation service              derby-druid-router-default-metrics
+      delete_and_await_recreation statefulset          derby-druid-broker-default
+      delete_and_await_recreation statefulset          derby-druid-coordinator-default
+      delete_and_await_recreation statefulset          derby-druid-historical-default
+      delete_and_await_recreation statefulset          derby-druid-middlemanager-default
+      delete_and_await_recreation statefulset          derby-druid-router-default

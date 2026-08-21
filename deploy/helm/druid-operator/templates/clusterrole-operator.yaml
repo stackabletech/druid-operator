@@ -29,7 +29,8 @@ rules:
       - patch
       - watch
   # Shared internal authentication secret (cookie passphrase and internal client password).
-  # Orphan cleanup not needed (instead, Kubernetes GC via owner reference).
+  # Orphan cleanup not needed (instead, Kubernetes GC via owner reference). Watched by the
+  # controller, which needs `list` as well: `.owns()` uses lists before it watches.
   - apiGroups:
       - ""
     resources:
@@ -38,7 +39,9 @@ rules:
       - create
       - delete
       - get
+      - list
       - patch
+      - watch
   # ServiceAccount created per DruidCluster for workload pod identity.
   # Applied via SSA and tracked for orphan cleanup and watched by the controller.
   - apiGroups:

@@ -15,7 +15,7 @@ use stackable_operator::{
     eos::EndOfSupportChecker,
     k8s_openapi::api::{
         apps::v1::StatefulSet,
-        core::v1::{ConfigMap, Service, ServiceAccount},
+        core::v1::{ConfigMap, Secret, Service, ServiceAccount},
         policy::v1::PodDisruptionBudget,
         rbac::v1::RoleBinding,
     },
@@ -140,6 +140,10 @@ async fn main() -> anyhow::Result<()> {
                 )
                 .owns(
                     watch_namespace.get_api::<RoleBinding>(&client),
+                    watcher::Config::default(),
+                )
+                .owns(
+                    watch_namespace.get_api::<Secret>(&client),
                     watcher::Config::default(),
                 )
                 .owns(
