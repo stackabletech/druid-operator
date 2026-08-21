@@ -309,7 +309,7 @@ mod test {
         let druid = serde_yaml::from_str(
             r#"
 apiVersion: druid.stackable.tech/v1alpha1
-kind: AirflowCluster
+kind: DruidCluster
 metadata:
   name: druid
   namespace: default
