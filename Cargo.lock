@@ -3239,7 +3239,6 @@ dependencies = [
  "const_format",
  "fnv",
  "futures 0.3.34",
- "http",
  "indoc",
  "openssl",
  "pin-project",

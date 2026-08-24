@@ -1,20 +1,20 @@
-# Every resource the operator applies carries an ownerReference and a `.owns()` watch
-# (main.rs); deleting it must trigger a reconcile of the DruidCluster, which re-applies
-# it. This step checks that chain — the ClusterRole's `watch` verbs plus the `.owns()`
-# routing — and lives here because this test already cycles the pods. The `.watches()`
-# registration (ConfigMaps referenced but not owned: ZooKeeper, OPA, HDFS) can't be
-# tested by deletion: the operator never recreates what it didn't apply.
-#
-# Recreation is proven by UID change: mere existence could pass without any deletion.
-# TestStep commands run exactly once (no kuttl retry loop), so the polling stays quiet.
-#
-# The ConfigMap deleted here is the discovery one, named after the cluster.
-#
-# The shared internal Secret is deleted first, before anything else, on purpose: every other
-# deletion below triggers a reconcile that re-emits it, so testing it later would pass whether
-# or not `.owns(Secret)` is registered. Going first, the only thing that can bring it back is
-# its own watch.
 ---
+# Every resource the operator applies carries an ownerReference and a `.owns()` watch
+# (main.rs): deleting it must trigger a reconcile of the DruidCluster that re-applies it,
+# proving the `.owns()` routing and the ClusterRole `watch` verbs end to end.
+# `.watches()` registrations can't be tested this way: the operator never recreates
+# what it didn't apply.
+#
+# Resources are discovered by label (ClusterResources::add enforces the labels on
+# everything the operator applies), so new resources and kinds are covered
+# automatically. Labels over-match on derived objects, so each match must also carry
+# a controller ownerReference pointing at the DruidCluster; kinds that can never pass that
+# gate are excluded up front. Recreation is proven by UID change, and a floor guard
+# catches a selector that silently matches nothing.
+#
+# The shared internal Secret is swept first: any later deletion would re-emit it via
+# its reconcile, masking a missing `.owns(Secret)`; the discovery loop excludes
+# secrets so it is not swept twice.
 apiVersion: kuttl.dev/v1beta1
 kind: TestStep
 metadata:
@@ -25,48 +25,49 @@ commands:
       set -eu
 
       delete_and_await_recreation() {
-        kind=$1
-        name=$2
-        old_uid=$(kubectl get -n "$NAMESPACE" "$kind" "$name" -o jsonpath='{.metadata.uid}')
-        kubectl delete -n "$NAMESPACE" "$kind" "$name" --wait=false
+        resource=$1
+        old_uid=$(kubectl get -n "$NAMESPACE" "$resource" -o jsonpath='{.metadata.uid}')
+        kubectl delete -n "$NAMESPACE" "$resource" --wait=false
         # Recreation is a single reconcile away, so this normally succeeds on the
         # first iteration; 30s is a generous upper bound well below the step timeout.
         for _ in $(seq 1 30); do
-          new_uid=$(kubectl get -n "$NAMESPACE" "$kind" "$name" -o jsonpath='{.metadata.uid}' 2>/dev/null || true)
+          new_uid=$(kubectl get -n "$NAMESPACE" "$resource" -o jsonpath='{.metadata.uid}' 2>/dev/null || true)
           if [ -n "$new_uid" ] && [ "$new_uid" != "$old_uid" ]; then
             return 0
           fi
           sleep 1
         done
-        echo "$kind/$name was not recreated (old uid: $old_uid, current: '${new_uid:-}')" >&2
+        echo "$resource was not recreated (old uid: $old_uid, current: '${new_uid:-}')" >&2
         return 1
       }
 
-      delete_and_await_recreation secret               derby-druid-shared-internal-secret
-      delete_and_await_recreation serviceaccount       derby-druid-serviceaccount
-      delete_and_await_recreation rolebinding          derby-druid-rolebinding
-      delete_and_await_recreation poddisruptionbudget  derby-druid-broker
-      delete_and_await_recreation poddisruptionbudget  derby-druid-coordinator
-      delete_and_await_recreation poddisruptionbudget  derby-druid-historical
-      delete_and_await_recreation poddisruptionbudget  derby-druid-middlemanager
-      delete_and_await_recreation poddisruptionbudget  derby-druid-router
-      # Group Listeners exist for the externally reachable roles only.
-      delete_and_await_recreation listener             derby-druid-broker
-      delete_and_await_recreation listener             derby-druid-coordinator
-      delete_and_await_recreation listener             derby-druid-router
-      delete_and_await_recreation configmap            derby-druid
-      delete_and_await_recreation service              derby-druid-broker-default-headless
-      delete_and_await_recreation service              derby-druid-broker-default-metrics
-      delete_and_await_recreation service              derby-druid-coordinator-default-headless
-      delete_and_await_recreation service              derby-druid-coordinator-default-metrics
-      delete_and_await_recreation service              derby-druid-historical-default-headless
-      delete_and_await_recreation service              derby-druid-historical-default-metrics
-      delete_and_await_recreation service              derby-druid-middlemanager-default-headless
-      delete_and_await_recreation service              derby-druid-middlemanager-default-metrics
-      delete_and_await_recreation service              derby-druid-router-default-headless
-      delete_and_await_recreation service              derby-druid-router-default-metrics
-      delete_and_await_recreation statefulset          derby-druid-broker-default
-      delete_and_await_recreation statefulset          derby-druid-coordinator-default
-      delete_and_await_recreation statefulset          derby-druid-historical-default
-      delete_and_await_recreation statefulset          derby-druid-middlemanager-default
-      delete_and_await_recreation statefulset          derby-druid-router-default
+      selector="app.kubernetes.io/instance=derby-druid,app.kubernetes.io/managed-by=druid.stackable.tech_druidcluster"
+      excluded="^(pods|persistentvolumeclaims|endpoints|events|secrets)$|^endpointslices\.|^controllerrevisions\.|^events\."
+
+      deleted=0
+
+      sweep_kind() {
+        kind=$1
+        for resource in $(kubectl get -n "$NAMESPACE" "$kind" -l "$selector" -o name 2>/dev/null); do
+          owner=$(kubectl get -n "$NAMESPACE" "$resource" -o jsonpath='{.metadata.ownerReferences[?(@.controller==true)].kind}/{.metadata.ownerReferences[?(@.controller==true)].name}' 2>/dev/null || true)
+          if [ "$owner" != "DruidCluster/derby-druid" ]; then
+            echo "skipping $resource: controller owner is '${owner:-none}', not the DruidCluster"
+            continue
+          fi
+          delete_and_await_recreation "$resource"
+          deleted=$((deleted + 1))
+        done
+      }
+
+      sweep_kind secrets
+
+      for kind in $(kubectl api-resources --verbs=list --namespaced -o name | grep -Ev "$excluded" | sort); do
+        sweep_kind "$kind"
+      done
+
+      # Guard against the sweep silently matching nothing (wrong selector, renamed
+      # labels): the fixture is known to produce well over this many owned resources.
+      if [ "$deleted" -lt 15 ]; then
+        echo "only $deleted labelled resources were swept - the label selector is broken" >&2
+        exit 1
+      fi

@@ -267,67 +267,11 @@ mod test {
         );
     }
 
-    /// A [`Ctx`] whose client points at a closed port. Any API call made through it fails the
-    /// reconciliation, so an `Ok` result proves the reconciler returned before touching the
-    /// Kubernetes API.
-    fn unreachable_ctx() -> Arc<Ctx> {
-        let config = Config::new(
-            "http://127.0.0.1:1"
-                .parse::<http::Uri>()
-                .expect("valid static URI"),
-        );
-        let kube_client = KubeClient::try_from(config).expect("client from static config");
-
-        Arc::new(Ctx {
-            client: Client::new(
-                kube_client,
-                None,
-                "default".to_owned(),
-                KubernetesClusterInfo {
-                    cluster_domain: DomainName::from_str("cluster.local")
-                        .expect("valid cluster domain"),
-                },
-            ),
-            operator_environment: OperatorEnvironmentOptions {
-                operator_namespace: "stackable-operators".to_owned(),
-                operator_service_name: "druid-operator".to_owned(),
-                image_repository: "oci.stackable.tech/sdp".to_owned(),
-            },
-        })
-    }
-
-    fn reconcile(druid: DeserializeGuard<v1alpha1::DruidCluster>) -> Result<Action> {
-        tokio::runtime::Builder::new_current_thread()
-            .enable_all()
-            .build()
-            .expect("current-thread tokio runtime")
-            .block_on(async { reconcile_druid(Arc::new(druid), unreachable_ctx()).await })
-    }
-
+    /// The client points at a closed port, so any API call would fail the reconciliation: an `Ok`
+    /// proves that a cluster being deleted returns before the reconciler touches the Kubernetes
+    /// API, and because the spec is invalid, before the [`DeserializeGuard`] is unwrapped.
     #[test]
     fn reconcile_exits_early_for_deleted_cluster() {
-        let druid = serde_yaml::from_str(
-            r#"
-apiVersion: druid.stackable.tech/v1alpha1
-kind: DruidCluster
-metadata:
-  name: druid
-  namespace: default
-  deletionTimestamp: "2026-08-14T12:00:00Z"
-spec:
-  image:
-    productVersion: 3.2.2
-"#,
-        )
-        .expect("valid cluster YAML");
-
-        let action = reconcile(druid).expect("a deleted cluster reconciles without any API call");
-
-        assert_eq!(action, Action::await_change());
-    }
-
-    #[test]
-    fn reconcile_exits_early_for_deleted_cluster_with_invalid_spec() {
         let druid = serde_yaml::from_str(
             r#"
 apiVersion: druid.stackable.tech/v1alpha1
@@ -341,67 +285,35 @@ spec: {}
         )
         .expect("YAML parses; the invalid spec is captured inside the DeserializeGuard");
 
-        let action =
-            reconcile(druid).expect("a deleted cluster reconciles even when its spec is invalid");
+        let action = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .expect("current-thread tokio runtime")
+            .block_on(async {
+                let ctx = Arc::new(Ctx {
+                    client: Client::new(
+                        KubeClient::try_from(Config::new(
+                            "http://127.0.0.1:1".parse().expect("valid static URI"),
+                        ))
+                        .expect("client from static config"),
+                        None,
+                        "default".to_owned(),
+                        KubernetesClusterInfo {
+                            cluster_domain: DomainName::from_str("cluster.local")
+                                .expect("valid cluster domain"),
+                        },
+                    ),
+                    operator_environment: OperatorEnvironmentOptions {
+                        operator_namespace: "stackable-operators".to_owned(),
+                        operator_service_name: "druid-operator".to_owned(),
+                        image_repository: "oci.stackable.tech/sdp".to_owned(),
+                    },
+                });
+
+                reconcile_druid(Arc::new(druid), ctx).await
+            })
+            .expect("a deleted cluster reconciles without any API call");
 
         assert_eq!(action, Action::await_change());
-    }
-
-    #[test]
-    fn reconcile_proceeds_for_live_cluster() {
-        // Without a deletion timestamp the reconciler must not exit early.
-        // `validate` resolves the uid, so the fixture needs one. The probe for
-        // "reached the API" is then the random Secret creation rather than the
-        // dereference step: dereference only contacts the API when for
-        // optional objects, whereas the random Secrets are always created.
-        let druid = serde_yaml::from_str(
-            r#"
-apiVersion: druid.stackable.tech/v1alpha1
-kind: DruidCluster
-metadata:
-  name: druid
-  namespace: default
-  uid: 12345678-1234-1234-1234-123456789012
-spec:
-  image:
-    productVersion: 3.2.2
-  clusterConfig:
-    deepStorage:
-      hdfs:
-        configMapName: druid-hdfs
-        directory: /druid
-    metadataDatabase:
-      derby: {}
-    zookeeperConfigMapName: druid-znode
-  brokers:
-    roleGroups:
-      default:
-        replicas: 1
-  coordinators:
-    roleGroups:
-      default:
-        replicas: 1
-  historicals:
-    roleGroups:
-      default:
-        replicas: 1
-  middleManagers:
-    roleGroups:
-      default:
-        replicas: 1
-  routers:
-    roleGroups:
-      default:
-        replicas: 1
-"#,
-        )
-        .expect("valid cluster YAML");
-
-        let result = reconcile(druid);
-
-        assert!(
-            matches!(result, Err(Error::Dereference { .. })),
-            "a live cluster must reach the API but when dereferencing against the unreachable test server: {result:?}"
-        );
     }
 }

@@ -13,41 +13,19 @@ rules:
       - nodes/proxy
     verbs:
       - get
-  # Manage core workload resources created per DruidCluster.
-  # All resources are applied via Server-Side Apply (create + patch) and tracked for
-  # orphan cleanup (list + delete).
+  # Manage core workload resources created per DruidCluster: ConfigMaps and Services,
+  # the shared internal authentication Secret (cookie passphrase and internal client
+  # password; no orphan cleanup — Kubernetes GC via owner reference instead), and the
+  # ServiceAccount providing workload pod identity. All are applied via Server-Side
+  # Apply (create + patch), tracked for orphan cleanup where applicable (list +
+  # delete) and watched by the controller (`.owns()` lists before it watches).
   - apiGroups:
       - ""
     resources:
       - configmaps
-      - services
-    verbs:
-      - create
-      - delete
-      - get
-      - list
-      - patch
-      - watch
-  # Shared internal authentication secret (cookie passphrase and internal client password).
-  # Orphan cleanup not needed (instead, Kubernetes GC via owner reference). Watched by the
-  # controller, which needs `list` as well: `.owns()` uses lists before it watches.
-  - apiGroups:
-      - ""
-    resources:
       - secrets
-    verbs:
-      - create
-      - delete
-      - get
-      - list
-      - patch
-      - watch
-  # ServiceAccount created per DruidCluster for workload pod identity.
-  # Applied via SSA and tracked for orphan cleanup and watched by the controller.
-  - apiGroups:
-      - ""
-    resources:
       - serviceaccounts
+      - services
     verbs:
       - create
       - delete
