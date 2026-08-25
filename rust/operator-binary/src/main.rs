@@ -127,35 +127,35 @@ async fn main() -> anyhow::Result<()> {
             let config_map_store = druid_controller.store();
             let druid_controller = druid_controller
                 .owns(
-                    watch_namespace.get_api::<ConfigMap>(&client),
+                    watch_namespace.get_api::<DeserializeGuard<ConfigMap>>(&client),
                     watcher::Config::default(),
                 )
                 .owns(
-                    watch_namespace.get_api::<Listener>(&client),
+                    watch_namespace.get_api::<DeserializeGuard<Listener>>(&client),
                     watcher::Config::default(),
                 )
                 .owns(
-                    watch_namespace.get_api::<PodDisruptionBudget>(&client),
+                    watch_namespace.get_api::<DeserializeGuard<PodDisruptionBudget>>(&client),
                     watcher::Config::default(),
                 )
                 .owns(
-                    watch_namespace.get_api::<RoleBinding>(&client),
+                    watch_namespace.get_api::<DeserializeGuard<RoleBinding>>(&client),
                     watcher::Config::default(),
                 )
                 .owns(
-                    watch_namespace.get_api::<Secret>(&client),
+                    watch_namespace.get_api::<DeserializeGuard<Secret>>(&client),
                     watcher::Config::default(),
                 )
                 .owns(
-                    watch_namespace.get_api::<Service>(&client),
+                    watch_namespace.get_api::<DeserializeGuard<Service>>(&client),
                     watcher::Config::default(),
                 )
                 .owns(
-                    watch_namespace.get_api::<ServiceAccount>(&client),
+                    watch_namespace.get_api::<DeserializeGuard<ServiceAccount>>(&client),
                     watcher::Config::default(),
                 )
                 .owns(
-                    watch_namespace.get_api::<StatefulSet>(&client),
+                    watch_namespace.get_api::<DeserializeGuard<StatefulSet>>(&client),
                     watcher::Config::default(),
                 )
                 .watches(
