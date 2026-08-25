@@ -13,13 +13,18 @@ rules:
       - nodes/proxy
     verbs:
       - get
-  # Manage core workload resources created per DruidCluster.
-  # All resources are applied via Server-Side Apply (create + patch) and tracked for
-  # orphan cleanup (list + delete).
+  # Manage core workload resources created per DruidCluster: ConfigMaps and Services,
+  # the shared internal authentication Secret (cookie passphrase and internal client
+  # password; no orphan cleanup — Kubernetes GC via owner reference instead), and the
+  # ServiceAccount providing workload pod identity. All are applied via Server-Side
+  # Apply (create + patch), tracked for orphan cleanup where applicable (list +
+  # delete) and watched by the controller (`.owns()` lists before it watches).
   - apiGroups:
       - ""
     resources:
       - configmaps
+      - secrets
+      - serviceaccounts
       - services
     verbs:
       - create
@@ -28,31 +33,8 @@ rules:
       - list
       - patch
       - watch
-  # Shared internal authentication secret (cookie passphrase and internal client password).
-  # Orphan cleanup not needed (instead, Kubernetes GC via owner reference).
-  - apiGroups:
-      - ""
-    resources:
-      - secrets
-    verbs:
-      - create
-      - delete
-      - get
-      - patch
-  # ServiceAccount created per DruidCluster for workload pod identity.
-  # Applied via SSA and tracked for orphan cleanup. Not watched by the controller.
-  - apiGroups:
-      - ""
-    resources:
-      - serviceaccounts
-    verbs:
-      - create
-      - delete
-      - get
-      - list
-      - patch
   # RoleBinding created per DruidCluster to bind the product ClusterRole to the workload
-  # ServiceAccount. Applied via SSA and tracked for orphan cleanup. Not watched by the controller.
+  # ServiceAccount. Applied via SSA and tracked for orphan cleanup and watched by the controller.
   - apiGroups:
       - rbac.authorization.k8s.io
     resources:
@@ -63,6 +45,7 @@ rules:
       - get
       - list
       - patch
+      - watch
   # Required to bind the product ClusterRole to the per-cluster ServiceAccount.
   - apiGroups:
       - rbac.authorization.k8s.io
@@ -85,8 +68,7 @@ rules:
       - list
       - patch
       - watch
-  # PodDisruptionBudget created per role. Applied via SSA and tracked for orphan cleanup.
-  # Not watched by the controller.
+  # PodDisruptionBudget created per role. Applied via SSA and tracked for orphan cleanup and watched by the controller.
   - apiGroups:
       - policy
     resources:
@@ -97,6 +79,7 @@ rules:
       - get
       - list
       - patch
+      - watch
   # Required for maintaining the CRDs within the operator (including the conversion webhook info).
   # Also for the startup condition check before the controller can run.
   - apiGroups:
