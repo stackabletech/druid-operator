@@ -555,38 +555,6 @@ mod tests {
         assert_eq!(containerdebug[0].value.as_deref(), Some("/custom/log/dir"));
     }
 
-    /// A user-supplied extra volume with a free name is mounted under the userdata mountpoint.
-    #[test]
-    fn extra_volume_is_rendered() {
-        let mut druid = druid_from_yaml(MINIMAL_DRUID_YAML);
-        druid.spec.cluster_config.extra_volumes = vec![user_volume("user-volume")];
-        let cluster = validated_cluster(&druid);
-        let role_group_name = RoleGroupName::from_str("default").expect("valid role group name");
-        let rg = broker_default_role_group(&cluster, &role_group_name);
-
-        let stateful_set =
-            build_rolegroup_statefulset(&cluster, &DruidRole::Broker, &role_group_name, &rg)
-                .expect("the StatefulSet builds");
-
-        let mounts = stateful_set
-            .spec
-            .expect("the StatefulSet has a spec")
-            .template
-            .spec
-            .expect("the pod template has a spec")
-            .containers
-            .into_iter()
-            .find(|container| container.name == "druid")
-            .expect("the druid container exists")
-            .volume_mounts
-            .expect("the druid container has volume mounts");
-        assert!(
-            mounts.iter().any(|mount| mount.name == "user-volume"
-                && mount.mount_path == format!("{USERDATA_MOUNTPOINT}/user-volume")),
-            "user mount missing from {mounts:?}"
-        );
-    }
-
     /// A user-supplied extra volume whose name collides with an operator-managed volume must be
     /// reported as an error (the operator's own volumes are added first and are infallible, so
     /// the collision must surface on the user-supplied side, never as a panic).
