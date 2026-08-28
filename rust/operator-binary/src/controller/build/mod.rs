@@ -142,9 +142,6 @@ pub enum Error {
         source: resource::statefulset::Error,
         role_group: RoleGroupName,
     },
-
-    #[snafu(display("failed to build the discovery ConfigMap"))]
-    DiscoveryConfigMap { source: resource::discovery::Error },
 }
 
 /// Builds the Kubernetes resources for the given validated cluster.
@@ -205,9 +202,7 @@ pub fn build(cluster: &ValidatedCluster) -> Result<KubernetesResources<Prepared>
         }
     }
 
-    if let Some(discovery_config_map) =
-        build_discovery_configmap(cluster).context(DiscoveryConfigMapSnafu)?
-    {
+    if let Some(discovery_config_map) = build_discovery_configmap(cluster) {
         config_maps.push(discovery_config_map);
     }
 

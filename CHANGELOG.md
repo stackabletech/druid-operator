@@ -25,6 +25,7 @@ All notable changes to this project will be documented in this file.
   StatefulSets created by older operator versions cannot be updated in place: after the
   operator upgrade, delete each broker, coordinator and router StatefulSet so that the operator
   immediately recreates it with the new labels ([#865]).
+- Make operations infallible where appropriate ([#869]).
 
 ### Fixed
 
@@ -41,6 +42,7 @@ All notable changes to this project will be documented in this file.
 [#860]: https://github.com/stackabletech/druid-operator/pull/860
 [#865]: https://github.com/stackabletech/druid-operator/pull/865
 [#867]: https://github.com/stackabletech/druid-operator/pull/867
+[#869]: https://github.com/stackabletech/druid-operator/pull/869
 
 ## [26.7.0] - 2026-07-21
 
