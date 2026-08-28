@@ -1,7 +1,6 @@
 //! Discovery for Druid.  We make Druid discoverable by putting a connection string to the router service
 //! inside a config map.  We only provide a connection string to the router service, since it serves as
 //! a gateway to the cluster for client queries.
-use snafu::{ResultExt, Snafu};
 use stackable_operator::{
     builder::{configmap::ConfigMapBuilder, meta::ObjectMetaBuilder},
     k8s_openapi::api::core::v1::ConfigMap,
@@ -17,14 +16,6 @@ use crate::{
     },
     crd::DruidRole,
 };
-
-#[derive(Snafu, Debug)]
-pub enum Error {
-    #[snafu(display("failed to build ConfigMap"))]
-    BuildConfigMap {
-        source: stackable_operator::builder::configmap::Error,
-    },
-}
 
 /// Builds the discovery [`ConfigMap`] containing information about how to connect to a certain
 /// Druid cluster.
@@ -44,7 +35,7 @@ pub enum Error {
 ///
 /// Either way the Listener watch triggers a new run once the listener-operator has caught up,
 /// and a fresh ConfigMap is built then.
-pub fn build_discovery_configmap(cluster: &ValidatedCluster) -> Result<Option<ConfigMap>, Error> {
+pub fn build_discovery_configmap(cluster: &ValidatedCluster) -> Option<ConfigMap> {
     let Some(router_host) = cluster
         .router_listener
         .as_ref()
@@ -57,7 +48,7 @@ pub fn build_discovery_configmap(cluster: &ValidatedCluster) -> Result<Option<Co
             )
         })
     else {
-        return Ok(match &cluster.discovery_config_map {
+        return match &cluster.discovery_config_map {
             Some(existing) => {
                 tracing::debug!(
                     "the Router group Listener has no ingress address with the expected port \
@@ -72,7 +63,7 @@ pub fn build_discovery_configmap(cluster: &ValidatedCluster) -> Result<Option<Co
                 );
                 None
             }
-        });
+        };
     };
     let sqlalchemy_conn_str = format!("druid://{}/druid/v2/sql", router_host);
     let avatica_conn_str = format!(
@@ -86,9 +77,9 @@ pub fn build_discovery_configmap(cluster: &ValidatedCluster) -> Result<Option<Co
         .add_data("DRUID_SQLALCHEMY", sqlalchemy_conn_str)
         .add_data("DRUID_AVATICA_JDBC", avatica_conn_str)
         .build()
-        .context(BuildConfigMapSnafu)?;
+        .expect("The ConfigMap metadata is set in this function.");
 
-    Ok(Some(config_map))
+    Some(config_map)
 }
 
 /// Re-emits the stored discovery [`ConfigMap`] so that the apply step keeps tracking it in
@@ -170,10 +161,7 @@ mod tests {
             8888,
         )])));
 
-        let config_map = build_discovery_configmap(&cluster)
-            .expect("the build must not fail on a stale port name");
-
-        assert!(config_map.is_none());
+        assert!(build_discovery_configmap(&cluster).is_none());
     }
 
     /// While no fresh ConfigMap can be built (no usable ingress address on the Router group
@@ -200,9 +188,8 @@ mod tests {
             ..ConfigMap::default()
         });
 
-        let config_map = build_discovery_configmap(&cluster)
-            .expect("the build must not fail")
-            .expect("the stored ConfigMap must be re-emitted");
+        let config_map =
+            build_discovery_configmap(&cluster).expect("the stored ConfigMap must be re-emitted");
 
         assert_eq!(
             config_map.data,
