@@ -143,7 +143,7 @@ pub fn add_tls_volume_and_volume_mounts(
         pod.add_volume(
             VolumeBuilder::new(&*TLS_MOUNT_VOLUME_NAME)
                 .ephemeral(secret_volume_source_builder.build().expect(
-                    "The annotations are built from a validated secret class and static scopes.",
+                    "The annotation keys are static and annotation values cannot be invalid.",
                 ))
                 .build(),
         )
