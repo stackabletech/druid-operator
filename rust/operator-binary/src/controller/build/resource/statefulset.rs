@@ -186,6 +186,25 @@ pub fn build_rolegroup_statefulset(
         .resources
         .update_volumes_and_volume_mounts(&mut cb_druid, &mut pb);
 
+    // The listener volume mount is static as well, so it belongs here, before the derived volumes
+    // and mounts below. The listener volume itself is a PVC template, see `pvcs`.
+    let mut pvcs: Option<Vec<PersistentVolumeClaim>> = None;
+    if let Some(group_listener_name) = group_listener_name(&cluster.name, role) {
+        cb_druid
+            .add_volume_mount(&*LISTENER_VOLUME_NAME, LISTENER_VOLUME_DIR)
+            .expect("The mount paths are statically defined and there should be no duplicates.");
+
+        // Used for PVC templates, which cannot be modified once they are deployed. The version
+        // label is omitted so the labels stay stable across version upgrades.
+        let unversioned_recommended_labels =
+            recommended_labels_for_unversioned_role_group_resources(cluster, role, role_group_name);
+
+        pvcs = Some(vec![build_group_listener_pvc(
+            &group_listener_name,
+            &unversioned_recommended_labels,
+        )]);
+    }
+
     if let Some(auth_config) = druid_auth_config {
         authentication::add_volumes_and_mounts(
             auth_config,
@@ -304,24 +323,6 @@ pub fn build_rolegroup_statefulset(
             .context(AddVolumeMountSnafu)?;
     }
 
-    let mut pvcs: Option<Vec<PersistentVolumeClaim>> = None;
-
-    if let Some(group_listener_name) = group_listener_name(&cluster.name, role) {
-        cb_druid
-            .add_volume_mount(&*LISTENER_VOLUME_NAME, LISTENER_VOLUME_DIR)
-            .expect("The mount paths are statically defined and there should be no duplicates.");
-
-        // Used for PVC templates, which cannot be modified once they are deployed. The version
-        // label is omitted so the labels stay stable across version upgrades.
-        let unversioned_recommended_labels =
-            recommended_labels_for_unversioned_role_group_resources(cluster, role, role_group_name);
-
-        pvcs = Some(vec![build_group_listener_pvc(
-            &group_listener_name,
-            &unversioned_recommended_labels,
-        )]);
-    }
-
     let metadata = ObjectMetaBuilder::new()
         .with_labels(recommended_labels_for_role_group_resources(
             cluster,
@@ -390,6 +391,13 @@ pub fn build_rolegroup_statefulset(
     })
 }
 
+/// Adds the HDFS discovery ConfigMap volume and its mount if HDFS deep storage is configured.
+///
+/// # Panics
+///
+/// Panics if the volumes or volume mounts cannot be added to the builders. Only call this
+/// on builders whose volume names and mount paths are still distinct from the ones added
+/// here.
 fn add_hdfs_cm_volume_and_volume_mounts(
     deep_storage_spec: &DeepStorageSpec,
     cb_druid: &mut ContainerBuilder,
@@ -409,6 +417,13 @@ fn add_hdfs_cm_volume_and_volume_mounts(
     }
 }
 
+/// Adds the role group ConfigMap volume, the writable config volume and their mounts.
+///
+/// # Panics
+///
+/// Panics if the volumes or volume mounts cannot be added to the builders. Only call this
+/// on builders whose volume names and mount paths are still distinct from the ones added
+/// here.
 fn add_config_volume_and_volume_mounts(
     resource_names: &ResourceNames,
     cb_druid: &mut ContainerBuilder,
@@ -434,6 +449,13 @@ fn add_config_volume_and_volume_mounts(
     .expect("The volume names are statically defined and there should be no duplicates.");
 }
 
+/// Adds the log config ConfigMap volume and its mount.
+///
+/// # Panics
+///
+/// Panics if the volumes or volume mounts cannot be added to the builders. Only call this
+/// on builders whose volume names and mount paths are still distinct from the ones added
+/// here.
 fn add_log_config_volume_and_volume_mounts(
     resource_names: &ResourceNames,
     merged_rolegroup_config: &ValidatedDruidConfig,
@@ -459,6 +481,13 @@ fn add_log_config_volume_and_volume_mounts(
     .expect("The volume names are statically defined and there should be no duplicates.");
 }
 
+/// Adds the log volume and its mounts on the druid and prepare containers.
+///
+/// # Panics
+///
+/// Panics if the volumes or volume mounts cannot be added to the builders. Only call this
+/// on builders whose volume names and mount paths are still distinct from the ones added
+/// here.
 fn add_log_volume_and_volume_mounts(
     cb_druid: &mut ContainerBuilder,
     cb_prepare: &mut ContainerBuilder,

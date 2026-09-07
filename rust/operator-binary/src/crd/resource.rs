@@ -88,6 +88,13 @@ impl RoleResource {
         Ok(())
     }
 
+    /// Adds the segment cache volume and its mount for the Historical role.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the volumes or volume mounts cannot be added to the builders. Only call this
+    /// on builders whose volume names and mount paths are still distinct from the ones added
+    /// here.
     pub fn update_volumes_and_volume_mounts(&self, cb: &mut ContainerBuilder, pb: &mut PodBuilder) {
         if let Self::Historical(r) = self {
             cb.add_volume_mount(&*SEGMENT_CACHE_VOLUME_NAME, PATH_SEGMENT_CACHE)

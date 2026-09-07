@@ -114,6 +114,12 @@ fn exposed_port(tls: &DruidTlsSecurity, role: &DruidRole) -> (&'static str, Port
 
 /// Adds required tls volume mounts to image and product container builders
 /// Adds required tls volumes to pod builder
+///
+/// # Panics
+///
+/// Panics if the volumes or volume mounts cannot be added to the builders. Only call this
+/// on builders whose volume names and mount paths are still distinct from the ones added
+/// here.
 pub fn add_tls_volume_and_volume_mounts(
     tls: &DruidTlsSecurity,
     prepare: &mut ContainerBuilder,
