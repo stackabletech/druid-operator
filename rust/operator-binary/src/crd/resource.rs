@@ -2,6 +2,7 @@ use std::{collections::BTreeMap, str::FromStr, sync::LazyLock};
 
 use snafu::{OptionExt, ResultExt, Snafu};
 use stackable_operator::{
+    builder,
     builder::pod::{PodBuilder, container::ContainerBuilder, volume::VolumeBuilder},
     commons::resources::{
         CpuLimitsFragment, MemoryLimitsFragment, NoRuntimeLimits, NoRuntimeLimitsFragment,
@@ -44,6 +45,9 @@ pub enum Error {
 
     #[snafu(display("the operator produced an internally inconsistent state"))]
     InconsistentConfiguration,
+
+    #[snafu(display("failed to add needed volume"))]
+    AddVolume { source: builder::pod::Error },
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -92,10 +96,13 @@ impl RoleResource {
     ///
     /// # Panics
     ///
-    /// Panics if the volumes or volume mounts cannot be added to the builders. Only call this
-    /// on builders whose volume names and mount paths are still distinct from the ones added
-    /// here.
-    pub fn update_volumes_and_volume_mounts(&self, cb: &mut ContainerBuilder, pb: &mut PodBuilder) {
+    /// Panics if the volume mount cannot be added to the container builder. Only call this on a
+    /// container builder whose mount paths are still distinct from the one added here.
+    pub fn update_volumes_and_volume_mounts(
+        &self,
+        cb: &mut ContainerBuilder,
+        pb: &mut PodBuilder,
+    ) -> Result<(), Error> {
         if let Self::Historical(r) = self {
             cb.add_volume_mount(&*SEGMENT_CACHE_VOLUME_NAME, PATH_SEGMENT_CACHE)
                 .expect(
@@ -109,8 +116,10 @@ impl RoleResource {
                     })
                     .build(),
             )
-            .expect("The volume names are statically defined and there should be no duplicates.");
+            .context(AddVolumeSnafu)?;
         }
+
+        Ok(())
     }
 
     /// Computes the heap and direct access memory sizes per role. The settings can be used to configure

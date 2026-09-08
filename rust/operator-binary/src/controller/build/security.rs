@@ -6,11 +6,18 @@
 
 use std::{collections::BTreeMap, str::FromStr};
 
+use snafu::{ResultExt, Snafu};
 use stackable_operator::{
-    builder::pod::{
-        PodBuilder,
-        container::ContainerBuilder,
-        volume::{SecretFormat, SecretOperatorVolumeSourceBuilder, VolumeBuilder},
+    builder::{
+        self,
+        pod::{
+            PodBuilder,
+            container::ContainerBuilder,
+            volume::{
+                SecretFormat, SecretOperatorVolumeSourceBuilder,
+                SecretOperatorVolumeSourceBuilderError, VolumeBuilder,
+            },
+        },
     },
     commons::secret_class::SecretClassVolumeProvisionParts,
     crd::listener,
@@ -27,6 +34,17 @@ use crate::crd::{
     TRUST_STORE_FILE,
     security::{DruidTlsSecurity, PLAINTEXT_PORT_NAME, STACKABLE_TLS_DIR, TLS_PORT_NAME},
 };
+
+#[derive(Snafu, Debug)]
+pub enum Error {
+    #[snafu(display("failed to build the Secret operator Volume"))]
+    SecretVolumeBuild {
+        source: SecretOperatorVolumeSourceBuilderError,
+    },
+
+    #[snafu(display("failed to add needed volume"))]
+    AddVolume { source: builder::pod::Error },
+}
 
 // Ports
 const ENABLE_PLAINTEXT_PORT: &str = "druid.enablePlaintextPort";
@@ -117,9 +135,8 @@ fn exposed_port(tls: &DruidTlsSecurity, role: &DruidRole) -> (&'static str, Port
 ///
 /// # Panics
 ///
-/// Panics if the volumes or volume mounts cannot be added to the builders. Only call this
-/// on builders whose volume names and mount paths are still distinct from the ones added
-/// here.
+/// Panics if the volume mounts cannot be added to the container builders. Only call this on
+/// container builders whose mount paths are still distinct from the ones added here.
 pub fn add_tls_volume_and_volume_mounts(
     tls: &DruidTlsSecurity,
     prepare: &mut ContainerBuilder,
@@ -127,7 +144,7 @@ pub fn add_tls_volume_and_volume_mounts(
     pod: &mut PodBuilder,
     requested_secret_lifetime: &Duration,
     listener_scope: Option<String>,
-) {
+) -> Result<(), Error> {
     // `ResolvedAuthenticationClasses::validate` already checked that the tls AuthenticationClass
     // uses the same SecretClass as the Druid server itself.
     if let Some(secret_class) = tls.server_and_internal_secret_class() {
@@ -148,12 +165,14 @@ pub fn add_tls_volume_and_volume_mounts(
 
         pod.add_volume(
             VolumeBuilder::new(&*TLS_MOUNT_VOLUME_NAME)
-                .ephemeral(secret_volume_source_builder.build().expect(
-                    "The annotation keys are static and annotation values cannot be invalid.",
-                ))
+                .ephemeral(
+                    secret_volume_source_builder
+                        .build()
+                        .context(SecretVolumeBuildSnafu)?,
+                )
                 .build(),
         )
-        .expect("The volume names are statically defined and there should be no duplicates.");
+        .context(AddVolumeSnafu)?;
         prepare
             .add_volume_mount(&*TLS_MOUNT_VOLUME_NAME, STACKABLE_MOUNT_TLS_DIR)
             .expect("The mount paths are statically defined and there should be no duplicates.");
@@ -166,7 +185,7 @@ pub fn add_tls_volume_and_volume_mounts(
                 .with_empty_dir(Option::<&str>::None, None)
                 .build(),
         )
-        .expect("The volume names are statically defined and there should be no duplicates.");
+        .context(AddVolumeSnafu)?;
 
         prepare
             .add_volume_mount(&*TLS_VOLUME_NAME, STACKABLE_TLS_DIR)
@@ -175,6 +194,7 @@ pub fn add_tls_volume_and_volume_mounts(
             .add_volume_mount(&*TLS_VOLUME_NAME, STACKABLE_TLS_DIR)
             .expect("The mount paths are statically defined and there should be no duplicates.");
     }
+    Ok(())
 }
 
 fn add_tls_port_config_properties(

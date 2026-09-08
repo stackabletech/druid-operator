@@ -60,6 +60,12 @@ const AUTH_AUTHORIZER_OPA_URI: &str = "druid.auth.authorizer.OpaAuthorizer.opaUr
 #[derive(Snafu, Debug)]
 #[allow(clippy::enum_variant_names)]
 pub enum Error {
+    #[snafu(display("failed to build ConfigMap for role group {role_group}"))]
+    BuildRoleGroupConfig {
+        source: stackable_operator::builder::configmap::Error,
+        role_group: String,
+    },
+
     #[snafu(display("failed to configure S3 connection"))]
     ConfigureS3 {
         source: stackable_operator::crd::s3::v1alpha1::ConnectionError,
@@ -393,9 +399,11 @@ pub fn build_rolegroup_config_map(
         config_map_builder.add_data(VECTOR_CONFIG_FILE, vector_config_file_content());
     }
 
-    Ok(config_map_builder
+    config_map_builder
         .build()
-        .expect("The ConfigMap metadata is set in this function."))
+        .with_context(|_| BuildRoleGroupConfigSnafu {
+            role_group: role_group_name.to_string(),
+        })
 }
 
 #[cfg(test)]

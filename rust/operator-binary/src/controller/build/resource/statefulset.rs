@@ -84,6 +84,11 @@ pub enum Error {
         source: crate::controller::build::authentication::Error,
     },
 
+    #[snafu(display("failed to initialize security context"))]
+    FailedToInitializeSecurityContext {
+        source: crate::controller::build::security::Error,
+    },
+
     #[snafu(display(
         "Druid does not support skipping the verification of the tls enabled S3 server"
     ))]
@@ -93,6 +98,9 @@ pub enum Error {
     ConfigureS3 {
         source: stackable_operator::crd::s3::v1alpha1::ConnectionError,
     },
+
+    #[snafu(display("failed to update Druid config from resources"))]
+    UpdateDruidConfigFromResources { source: crate::crd::resource::Error },
 
     #[snafu(display("failed to add needed volume"))]
     AddVolume {
@@ -156,10 +164,11 @@ pub fn build_rolegroup_statefulset(
     }
     prepare_container_commands.extend(build_tls_key_stores_cmd(druid_tls_security));
 
-    // Operator-managed volumes and volume mounts first: their names and paths are constants, so
-    // they cannot collide with each other and the adds are infallible. Volumes and mounts derived
-    // from user input (authentication, S3, `extraVolumes`) are added afterwards and stay fallible,
-    // as they can collide with the operator-managed ones.
+    // Operator-managed volumes and volume mounts first. Their mount paths are constants, so the
+    // mounts cannot collide with each other and adding them is infallible. Adding the volumes
+    // stays fallible, because the volumes are built from computed arguments. Volumes and mounts
+    // derived from user input (authentication, S3, `extraVolumes`) are added afterwards and stay
+    // fallible, as they can collide with the operator-managed ones.
     add_tls_volume_and_volume_mounts(
         druid_tls_security,
         &mut cb_prepare,
@@ -168,23 +177,25 @@ pub fn build_rolegroup_statefulset(
         &merged_rolegroup_config.requested_secret_lifetime,
         // add listener
         secret_volume_listener_scope(role),
-    );
-    add_config_volume_and_volume_mounts(&resource_names, &mut cb_druid, &mut pb);
+    )
+    .context(FailedToInitializeSecurityContextSnafu)?;
+    add_config_volume_and_volume_mounts(&resource_names, &mut cb_druid, &mut pb)?;
     add_log_config_volume_and_volume_mounts(
         &resource_names,
         merged_rolegroup_config,
         &mut cb_druid,
         &mut pb,
-    );
-    add_log_volume_and_volume_mounts(&mut cb_druid, &mut cb_prepare, &mut pb);
+    )?;
+    add_log_volume_and_volume_mounts(&mut cb_druid, &mut cb_prepare, &mut pb)?;
     add_hdfs_cm_volume_and_volume_mounts(
         &cluster.cluster_config.deep_storage,
         &mut cb_druid,
         &mut pb,
-    );
+    )?;
     merged_rolegroup_config
         .resources
-        .update_volumes_and_volume_mounts(&mut cb_druid, &mut pb);
+        .update_volumes_and_volume_mounts(&mut cb_druid, &mut pb)
+        .context(UpdateDruidConfigFromResourcesSnafu)?;
 
     // The listener volume mount is static as well, so it belongs here, before the derived volumes
     // and mounts below. The listener volume itself is a PVC template, see `pvcs`.
@@ -395,14 +406,13 @@ pub fn build_rolegroup_statefulset(
 ///
 /// # Panics
 ///
-/// Panics if the volumes or volume mounts cannot be added to the builders. Only call this
-/// on builders whose volume names and mount paths are still distinct from the ones added
-/// here.
+/// Panics if the volume mounts cannot be added to the container builder. Only call this on a
+/// container builder whose mount paths are still distinct from the ones added here.
 fn add_hdfs_cm_volume_and_volume_mounts(
     deep_storage_spec: &DeepStorageSpec,
     cb_druid: &mut ContainerBuilder,
     pb: &mut PodBuilder,
-) {
+) -> Result<()> {
     // hdfs deep storage mount
     if let DeepStorageSpec::Hdfs(hdfs) = deep_storage_spec {
         cb_druid
@@ -413,22 +423,23 @@ fn add_hdfs_cm_volume_and_volume_mounts(
                 .with_config_map(hdfs.config_map_name.to_string())
                 .build(),
         )
-        .expect("The volume names are statically defined and there should be no duplicates.");
+        .context(AddVolumeSnafu)?;
     }
+
+    Ok(())
 }
 
 /// Adds the role group ConfigMap volume, the writable config volume and their mounts.
 ///
 /// # Panics
 ///
-/// Panics if the volumes or volume mounts cannot be added to the builders. Only call this
-/// on builders whose volume names and mount paths are still distinct from the ones added
-/// here.
+/// Panics if the volume mounts cannot be added to the container builder. Only call this on a
+/// container builder whose mount paths are still distinct from the ones added here.
 fn add_config_volume_and_volume_mounts(
     resource_names: &ResourceNames,
     cb_druid: &mut ContainerBuilder,
     pb: &mut PodBuilder,
-) {
+) -> Result<()> {
     cb_druid
         .add_volume_mount(&*DRUID_CONFIG_VOLUME_NAME, DRUID_CONFIG_DIRECTORY)
         .expect("The mount paths are statically defined and there should be no duplicates.");
@@ -437,7 +448,7 @@ fn add_config_volume_and_volume_mounts(
             .with_config_map(resource_names.role_group_config_map().to_string())
             .build(),
     )
-    .expect("The volume names are statically defined and there should be no duplicates.");
+    .context(AddVolumeSnafu)?;
     cb_druid
         .add_volume_mount(&*RW_CONFIG_VOLUME_NAME, RW_CONFIG_DIRECTORY)
         .expect("The mount paths are statically defined and there should be no duplicates.");
@@ -446,22 +457,23 @@ fn add_config_volume_and_volume_mounts(
             .with_empty_dir(Some(""), None)
             .build(),
     )
-    .expect("The volume names are statically defined and there should be no duplicates.");
+    .context(AddVolumeSnafu)?;
+
+    Ok(())
 }
 
 /// Adds the log config ConfigMap volume and its mount.
 ///
 /// # Panics
 ///
-/// Panics if the volumes or volume mounts cannot be added to the builders. Only call this
-/// on builders whose volume names and mount paths are still distinct from the ones added
-/// here.
+/// Panics if the volume mounts cannot be added to the container builder. Only call this on a
+/// container builder whose mount paths are still distinct from the ones added here.
 fn add_log_config_volume_and_volume_mounts(
     resource_names: &ResourceNames,
     merged_rolegroup_config: &ValidatedDruidConfig,
     cb_druid: &mut ContainerBuilder,
     pb: &mut PodBuilder,
-) {
+) -> Result<()> {
     cb_druid
         .add_volume_mount(&*LOG_CONFIG_VOLUME_NAME, LOG_CONFIG_DIRECTORY)
         .expect("The mount paths are statically defined and there should be no duplicates.");
@@ -478,21 +490,22 @@ fn add_log_config_volume_and_volume_mounts(
             .with_config_map(config_map)
             .build(),
     )
-    .expect("The volume names are statically defined and there should be no duplicates.");
+    .context(AddVolumeSnafu)?;
+
+    Ok(())
 }
 
 /// Adds the log volume and its mounts on the druid and prepare containers.
 ///
 /// # Panics
 ///
-/// Panics if the volumes or volume mounts cannot be added to the builders. Only call this
-/// on builders whose volume names and mount paths are still distinct from the ones added
-/// here.
+/// Panics if the volume mounts cannot be added to the container builders. Only call this on
+/// container builders whose mount paths are still distinct from the ones added here.
 fn add_log_volume_and_volume_mounts(
     cb_druid: &mut ContainerBuilder,
     cb_prepare: &mut ContainerBuilder,
     pb: &mut PodBuilder,
-) {
+) -> Result<()> {
     cb_druid
         .add_volume_mount(&*LOG_VOLUME_NAME, STACKABLE_LOG_DIR)
         .expect("The mount paths are statically defined and there should be no duplicates.");
@@ -509,7 +522,9 @@ fn add_log_volume_and_volume_mounts(
             )
             .build(),
     )
-    .expect("The volume names are statically defined and there should be no duplicates.");
+    .context(AddVolumeSnafu)?;
+
+    Ok(())
 }
 
 #[cfg(test)]

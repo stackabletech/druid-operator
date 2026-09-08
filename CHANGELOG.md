@@ -25,7 +25,7 @@ All notable changes to this project will be documented in this file.
   StatefulSets created by older operator versions cannot be updated in place: after the
   operator upgrade, delete each broker, coordinator and router StatefulSet so that the operator
   immediately recreates it with the new labels ([#865]).
-- Make operations infallible where appropriate ([#869]).
+- Make operations infallible where dependent on static inputs ([#869]).
 
 ### Fixed
 
