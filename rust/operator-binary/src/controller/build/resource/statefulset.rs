@@ -164,19 +164,11 @@ pub fn build_rolegroup_statefulset(
     }
     prepare_container_commands.extend(build_tls_key_stores_cmd(druid_tls_security));
 
-    if let Some(auth_config) = druid_auth_config {
-        authentication::add_volumes_and_mounts(
-            auth_config,
-            &mut pb,
-            &mut cb_druid,
-            &mut cb_prepare,
-        )
-        .context(AuthVolumesBuildSnafu)?;
-        prepare_container_commands.extend(authentication::prepare_container_commands(auth_config));
-        main_container_commands.extend(authentication::main_container_commands(auth_config))
-    }
-
-    // volume and volume mounts
+    // Operator-managed volumes and volume mounts first. Their mount paths are constants, so the
+    // mounts cannot collide with each other and adding them is infallible. Adding the volumes
+    // stays fallible, because the volumes are built from computed arguments. Volumes and mounts
+    // derived from user input (authentication, S3, `extraVolumes`) are added afterwards and stay
+    // fallible, as they can collide with the operator-managed ones.
     add_tls_volume_and_volume_mounts(
         druid_tls_security,
         &mut cb_prepare,
@@ -187,15 +179,6 @@ pub fn build_rolegroup_statefulset(
         secret_volume_listener_scope(role),
     )
     .context(FailedToInitializeSecurityContextSnafu)?;
-
-    if let Some(s3) = s3_conn {
-        if s3.tls.uses_tls() && !s3.tls.uses_tls_verification() {
-            S3TlsNoVerificationNotSupportedSnafu.fail()?;
-        }
-        s3.add_volumes_and_mounts(&mut pb, vec![&mut cb_druid])
-            .context(ConfigureS3Snafu)?;
-    }
-
     add_config_volume_and_volume_mounts(&resource_names, &mut cb_druid, &mut pb)?;
     add_log_config_volume_and_volume_mounts(
         &resource_names,
@@ -213,6 +196,45 @@ pub fn build_rolegroup_statefulset(
         .resources
         .update_volumes_and_volume_mounts(&mut cb_druid, &mut pb)
         .context(UpdateDruidConfigFromResourcesSnafu)?;
+
+    // The listener volume mount is static as well, so it belongs here, before the derived volumes
+    // and mounts below. The listener volume itself is a PVC template, see `pvcs`.
+    let mut pvcs: Option<Vec<PersistentVolumeClaim>> = None;
+    if let Some(group_listener_name) = group_listener_name(&cluster.name, role) {
+        cb_druid
+            .add_volume_mount(&*LISTENER_VOLUME_NAME, LISTENER_VOLUME_DIR)
+            .expect("The mount paths are statically defined and there should be no duplicates.");
+
+        // Used for PVC templates, which cannot be modified once they are deployed. The version
+        // label is omitted so the labels stay stable across version upgrades.
+        let unversioned_recommended_labels =
+            recommended_labels_for_unversioned_role_group_resources(cluster, role, role_group_name);
+
+        pvcs = Some(vec![build_group_listener_pvc(
+            &group_listener_name,
+            &unversioned_recommended_labels,
+        )]);
+    }
+
+    if let Some(auth_config) = druid_auth_config {
+        authentication::add_volumes_and_mounts(
+            auth_config,
+            &mut pb,
+            &mut cb_druid,
+            &mut cb_prepare,
+        )
+        .context(AuthVolumesBuildSnafu)?;
+        prepare_container_commands.extend(authentication::prepare_container_commands(auth_config));
+        main_container_commands.extend(authentication::main_container_commands(auth_config))
+    }
+
+    if let Some(s3) = s3_conn {
+        if s3.tls.uses_tls() && !s3.tls.uses_tls_verification() {
+            S3TlsNoVerificationNotSupportedSnafu.fail()?;
+        }
+        s3.add_volumes_and_mounts(&mut pb, vec![&mut cb_druid])
+            .context(ConfigureS3Snafu)?;
+    }
 
     cb_prepare
         .image_from_product_image(resolved_product_image)
@@ -312,24 +334,6 @@ pub fn build_rolegroup_statefulset(
             .context(AddVolumeMountSnafu)?;
     }
 
-    let mut pvcs: Option<Vec<PersistentVolumeClaim>> = None;
-
-    if let Some(group_listener_name) = group_listener_name(&cluster.name, role) {
-        cb_druid
-            .add_volume_mount(&*LISTENER_VOLUME_NAME, LISTENER_VOLUME_DIR)
-            .context(AddVolumeMountSnafu)?;
-
-        // Used for PVC templates, which cannot be modified once they are deployed. The version
-        // label is omitted so the labels stay stable across version upgrades.
-        let unversioned_recommended_labels =
-            recommended_labels_for_unversioned_role_group_resources(cluster, role, role_group_name);
-
-        pvcs = Some(vec![build_group_listener_pvc(
-            &group_listener_name,
-            &unversioned_recommended_labels,
-        )]);
-    }
-
     let metadata = ObjectMetaBuilder::new()
         .with_labels(recommended_labels_for_role_group_resources(
             cluster,
@@ -398,6 +402,12 @@ pub fn build_rolegroup_statefulset(
     })
 }
 
+/// Adds the HDFS discovery ConfigMap volume and its mount if HDFS deep storage is configured.
+///
+/// # Panics
+///
+/// Panics if the volume mounts cannot be added to the container builder. Only call this on a
+/// container builder whose mount paths are still distinct from the ones added here.
 fn add_hdfs_cm_volume_and_volume_mounts(
     deep_storage_spec: &DeepStorageSpec,
     cb_druid: &mut ContainerBuilder,
@@ -407,7 +417,7 @@ fn add_hdfs_cm_volume_and_volume_mounts(
     if let DeepStorageSpec::Hdfs(hdfs) = deep_storage_spec {
         cb_druid
             .add_volume_mount(&*HDFS_CONFIG_VOLUME_NAME, HDFS_CONFIG_DIRECTORY)
-            .context(AddVolumeMountSnafu)?;
+            .expect("The mount paths are statically defined and there should be no duplicates.");
         pb.add_volume(
             VolumeBuilder::new(&*HDFS_CONFIG_VOLUME_NAME)
                 .with_config_map(hdfs.config_map_name.to_string())
@@ -419,6 +429,12 @@ fn add_hdfs_cm_volume_and_volume_mounts(
     Ok(())
 }
 
+/// Adds the role group ConfigMap volume, the writable config volume and their mounts.
+///
+/// # Panics
+///
+/// Panics if the volume mounts cannot be added to the container builder. Only call this on a
+/// container builder whose mount paths are still distinct from the ones added here.
 fn add_config_volume_and_volume_mounts(
     resource_names: &ResourceNames,
     cb_druid: &mut ContainerBuilder,
@@ -426,7 +442,7 @@ fn add_config_volume_and_volume_mounts(
 ) -> Result<()> {
     cb_druid
         .add_volume_mount(&*DRUID_CONFIG_VOLUME_NAME, DRUID_CONFIG_DIRECTORY)
-        .context(AddVolumeMountSnafu)?;
+        .expect("The mount paths are statically defined and there should be no duplicates.");
     pb.add_volume(
         VolumeBuilder::new(&*DRUID_CONFIG_VOLUME_NAME)
             .with_config_map(resource_names.role_group_config_map().to_string())
@@ -435,7 +451,7 @@ fn add_config_volume_and_volume_mounts(
     .context(AddVolumeSnafu)?;
     cb_druid
         .add_volume_mount(&*RW_CONFIG_VOLUME_NAME, RW_CONFIG_DIRECTORY)
-        .context(AddVolumeMountSnafu)?;
+        .expect("The mount paths are statically defined and there should be no duplicates.");
     pb.add_volume(
         VolumeBuilder::new(&*RW_CONFIG_VOLUME_NAME)
             .with_empty_dir(Some(""), None)
@@ -446,6 +462,12 @@ fn add_config_volume_and_volume_mounts(
     Ok(())
 }
 
+/// Adds the log config ConfigMap volume and its mount.
+///
+/// # Panics
+///
+/// Panics if the volume mounts cannot be added to the container builder. Only call this on a
+/// container builder whose mount paths are still distinct from the ones added here.
 fn add_log_config_volume_and_volume_mounts(
     resource_names: &ResourceNames,
     merged_rolegroup_config: &ValidatedDruidConfig,
@@ -454,7 +476,7 @@ fn add_log_config_volume_and_volume_mounts(
 ) -> Result<()> {
     cb_druid
         .add_volume_mount(&*LOG_CONFIG_VOLUME_NAME, LOG_CONFIG_DIRECTORY)
-        .context(AddVolumeMountSnafu)?;
+        .expect("The mount paths are statically defined and there should be no duplicates.");
 
     let config_map = match &merged_rolegroup_config.logging.druid_container {
         ValidatedContainerLogConfigChoice::Custom(config_map_name) => config_map_name.to_string(),
@@ -473,6 +495,12 @@ fn add_log_config_volume_and_volume_mounts(
     Ok(())
 }
 
+/// Adds the log volume and its mounts on the druid and prepare containers.
+///
+/// # Panics
+///
+/// Panics if the volume mounts cannot be added to the container builders. Only call this on
+/// container builders whose mount paths are still distinct from the ones added here.
 fn add_log_volume_and_volume_mounts(
     cb_druid: &mut ContainerBuilder,
     cb_prepare: &mut ContainerBuilder,
@@ -480,10 +508,10 @@ fn add_log_volume_and_volume_mounts(
 ) -> Result<()> {
     cb_druid
         .add_volume_mount(&*LOG_VOLUME_NAME, STACKABLE_LOG_DIR)
-        .context(AddVolumeMountSnafu)?;
+        .expect("The mount paths are statically defined and there should be no duplicates.");
     cb_prepare
         .add_volume_mount(&*LOG_VOLUME_NAME, STACKABLE_LOG_DIR)
-        .context(AddVolumeMountSnafu)?;
+        .expect("The mount paths are statically defined and there should be no duplicates.");
     pb.add_volume(
         VolumeBuilder::new(&*LOG_VOLUME_NAME)
             .with_empty_dir(
@@ -501,7 +529,10 @@ fn add_log_volume_and_volume_mounts(
 
 #[cfg(test)]
 mod tests {
-    use stackable_operator::v2::types::operator::RoleGroupName;
+    use stackable_operator::{
+        k8s_openapi::api::core::v1::{ConfigMapVolumeSource, Volume},
+        v2::types::operator::RoleGroupName,
+    };
 
     use super::*;
     use crate::controller::validate::test_support::{
@@ -566,5 +597,51 @@ mod tests {
             "the override must replace the operator-set value, not duplicate it"
         );
         assert_eq!(containerdebug[0].value.as_deref(), Some("/custom/log/dir"));
+    }
+
+    /// A user-supplied extra volume whose name collides with an operator-managed volume must be
+    /// reported as an error (the operator's own volumes are added first and are infallible, so
+    /// the collision must surface on the user-supplied side, never as a panic).
+    #[test]
+    fn extra_volume_colliding_with_operator_volume_is_an_error() {
+        let mut druid = druid_from_yaml(MINIMAL_DRUID_YAML);
+        druid.spec.cluster_config.extra_volumes = vec![user_volume(LOG_VOLUME_NAME.as_ref())];
+        let cluster = validated_cluster(&druid);
+        let role_group_name = RoleGroupName::from_str("default").expect("valid role group name");
+        let rg = broker_default_role_group(&cluster, &role_group_name);
+
+        let Err(error) =
+            build_rolegroup_statefulset(&cluster, &DruidRole::Broker, &role_group_name, &rg)
+        else {
+            panic!("the colliding extra volume must be rejected");
+        };
+        assert!(
+            matches!(error, Error::AddVolume { .. }),
+            "unexpected error: {error:?}"
+        );
+    }
+
+    fn user_volume(name: &str) -> Volume {
+        Volume {
+            name: name.to_owned(),
+            config_map: Some(ConfigMapVolumeSource {
+                name: "user-cm".to_owned(),
+                ..ConfigMapVolumeSource::default()
+            }),
+            ..Volume::default()
+        }
+    }
+
+    fn broker_default_role_group(
+        cluster: &ValidatedCluster,
+        role_group_name: &RoleGroupName,
+    ) -> DruidRoleGroupConfig {
+        cluster
+            .role_group_configs
+            .get(&DruidRole::Broker)
+            .expect("broker role groups")
+            .get(role_group_name)
+            .expect("default role group")
+            .clone()
     }
 }

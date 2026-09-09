@@ -44,11 +44,6 @@ pub enum Error {
 
     #[snafu(display("failed to add needed volume"))]
     AddVolume { source: builder::pod::Error },
-
-    #[snafu(display("failed to add needed volumeMount"))]
-    AddVolumeMount {
-        source: builder::pod::container::Error,
-    },
 }
 
 // Ports
@@ -137,6 +132,11 @@ fn exposed_port(tls: &DruidTlsSecurity, role: &DruidRole) -> (&'static str, Port
 
 /// Adds required tls volume mounts to image and product container builders
 /// Adds required tls volumes to pod builder
+///
+/// # Panics
+///
+/// Panics if the volume mounts cannot be added to the container builders. Only call this on
+/// container builders whose mount paths are still distinct from the ones added here.
 pub fn add_tls_volume_and_volume_mounts(
     tls: &DruidTlsSecurity,
     prepare: &mut ContainerBuilder,
@@ -175,10 +175,10 @@ pub fn add_tls_volume_and_volume_mounts(
         .context(AddVolumeSnafu)?;
         prepare
             .add_volume_mount(&*TLS_MOUNT_VOLUME_NAME, STACKABLE_MOUNT_TLS_DIR)
-            .context(AddVolumeMountSnafu)?;
+            .expect("The mount paths are statically defined and there should be no duplicates.");
         druid
             .add_volume_mount(&*TLS_MOUNT_VOLUME_NAME, STACKABLE_MOUNT_TLS_DIR)
-            .context(AddVolumeMountSnafu)?;
+            .expect("The mount paths are statically defined and there should be no duplicates.");
 
         pod.add_volume(
             VolumeBuilder::new(&*TLS_VOLUME_NAME)
@@ -189,10 +189,10 @@ pub fn add_tls_volume_and_volume_mounts(
 
         prepare
             .add_volume_mount(&*TLS_VOLUME_NAME, STACKABLE_TLS_DIR)
-            .context(AddVolumeMountSnafu)?;
+            .expect("The mount paths are statically defined and there should be no duplicates.");
         druid
             .add_volume_mount(&*TLS_VOLUME_NAME, STACKABLE_TLS_DIR)
-            .context(AddVolumeMountSnafu)?;
+            .expect("The mount paths are statically defined and there should be no duplicates.");
     }
     Ok(())
 }

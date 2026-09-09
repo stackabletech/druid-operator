@@ -1,4 +1,4 @@
-use std::{collections::BTreeMap, sync::LazyLock};
+use std::{collections::BTreeMap, str::FromStr, sync::LazyLock};
 
 use snafu::{OptionExt, ResultExt, Snafu};
 use stackable_operator::{
@@ -8,11 +8,13 @@ use stackable_operator::{
         CpuLimitsFragment, MemoryLimitsFragment, NoRuntimeLimits, NoRuntimeLimitsFragment,
         Resources, ResourcesFragment,
     },
+    constant,
     k8s_openapi::{
         api::core::v1::{EmptyDirVolumeSource, ResourceRequirements},
         apimachinery::pkg::api::resource::Quantity,
     },
     memory::MemoryQuantity,
+    v2::types::kubernetes::VolumeName,
 };
 
 use crate::crd::{
@@ -24,7 +26,7 @@ use crate::crd::{
 const PATH_SEGMENT_CACHE: &str = "/stackable/var/druid/segment-cache";
 
 // volume names
-const SEGMENT_CACHE_VOLUME_NAME: &str = "segment-cache";
+constant!(SEGMENT_CACHE_VOLUME_NAME: VolumeName = "segment-cache");
 
 /// This Error cannot derive PartialEq because fragment::ValidationError doesn't derive it
 #[derive(Snafu, Debug)]
@@ -46,11 +48,6 @@ pub enum Error {
 
     #[snafu(display("failed to add needed volume"))]
     AddVolume { source: builder::pod::Error },
-
-    #[snafu(display("failed to add needed volumeMount"))]
-    AddVolumeMount {
-        source: builder::pod::container::Error,
-    },
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -95,16 +92,24 @@ impl RoleResource {
         Ok(())
     }
 
+    /// Adds the segment cache volume and its mount for the Historical role.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the volume mount cannot be added to the container builder. Only call this on a
+    /// container builder whose mount paths are still distinct from the one added here.
     pub fn update_volumes_and_volume_mounts(
         &self,
         cb: &mut ContainerBuilder,
         pb: &mut PodBuilder,
     ) -> Result<(), Error> {
         if let Self::Historical(r) = self {
-            cb.add_volume_mount(SEGMENT_CACHE_VOLUME_NAME, PATH_SEGMENT_CACHE)
-                .context(AddVolumeMountSnafu)?;
+            cb.add_volume_mount(&*SEGMENT_CACHE_VOLUME_NAME, PATH_SEGMENT_CACHE)
+                .expect(
+                    "The mount paths are statically defined and there should be no duplicates.",
+                );
             pb.add_volume(
-                VolumeBuilder::new(SEGMENT_CACHE_VOLUME_NAME)
+                VolumeBuilder::new(&*SEGMENT_CACHE_VOLUME_NAME)
                     .empty_dir(EmptyDirVolumeSource {
                         medium: r.storage.segment_cache.empty_dir.medium.clone(),
                         size_limit: Some(r.storage.segment_cache.empty_dir.capacity.clone()),
@@ -259,6 +264,12 @@ mod test {
         storage::{HistoricalStorage, default_free_percentage_empty_dir},
         v1alpha1,
     };
+
+    #[test]
+    fn test_constants() {
+        // Test that dereferencing the constants does not panic.
+        let _ = *SEGMENT_CACHE_VOLUME_NAME;
+    }
 
     #[rstest]
     #[case(

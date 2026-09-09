@@ -13,7 +13,7 @@ use stackable_operator::{
         },
         types::{
             kubernetes::{ListenerClassName, ListenerName, PersistentVolumeClaimName},
-            operator::ClusterName,
+            operator::{ClusterName, RoleName},
         },
     },
 };
@@ -90,11 +90,16 @@ pub fn general_group_listener_name(
     cluster_name: &ClusterName,
     druid_role: &DruidRole,
 ) -> ListenerName {
-    ListenerName::from_str(&format!(
-        "{cluster_name}-{druid_role}",
-        druid_role = druid_role.as_ref()
-    ))
-    .expect("a valid listener name")
+    const _: () = assert!(
+        ClusterName::MAX_LENGTH + 1 /* dash */ + RoleName::MAX_LENGTH <= ListenerName::MAX_LENGTH,
+        "The string `<cluster_name>-<role_name>` must not exceed the limit of Listener names."
+    );
+    // Both halves are RFC 1123 labels joined by a dash, which is a valid RFC 1123 subdomain.
+    let _ = ClusterName::IS_RFC_1123_SUBDOMAIN_NAME;
+    let _ = RoleName::IS_RFC_1123_LABEL_NAME;
+
+    let role_name: &RoleName = druid_role;
+    ListenerName::from_str(&format!("{cluster_name}-{role_name}")).expect("a valid listener name")
 }
 
 /// The connection string (`<address>:<port>`) for the given ingress address, or `None` when the

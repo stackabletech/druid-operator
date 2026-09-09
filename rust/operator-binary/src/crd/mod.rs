@@ -156,12 +156,6 @@ pub enum Error {
     #[snafu(display("missing secret lifetime"))]
     MissingSecretLifetime,
 
-    #[snafu(display("the role group {rolegroup_name} is not defined"))]
-    CannotRetrieveRoleGroup { rolegroup_name: String },
-
-    #[snafu(display("fragment validation failure"))]
-    FragmentValidationFailure { source: ValidationError },
-
     #[snafu(display("failed to merge and validate config for role group {role_group:?}"))]
     FailedToMergeRoleGroupConfig {
         source: ValidationError,
@@ -583,8 +577,12 @@ impl Default for v1alpha1::DruidRoleConfig {
     }
 }
 
+constant!(DRUID_DEFAULT_LISTENER_CLASS: ListenerClassName = "cluster-internal");
+
+/// Serde default for `listenerClass`. Kept as a function because `#[serde(default = "...")]`
+/// requires a function path.
 fn druid_default_listener_class() -> ListenerClassName {
-    ListenerClassName::from_str("cluster-internal").expect("a valid listener class name")
+    DRUID_DEFAULT_LISTENER_CLASS.clone()
 }
 
 constant!(COORDINATOR_ROLE_NAME: RoleName = "coordinator");
@@ -917,6 +915,7 @@ mod tests {
         let _ = *ROUTER_ROLE_NAME;
         let _ = *COOKIE_PASSPHRASE_ENV;
         let _ = *COOKIE_PASSPHRASE_SECRET_KEY;
+        let _ = *DRUID_DEFAULT_LISTENER_CLASS;
     }
 
     impl RoundtripTestData for v1alpha1::DruidClusterSpec {

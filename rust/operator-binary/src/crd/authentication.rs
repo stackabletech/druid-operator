@@ -205,8 +205,8 @@ impl AuthenticationClassesResolved {
             None => {
                 info!(
                     "No OIDC provider hint given in AuthClass {auth_class_name}, assuming {default_oidc_provider_name}",
-                    default_oidc_provider_name =
-                        serde_json::to_string(&DEFAULT_OIDC_PROVIDER).unwrap()
+                    default_oidc_provider_name = serde_json::to_string(&DEFAULT_OIDC_PROVIDER)
+                        .expect("an IdentityProviderHint serialises to a plain JSON string")
                 );
                 DEFAULT_OIDC_PROVIDER
             }
@@ -217,7 +217,8 @@ impl AuthenticationClassesResolved {
             SUPPORTED_OIDC_PROVIDERS.contains(&oidc_provider),
             OidcProviderNotSupportedSnafu {
                 auth_class_name,
-                oidc_provider: serde_json::to_string(&oidc_provider).unwrap(),
+                oidc_provider: serde_json::to_string(&oidc_provider)
+                    .expect("an IdentityProviderHint serialises to a plain JSON string"),
             }
         );
 

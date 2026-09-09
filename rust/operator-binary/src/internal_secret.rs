@@ -7,8 +7,16 @@ use std::str::FromStr;
 use stackable_operator::v2::types::{kubernetes::SecretName, operator::ClusterName};
 
 pub fn build_shared_internal_secret_name(cluster_name: &ClusterName) -> SecretName {
-    SecretName::from_str(&format!("{cluster_name}-shared-internal-secret")).expect(
-        "the shared internal secret name is a valid Secret name, because a ClusterName is at \
-         most 40 characters long, so the suffixed name stays within the length limit",
-    )
+    const SUFFIX: &str = "-shared-internal-secret";
+    const _: () = assert!(
+        ClusterName::MAX_LENGTH + SUFFIX.len() <= SecretName::MAX_LENGTH,
+        "The string `<cluster_name>-shared-internal-secret` must not exceed the limit of Secret \
+        names."
+    );
+    // A ClusterName is an RFC 1035 label, so appending an alphanumeric-terminated suffix keeps it a
+    // valid RFC 1123 subdomain.
+    let _ = ClusterName::IS_RFC_1123_SUBDOMAIN_NAME;
+
+    SecretName::from_str(&format!("{cluster_name}{SUFFIX}"))
+        .expect("the shared internal secret name is a valid Secret name")
 }
