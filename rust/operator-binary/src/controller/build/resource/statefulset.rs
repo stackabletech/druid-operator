@@ -130,11 +130,9 @@ pub fn build_rolegroup_statefulset(
     let druid_tls_security = &cluster.cluster_config.druid_tls_security;
     let druid_auth_config = &cluster.cluster_config.druid_auth_config;
     // prepare container builder
-    let prepare_container_name = Container::Prepare.to_container_name();
-    let mut cb_prepare = new_container_builder(&prepare_container_name);
+    let mut cb_prepare = new_container_builder(Container::Prepare.name());
     // druid container builder
-    let druid_container_name = Container::Druid.to_container_name();
-    let mut cb_druid = new_container_builder(&druid_container_name);
+    let mut cb_druid = new_container_builder(Container::Druid.name());
     // init pod builder
     let mut pb = PodBuilder::new();
     pb.affinity(&merged_rolegroup_config.affinity);
@@ -158,7 +156,7 @@ pub fn build_rolegroup_statefulset(
         // otherwise the output of the following commands will not be captured!
         prepare_container_commands.push(product_logging::framework::capture_shell_output(
             STACKABLE_LOG_DIR,
-            prepare_container_name.as_ref(),
+            Container::Prepare.name().as_ref(),
             log_config,
         ));
     }
@@ -362,7 +360,7 @@ pub fn build_rolegroup_statefulset(
     // config volume; the validated aggregator address comes from the up-front `ValidatedLogging`.
     if let Some(vector_log_config) = &merged_rolegroup_config.logging.vector_container {
         pb.add_container(vector_container(
-            &Container::Vector.to_container_name(),
+            Container::Vector.name(),
             resolved_product_image,
             vector_log_config,
             &resource_names,
