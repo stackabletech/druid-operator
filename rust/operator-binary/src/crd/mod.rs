@@ -497,11 +497,20 @@ pub enum Container {
     Vector,
 }
 
+// Typed container names. They must match the strum `Display` (kebab-case) of the variants above,
+// which is pinned by a unit test.
+constant!(DRUID_CONTAINER_NAME: ContainerName = "druid");
+constant!(PREPARE_CONTAINER_NAME: ContainerName = "prepare");
+constant!(VECTOR_CONTAINER_NAME: ContainerName = "vector");
+
 impl Container {
-    /// Returns the typed container name for this container.
-    pub fn to_container_name(&self) -> ContainerName {
-        ContainerName::from_str(&self.to_string())
-            .expect("a Container always serializes to a valid container name")
+    /// The typed container name of this variant.
+    pub fn name(&self) -> &'static ContainerName {
+        match self {
+            Container::Druid => &DRUID_CONTAINER_NAME,
+            Container::Prepare => &PREPARE_CONTAINER_NAME,
+            Container::Vector => &VECTOR_CONTAINER_NAME,
+        }
     }
 }
 
@@ -901,9 +910,19 @@ pub fn build_string_list(strings: &[String]) -> String {
 #[cfg(test)]
 mod tests {
     use stackable_operator::versioned::test_utils::RoundtripTestData;
+    use strum::IntoEnumIterator;
 
     use super::*;
     use crate::crd::v1alpha1;
+
+    /// The typed container names returned by `name` must agree with the strum `Display`
+    /// of `Container`, which the logging configuration still uses as the per-container key.
+    #[test]
+    fn container_names_match_display() {
+        for container in Container::iter() {
+            assert_eq!(container.name().to_string(), container.to_string());
+        }
+    }
 
     #[test]
     fn test_constants() {
@@ -916,6 +935,9 @@ mod tests {
         let _ = *COOKIE_PASSPHRASE_ENV;
         let _ = *COOKIE_PASSPHRASE_SECRET_KEY;
         let _ = *DRUID_DEFAULT_LISTENER_CLASS;
+        let _ = *DRUID_CONTAINER_NAME;
+        let _ = *PREPARE_CONTAINER_NAME;
+        let _ = *VECTOR_CONTAINER_NAME;
     }
 
     impl RoundtripTestData for v1alpha1::DruidClusterSpec {
