@@ -285,7 +285,7 @@ pub fn validate(
         .resolve(
             super::CONTAINER_IMAGE_BASE_NAME,
             &operator_environment.image_repository,
-            crate::built_info::PKG_VERSION,
+            &crate::built_info::PKG_VERSION_SEMVER,
         )
         .context(ResolveProductImageSnafu)?;
 
@@ -471,7 +471,7 @@ spec:
             .resolve(
                 CONTAINER_IMAGE_BASE_NAME,
                 "oci.example.org",
-                crate::built_info::PKG_VERSION,
+                &crate::built_info::PKG_VERSION_SEMVER,
             )
             .expect("test: resolvable product image");
 
