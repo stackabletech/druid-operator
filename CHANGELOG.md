@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+
+- Support floating tag in product image selection ([#876]).
+
 ### Changed
 
 - Internal operator refactoring: introduce a build() step in the reconciler that
@@ -44,6 +48,7 @@ All notable changes to this project will be documented in this file.
 [#867]: https://github.com/stackabletech/druid-operator/pull/867
 [#869]: https://github.com/stackabletech/druid-operator/pull/869
 [#874]: https://github.com/stackabletech/druid-operator/pull/874
+[#876]: https://github.com/stackabletech/druid-operator/pull/876
 
 ## [26.7.0] - 2026-07-21
 
