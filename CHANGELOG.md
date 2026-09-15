@@ -4,13 +4,22 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+
+- Support floating tags for product images via the new `spec.image.stackableVersionPolicy` field
+  ([#876]).
+
 ### Changed
 
+- BREAKING: `spec.image.stackableVersion` must now be a full, valid semver version, e.g. `26.7.1`.
+  Abbreviated values such as `26.7` are no longer accepted ([#876]).
+- BREAKING: `spec.image.pullPolicy` now defaults to `IfNotPresent` for non-floating tags instead of
+  always defaulting to `Always` ([#876]).
 - Internal operator refactoring: introduce a build() step in the reconciler that
   assembles all relevant Kubernetes resources before anything is applied ([#841]).
 - The RBAC ServiceAccount and RoleBinding are now built with the operator-rs `v2::rbac`
   functions and carry the full set of recommended labels ([#846]).
-- Bump stackable-operator to 0.116.0 ([#855], [#865]).
+- Bump stackable-operator to 0.118.0 ([#855], [#865], [#876]).
 - The reconciler now applies resources and derives the cluster status in discrete
   apply and update_status steps ([#856]).
 - All product containers now run with `securityContext.runAsNonRoot` set to `true` to improve security ([#860]).
@@ -44,6 +53,7 @@ All notable changes to this project will be documented in this file.
 [#867]: https://github.com/stackabletech/druid-operator/pull/867
 [#869]: https://github.com/stackabletech/druid-operator/pull/869
 [#874]: https://github.com/stackabletech/druid-operator/pull/874
+[#876]: https://github.com/stackabletech/druid-operator/pull/876
 
 ## [26.7.0] - 2026-07-21
 
