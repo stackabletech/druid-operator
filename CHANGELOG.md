@@ -8,6 +8,7 @@ All notable changes to this project will be documented in this file.
 
 - Support floating tags for product images via the new `spec.image.stackableVersionPolicy` field
   ([#876]).
+- Add `/ready` endpoint to the operator Deployment, which reports the CRD installation status ([#880]).
 
 ### Changed
 
@@ -35,6 +36,7 @@ All notable changes to this project will be documented in this file.
   operator upgrade, delete each broker, coordinator and router StatefulSet so that the operator
   immediately recreates it with the new labels ([#865]).
 - Make operations infallible where dependent on static inputs ([#869], [#874]).
+- Bump stackable-operator to 0.119.0 ([#880]).
 
 ### Fixed
 
@@ -59,6 +61,7 @@ All notable changes to this project will be documented in this file.
 [#874]: https://github.com/stackabletech/druid-operator/pull/874
 [#876]: https://github.com/stackabletech/druid-operator/pull/876
 [#879]: https://github.com/stackabletech/druid-operator/pull/879
+[#880]: https://github.com/stackabletech/druid-operator/pull/880
 
 ## [26.7.0] - 2026-07-21
 
