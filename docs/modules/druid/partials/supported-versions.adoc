@@ -10,5 +10,3 @@ Apache Druid itself is not affected; only its inclusion in the SDP is being disc
 ====
 
 - 37.0.0 (LTS)
-- 35.0.1 (Deprecated)
-- 30.0.1 (Deprecated)
