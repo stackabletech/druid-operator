@@ -44,6 +44,10 @@ All notable changes to this project will be documented in this file.
 - The operator now watches all resources that it creates and early-exits the reconcile action when the
   cluster is marked for deletion ([#867]).
 
+### Remove
+
+- Remove `30.0.1`, `35.0.1` ([#879]).
+
 [#841]: https://github.com/stackabletech/druid-operator/pull/841
 [#846]: https://github.com/stackabletech/druid-operator/pull/846
 [#855]: https://github.com/stackabletech/druid-operator/pull/855
@@ -54,6 +58,7 @@ All notable changes to this project will be documented in this file.
 [#869]: https://github.com/stackabletech/druid-operator/pull/869
 [#874]: https://github.com/stackabletech/druid-operator/pull/874
 [#876]: https://github.com/stackabletech/druid-operator/pull/876
+[#879]: https://github.com/stackabletech/druid-operator/pull/879
 
 ## [26.7.0] - 2026-07-21
 
