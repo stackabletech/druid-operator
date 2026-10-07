@@ -32,7 +32,7 @@ You can configure Druid to load more extensions by adding them to the `additiona
 ----
 spec:
   clusterConfig:
-    additionalExtenions:
+    additionalExtensions:
     - druid-avro-extensions
     - druid-google-extensions
     ...

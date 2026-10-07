@@ -132,7 +132,7 @@ while not job_finished:
     task_status = json.loads(task)["status"]["statusCode"]
     print(f"Current task status: [{task_status}]")
     assert task_status == "RUNNING" or task_status == "SUCCESS", (
-        f"Taskstatus not running or succeeeded: {task_status}"
+        f"Taskstatus not running or succeeded: {task_status}"
     )
     job_finished = task_status == "SUCCESS"
 
