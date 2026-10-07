@@ -55,9 +55,6 @@ exit 1
 ;;
 esac
 
-# TODO: Remove once https://github.com/stackabletech/issues/issues/828 has been implemented (see that issue for details).
-until kubectl get crd druidclusters.druid.stackable.tech >/dev/null 2>&1; do echo "Waiting for CRDs to be installed" && sleep 1; done
-
 echo "Installing ZooKeeper from zookeeper.yaml"
 # tag::install-zookeeper[]
 kubectl apply -f zookeeper.yaml
