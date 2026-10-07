@@ -161,7 +161,7 @@ impl TryFrom<&Resources<HistoricalStorage, NoRuntimeLimits>> for HistoricalDeriv
 /// Only KiB precision is supported. Upd to 1KiB will be rounded away.
 fn format_for_druid(memory_quantity: &MemoryQuantity) -> String {
     let k = memory_quantity.scale_to(BinaryMultiple::Kibi);
-    // floor instead of round so we don't accidently make the memory quantity
+    // floor instead of round so we don't accidentally make the memory quantity
     // bigger than it should be
     let v = k.value.floor() as usize;
     format!("{v}Ki")

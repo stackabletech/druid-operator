@@ -94,7 +94,7 @@ pipelines you can install with a single command.
 == [[demos]]Demos
 
 xref:management:stackablectl:index.adoc[] supports installing xref:demos:index.adoc[] with a single command.
-The demos are complete data piplines which showcase multiple components of the Stackable platform working together and which you can try out interactively.
+The demos are complete data pipelines which showcase multiple components of the Stackable platform working together and which you can try out interactively.
 Both demos below include Druid as part of the data pipeline:
 
 === Waterlevel demo

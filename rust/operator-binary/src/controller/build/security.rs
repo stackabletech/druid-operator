@@ -364,7 +364,7 @@ pub fn build_tls_key_stores_cmd(tls: &DruidTlsSecurity) -> Vec<String> {
 
     vec![
         // FIXME: *Technically* we should only add the system truststore in case any webPki usage is detected,
-        // wether that's in S3, LDAP, OIDC, FTE or whatnot.
+        // whether that's in S3, LDAP, OIDC, FTE or whatnot.
         format!(
             "cert-tools generate-pkcs12-truststore --pkcs12 '{STACKABLE_MOUNT_TLS_DIR}/{TRUST_STORE_FILE}:{STACKABLE_TRUST_STORE_PASSWORD}' --pem /etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem --out {STACKABLE_TLS_DIR}/{TRUST_STORE_FILE} --out-password '{STACKABLE_TRUST_STORE_PASSWORD}'"
         ),
