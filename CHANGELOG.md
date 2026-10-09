@@ -37,6 +37,7 @@ All notable changes to this project will be documented in this file.
   immediately recreates it with the new labels ([#865]).
 - Make operations infallible where dependent on static inputs ([#869], [#874]).
 - Bump stackable-operator to 0.119.0 ([#880]).
+- test: Bump vector-aggregator to 0.58.0 ([#885]).
 
 ### Fixed
 
@@ -62,6 +63,7 @@ All notable changes to this project will be documented in this file.
 [#876]: https://github.com/stackabletech/druid-operator/pull/876
 [#879]: https://github.com/stackabletech/druid-operator/pull/879
 [#880]: https://github.com/stackabletech/druid-operator/pull/880
+[#885]: https://github.com/stackabletech/druid-operator/pull/885
 
 ## [26.7.0] - 2026-07-21
 
