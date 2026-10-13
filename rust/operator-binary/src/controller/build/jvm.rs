@@ -7,12 +7,9 @@ use stackable_operator::{
 
 use super::properties::ConfigFileName;
 use crate::crd::{
-    DruidRole, RW_CONFIG_DIRECTORY, STACKABLE_TRUST_STORE, STACKABLE_TRUST_STORE_PASSWORD,
+    RW_CONFIG_DIRECTORY, STACKABLE_TRUST_STORE, STACKABLE_TRUST_STORE_PASSWORD,
     STACKABLE_TRUST_STORE_TYPE,
 };
-
-/// The Derby error log file, written by the Coordinator's embedded Derby (default metadata store).
-const DERBY_LOG_FILE: &str = "/stackable/var/druid/derby.log";
 
 /// AWS Region JVM system property, passed to the AWS SDK v2 (used by Druid >= 37.0.0).
 /// Rendered both into `jvm.config` and into the MiddleManager Peon JVM opts.
@@ -30,11 +27,14 @@ pub enum Error {
 
 /// Please note that this function is slightly different than all other operators, because memory
 /// management is far more advanced in this operator.
+///
+/// `role_jvm_args` are the arguments only the role has (the Coordinator's Derby log file); they
+/// follow the arguments every role has.
 pub fn construct_jvm_args(
-    druid_role: &DruidRole,
     jvm_argument_overrides: &JvmArgumentOverrides,
     heap: MemoryQuantity,
     direct_memory: Option<MemoryQuantity>,
+    role_jvm_args: &[String],
     s3_conn: Option<&ConnectionSpec>,
     // TODO (@NickLarsenNZ): Remove this once we don't support Druid less than 37.0.0
     druid_version: Result<Version, semver::Error>,
@@ -74,9 +74,7 @@ pub fn construct_jvm_args(
         format!("-Djavax.net.ssl.trustStorePassword={STACKABLE_TRUST_STORE_PASSWORD}"),
         format!("-Djavax.net.ssl.trustStoreType={STACKABLE_TRUST_STORE_TYPE}"),
     ]);
-    if druid_role == &DruidRole::Coordinator {
-        jvm_args.push(format!("-Dderby.stream.error.file={DERBY_LOG_FILE}"));
-    }
+    jvm_args.extend(role_jvm_args.iter().cloned());
     // TODO (@NickLarsenNZ): Remove the condition (keep the body) once we no longer support Druid
     // less than 37.0.0
     // Druid >= 37.0.0 uses the AWS SDK v2, which requires a region to be set via the JVM system
@@ -101,6 +99,7 @@ mod tests {
     use stackable_operator::v2::types::operator::RoleGroupName;
 
     use super::*;
+    use crate::crd::DruidRole;
 
     #[test]
     fn test_construct_jvm_arguments_defaults() {
@@ -158,6 +157,8 @@ mod tests {
         kind: DruidCluster
         metadata:
           name: simple-druid
+          namespace: default
+          uid: c27b3971-ca72-42c1-80a4-abdfc1db0ddd
         spec:
           image:
             productVersion: 30.0.0
@@ -265,26 +266,27 @@ mod tests {
         );
     }
 
+    /// The rendered `jvm.config` of the role's `default` role group: the heap and direct memory
+    /// sizes come from the role module, the arguments from [`construct_jvm_args`]. No S3
+    /// connection is configured, so the region (and the version gating it) is never rendered.
     fn construct_jvm_config_for_test(druid_cluster: &str, druid_role: &DruidRole) -> String {
-        use crate::controller::validate::test_support::druid_from_yaml;
+        use crate::controller::{
+            build::{build, test_support::role_group_config_map},
+            validate::test_support::{druid_from_yaml, validated_cluster},
+        };
 
         let druid = druid_from_yaml(druid_cluster);
-        let merged_role = druid.merged_role(druid_role).unwrap();
-        let rg = merged_role
-            .get(&RoleGroupName::from_str("default").unwrap())
-            .unwrap();
-        let (heap, direct) = rg.config.resources.get_memory_sizes(druid_role).unwrap();
-
-        construct_jvm_args(
+        let cluster = validated_cluster(&druid);
+        let resources = build(&cluster).expect("build succeeds");
+        role_group_config_map(
+            &resources,
+            &cluster,
             druid_role,
-            &rg.product_specific_common_config.jvm_argument_overrides,
-            heap,
-            direct,
-            // No S3 connection in these tests, so the region (and the version gating it) is never
-            // rendered into the JVM args.
-            None,
-            Version::parse("37.0.0"),
+            &RoleGroupName::from_str("default").expect("valid role group name"),
         )
-        .unwrap()
+        .data
+        .as_ref()
+        .expect("the ConfigMap has data")[&ConfigFileName::JvmConfig.to_string()]
+            .clone()
     }
 }

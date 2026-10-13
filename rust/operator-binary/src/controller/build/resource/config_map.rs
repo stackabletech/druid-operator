@@ -1,15 +1,19 @@
-//! Builds the rolegroup [`ConfigMap`] from a [`ValidatedCluster`].
+//! Renders a role group's config files from its [`RoleGroupInputs`] and builds the rolegroup
+//! [`ConfigMap`] from the [`RoleGroupBuilder`] that carries them.
 //!
-//! The per-file configs (runtime.properties / security.properties / jvm.config) are rendered here
-//! from the merged [`DruidRoleGroupConfig`] (config plus the merged config overrides, including the
-//! merged JVM argument overrides used for `jvm.config`); the recommended cluster-level runtime
-//! properties are carried on `ValidatedCluster`.
+//! The per-file configs (runtime.properties / security.properties / jvm.config) are rendered from
+//! the inputs (the resolved config plus the merged config overrides, including the merged JVM
+//! argument overrides used for `jvm.config`); the recommended cluster-level runtime properties
+//! are carried on the inputs' `ValidatedCluster`. What only one role writes (the Historical's
+//! resource-derived properties, the MiddleManager's indexer options, the Coordinator's Derby log
+//! argument, the role's static defaults) arrives resolved on the inputs and enters at the layer
+//! it occupies in the file.
 //!
 //! Metadata, owner reference and recommended labels are derived entirely from `ValidatedCluster`
 //! (which carries the validated name/namespace/uid and implements `Resource`).
 //!
-//! The builder does not read the raw [`crate::crd::v1alpha1::DruidCluster`] at all: everything it
-//! needs is carried on `ValidatedCluster` (resolved during the validate step).
+//! Nothing here reads the raw [`crate::crd::v1alpha1::DruidCluster`]: everything is carried on
+//! the inputs (resolved during the validate step and by the role module).
 
 use std::collections::BTreeMap;
 
@@ -20,30 +24,25 @@ use stackable_operator::{
     crd::s3,
     k8s_openapi::api::core::v1::{ConfigMap, EnvVar},
     product_logging::framework::VECTOR_CONFIG_FILE,
-    v2::{config_file_writer::to_java_properties_string, types::operator::RoleGroupName},
+    v2::config_file_writer::to_java_properties_string,
 };
 
 use crate::{
-    controller::{
-        build::{
-            authentication::generate_runtime_properties_config as generate_auth_runtime_properties,
-            jvm::{AWS_REGION, construct_jvm_args},
-            object_meta,
-            properties::{
-                ConfigFileName,
-                extensions::get_extension_list,
-                product_logging::{build_log4j2, vector_config_file_content},
-                runtime_properties, security_properties,
-            },
-            recommended_labels_for_role_group_resources,
-            security::add_tls_config_properties,
+    controller::build::{
+        authentication::generate_runtime_properties_config as generate_auth_runtime_properties,
+        jvm::construct_jvm_args,
+        object_meta,
+        properties::{
+            ConfigFileName,
+            extensions::get_extension_list,
+            product_logging::{build_log4j2, vector_config_file_content},
+            runtime_properties, security_properties,
         },
-        validate::{DruidRoleGroupConfig, ValidatedCluster},
+        recommended_labels_for_role_group_resources,
+        role_group::{RoleGroupBuilder, RoleGroupInputs},
+        security::add_tls_config_properties,
     },
-    crd::{
-        DruidConfigOverrides, DruidRole, STACKABLE_TRUST_STORE, STACKABLE_TRUST_STORE_PASSWORD,
-        STACKABLE_TRUST_STORE_TYPE, build_string_list, env_var_reference, file_reference,
-    },
+    crd::{DruidConfigOverrides, build_string_list, env_var_reference, file_reference},
 };
 
 // Druid `runtime.properties` config-property keys assembled into the rolegroup ConfigMap here.
@@ -60,10 +59,9 @@ const AUTH_AUTHORIZER_OPA_URI: &str = "druid.auth.authorizer.OpaAuthorizer.opaUr
 #[derive(Snafu, Debug)]
 #[allow(clippy::enum_variant_names)]
 pub enum Error {
-    #[snafu(display("failed to build ConfigMap for role group {role_group}"))]
+    #[snafu(display("failed to build ConfigMap"))]
     BuildRoleGroupConfig {
         source: stackable_operator::builder::configmap::Error,
-        role_group: String,
     },
 
     #[snafu(display("failed to configure S3 connection"))]
@@ -76,22 +74,15 @@ pub enum Error {
         source: stackable_operator::v2::config_file_writer::PropertiesWriterError,
     },
 
-    #[snafu(display("failed to serialize [security.properties] for {rolegroup}"))]
+    #[snafu(display("failed to serialize [security.properties]"))]
     JvmSecurityProperties {
         source: stackable_operator::v2::config_file_writer::PropertiesWriterError,
-        rolegroup: String,
     },
-
-    #[snafu(display("failed to update Druid config from resources"))]
-    UpdateDruidConfigFromResources { source: crate::crd::resource::Error },
 
     #[snafu(display("there was an error generating the authentication runtime settings"))]
     GenerateAuthenticationRuntimeSettings {
         source: crate::controller::build::authentication::Error,
     },
-
-    #[snafu(display("failed to derive Druid memory settings from resources"))]
-    DeriveMemorySettings { source: crate::crd::resource::Error },
 
     #[snafu(display("failed to construct the jvm.config"))]
     GetJvmConfig {
@@ -101,35 +92,10 @@ pub enum Error {
 
 type Result<T, E = Error> = std::result::Result<T, E>;
 
-const INDEXER_JAVA_OPTS: &str = "druid.indexer.runner.javaOptsArray";
-
-/// The `druid.indexer.runner.javaOptsArray` entry that must be present in *every* rendered file
-/// (runtime.properties and security.properties) for MiddleManagers.
-fn middlemanager_indexer_java_opts(
-    s3_conn: Option<&s3::v1alpha1::ConnectionSpec>,
-    druid_version: &Result<Version, semver::Error>,
-) -> (String, String) {
-    let mut java_opts = vec![
-        format!("-Djavax.net.ssl.trustStore={STACKABLE_TRUST_STORE}"),
-        format!("-Djavax.net.ssl.trustStorePassword={STACKABLE_TRUST_STORE_PASSWORD}"),
-        format!("-Djavax.net.ssl.trustStoreType={STACKABLE_TRUST_STORE_TYPE}"),
-    ];
-
-    // TODO (@NickLarsenNZ): Remove the condition (keep the body) once we no longer support Druid
-    // less than 37.0.0.
-    // Druid >= 37.0.0 uses the AWS SDK v2, which requires a region to be set via the JVM system
-    // property `aws.region` for the Peon processes spawned by the MiddleManager.
-    if matches!(druid_version, Ok(v) if *v >= Version::new(37, 0, 0))
-        && let Some(s3) = s3_conn
-    {
-        java_opts.push(format!(
-            "-D{AWS_REGION}={region_name}",
-            region_name = s3.region.name
-        ));
-    }
-
-    (INDEXER_JAVA_OPTS.to_string(), build_string_list(&java_opts))
-}
+/// The property carrying the JVM options of the tasks a MiddleManager spawns. Its value comes
+/// from the MiddleManager role module and is written to both runtime.properties and
+/// security.properties.
+pub(crate) const INDEXER_JAVA_OPTS: &str = "druid.indexer.runner.javaOptsArray";
 
 /// Returns the user-supplied key/value overrides for the given config file from a
 /// [`DruidConfigOverrides`].
@@ -146,14 +112,13 @@ fn key_value_overrides(
     }
 }
 
-/// The rolegroup [`ConfigMap`] configures the rolegroup based on the configuration given by the administrator
-pub fn build_rolegroup_config_map(
-    cluster: &ValidatedCluster,
-    role: &DruidRole,
-    role_group_name: &RoleGroupName,
-    rg: &DruidRoleGroupConfig,
-) -> Result<ConfigMap> {
-    let resource_names = cluster.role_group_resource_names(role, role_group_name);
+/// The role group's rendered config files, keyed by file name: runtime.properties, jvm.config and
+/// security.properties, plus log4j2.properties when the operator renders the `druid` container's
+/// log config and `vector.yaml` when the Vector agent is enabled.
+pub(crate) fn config_map_data(inputs: &RoleGroupInputs) -> Result<BTreeMap<String, String>> {
+    let cluster = inputs.cluster;
+    // Read for the TLS port properties.
+    let role = &inputs.role;
     let cluster_config = &cluster.cluster_config;
     let druid_tls_security = &cluster_config.druid_tls_security;
     let druid_auth_config = &cluster_config.druid_auth_config;
@@ -171,14 +136,9 @@ pub fn build_rolegroup_config_map(
     {
         let mut conf: BTreeMap<String, String> = Default::default();
 
-        // Add any properties derived from storage manifests, such as segment cache locations.
-        // This has to be done here since there is no other suitable place for it.
-        // Previously such properties were added in the compute_files() function,
-        // but that code path is now incompatible with the design of fragment merging.
-        rg.config
-            .resources
-            .update_druid_config_file(&mut conf)
-            .context(UpdateDruidConfigFromResourcesSnafu)?;
+        // The properties derived from the resources (the Historical segment cache location and
+        // processing settings) are the lowest layer: every layer below overrides them.
+        conf.extend(inputs.resource_runtime_properties.clone());
         // NOTE: druid.host can be set manually - if it isn't, the canonical host name of
         // the local host is used.  This should work with the agent and k8s host networking
         // but might need to be revisited in the future
@@ -303,25 +263,24 @@ pub fn build_rolegroup_config_map(
 
         if let Some(auth_config) = druid_auth_config {
             conf.extend(
-                generate_auth_runtime_properties(auth_config, role)
+                generate_auth_runtime_properties(auth_config, inputs.oidc_enabled)
                     .context(GenerateAuthenticationRuntimeSettingsSnafu)?,
             );
         };
 
         // Role/rolegroup runtime.properties: the recommended cluster-config-derived properties,
-        // the MiddleManager indexer opts, the per-role defaults and finally the user overrides
+        // the MiddleManager indexer opts, the role's defaults and finally the user overrides
         // (each layer wins over the previous, and over the cluster-level properties above).
         conf.extend(runtime_properties::cluster_runtime_properties(
             &cluster_config.deep_storage,
             cluster_config.opa_connection_string.is_some(),
         ));
-        if *role == DruidRole::MiddleManager {
-            let (k, v) = middlemanager_indexer_java_opts(s3_conn, &druid_version);
-            conf.insert(k, v);
+        if let Some(indexer_java_opts) = &inputs.indexer_java_opts {
+            conf.insert(INDEXER_JAVA_OPTS.to_string(), indexer_java_opts.clone());
         }
-        conf.extend(runtime_properties::defaults(role));
+        conf.extend(inputs.role_runtime_defaults.clone());
         conf.extend(key_value_overrides(
-            &rg.config_overrides,
+            &inputs.config_overrides,
             ConfigFileName::RuntimeProperties,
         ));
 
@@ -335,16 +294,11 @@ pub fn build_rolegroup_config_map(
 
     // ----- jvm.config -----
     {
-        let (heap, direct) = rg
-            .config
-            .resources
-            .get_memory_sizes(role)
-            .context(DeriveMemorySettingsSnafu)?;
         let jvm_config = construct_jvm_args(
-            role,
-            &rg.product_specific_common_config.jvm_argument_overrides,
-            heap,
-            direct,
+            &inputs.jvm_argument_overrides,
+            inputs.heap,
+            inputs.direct_memory,
+            &inputs.role_jvm_args,
             s3_conn,
             // `construct_jvm_args` takes the version by value and `semver::Error` is not `Clone`,
             // so re-parse here rather than cloning the `druid_version` used by reference above.
@@ -357,23 +311,40 @@ pub fn build_rolegroup_config_map(
     // ----- security.properties -----
     {
         let mut security_config: BTreeMap<String, String> = BTreeMap::new();
-        if *role == DruidRole::MiddleManager {
-            let (k, v) = middlemanager_indexer_java_opts(s3_conn, &druid_version);
-            security_config.insert(k, v);
+        if let Some(indexer_java_opts) = &inputs.indexer_java_opts {
+            security_config.insert(INDEXER_JAVA_OPTS.to_string(), indexer_java_opts.clone());
         }
         let security_overrides =
-            key_value_overrides(&rg.config_overrides, ConfigFileName::SecurityProperties);
+            key_value_overrides(&inputs.config_overrides, ConfigFileName::SecurityProperties);
         security_config.extend(security_properties::build(security_overrides));
 
         cm_conf_data.insert(
             ConfigFileName::SecurityProperties.to_string(),
-            to_java_properties_string(security_config.iter()).with_context(|_| {
-                JvmSecurityPropertiesSnafu {
-                    rolegroup: role_group_name.to_string(),
-                }
-            })?,
+            to_java_properties_string(security_config.iter())
+                .context(JvmSecurityPropertiesSnafu)?,
         );
     }
+
+    if let Some(log4j2_config) = build_log4j2(&inputs.logging.druid_container) {
+        cm_conf_data.insert(ConfigFileName::Log4j2Properties.to_string(), log4j2_config);
+    }
+
+    // The Vector agent config (`vector.yaml`) is a static, env-var-parameterized file (mirroring
+    // the hive-/opensearch-operator). It is only added when the Vector agent is enabled.
+    if inputs.logging.enable_vector_agent {
+        cm_conf_data.insert(VECTOR_CONFIG_FILE.to_string(), vector_config_file_content());
+    }
+
+    Ok(cm_conf_data)
+}
+
+/// The rolegroup [`ConfigMap`]: the rendered config files under the role group's name and
+/// recommended labels.
+pub(crate) fn build_config_map(builder: &RoleGroupBuilder) -> Result<ConfigMap> {
+    let cluster = builder.cluster;
+    let role = &builder.role;
+    let role_group_name = &builder.role_group_name;
+    let resource_names = cluster.role_group_resource_names(role, role_group_name);
 
     let mut config_map_builder = ConfigMapBuilder::new();
     config_map_builder.metadata(
@@ -384,26 +355,13 @@ pub fn build_rolegroup_config_map(
         )
         .build(),
     );
-
-    for (filename, file_content) in cm_conf_data.iter() {
+    for (filename, file_content) in &builder.config_map_data {
         config_map_builder.add_data(filename, file_content);
-    }
-
-    if let Some(log4j2_config) = build_log4j2(&rg.config.logging.druid_container) {
-        config_map_builder.add_data(ConfigFileName::Log4j2Properties.to_string(), log4j2_config);
-    }
-
-    // The Vector agent config (`vector.yaml`) is a static, env-var-parameterized file (mirroring
-    // the hive-/opensearch-operator). It is only added when the Vector agent is enabled.
-    if rg.config.logging.enable_vector_agent {
-        config_map_builder.add_data(VECTOR_CONFIG_FILE, vector_config_file_content());
     }
 
     config_map_builder
         .build()
-        .with_context(|_| BuildRoleGroupConfigSnafu {
-            role_group: role_group_name.to_string(),
-        })
+        .context(BuildRoleGroupConfigSnafu)
 }
 
 #[cfg(test)]
@@ -415,23 +373,21 @@ mod tests {
     };
 
     use super::*;
-    use crate::controller::validate::test_support::{
-        MINIMAL_DRUID_YAML, druid_from_yaml, validated_cluster,
+    use crate::{
+        controller::{
+            build::{build, test_support::role_group_config_map},
+            validate::test_support::{MINIMAL_DRUID_YAML, druid_from_yaml, validated_cluster},
+        },
+        crd::DruidRole,
     };
 
-    /// Builds the rolegroup `ConfigMap` for `<role>/<role_group>` from the minimal test fixture.
+    /// The rolegroup `ConfigMap` of `<role>/<role_group>`, built from the minimal test fixture.
     fn build_cm(role: DruidRole, role_group: &str) -> ConfigMap {
         let druid = druid_from_yaml(MINIMAL_DRUID_YAML);
         let cluster = validated_cluster(&druid);
-        let role_group_name = RoleGroupName::from_str(role_group).unwrap();
-        let rg = cluster
-            .role_group_configs
-            .get(&role)
-            .expect("role present")
-            .get(&role_group_name)
-            .expect("role group present")
-            .clone();
-        build_rolegroup_config_map(&cluster, &role, &role_group_name, &rg).expect("config map")
+        let role_group_name = RoleGroupName::from_str(role_group).expect("valid role group name");
+        let resources = build(&cluster).expect("build succeeds");
+        role_group_config_map(&resources, &cluster, &role, &role_group_name).clone()
     }
 
     #[test]
