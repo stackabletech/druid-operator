@@ -38,6 +38,9 @@ All notable changes to this project will be documented in this file.
 - Make operations infallible where dependent on static inputs ([#869], [#874]).
 - Bump stackable-operator to 0.119.0 ([#880]).
 - test: Bump vector-aggregator to 0.58.0 ([#885]).
+- Internal operator refactoring: build each role group through per-role modules (brokers,
+  coordinators, historicals, middle managers, routers) and a shared role group builder, with
+  each role's configuration held in typed fields of the validated cluster ([#887]).
 
 ### Fixed
 
@@ -64,6 +67,7 @@ All notable changes to this project will be documented in this file.
 [#879]: https://github.com/stackabletech/druid-operator/pull/879
 [#880]: https://github.com/stackabletech/druid-operator/pull/880
 [#885]: https://github.com/stackabletech/druid-operator/pull/885
+[#887]: https://github.com/stackabletech/druid-operator/pull/887
 
 ## [26.7.0] - 2026-07-21
 
