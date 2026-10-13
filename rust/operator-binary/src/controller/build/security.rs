@@ -8,21 +8,17 @@ use std::{collections::BTreeMap, str::FromStr};
 
 use snafu::{ResultExt, Snafu};
 use stackable_operator::{
-    builder::{
-        self,
-        pod::{
-            PodBuilder,
-            container::ContainerBuilder,
-            volume::{
-                SecretFormat, SecretOperatorVolumeSourceBuilder,
-                SecretOperatorVolumeSourceBuilderError, VolumeBuilder,
-            },
+    builder::pod::{
+        container::ContainerBuilder,
+        volume::{
+            SecretFormat, SecretOperatorVolumeSourceBuilder,
+            SecretOperatorVolumeSourceBuilderError, VolumeBuilder,
         },
     },
     commons::secret_class::SecretClassVolumeProvisionParts,
     crd::listener,
     k8s_openapi::{
-        api::core::v1::{ContainerPort, Probe, ServicePort, TCPSocketAction},
+        api::core::v1::{ContainerPort, Probe, ServicePort, TCPSocketAction, Volume},
         apimachinery::pkg::util::intstr::IntOrString,
     },
     shared::time::Duration,
@@ -41,9 +37,6 @@ pub enum Error {
     SecretVolumeBuild {
         source: SecretOperatorVolumeSourceBuilderError,
     },
-
-    #[snafu(display("failed to add needed volume"))]
-    AddVolume { source: builder::pod::Error },
 }
 
 // Ports
@@ -86,8 +79,8 @@ const TCP_PROTOCOL: &str = "TCP";
 const STACKABLE_MOUNT_TLS_DIR: &str = "/stackable/mount_tls";
 
 // volume names
-stackable_operator::constant!(TLS_VOLUME_NAME: VolumeName = "tls");
-stackable_operator::constant!(TLS_MOUNT_VOLUME_NAME: VolumeName = "tls-mount");
+stackable_operator::constant!(pub(crate) TLS_VOLUME_NAME: VolumeName = "tls");
+stackable_operator::constant!(pub(crate) TLS_MOUNT_VOLUME_NAME: VolumeName = "tls-mount");
 
 pub fn container_ports(tls: &DruidTlsSecurity, role: &DruidRole) -> Vec<ContainerPort> {
     let (name, port) = exposed_port(tls, role);
@@ -131,7 +124,7 @@ fn exposed_port(tls: &DruidTlsSecurity, role: &DruidRole) -> (&'static str, Port
 }
 
 /// Adds required tls volume mounts to image and product container builders
-/// Adds required tls volumes to pod builder
+/// Adds the TLS volumes to `pod_volumes` and their mounts to the containers.
 ///
 /// # Panics
 ///
@@ -141,7 +134,7 @@ pub fn add_tls_volume_and_volume_mounts(
     tls: &DruidTlsSecurity,
     prepare: &mut ContainerBuilder,
     druid: &mut ContainerBuilder,
-    pod: &mut PodBuilder,
+    pod_volumes: &mut Vec<Volume>,
     requested_secret_lifetime: &Duration,
     listener_scope: Option<String>,
 ) -> Result<(), Error> {
@@ -163,7 +156,7 @@ pub fn add_tls_volume_and_volume_mounts(
             secret_volume_source_builder.with_listener_volume_scope(listener_scope);
         }
 
-        pod.add_volume(
+        pod_volumes.push(
             VolumeBuilder::new(&*TLS_MOUNT_VOLUME_NAME)
                 .ephemeral(
                     secret_volume_source_builder
@@ -171,8 +164,7 @@ pub fn add_tls_volume_and_volume_mounts(
                         .context(SecretVolumeBuildSnafu)?,
                 )
                 .build(),
-        )
-        .context(AddVolumeSnafu)?;
+        );
         prepare
             .add_volume_mount(&*TLS_MOUNT_VOLUME_NAME, STACKABLE_MOUNT_TLS_DIR)
             .expect("The mount paths are statically defined and there should be no duplicates.");
@@ -180,12 +172,11 @@ pub fn add_tls_volume_and_volume_mounts(
             .add_volume_mount(&*TLS_MOUNT_VOLUME_NAME, STACKABLE_MOUNT_TLS_DIR)
             .expect("The mount paths are statically defined and there should be no duplicates.");
 
-        pod.add_volume(
+        pod_volumes.push(
             VolumeBuilder::new(&*TLS_VOLUME_NAME)
                 .with_empty_dir(Option::<&str>::None, None)
                 .build(),
-        )
-        .context(AddVolumeSnafu)?;
+        );
 
         prepare
             .add_volume_mount(&*TLS_VOLUME_NAME, STACKABLE_TLS_DIR)

@@ -1,13 +1,8 @@
-use std::{
-    collections::{BTreeMap, HashSet},
-    ops::Deref,
-    str::FromStr,
-};
+use std::{collections::HashSet, ops::Deref, str::FromStr};
 
 use indoc::formatdoc;
 use security::add_cert_to_jvm_trust_store_cmd;
 use serde::{Deserialize, Serialize};
-use snafu::{OptionExt, ResultExt, Snafu};
 use stackable_operator::{
     commons::{
         affinity::StackableAffinity,
@@ -15,10 +10,7 @@ use stackable_operator::{
         product_image_selection::ProductImage,
         resources::{NoRuntimeLimits, Resources},
     },
-    config::{
-        fragment::{Fragment, ValidationError},
-        merge::Merge,
-    },
+    config::{fragment::Fragment, merge::Merge},
     constant,
     crd::{
         authentication::{core, oidc},
@@ -26,7 +18,7 @@ use stackable_operator::{
     },
     deep_merger::ObjectOverrides,
     k8s_openapi::api::core::v1::Volume,
-    kube::{CustomResource, ResourceExt},
+    kube::CustomResource,
     product_logging::{
         self,
         framework::{create_vector_shutdown_file_command, remove_vector_shutdown_file_command},
@@ -40,15 +32,12 @@ use stackable_operator::{
     v2::{
         builder::pod::container::EnvVarName,
         config_overrides::KeyValueConfigOverrides,
-        product_logging::framework::{
-            STACKABLE_LOG_DIR, ValidatedContainerLogConfigChoice, VectorContainerLogConfig,
-            validate_logging_configuration_for_container,
-        },
-        role_utils::{JavaCommonConfig, Role, RoleGroupConfig, with_validated_config},
+        product_logging::framework::STACKABLE_LOG_DIR,
+        role_utils::{JavaCommonConfig, Role},
         types::{
             common::Port,
             kubernetes::{ConfigMapName, ContainerName, ListenerClassName, SecretKey},
-            operator::{RoleGroupName, RoleName},
+            operator::RoleName,
         },
     },
     versioned::versioned,
@@ -59,7 +48,6 @@ use crate::crd::{
     affinity::get_affinity,
     authorization::DruidAuthorization,
     database::MetadataDatabaseConnection,
-    resource::RoleResource,
     tls::{DruidTls, default_druid_tls},
 };
 
@@ -148,35 +136,6 @@ pub struct DruidConfigOverrides {
     // File name defined in [`crate::controller::build::properties::ConfigFileName`]
     #[serde(default, rename = "security.properties")]
     pub security_properties: KeyValueConfigOverrides,
-}
-
-#[derive(Snafu, Debug)]
-#[allow(clippy::enum_variant_names)]
-pub enum Error {
-    #[snafu(display("missing secret lifetime"))]
-    MissingSecretLifetime,
-
-    #[snafu(display("failed to merge and validate config for role group {role_group:?}"))]
-    FailedToMergeRoleGroupConfig {
-        source: ValidationError,
-        role_group: String,
-    },
-
-    #[snafu(display("invalid role group name {role_group:?}"))]
-    ParseRoleGroupName {
-        source: stackable_operator::v2::macros::attributed_string_type::Error,
-        role_group: String,
-    },
-
-    #[snafu(display("failed to validate container log configuration"))]
-    ValidateLoggingConfig {
-        source: stackable_operator::v2::product_logging::framework::Error,
-    },
-
-    #[snafu(display(
-        "the Vector agent is enabled but the Vector aggregator ConfigMap name is missing"
-    ))]
-    MissingVectorAggregatorConfigMapName,
 }
 
 #[versioned(
@@ -339,143 +298,6 @@ impl HasStatusCondition for v1alpha1::DruidCluster {
     }
 }
 
-impl v1alpha1::DruidCluster {
-    /// Merges and validates all role groups of the given role. Invoked from the validate step
-    /// (`controller::validate`).
-    ///
-    /// All four override categories (config / env / cli / pod) are merged by
-    /// [`with_validated_config`] (role group wins over role); the typed per-role config is then
-    /// erased to the shared [`ValidatedDruidConfig`] view consumed by the build step.
-    ///
-    /// This lives in `crate::crd` and is a `macro_rules!` rather than a generic function on purpose: the erasure
-    /// reads the per-role configs' private `resources` field and calls their private
-    /// `default_config`, and the five roles wrap *different* `resources` types into different
-    /// [`RoleResource`] variants.
-    pub fn merged_role(
-        &self,
-        role: &DruidRole,
-    ) -> Result<BTreeMap<RoleGroupName, DruidRoleGroupConfig>, Error> {
-        let deep_storage = &self.spec.cluster_config.deep_storage;
-        let name = self.name_any();
-
-        // The Vector aggregator discovery ConfigMap name (a typed `ConfigMapName`, so an invalid
-        // name is already rejected at deserialization). It is only required when the Vector agent
-        // is enabled for a role group.
-        let vector_aggregator_config_map_name = self
-            .spec
-            .cluster_config
-            .vector_aggregator_config_map_name
-            .clone();
-
-        // All roles erase to an identical `ValidatedDruidConfig`; only the typed config, the role
-        // config type and the `RoleResource` variant (historicals carry typed storage) differ.
-        macro_rules! merged_role {
-            ($field:ident, $config:ty, $role_config:ty, $resource:path) => {{
-                let typed_role = &self.spec.$field;
-                let default_config = <$config>::default_config(&name, role, deep_storage);
-                let mut groups = BTreeMap::new();
-                for (rg_name, rg) in &typed_role.role_groups {
-                    let validated = with_validated_config::<
-                        $config,
-                        JavaCommonConfig,
-                        _,
-                        $role_config,
-                        DruidConfigOverrides,
-                    >(rg, typed_role, &default_config)
-                    .with_context(|_| FailedToMergeRoleGroupConfigSnafu {
-                        role_group: rg_name.clone(),
-                    })?;
-                    let common = ValidatedDruidConfig {
-                        resources: $resource(validated.config.config.resources),
-                        logging: validate_logging(
-                            &validated.config.config.logging,
-                            &vector_aggregator_config_map_name,
-                        )?,
-                        affinity: validated.config.config.affinity,
-                        graceful_shutdown_timeout: validated
-                            .config
-                            .config
-                            .graceful_shutdown_timeout,
-                        requested_secret_lifetime: validated
-                            .config
-                            .config
-                            .requested_secret_lifetime
-                            .context(MissingSecretLifetimeSnafu)?,
-                    };
-                    let role_group_name = RoleGroupName::from_str(rg_name).with_context(|_| {
-                        ParseRoleGroupNameSnafu {
-                            role_group: rg_name.clone(),
-                        }
-                    })?;
-                    groups.insert(
-                        role_group_name,
-                        DruidRoleGroupConfig {
-                            replicas: validated.replicas,
-                            config: common,
-                            config_overrides: validated.config.config_overrides,
-                            env_overrides: validated.config.env_overrides.into(),
-                            cli_overrides: validated.config.cli_overrides,
-                            pod_overrides: validated.config.pod_overrides,
-                            product_specific_common_config: validated
-                                .config
-                                .product_specific_common_config,
-                        },
-                    );
-                }
-                groups
-            }};
-        }
-
-        let groups = match role {
-            DruidRole::Broker => {
-                merged_role!(
-                    brokers,
-                    BrokerConfig,
-                    v1alpha1::DruidRoleConfig,
-                    RoleResource::Druid
-                )
-            }
-            DruidRole::Coordinator => merged_role!(
-                coordinators,
-                CoordinatorConfig,
-                v1alpha1::DruidRoleConfig,
-                RoleResource::Druid
-            ),
-            DruidRole::Historical => merged_role!(
-                historicals,
-                HistoricalConfig,
-                GenericRoleConfig,
-                RoleResource::Historical
-            ),
-            DruidRole::MiddleManager => merged_role!(
-                middle_managers,
-                MiddleManagerConfig,
-                GenericRoleConfig,
-                RoleResource::Druid
-            ),
-            DruidRole::Router => {
-                merged_role!(
-                    routers,
-                    RouterConfig,
-                    v1alpha1::DruidRoleConfig,
-                    RoleResource::Druid
-                )
-            }
-        };
-        Ok(groups)
-    }
-
-    pub fn generic_role_config(&self, role: &DruidRole) -> &GenericRoleConfig {
-        match role {
-            DruidRole::Broker => &self.spec.brokers.role_config.generic,
-            DruidRole::Coordinator => &self.spec.coordinators.role_config.generic,
-            DruidRole::Historical => &self.spec.historicals.role_config,
-            DruidRole::MiddleManager => &self.spec.middle_managers.role_config,
-            DruidRole::Router => &self.spec.routers.role_config.generic,
-        }
-    }
-}
-
 #[derive(
     Clone,
     Debug,
@@ -514,69 +336,6 @@ impl Container {
     }
 }
 
-/// The validated, merged Druid config shared by all role groups (the typed per-role config erased
-/// to a single view). Mirrors the opensearch-operator's `ValidatedOpenSearchConfig`.
-#[derive(Clone)]
-pub struct ValidatedDruidConfig {
-    pub affinity: StackableAffinity,
-    pub graceful_shutdown_timeout: Option<Duration>,
-    pub logging: ValidatedLogging,
-    pub requested_secret_lifetime: Duration,
-    pub resources: RoleResource,
-}
-
-/// Validated logging configuration for the Druid, Prepare (init) and (optional) Vector containers.
-///
-/// Produced up-front by [`validate_logging`] (mirroring the hive-/opensearch-operator) so that an
-/// invalid custom log ConfigMap name or a missing Vector aggregator discovery ConfigMap name fails
-/// reconciliation during validation rather than at resource-build time.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct ValidatedLogging {
-    pub druid_container: ValidatedContainerLogConfigChoice,
-    pub prepare_container: ValidatedContainerLogConfigChoice,
-    pub vector_container: Option<VectorContainerLogConfig>,
-    pub enable_vector_agent: bool,
-}
-
-/// Validates the logging configuration for the Druid, Prepare and (optional) Vector containers.
-///
-/// `vector_aggregator_config_map_name` is the discovery ConfigMap name of the Vector aggregator;
-/// it is required (and was validated up-front) only when the Vector agent is enabled.
-fn validate_logging(
-    logging: &Logging<Container>,
-    vector_aggregator_config_map_name: &Option<ConfigMapName>,
-) -> Result<ValidatedLogging, Error> {
-    let druid_container = validate_logging_configuration_for_container(logging, &Container::Druid)
-        .context(ValidateLoggingConfigSnafu)?;
-    let prepare_container =
-        validate_logging_configuration_for_container(logging, &Container::Prepare)
-            .context(ValidateLoggingConfigSnafu)?;
-
-    let vector_container = if logging.enable_vector_agent {
-        let vector_aggregator_config_map_name = vector_aggregator_config_map_name
-            .clone()
-            .context(MissingVectorAggregatorConfigMapNameSnafu)?;
-        Some(VectorContainerLogConfig {
-            log_config: validate_logging_configuration_for_container(logging, &Container::Vector)
-                .context(ValidateLoggingConfigSnafu)?,
-            vector_aggregator_config_map_name,
-        })
-    } else {
-        None
-    };
-
-    Ok(ValidatedLogging {
-        druid_container,
-        prepare_container,
-        vector_container,
-        enable_vector_agent: logging.enable_vector_agent,
-    })
-}
-
-/// A validated, merged role-group config.
-pub type DruidRoleGroupConfig =
-    RoleGroupConfig<ValidatedDruidConfig, JavaCommonConfig, DruidConfigOverrides>;
-
 impl Default for v1alpha1::DruidRoleConfig {
     fn default() -> Self {
         v1alpha1::DruidRoleConfig {
@@ -586,7 +345,7 @@ impl Default for v1alpha1::DruidRoleConfig {
     }
 }
 
-constant!(DRUID_DEFAULT_LISTENER_CLASS: ListenerClassName = "cluster-internal");
+constant!(pub(crate) DRUID_DEFAULT_LISTENER_CLASS: ListenerClassName = "cluster-internal");
 
 /// Serde default for `listenerClass`. Kept as a function because `#[serde(default = "...")]`
 /// requires a function path.
@@ -620,6 +379,15 @@ impl Deref for DruidRole {
             DruidRole::MiddleManager => &MIDDLE_MANAGER_ROLE_NAME,
             DruidRole::Router => &ROUTER_ROLE_NAME,
         }
+    }
+}
+
+/// Formats the role as its role name. `DruidRole` already derefs to [`RoleName`], but snafu
+/// `display` strings format a field by its own type, so the role needs `Display` itself.
+impl std::fmt::Display for DruidRole {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let role_name: &RoleName = self;
+        role_name.fmt(f)
     }
 }
 
@@ -730,22 +498,6 @@ impl DruidRole {
             create_vector_shutdown_file_command(STACKABLE_LOG_DIR),
         }
     }
-
-    pub fn listener_class_name(&self, druid: &v1alpha1::DruidCluster) -> Option<ListenerClassName> {
-        match self {
-            Self::Broker => Some(druid.spec.brokers.role_config.listener_class.to_owned()),
-            Self::Coordinator => Some(
-                druid
-                    .spec
-                    .coordinators
-                    .role_config
-                    .listener_class
-                    .to_owned(),
-            ),
-            Self::Router => Some(druid.spec.routers.role_config.listener_class.to_owned()),
-            Self::Historical | Self::MiddleManager => None,
-        }
-    }
 }
 
 #[derive(Clone, Debug, Deserialize, JsonSchema, PartialEq, Eq, Serialize, Display)]
@@ -817,7 +569,7 @@ macro_rules! role_group_config {
         )]
         pub struct $name {
             #[fragment_attrs(serde(default))]
-            resources: Resources<$storage, NoRuntimeLimits>,
+            pub(crate) resources: Resources<$storage, NoRuntimeLimits>,
             #[fragment_attrs(serde(default))]
             pub logging: Logging<Container>,
             #[fragment_attrs(serde(default))]
@@ -835,7 +587,7 @@ macro_rules! role_group_config {
         }
 
         impl $name {
-            fn default_config(
+            pub(crate) fn default_config(
                 cluster_name: &str,
                 role: &DruidRole,
                 deep_storage: &DeepStorageSpec,

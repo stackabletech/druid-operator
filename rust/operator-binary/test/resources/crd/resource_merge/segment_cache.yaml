@@ -4,7 +4,7 @@ kind: DruidCluster
 metadata:
   name: test-resource-merge
   namespace: default
-  uid: test-resource-merge
+  uid: 7d1c3f0a-5b2e-4c8d-9e6f-0a1b2c3d4e5f
 spec:
   image:
     productVersion: 37.0.0

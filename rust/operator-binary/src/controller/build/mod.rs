@@ -8,7 +8,10 @@ use std::{
 use snafu::{ResultExt, Snafu};
 use stackable_operator::{
     builder::meta::ObjectMetaBuilder,
-    k8s_openapi::api::core::v1::Secret,
+    k8s_openapi::api::{
+        apps::v1::StatefulSet,
+        core::v1::{ConfigMap, Secret, Service},
+    },
     kube::ResourceExt,
     kvp::Labels,
     v2::{
@@ -24,26 +27,33 @@ use stackable_operator::{
 use crate::{
     controller::{
         CONTROLLER_NAME, KubernetesResources, OPERATOR_NAME, PRODUCT_NAME, Prepared,
-        build::resource::{
-            config_map::build_rolegroup_config_map,
-            discovery::build_discovery_configmap,
-            listener::{build_group_listener, group_listener_name},
-            pdb::build_pdb,
-            rbac::{build_role_binding, build_service_account},
-            service::{build_rolegroup_headless_service, build_rolegroup_metrics_service},
-            statefulset::build_rolegroup_statefulset,
+        build::{
+            resource::{
+                discovery::build_discovery_configmap,
+                listener::{build_group_listener, group_listener_name},
+                pdb::build_pdb,
+                rbac::{build_role_binding, build_service_account},
+            },
+            role_group::{
+                RoleGroupBuilder, broker, coordinator, historical, middle_manager, router,
+            },
         },
         validate::ValidatedCluster,
     },
-    crd::{COOKIE_PASSPHRASE_SECRET_KEY, security::INTERNAL_INITIAL_CLIENT_PASSWORD_SECRET_KEY},
+    crd::{
+        COOKIE_PASSPHRASE_SECRET_KEY, DruidRole,
+        security::INTERNAL_INITIAL_CLIENT_PASSWORD_SECRET_KEY,
+    },
     internal_secret::build_shared_internal_secret_name,
 };
 
 pub mod authentication;
+pub mod container;
 pub mod graceful_shutdown;
 pub mod jvm;
 pub mod properties;
 pub mod resource;
+pub mod role_group;
 pub mod security;
 
 /// Returns an [`ObjectMetaBuilder`] pre-filled with the cluster's namespace, an owner
@@ -131,15 +141,10 @@ pub(crate) fn role_group_selector(
 
 #[derive(Snafu, Debug)]
 pub enum Error {
-    #[snafu(display("failed to build ConfigMap for role group {role_group}"))]
-    ConfigMap {
-        source: resource::config_map::Error,
-        role_group: RoleGroupName,
-    },
-
-    #[snafu(display("failed to build StatefulSet for role group {role_group}"))]
-    StatefulSet {
-        source: resource::statefulset::Error,
+    #[snafu(display("failed to build the resources of {role} role group {role_group}"))]
+    RoleGroup {
+        source: role_group::Error,
+        role: DruidRole,
         role_group: RoleGroupName,
     },
 
@@ -153,57 +158,98 @@ pub enum Error {
 /// dereferenced and validated by this point.
 /// The remaining errors are resource-assembly failures only.
 pub fn build(cluster: &ValidatedCluster) -> Result<KubernetesResources<Prepared>, Error> {
-    let mut stateful_sets = vec![];
-    let mut services = vec![];
     let mut listeners = vec![];
-    let mut config_maps = vec![];
     let mut pod_disruption_budgets = vec![];
+    let mut built = RoleGroupResources::default();
 
-    for (druid_role, role_group_configs) in &cluster.role_group_configs {
-        let role_config = cluster.role_config(druid_role);
-
-        if let Some(pdb) = build_pdb(&role_config.pdb, cluster, druid_role) {
-            pod_disruption_budgets.push(pdb);
-        }
-
-        if let Some(listener_class) = &role_config.listener_class
-            && let Some(listener_group_name) = group_listener_name(&cluster.name, druid_role)
-        {
-            listeners.push(build_group_listener(
-                cluster,
-                listener_class,
-                listener_group_name,
-                druid_role,
-            ));
-        }
-
-        for (role_group_name, rg) in role_group_configs {
-            services.push(build_rolegroup_headless_service(
-                cluster,
-                druid_role,
-                role_group_name,
-            ));
-            services.push(build_rolegroup_metrics_service(
-                cluster,
-                druid_role,
-                role_group_name,
-            ));
-            config_maps.push(
-                build_rolegroup_config_map(cluster, druid_role, role_group_name, rg).context(
-                    ConfigMapSnafu {
-                        role_group: role_group_name.clone(),
-                    },
-                )?,
-            );
-            stateful_sets.push(
-                build_rolegroup_statefulset(cluster, druid_role, role_group_name, rg).context(
-                    StatefulSetSnafu {
-                        role_group: role_group_name.clone(),
-                    },
-                )?,
-            );
-        }
+    // Role-level resources first, then each role group's, in `DruidRole` variant order.
+    if let Some(pdb) = build_pdb(&cluster.coordinator_config.pdb, cluster, &coordinator::ROLE) {
+        pod_disruption_budgets.push(pdb);
     }
+    listeners.push(build_group_listener(
+        cluster,
+        &cluster.coordinator_config.listener_class,
+        group_listener_name(&cluster.name, &coordinator::ROLE),
+        &coordinator::ROLE,
+    ));
+    for (role_group_name, rg_config) in &cluster.coordinator_role_group_configs {
+        coordinator::build(cluster, role_group_name, rg_config)
+            .and_then(|builder| built.add(&builder))
+            .with_context(|_| RoleGroupSnafu {
+                role: coordinator::ROLE,
+                role_group: role_group_name.clone(),
+            })?;
+    }
+
+    if let Some(pdb) = build_pdb(&cluster.broker_config.pdb, cluster, &broker::ROLE) {
+        pod_disruption_budgets.push(pdb);
+    }
+    listeners.push(build_group_listener(
+        cluster,
+        &cluster.broker_config.listener_class,
+        group_listener_name(&cluster.name, &broker::ROLE),
+        &broker::ROLE,
+    ));
+    for (role_group_name, rg_config) in &cluster.broker_role_group_configs {
+        broker::build(cluster, role_group_name, rg_config)
+            .and_then(|builder| built.add(&builder))
+            .with_context(|_| RoleGroupSnafu {
+                role: broker::ROLE,
+                role_group: role_group_name.clone(),
+            })?;
+    }
+
+    if let Some(pdb) = build_pdb(&cluster.historical_config.pdb, cluster, &historical::ROLE) {
+        pod_disruption_budgets.push(pdb);
+    }
+    for (role_group_name, rg_config) in &cluster.historical_role_group_configs {
+        historical::build(cluster, role_group_name, rg_config)
+            .and_then(|builder| built.add(&builder))
+            .with_context(|_| RoleGroupSnafu {
+                role: historical::ROLE,
+                role_group: role_group_name.clone(),
+            })?;
+    }
+
+    if let Some(pdb) = build_pdb(
+        &cluster.middle_manager_config.pdb,
+        cluster,
+        &middle_manager::ROLE,
+    ) {
+        pod_disruption_budgets.push(pdb);
+    }
+    for (role_group_name, rg_config) in &cluster.middle_manager_role_group_configs {
+        middle_manager::build(cluster, role_group_name, rg_config)
+            .and_then(|builder| built.add(&builder))
+            .with_context(|_| RoleGroupSnafu {
+                role: middle_manager::ROLE,
+                role_group: role_group_name.clone(),
+            })?;
+    }
+
+    if let Some(pdb) = build_pdb(&cluster.router_config.pdb, cluster, &router::ROLE) {
+        pod_disruption_budgets.push(pdb);
+    }
+    listeners.push(build_group_listener(
+        cluster,
+        &cluster.router_config.listener_class,
+        group_listener_name(&cluster.name, &router::ROLE),
+        &router::ROLE,
+    ));
+    for (role_group_name, rg_config) in &cluster.router_role_group_configs {
+        router::build(cluster, role_group_name, rg_config)
+            .and_then(|builder| built.add(&builder))
+            .with_context(|_| RoleGroupSnafu {
+                role: router::ROLE,
+                role_group: role_group_name.clone(),
+            })?;
+    }
+
+    let RoleGroupResources {
+        services,
+        mut config_maps,
+        stateful_sets,
+    } = built;
 
     if let Some(discovery_config_map) =
         build_discovery_configmap(cluster).context(DiscoveryConfigMapSnafu)?
@@ -222,6 +268,25 @@ pub fn build(cluster: &ValidatedCluster) -> Result<KubernetesResources<Prepared>
         internal_secret: build_internal_secret(cluster),
         status: PhantomData,
     })
+}
+
+/// The resources of the role groups, in the order the role-group loops of [`build`] add them.
+#[derive(Default)]
+struct RoleGroupResources {
+    services: Vec<Service>,
+    config_maps: Vec<ConfigMap>,
+    stateful_sets: Vec<StatefulSet>,
+}
+
+impl RoleGroupResources {
+    /// Adds the headless and metrics Services, the ConfigMap and the StatefulSet of one role
+    /// group.
+    fn add(&mut self, builder: &RoleGroupBuilder) -> Result<(), role_group::Error> {
+        self.services.extend(builder.build_services());
+        self.config_maps.push(builder.build_config_map()?);
+        self.stateful_sets.push(builder.build_statefulset()?);
+        Ok(())
+    }
 }
 
 /// The shared internal Secret, emitted on *every* run so the apply step can track it in
@@ -336,22 +401,447 @@ fn get_random_base64() -> String {
 }
 
 #[cfg(test)]
+pub(crate) mod test_support {
+    use stackable_operator::{
+        k8s_openapi::api::{apps::v1::StatefulSet, core::v1::ConfigMap},
+        v2::types::operator::RoleGroupName,
+    };
+
+    use super::{KubernetesResources, Prepared};
+    use crate::{controller::validate::ValidatedCluster, crd::DruidRole};
+
+    /// The built ConfigMap of the role group, found by the name the builder derives from the
+    /// cluster.
+    pub(crate) fn role_group_config_map<'a>(
+        resources: &'a KubernetesResources<Prepared>,
+        cluster: &ValidatedCluster,
+        role: &DruidRole,
+        role_group_name: &RoleGroupName,
+    ) -> &'a ConfigMap {
+        let name = cluster
+            .role_group_resource_names(role, role_group_name)
+            .role_group_config_map()
+            .to_string();
+        resources
+            .config_maps
+            .iter()
+            .find(|config_map| config_map.metadata.name.as_deref() == Some(name.as_str()))
+            .expect("the role group's ConfigMap is built")
+    }
+
+    /// The built StatefulSet of the role group, found by the name the builder derives from the
+    /// cluster.
+    pub(crate) fn role_group_stateful_set<'a>(
+        resources: &'a KubernetesResources<Prepared>,
+        cluster: &ValidatedCluster,
+        role: &DruidRole,
+        role_group_name: &RoleGroupName,
+    ) -> &'a StatefulSet {
+        let name = cluster
+            .role_group_resource_names(role, role_group_name)
+            .stateful_set_name()
+            .to_string();
+        resources
+            .stateful_sets
+            .iter()
+            .find(|stateful_set| stateful_set.metadata.name.as_deref() == Some(name.as_str()))
+            .expect("the role group's StatefulSet is built")
+    }
+}
+
+#[cfg(test)]
 mod tests {
     use std::collections::BTreeMap;
 
     use stackable_operator::{
-        crd::listener::{self, v1alpha1::Listener},
-        k8s_openapi::{ByteString, api::core::v1::Secret},
+        crd::{
+            authentication::core,
+            listener::{self, v1alpha1::Listener},
+        },
+        k8s_openapi::{
+            ByteString,
+            api::{
+                apps::v1::StatefulSetSpec,
+                core::v1::{Container as PodContainer, PodSpec, Secret},
+            },
+        },
         kube::{Resource, api::ObjectMeta},
+        v2::types::operator::RoleGroupName,
+    };
+    use strum::IntoEnumIterator;
+
+    use super::{
+        KubernetesResources, Prepared, SecretKey, build,
+        container::{
+            DRUID_CONFIG_VOLUME_NAME, HDFS_CONFIG_VOLUME_NAME, LOG_CONFIG_VOLUME_NAME,
+            LOG_VOLUME_NAME, RW_CONFIG_VOLUME_NAME,
+        },
+        internal_secret_keys,
+        properties::ConfigFileName,
+        resource::{config_map::INDEXER_JAVA_OPTS, listener::LISTENER_VOLUME_NAME},
+        role_group::coordinator::derby_log_jvm_argument,
+        security::{TLS_MOUNT_VOLUME_NAME, TLS_VOLUME_NAME},
+        test_support::{role_group_config_map, role_group_stateful_set},
+    };
+    use crate::{
+        controller::validate::{
+            ValidatedCluster,
+            test_support::{
+                MINIMAL_DRUID_YAML, dereferenced_objects, druid_from_yaml, validated_cluster,
+                validated_cluster_from,
+            },
+        },
+        crd::{
+            Container, DruidRole, PROP_SEGMENT_CACHE_LOCATIONS,
+            resource::SEGMENT_CACHE_VOLUME_NAME, security::TLS_PORT_NAME,
+        },
     };
 
-    use super::{KubernetesResources, Prepared, SecretKey, build, internal_secret_keys};
-    use crate::{
-        controller::validate::test_support::{
-            MINIMAL_DRUID_YAML, druid_from_yaml, validated_cluster,
-        },
-        crd::security::TLS_PORT_NAME,
-    };
+    /// The user-supplied extra volume of [`rich_druid_yaml`].
+    const EXTRA_VOLUME_NAME: &str = "user-data";
+
+    /// A cluster that takes every role-specific build path at once: TLS between the roles, OIDC
+    /// authentication (which skips MiddleManagers), OPA authorization, the Vector agent on every
+    /// role, a custom log ConfigMap on the Brokers, overrides for the three rendered files and
+    /// the environment, an extra volume, a Historical segment cache, and two Broker role groups.
+    ///
+    /// S3 ingestion is not part of it: the MiddleManager indexer options and the JVM arguments
+    /// it adds are the same for every role group of the role and are covered by the
+    /// `ingestion-s3-ext` kuttl test.
+    fn rich_druid_yaml() -> String {
+        format!(
+            r#"
+apiVersion: druid.stackable.tech/v1alpha1
+kind: DruidCluster
+metadata:
+  name: simple-druid
+  namespace: default
+  uid: c27b3971-ca72-42c1-80a4-abdfc1db0ddd
+spec:
+  image:
+    productVersion: 30.0.0
+  clusterConfig:
+    authentication:
+      - authenticationClass: oidc
+        oidc:
+          clientCredentialsSecret: oidc-client-credentials
+    authorization:
+      opa:
+        configMapName: opa
+        package: druid
+    deepStorage:
+      hdfs:
+        configMapName: simple-hdfs
+        directory: /druid
+    extraVolumes:
+      - name: {EXTRA_VOLUME_NAME}
+        configMap:
+          name: {EXTRA_VOLUME_NAME}
+    metadataDatabase:
+      postgresql:
+        host: druid-postgresql
+        database: druid
+        credentialsSecretName: mySecret
+    tls:
+      serverAndInternalSecretClass: tls
+    vectorAggregatorConfigMapName: vector-aggregator-discovery
+    zookeeperConfigMapName: simple-druid-znode
+  brokers:
+    config:
+      logging:
+        enableVectorAgent: true
+        containers:
+          druid:
+            custom:
+              configMap: druid-log-config
+    configOverrides:
+      runtime.properties:
+        druid.broker.http.numConnections: "10"
+      security.properties:
+        networkaddress.cache.ttl: "10"
+    envOverrides:
+      BROKER_ENV: broker
+    roleGroups:
+      default:
+        replicas: 1
+      secondary:
+        replicas: 2
+  coordinators:
+    config:
+      logging:
+        enableVectorAgent: true
+    roleGroups:
+      default:
+        replicas: 1
+  historicals:
+    config:
+      logging:
+        enableVectorAgent: true
+      resources:
+        memory:
+          limit: 4Gi
+        storage:
+          segmentCache:
+            freePercentage: 3
+            emptyDir:
+              capacity: 2G
+    roleGroups:
+      default:
+        replicas: 1
+  middleManagers:
+    config:
+      logging:
+        enableVectorAgent: true
+    roleGroups:
+      default:
+        replicas: 1
+  routers:
+    config:
+      logging:
+        enableVectorAgent: true
+    roleGroups:
+      default:
+        replicas: 1
+"#
+        )
+    }
+
+    /// The OIDC `AuthenticationClass` referenced by [`rich_druid_yaml`].
+    const OIDC_AUTHENTICATION_CLASS_YAML: &str = r#"
+metadata:
+  name: oidc
+spec:
+  provider:
+    oidc:
+      hostname: my.oidc.server
+      principalClaim: preferred_username
+      scopes: []
+"#;
+
+    /// Builds [`rich_druid_yaml`] through the real validate step with the OIDC
+    /// `AuthenticationClass` and an OPA document URL dereferenced.
+    fn rich_validated_cluster() -> ValidatedCluster {
+        let druid = druid_from_yaml(&rich_druid_yaml());
+        let deserializer = serde_yaml::Deserializer::from_str(OIDC_AUTHENTICATION_CLASS_YAML);
+        let oidc_authentication_class: core::v1alpha1::AuthenticationClass =
+            serde_yaml::with::singleton_map_recursive::deserialize(deserializer)
+                .expect("the test AuthenticationClass YAML is valid");
+        let dereferenced_objects = dereferenced_objects();
+        validated_cluster_from(
+            &druid,
+            &crate::controller::dereference::DereferencedObjects {
+                opa_base_document_url: Some(
+                    "http://opa.default.svc.cluster.local:8081/v1/data/druid".to_string(),
+                ),
+                authentication_classes: vec![oidc_authentication_class],
+                ..dereferenced_objects
+            },
+        )
+    }
+
+    /// The `default` role group, which every role of [`rich_druid_yaml`] has.
+    fn default_role_group() -> RoleGroupName {
+        "default".parse().expect("valid role group name")
+    }
+
+    fn stateful_set_spec<'a>(
+        resources: &'a KubernetesResources<Prepared>,
+        cluster: &ValidatedCluster,
+        role: &DruidRole,
+    ) -> &'a StatefulSetSpec {
+        role_group_stateful_set(resources, cluster, role, &default_role_group())
+            .spec
+            .as_ref()
+            .expect("the StatefulSet has a spec")
+    }
+
+    fn pod_spec(spec: &StatefulSetSpec) -> &PodSpec {
+        spec.template
+            .spec
+            .as_ref()
+            .expect("the pod template has a spec")
+    }
+
+    fn container<'a>(spec: &'a StatefulSetSpec, name: &str) -> &'a PodContainer {
+        pod_spec(spec)
+            .containers
+            .iter()
+            .find(|container| container.name == name)
+            .expect("the container exists")
+    }
+
+    fn container_mounts(spec: &StatefulSetSpec, name: &str) -> Vec<String> {
+        container(spec, name)
+            .volume_mounts
+            .iter()
+            .flatten()
+            .map(|mount| mount.name.clone())
+            .collect()
+    }
+
+    fn has_pod_volume(spec: &StatefulSetSpec, name: &str) -> bool {
+        pod_spec(spec)
+            .volumes
+            .iter()
+            .flatten()
+            .any(|volume| volume.name == name)
+    }
+
+    fn has_claim_template(spec: &StatefulSetSpec, name: &str) -> bool {
+        spec.volume_claim_templates
+            .iter()
+            .flatten()
+            .any(|pvc| pvc.metadata.name.as_deref() == Some(name))
+    }
+
+    fn config_map_data<'a>(
+        resources: &'a KubernetesResources<Prepared>,
+        cluster: &ValidatedCluster,
+        role: &DruidRole,
+    ) -> &'a BTreeMap<String, String> {
+        role_group_config_map(resources, cluster, role, &default_role_group())
+            .data
+            .as_ref()
+            .expect("the ConfigMap has data")
+    }
+
+    /// A pod's `volumes` are an ordered list: reordering them changes the pod template of every
+    /// running StatefulSet and so restarts its pods. Pinned on the fixture that has every
+    /// optional volume: the operator-managed volumes first, the Historical segment cache after
+    /// them, the user's extra volumes last.
+    #[test]
+    fn pod_volumes_keep_their_order() {
+        let cluster = rich_validated_cluster();
+        let resources = build(&cluster).expect("build succeeds");
+        for role in DruidRole::iter() {
+            let mut expected: Vec<String> = vec![
+                TLS_MOUNT_VOLUME_NAME.to_string(),
+                TLS_VOLUME_NAME.to_string(),
+                DRUID_CONFIG_VOLUME_NAME.to_string(),
+                RW_CONFIG_VOLUME_NAME.to_string(),
+                LOG_CONFIG_VOLUME_NAME.to_string(),
+                LOG_VOLUME_NAME.to_string(),
+                HDFS_CONFIG_VOLUME_NAME.to_string(),
+            ];
+            if matches!(role, DruidRole::Historical) {
+                expected.push(SEGMENT_CACHE_VOLUME_NAME.to_string());
+            }
+            expected.push(EXTRA_VOLUME_NAME.to_string());
+
+            let actual: Vec<String> = pod_spec(stateful_set_spec(&resources, &cluster, &role))
+                .volumes
+                .iter()
+                .flatten()
+                .map(|volume| volume.name.clone())
+                .collect();
+            assert_eq!(actual, expected, "{role:?} pod volumes");
+        }
+    }
+
+    /// Only Brokers, Coordinators and Routers get a listener claim template.
+    #[test]
+    fn only_broker_coordinator_and_router_have_listener_claim_templates() {
+        let cluster = rich_validated_cluster();
+        let resources = build(&cluster).expect("build succeeds");
+        let listener_volume_name = LISTENER_VOLUME_NAME.to_string();
+        for role in DruidRole::iter() {
+            let expected = matches!(
+                role,
+                DruidRole::Broker | DruidRole::Coordinator | DruidRole::Router
+            );
+            assert_eq!(
+                has_claim_template(
+                    stateful_set_spec(&resources, &cluster, &role),
+                    &listener_volume_name
+                ),
+                expected,
+                "{role:?} listener claim template"
+            );
+        }
+    }
+
+    /// Only Historicals get the segment cache: its pod volume, its mount on the `druid`
+    /// container, and `druid.segmentCache.locations` in runtime.properties.
+    #[test]
+    fn only_historicals_have_the_segment_cache() {
+        let cluster = rich_validated_cluster();
+        let resources = build(&cluster).expect("build succeeds");
+        let segment_cache_volume_name = SEGMENT_CACHE_VOLUME_NAME.to_string();
+        let druid_container_name = Container::Druid.name().to_string();
+        for role in DruidRole::iter() {
+            let expected = matches!(role, DruidRole::Historical);
+            let spec = stateful_set_spec(&resources, &cluster, &role);
+            assert_eq!(
+                has_pod_volume(spec, &segment_cache_volume_name),
+                expected,
+                "{role:?} segment cache volume"
+            );
+            assert_eq!(
+                container_mounts(spec, &druid_container_name).contains(&segment_cache_volume_name),
+                expected,
+                "{role:?} segment cache mount"
+            );
+            assert_eq!(
+                config_map_data(&resources, &cluster, &role)
+                    [&ConfigFileName::RuntimeProperties.to_string()]
+                    .contains(PROP_SEGMENT_CACHE_LOCATIONS),
+                expected,
+                "{role:?} segment cache locations"
+            );
+        }
+    }
+
+    /// Only MiddleManagers set `druid.indexer.runner.javaOptsArray`, in both runtime.properties
+    /// and security.properties, and only they have a pre-stop hook on the `druid` container.
+    #[test]
+    fn only_middle_managers_have_indexer_opts_and_the_drain_hook() {
+        let cluster = rich_validated_cluster();
+        let resources = build(&cluster).expect("build succeeds");
+        let druid_container_name = Container::Druid.name().to_string();
+        for role in DruidRole::iter() {
+            let expected = matches!(role, DruidRole::MiddleManager);
+            let data = config_map_data(&resources, &cluster, &role);
+            assert_eq!(
+                data[&ConfigFileName::RuntimeProperties.to_string()].contains(INDEXER_JAVA_OPTS),
+                expected,
+                "{role:?} indexer opts in runtime.properties"
+            );
+            assert_eq!(
+                data[&ConfigFileName::SecurityProperties.to_string()].contains(INDEXER_JAVA_OPTS),
+                expected,
+                "{role:?} indexer opts in security.properties"
+            );
+            assert_eq!(
+                container(
+                    stateful_set_spec(&resources, &cluster, &role),
+                    &druid_container_name
+                )
+                .lifecycle
+                .as_ref()
+                .and_then(|lifecycle| lifecycle.pre_stop.as_ref())
+                .is_some(),
+                expected,
+                "{role:?} pre-stop hook"
+            );
+        }
+    }
+
+    /// Only the Coordinator's jvm.config carries the Derby error-log argument.
+    #[test]
+    fn only_coordinators_set_the_derby_log() {
+        let cluster = rich_validated_cluster();
+        let resources = build(&cluster).expect("build succeeds");
+        let derby_log_argument = derby_log_jvm_argument();
+        for role in DruidRole::iter() {
+            assert_eq!(
+                config_map_data(&resources, &cluster, &role)
+                    [&ConfigFileName::JvmConfig.to_string()]
+                    .contains(&derby_log_argument),
+                matches!(role, DruidRole::Coordinator),
+                "{role:?} derby log"
+            );
+        }
+    }
 
     /// The expected `app.kubernetes.io/version` label value for the given product version.
     ///
