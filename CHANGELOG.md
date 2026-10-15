@@ -36,8 +36,8 @@ All notable changes to this project will be documented in this file.
   operator upgrade, delete each broker, coordinator and router StatefulSet so that the operator
   immediately recreates it with the new labels ([#865]).
 - Make operations infallible where dependent on static inputs ([#869], [#874]).
-- Bump stackable-operator to 0.119.0, 0.121.0 ([#880]).
-- test: Bump vector-aggregator to 0.58.0 ([#885], [#888]).
+- test: Bump vector-aggregator to 0.58.0 ([#885]).
+- Bump stackable-operator to 0.121.0 ([#888]).
 - Replace the unmaintained `serde_yaml` with `yaml_serde` ([#888]).
 - All pods now set `securityContext.seccompProfile.type` to `RuntimeDefault` ([#888]).
 
