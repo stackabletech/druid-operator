@@ -5434,13 +5434,13 @@ rec {
       };
       "k8s-version" = rec {
         crateName = "k8s-version";
-        version = "0.1.3";
+        version = "0.1.4";
         edition = "2024";
         workspace_member = null;
         src = pkgs.fetchgit {
           url = "https://github.com/stackabletech/operator-rs.git";
-          rev = "ed84d456ff0b8324db3d7444659cb207564be8c9";
-          sha256 = "1ra6n0mi633sipsgrli7hhxv64khhs00l448mqg61gxsjc4y02r0";
+          rev = "433ac4fe45418d39631e683fac74cb49e11911f6";
+          sha256 = "1dax2l1ghd609k19z4kznpnk5v40xbl84qwwxlfvwjamvf7jj6mm";
         };
         libName = "k8s_version";
         authors = [
@@ -6170,6 +6170,19 @@ rec {
           "unstable" = [ "unstable-intrinsics" "unstable-float" ];
         };
         resolvedDefaultFeatures = [ "arch" "default" ];
+      };
+      "libyaml-rs" = rec {
+        crateName = "libyaml-rs";
+        version = "0.3.0";
+        edition = "2021";
+        crateBin = [];
+        sha256 = "0xy7bp2dkr7i2vms63cigb087k7salh95ya4njvilf9ldzd6s4if";
+        libName = "libyaml_rs";
+        authors = [
+          "David Tolnay <dtolnay@gmail.com>"
+          "YAML Organization <noreply@yaml.org>"
+        ];
+
       };
       "libz-sys" = rec {
         crateName = "libz-sys";
@@ -9955,38 +9968,6 @@ rec {
         ];
 
       };
-      "serde_yaml" = rec {
-        crateName = "serde_yaml";
-        version = "0.9.34+deprecated";
-        edition = "2021";
-        sha256 = "0isba1fjyg3l6rxk156k600ilzr8fp7crv82rhal0rxz5qd1m2va";
-        authors = [
-          "David Tolnay <dtolnay@gmail.com>"
-        ];
-        dependencies = [
-          {
-            name = "indexmap";
-            packageId = "indexmap";
-          }
-          {
-            name = "itoa";
-            packageId = "itoa";
-          }
-          {
-            name = "ryu";
-            packageId = "ryu";
-          }
-          {
-            name = "serde";
-            packageId = "serde";
-          }
-          {
-            name = "unsafe-libyaml";
-            packageId = "unsafe-libyaml";
-          }
-        ];
-
-      };
       "sha1" = rec {
         crateName = "sha1";
         version = "0.10.7";
@@ -10466,8 +10447,8 @@ rec {
         workspace_member = null;
         src = pkgs.fetchgit {
           url = "https://github.com/stackabletech/operator-rs.git";
-          rev = "ed84d456ff0b8324db3d7444659cb207564be8c9";
-          sha256 = "1ra6n0mi633sipsgrli7hhxv64khhs00l448mqg61gxsjc4y02r0";
+          rev = "433ac4fe45418d39631e683fac74cb49e11911f6";
+          sha256 = "1dax2l1ghd609k19z4kznpnk5v40xbl84qwwxlfvwjamvf7jj6mm";
         };
         libName = "stackable_certs";
         authors = [
@@ -10665,26 +10646,26 @@ rec {
             packageId = "rstest";
           }
           {
-            name = "serde_yaml";
-            packageId = "serde_yaml";
-          }
-          {
             name = "stackable-operator";
             packageId = "stackable-operator";
             features = [ "crds" "webhook" "test-support" ];
+          }
+          {
+            name = "yaml_serde";
+            packageId = "yaml_serde";
           }
         ];
 
       };
       "stackable-operator" = rec {
         crateName = "stackable-operator";
-        version = "0.119.0";
+        version = "0.121.0";
         edition = "2024";
         workspace_member = null;
         src = pkgs.fetchgit {
           url = "https://github.com/stackabletech/operator-rs.git";
-          rev = "ed84d456ff0b8324db3d7444659cb207564be8c9";
-          sha256 = "1ra6n0mi633sipsgrli7hhxv64khhs00l448mqg61gxsjc4y02r0";
+          rev = "433ac4fe45418d39631e683fac74cb49e11911f6";
+          sha256 = "1dax2l1ghd609k19z4kznpnk5v40xbl84qwwxlfvwjamvf7jj6mm";
         };
         libName = "stackable_operator";
         authors = [
@@ -10787,10 +10768,6 @@ rec {
             packageId = "serde_json";
           }
           {
-            name = "serde_yaml";
-            packageId = "serde_yaml";
-          }
-          {
             name = "sha2";
             packageId = "sha2";
             features = [ "oid" ];
@@ -10859,6 +10836,10 @@ rec {
             name = "xml";
             packageId = "xml";
           }
+          {
+            name = "yaml_serde";
+            packageId = "yaml_serde";
+          }
         ];
         features = {
           "certs" = [ "dep:stackable-certs" ];
@@ -10882,8 +10863,8 @@ rec {
         workspace_member = null;
         src = pkgs.fetchgit {
           url = "https://github.com/stackabletech/operator-rs.git";
-          rev = "ed84d456ff0b8324db3d7444659cb207564be8c9";
-          sha256 = "1ra6n0mi633sipsgrli7hhxv64khhs00l448mqg61gxsjc4y02r0";
+          rev = "433ac4fe45418d39631e683fac74cb49e11911f6";
+          sha256 = "1dax2l1ghd609k19z4kznpnk5v40xbl84qwwxlfvwjamvf7jj6mm";
         };
         procMacro = true;
         libName = "stackable_operator_derive";
@@ -10912,13 +10893,13 @@ rec {
       };
       "stackable-shared" = rec {
         crateName = "stackable-shared";
-        version = "0.1.2";
+        version = "0.2.0";
         edition = "2024";
         workspace_member = null;
         src = pkgs.fetchgit {
           url = "https://github.com/stackabletech/operator-rs.git";
-          rev = "ed84d456ff0b8324db3d7444659cb207564be8c9";
-          sha256 = "1ra6n0mi633sipsgrli7hhxv64khhs00l448mqg61gxsjc4y02r0";
+          rev = "433ac4fe45418d39631e683fac74cb49e11911f6";
+          sha256 = "1dax2l1ghd609k19z4kznpnk5v40xbl84qwwxlfvwjamvf7jj6mm";
         };
         libName = "stackable_shared";
         authors = [
@@ -10957,10 +10938,6 @@ rec {
             features = [ "derive" ];
           }
           {
-            name = "serde_yaml";
-            packageId = "serde_yaml";
-          }
-          {
             name = "snafu";
             packageId = "snafu 0.9.2";
           }
@@ -10973,6 +10950,10 @@ rec {
             name = "time";
             packageId = "time";
             optional = true;
+          }
+          {
+            name = "yaml_serde";
+            packageId = "yaml_serde";
           }
         ];
         devDependencies = [
@@ -10998,8 +10979,8 @@ rec {
         workspace_member = null;
         src = pkgs.fetchgit {
           url = "https://github.com/stackabletech/operator-rs.git";
-          rev = "ed84d456ff0b8324db3d7444659cb207564be8c9";
-          sha256 = "1ra6n0mi633sipsgrli7hhxv64khhs00l448mqg61gxsjc4y02r0";
+          rev = "433ac4fe45418d39631e683fac74cb49e11911f6";
+          sha256 = "1dax2l1ghd609k19z4kznpnk5v40xbl84qwwxlfvwjamvf7jj6mm";
         };
         libName = "stackable_telemetry";
         authors = [
@@ -11103,13 +11084,13 @@ rec {
       };
       "stackable-versioned" = rec {
         crateName = "stackable-versioned";
-        version = "0.11.1";
+        version = "0.13.0";
         edition = "2024";
         workspace_member = null;
         src = pkgs.fetchgit {
           url = "https://github.com/stackabletech/operator-rs.git";
-          rev = "ed84d456ff0b8324db3d7444659cb207564be8c9";
-          sha256 = "1ra6n0mi633sipsgrli7hhxv64khhs00l448mqg61gxsjc4y02r0";
+          rev = "433ac4fe45418d39631e683fac74cb49e11911f6";
+          sha256 = "1dax2l1ghd609k19z4kznpnk5v40xbl84qwwxlfvwjamvf7jj6mm";
         };
         libName = "stackable_versioned";
         authors = [
@@ -11137,10 +11118,6 @@ rec {
             packageId = "serde_json";
           }
           {
-            name = "serde_yaml";
-            packageId = "serde_yaml";
-          }
-          {
             name = "snafu";
             packageId = "snafu 0.9.2";
           }
@@ -11148,18 +11125,22 @@ rec {
             name = "stackable-versioned-macros";
             packageId = "stackable-versioned-macros";
           }
+          {
+            name = "yaml_serde";
+            packageId = "yaml_serde";
+          }
         ];
 
       };
       "stackable-versioned-macros" = rec {
         crateName = "stackable-versioned-macros";
-        version = "0.11.1";
+        version = "0.13.0";
         edition = "2024";
         workspace_member = null;
         src = pkgs.fetchgit {
           url = "https://github.com/stackabletech/operator-rs.git";
-          rev = "ed84d456ff0b8324db3d7444659cb207564be8c9";
-          sha256 = "1ra6n0mi633sipsgrli7hhxv64khhs00l448mqg61gxsjc4y02r0";
+          rev = "433ac4fe45418d39631e683fac74cb49e11911f6";
+          sha256 = "1dax2l1ghd609k19z4kznpnk5v40xbl84qwwxlfvwjamvf7jj6mm";
         };
         procMacro = true;
         libName = "stackable_versioned_macros";
@@ -11222,8 +11203,8 @@ rec {
         workspace_member = null;
         src = pkgs.fetchgit {
           url = "https://github.com/stackabletech/operator-rs.git";
-          rev = "ed84d456ff0b8324db3d7444659cb207564be8c9";
-          sha256 = "1ra6n0mi633sipsgrli7hhxv64khhs00l448mqg61gxsjc4y02r0";
+          rev = "433ac4fe45418d39631e683fac74cb49e11911f6";
+          sha256 = "1dax2l1ghd609k19z4kznpnk5v40xbl84qwwxlfvwjamvf7jj6mm";
         };
         libName = "stackable_webhook";
         authors = [
@@ -13317,18 +13298,6 @@ rec {
         };
         resolvedDefaultFeatures = [ "default" ];
       };
-      "unsafe-libyaml" = rec {
-        crateName = "unsafe-libyaml";
-        version = "0.2.11";
-        edition = "2021";
-        crateBin = [];
-        sha256 = "0qdq69ffl3v5pzx9kzxbghzn0fzn266i1xn70y88maybz9csqfk7";
-        libName = "unsafe_libyaml";
-        authors = [
-          "David Tolnay <dtolnay@gmail.com>"
-        ];
-
-      };
       "untrusted" = rec {
         crateName = "untrusted";
         version = "0.9.0";
@@ -15205,6 +15174,45 @@ rec {
           "Kornel (https://github.com/kornelski)"
         ];
 
+      };
+      "yaml_serde" = rec {
+        crateName = "yaml_serde";
+        version = "0.10.7";
+        edition = "2021";
+        sha256 = "0679p5sc2zaz7afchb32nradn9jr07w2ngmdpf4ycswsiah2kdrk";
+        authors = [
+          "YAML Organization <noreply@yaml.org>"
+        ];
+        dependencies = [
+          {
+            name = "indexmap";
+            packageId = "indexmap";
+            usesDefaultFeatures = false;
+          }
+          {
+            name = "itoa";
+            packageId = "itoa";
+          }
+          {
+            name = "libyaml-rs";
+            packageId = "libyaml-rs";
+          }
+          {
+            name = "ryu";
+            packageId = "ryu";
+          }
+          {
+            name = "serde";
+            packageId = "serde";
+            usesDefaultFeatures = false;
+            features = [ "alloc" ];
+          }
+        ];
+        features = {
+          "default" = [ "std" ];
+          "std" = [ "serde/std" "indexmap/std" ];
+        };
+        resolvedDefaultFeatures = [ "default" "std" ];
       };
       "yoke" = rec {
         crateName = "yoke";

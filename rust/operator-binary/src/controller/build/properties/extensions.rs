@@ -168,7 +168,7 @@ mod tests {
 
     pub fn deserialize_yaml_file<'a, T: serde::de::Deserialize<'a>>(path: &'a str) -> T {
         let file = std::fs::File::open(path).unwrap();
-        let deserializer = serde_yaml::Deserializer::from_reader(file);
-        serde_yaml::with::singleton_map_recursive::deserialize(deserializer).unwrap()
+        let deserializer = yaml_serde::Deserializer::from_reader(file);
+        yaml_serde::with::singleton_map_recursive::deserialize(deserializer).unwrap()
     }
 }

@@ -100,6 +100,8 @@ mod tests {
     #[case(DruidRole::MiddleManager)]
     #[case(DruidRole::Router)]
     fn test_affinity_defaults(#[case] role: DruidRole) {
+        use stackable_operator::utils::yaml_from_str_singleton_map;
+
         let input = r#"
         apiVersion: druid.stackable.tech/v1alpha1
         kind: DruidCluster
@@ -140,9 +142,7 @@ mod tests {
               default:
                 replicas: 1
         "#;
-        let deserializer = serde_yaml::Deserializer::from_str(input);
-        let druid: v1alpha1::DruidCluster =
-            serde_yaml::with::singleton_map_recursive::deserialize(deserializer).unwrap();
+        let druid: v1alpha1::DruidCluster = yaml_from_str_singleton_map(input).unwrap();
         let merged_role = druid.merged_role(&role).unwrap();
         let merged_config = merged_role
             .get(&RoleGroupName::from_str("default").unwrap())

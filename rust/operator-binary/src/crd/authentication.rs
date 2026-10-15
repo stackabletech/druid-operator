@@ -245,6 +245,7 @@ impl AuthenticationClassesResolved {
 #[cfg(test)]
 mod tests {
     use indoc::{formatdoc, indoc};
+    use stackable_operator::utils::yaml_from_str_singleton_map;
 
     use super::*;
     use crate::{
@@ -290,7 +291,7 @@ zookeeperConfigMapName: zk-config-map
             AuthenticationClassesResolved {
                 auth_classes: vec![AuthenticationClassResolved::Ldap {
                     auth_class_name: "ldap".to_string(),
-                    provider: serde_yaml::from_str::<ldap::v1alpha1::AuthenticationProvider>(
+                    provider: yaml_serde::from_str::<ldap::v1alpha1::AuthenticationProvider>(
                         "
                         hostname: my.ldap.server
                         port: 389
@@ -334,7 +335,7 @@ zookeeperConfigMapName: zk-config-map
             AuthenticationClassesResolved {
                 auth_classes: vec![AuthenticationClassResolved::Oidc {
                     auth_class_name: "oidc".to_string(),
-                    provider: serde_yaml::from_str::<oidc::v1alpha1::AuthenticationProvider>(
+                    provider: yaml_serde::from_str::<oidc::v1alpha1::AuthenticationProvider>(
                         "
                         hostname: my.oidc.server
                         principalClaim: preferred_username
@@ -342,7 +343,7 @@ zookeeperConfigMapName: zk-config-map
                         "
                     )
                     .unwrap(),
-                    oidc: serde_yaml::from_str::<DruidClientAuthenticationOptions>(
+                    oidc: yaml_serde::from_str::<DruidClientAuthenticationOptions>(
                         "
                         clientCredentialsSecret: oidc-client-credentials
                         "
@@ -376,7 +377,7 @@ zookeeperConfigMapName: zk-config-map
         assert_eq!(
             AuthenticationClassesResolved {
                 auth_classes: vec![AuthenticationClassResolved::Tls {
-                    provider: serde_yaml::from_str::<tls::v1alpha1::AuthenticationProvider>("")
+                    provider: yaml_serde::from_str::<tls::v1alpha1::AuthenticationProvider>("")
                         .unwrap(),
                 }]
             },
@@ -627,8 +628,7 @@ zookeeperConfigMapName: zk-config-map
     ///
     /// Fail if the given string cannot be deserialized.
     fn deserialize_cluster_config(input: &str) -> DruidClusterConfig {
-        let deserializer = serde_yaml::Deserializer::from_str(input);
-        serde_yaml::with::singleton_map_recursive::deserialize(deserializer)
+        yaml_from_str_singleton_map(input)
             .expect("The definition of the DruidClusterConfig should be valid.")
     }
 
@@ -639,10 +639,10 @@ zookeeperConfigMapName: zk-config-map
         if input.is_empty() {
             Vec::new()
         } else {
-            let deserializer = serde_yaml::Deserializer::from_str(input);
+            let deserializer = yaml_serde::Deserializer::from_str(input);
             deserializer
                 .map(|d| {
-                    serde_yaml::with::singleton_map_recursive::deserialize(d)
+                    yaml_serde::with::singleton_map_recursive::deserialize(d)
                         .expect("The definition of the AuthenticationClass should be valid.")
                 })
                 .collect()
