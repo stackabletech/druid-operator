@@ -272,7 +272,7 @@ mod test {
     /// API, and because the spec is invalid, before the [`DeserializeGuard`] is unwrapped.
     #[test]
     fn reconcile_exits_early_for_deleted_cluster() {
-        let druid = serde_yaml::from_str(
+        let druid = yaml_serde::from_str(
             r#"
 apiVersion: druid.stackable.tech/v1alpha1
 kind: DruidCluster
