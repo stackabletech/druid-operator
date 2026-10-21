@@ -245,7 +245,7 @@ mod test {
         DruidAuthenticationConfig::from_auth_classes(AuthenticationClassesResolved {
             auth_classes: vec![AuthenticationClassResolved::Ldap {
                 auth_class_name: "ldap".to_string(),
-                provider: serde_yaml::from_str::<
+                provider: yaml_serde::from_str::<
                     stackable_operator::crd::authentication::ldap::v1alpha1::AuthenticationProvider,
                 >(
                     "

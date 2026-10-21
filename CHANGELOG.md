@@ -20,7 +20,7 @@ All notable changes to this project will be documented in this file.
   assembles all relevant Kubernetes resources before anything is applied ([#841]).
 - The RBAC ServiceAccount and RoleBinding are now built with the operator-rs `v2::rbac`
   functions and carry the full set of recommended labels ([#846]).
-- Bump stackable-operator to 0.118.0 ([#855], [#865], [#876]).
+- Bump stackable-operator to 0.121.0 ([#855], [#865], [#876], [#880], [#888]).
 - The reconciler now applies resources and derives the cluster status in discrete
   apply and update_status steps ([#856]).
 - All product containers now run with `securityContext.runAsNonRoot` set to `true` to improve security ([#860]).
@@ -41,6 +41,9 @@ All notable changes to this project will be documented in this file.
 - Internal operator refactoring: build each role group through per-role modules (brokers,
   coordinators, historicals, middle managers, routers) and a shared role group builder, with
   each role's configuration held in typed fields of the validated cluster ([#887]).
+- Support Vector 0.58.0 ([#885], [#889]).
+- Replace the unmaintained `serde_yaml` with `yaml_serde` ([#888]).
+- All pods now set `securityContext.seccompProfile.type` to `RuntimeDefault` ([#888]).
 
 ### Fixed
 
@@ -68,6 +71,8 @@ All notable changes to this project will be documented in this file.
 [#880]: https://github.com/stackabletech/druid-operator/pull/880
 [#885]: https://github.com/stackabletech/druid-operator/pull/885
 [#887]: https://github.com/stackabletech/druid-operator/pull/887
+[#888]: https://github.com/stackabletech/druid-operator/pull/888
+[#889]: https://github.com/stackabletech/druid-operator/pull/889
 
 ## [26.7.0] - 2026-07-21
 

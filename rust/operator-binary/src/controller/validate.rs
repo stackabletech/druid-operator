@@ -882,7 +882,7 @@ fn validate_logging(
 
 #[cfg(test)]
 pub(crate) mod test_support {
-    use stackable_operator::cli::OperatorEnvironmentOptions;
+    use stackable_operator::{cli::OperatorEnvironmentOptions, utils::yaml_from_str_singleton_map};
 
     use super::{ValidatedCluster, validate};
     use crate::{controller::dereference::DereferencedObjects, crd::v1alpha1};
@@ -966,9 +966,7 @@ spec:
 
     /// Parses a `DruidCluster` from YAML the same way the operator does (singleton-map enums).
     pub fn druid_from_yaml(yaml: &str) -> v1alpha1::DruidCluster {
-        let deserializer = serde_yaml::Deserializer::from_str(yaml);
-        serde_yaml::with::singleton_map_recursive::deserialize(deserializer)
-            .expect("invalid test DruidCluster YAML")
+        yaml_from_str_singleton_map(yaml).expect("invalid test DruidCluster YAML")
     }
 
     /// Builds a [`ValidatedCluster`] from a `DruidCluster` with the test defaults of

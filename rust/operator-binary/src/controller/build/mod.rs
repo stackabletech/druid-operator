@@ -454,10 +454,7 @@ mod tests {
     use std::collections::BTreeMap;
 
     use stackable_operator::{
-        crd::{
-            authentication::core,
-            listener::{self, v1alpha1::Listener},
-        },
+        crd::listener::{self, v1alpha1::Listener},
         k8s_openapi::{
             ByteString,
             api::{
@@ -466,6 +463,7 @@ mod tests {
             },
         },
         kube::{Resource, api::ObjectMeta},
+        utils::yaml_from_str_singleton_map,
         v2::types::operator::RoleGroupName,
     };
     use strum::IntoEnumIterator;
@@ -622,10 +620,8 @@ spec:
     /// `AuthenticationClass` and an OPA document URL dereferenced.
     fn rich_validated_cluster() -> ValidatedCluster {
         let druid = druid_from_yaml(&rich_druid_yaml());
-        let deserializer = serde_yaml::Deserializer::from_str(OIDC_AUTHENTICATION_CLASS_YAML);
-        let oidc_authentication_class: core::v1alpha1::AuthenticationClass =
-            serde_yaml::with::singleton_map_recursive::deserialize(deserializer)
-                .expect("the test AuthenticationClass YAML is valid");
+        let oidc_authentication_class = yaml_from_str_singleton_map(OIDC_AUTHENTICATION_CLASS_YAML)
+            .expect("the test AuthenticationClass YAML is valid");
         let dereferenced_objects = dereferenced_objects();
         validated_cluster_from(
             &druid,
