@@ -190,7 +190,7 @@ mod test {
     use super::{CONTROLLER_NAME, OPERATOR_NAME, PRODUCT_NAME, *};
     use crate::{
         controller::build::{
-            properties::ConfigFileName, resource::config_map::build_rolegroup_config_map,
+            build, properties::ConfigFileName, test_support::role_group_config_map,
         },
         crd::{DruidRole, PROP_SEGMENT_CACHE_LOCATIONS},
     };
@@ -225,31 +225,22 @@ mod test {
         let druid = crate::controller::validate::test_support::druid_from_yaml(&yaml);
 
         let cluster = crate::controller::validate::test_support::validated_cluster(&druid);
+        let resources = build(&cluster).expect("build succeeds");
 
-        // The segment cache property is injected dynamically by the config_map builder from the
-        // merged resources of the validated role group config.
-        let rg = cluster
-            .role_group_configs
-            .get(&DruidRole::Historical)
-            .expect("historical role groups")
-            .get(&RoleGroupName::from_str(tested_rolegroup_name).unwrap())
-            .expect("tested rolegroup")
-            .clone();
-
-        let rg_configmap = build_rolegroup_config_map(
+        // The segment cache property is derived by the Historical role module from the merged
+        // resources of the role group and rendered into runtime.properties.
+        let druid_segment_cache_property = role_group_config_map(
+            &resources,
             &cluster,
             &DruidRole::Historical,
-            &RoleGroupName::from_str(tested_rolegroup_name).unwrap(),
-            &rg,
+            &RoleGroupName::from_str(tested_rolegroup_name).expect("valid role group name"),
         )
-        .expect("build rolegroup config map");
-
-        let druid_segment_cache_property = rg_configmap
-            .data
-            .unwrap()
-            .get(&ConfigFileName::RuntimeProperties.to_string())
-            .unwrap()
-            .to_string();
+        .data
+        .as_ref()
+        .expect("the ConfigMap has data")
+        .get(&ConfigFileName::RuntimeProperties.to_string())
+        .expect("runtime.properties is rendered")
+        .to_string();
 
         let escaped_segment_cache_property =
             stackable_operator::v2::config_file_writer::to_java_properties_string(

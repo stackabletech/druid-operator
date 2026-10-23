@@ -70,26 +70,9 @@ pub fn build_group_listener_pvc(
     )
 }
 
-/// The name of the group [`Listener`] of the given role, or `None` for roles that expose no
-/// Listener.
-pub fn group_listener_name(
-    cluster_name: &ClusterName,
-    druid_role: &DruidRole,
-) -> Option<ListenerName> {
-    match druid_role {
-        DruidRole::Coordinator | DruidRole::Broker | DruidRole::Router => {
-            Some(general_group_listener_name(cluster_name, druid_role))
-        }
-        DruidRole::Historical | DruidRole::MiddleManager => None,
-    }
-}
-
-/// Returns the name of the group listener for a specific role, without
-/// checking if the role actually exposes one.
-pub fn general_group_listener_name(
-    cluster_name: &ClusterName,
-    druid_role: &DruidRole,
-) -> ListenerName {
+/// The name of the group [`Listener`] of the given role. Only Brokers, Coordinators and Routers
+/// expose one; their role modules and `build` ask for it, the dereference step for the Router's.
+pub fn group_listener_name(cluster_name: &ClusterName, druid_role: &DruidRole) -> ListenerName {
     const _: () = assert!(
         ClusterName::MAX_LENGTH + 1 /* dash */ + RoleName::MAX_LENGTH <= ListenerName::MAX_LENGTH,
         "The string `<cluster_name>-<role_name>` must not exceed the limit of Listener names."
@@ -123,16 +106,6 @@ pub fn build_listener_connection_string(
     ))
 }
 
-/// The listener volume name depending on the role
-pub fn secret_volume_listener_scope(role: &DruidRole) -> Option<String> {
-    match role {
-        DruidRole::Broker | DruidRole::Coordinator | DruidRole::Router => {
-            Some(LISTENER_VOLUME_NAME.to_string())
-        }
-        DruidRole::Historical | DruidRole::MiddleManager => None,
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use std::{collections::BTreeMap, str::FromStr};
@@ -155,30 +128,9 @@ mod tests {
     }
 
     #[test]
-    fn group_listener_name_only_for_externally_reachable_roles() {
-        let cluster_name = cluster().name;
-        assert!(group_listener_name(&cluster_name, &DruidRole::Broker).is_some());
-        assert!(group_listener_name(&cluster_name, &DruidRole::Coordinator).is_some());
-        assert!(group_listener_name(&cluster_name, &DruidRole::Router).is_some());
-        assert!(group_listener_name(&cluster_name, &DruidRole::Historical).is_none());
-        assert!(group_listener_name(&cluster_name, &DruidRole::MiddleManager).is_none());
-    }
-
-    #[test]
     fn group_listener_name_is_cluster_and_role_scoped() {
-        let name = group_listener_name(&cluster().name, &DruidRole::Broker)
-            .expect("broker has a listener");
+        let name = group_listener_name(&cluster().name, &DruidRole::Broker);
         assert_eq!(name.to_string(), "simple-druid-broker");
-    }
-
-    #[test]
-    fn secret_volume_listener_scope_only_for_externally_reachable_roles() {
-        assert_eq!(
-            secret_volume_listener_scope(&DruidRole::Broker),
-            Some("listener".to_string())
-        );
-        assert!(secret_volume_listener_scope(&DruidRole::Historical).is_none());
-        assert!(secret_volume_listener_scope(&DruidRole::MiddleManager).is_none());
     }
 
     /// An ingress address exposing both the plaintext and TLS ports, so the connection-string builder's

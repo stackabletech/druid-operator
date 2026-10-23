@@ -1,16 +1,15 @@
-use std::{collections::BTreeMap, str::FromStr, sync::LazyLock};
+use std::{str::FromStr, sync::LazyLock};
 
 use snafu::{OptionExt, ResultExt, Snafu};
 use stackable_operator::{
-    builder,
-    builder::pod::{PodBuilder, container::ContainerBuilder, volume::VolumeBuilder},
+    builder::pod::volume::VolumeBuilder,
     commons::resources::{
         CpuLimitsFragment, MemoryLimitsFragment, NoRuntimeLimits, NoRuntimeLimitsFragment,
         Resources, ResourcesFragment,
     },
     constant,
     k8s_openapi::{
-        api::core::v1::{EmptyDirVolumeSource, ResourceRequirements},
+        api::core::v1::{EmptyDirVolumeSource, Volume, VolumeMount},
         apimachinery::pkg::api::resource::Quantity,
     },
     memory::MemoryQuantity,
@@ -18,23 +17,17 @@ use stackable_operator::{
 };
 
 use crate::crd::{
-    DruidRole, PROP_SEGMENT_CACHE_LOCATIONS,
-    memory::{HistoricalDerivedSettings, RESERVED_OS_MEMORY},
-    storage::{self, default_free_percentage_empty_dir_fragment},
+    memory::RESERVED_OS_MEMORY,
+    storage::{self, FreePercentageEmptyDir, default_free_percentage_empty_dir_fragment},
 };
 
 const PATH_SEGMENT_CACHE: &str = "/stackable/var/druid/segment-cache";
 
 // volume names
-constant!(SEGMENT_CACHE_VOLUME_NAME: VolumeName = "segment-cache");
+constant!(pub(crate) SEGMENT_CACHE_VOLUME_NAME: VolumeName = "segment-cache");
 
-/// This Error cannot derive PartialEq because fragment::ValidationError doesn't derive it
 #[derive(Snafu, Debug)]
-#[allow(clippy::enum_variant_names)]
 pub enum Error {
-    #[snafu(display("failed to derive Druid settings from resources"))]
-    DeriveMemorySettings { source: crate::crd::memory::Error },
-
     #[snafu(display("failed to get memory limits"))]
     GetMemoryLimit,
 
@@ -42,131 +35,58 @@ pub enum Error {
     ParseMemoryQuantity {
         source: stackable_operator::memory::Error,
     },
-
-    #[snafu(display("the operator produced an internally inconsistent state"))]
-    InconsistentConfiguration,
-
-    #[snafu(display("failed to add needed volume"))]
-    AddVolume { source: builder::pod::Error },
 }
 
-#[derive(Debug, Clone, PartialEq)]
-pub enum RoleResource {
-    Druid(Resources<storage::DruidStorage, NoRuntimeLimits>),
-    Historical(Resources<storage::HistoricalStorage, NoRuntimeLimits>),
+/// The heap size of a role whose JVM settings are not derived from its CPU: the memory limit
+/// minus the OS reserve and minus the role's direct memory, if it has any.
+pub fn heap_memory(
+    resources: &Resources<storage::DruidStorage, NoRuntimeLimits>,
+    direct_memory: Option<MemoryQuantity>,
+) -> Result<MemoryQuantity, Error> {
+    let total_memory = MemoryQuantity::try_from(
+        resources
+            .memory
+            .limit
+            .as_ref()
+            .context(GetMemoryLimitSnafu)?,
+    )
+    .context(ParseMemoryQuantitySnafu)?;
+    let heap_memory = total_memory - *RESERVED_OS_MEMORY;
+    Ok(match direct_memory {
+        Some(direct_memory) => heap_memory - direct_memory,
+        None => heap_memory,
+    })
 }
 
-impl RoleResource {
-    pub fn as_resource_requirements(&self) -> ResourceRequirements {
-        match self {
-            Self::Druid(r) => r.clone().into(),
-            Self::Historical(r) => r.clone().into(),
-        }
-    }
+/// The value of `druid.segmentCache.locations` for a Historical: its one segment cache location,
+/// sized from the segment cache storage.
+pub fn segment_cache_locations(segment_cache: &FreePercentageEmptyDir) -> String {
+    let free_percentage = segment_cache.free_percentage.unwrap_or(5u16);
+    let capacity = &segment_cache.empty_dir.capacity;
+    format!(
+        r#"[{{"path":"{path}","maxSize":"{max_size}","freeSpacePercent":"{free_space_percent}"}}]"#,
+        path = PATH_SEGMENT_CACHE,
+        max_size = capacity.0,
+        free_space_percent = free_percentage,
+    )
+}
 
-    /// Update the given configuration file with resource properties.
-    /// Currently it only adds historical-specific configs for direct memory buffers, thread counts and segment cache.
-    pub fn update_druid_config_file(
-        &self,
-        config: &mut BTreeMap<String, String>,
-    ) -> Result<(), Error> {
-        match self {
-            Self::Historical(r) => {
-                let free_percentage = r.storage.segment_cache.free_percentage.unwrap_or(5u16);
-                let capacity = &r.storage.segment_cache.empty_dir.capacity;
-                config
-                    .entry(PROP_SEGMENT_CACHE_LOCATIONS.to_string())
-                    .or_insert_with(|| {
-                        format!(
-                            r#"[{{"path":"{}","maxSize":"{}","freeSpacePercent":"{}"}}]"#,
-                            PATH_SEGMENT_CACHE, capacity.0, free_percentage
-                        )
-                    });
+/// The segment cache volume of a Historical: an `emptyDir` sized from the segment cache storage.
+pub fn segment_cache_volume(segment_cache: &FreePercentageEmptyDir) -> Volume {
+    VolumeBuilder::new(&*SEGMENT_CACHE_VOLUME_NAME)
+        .empty_dir(EmptyDirVolumeSource {
+            medium: segment_cache.empty_dir.medium.clone(),
+            size_limit: Some(segment_cache.empty_dir.capacity.clone()),
+        })
+        .build()
+}
 
-                let settings =
-                    HistoricalDerivedSettings::try_from(r).context(DeriveMemorySettingsSnafu)?;
-                settings.add_settings(config);
-            }
-            Self::Druid(_) => (),
-        }
-        Ok(())
-    }
-
-    /// Adds the segment cache volume and its mount for the Historical role.
-    ///
-    /// # Panics
-    ///
-    /// Panics if the volume mount cannot be added to the container builder. Only call this on a
-    /// container builder whose mount paths are still distinct from the one added here.
-    pub fn update_volumes_and_volume_mounts(
-        &self,
-        cb: &mut ContainerBuilder,
-        pb: &mut PodBuilder,
-    ) -> Result<(), Error> {
-        if let Self::Historical(r) = self {
-            cb.add_volume_mount(&*SEGMENT_CACHE_VOLUME_NAME, PATH_SEGMENT_CACHE)
-                .expect(
-                    "The mount paths are statically defined and there should be no duplicates.",
-                );
-            pb.add_volume(
-                VolumeBuilder::new(&*SEGMENT_CACHE_VOLUME_NAME)
-                    .empty_dir(EmptyDirVolumeSource {
-                        medium: r.storage.segment_cache.empty_dir.medium.clone(),
-                        size_limit: Some(r.storage.segment_cache.empty_dir.capacity.clone()),
-                    })
-                    .build(),
-            )
-            .context(AddVolumeSnafu)?;
-        }
-
-        Ok(())
-    }
-
-    /// Computes the heap and direct access memory sizes per role. The settings can be used to configure
-    /// the JVM accordingly. The direct memory size is an [`Option`] because not all roles require
-    /// direct access memory.
-    pub fn get_memory_sizes(
-        &self,
-        role: &DruidRole,
-    ) -> Result<(MemoryQuantity, Option<MemoryQuantity>), Error> {
-        match self {
-            Self::Historical(r) => {
-                let settings =
-                    HistoricalDerivedSettings::try_from(r).context(DeriveMemorySettingsSnafu)?;
-                Ok((
-                    settings.heap_memory(),
-                    Some(settings.direct_access_memory()),
-                ))
-            }
-            Self::Druid(r) => {
-                let total_memory =
-                    MemoryQuantity::try_from(r.memory.limit.as_ref().context(GetMemoryLimitSnafu)?)
-                        .context(ParseMemoryQuantitySnafu)?;
-                match role {
-                    DruidRole::Historical => Err(Error::InconsistentConfiguration),
-                    DruidRole::Coordinator => {
-                        // The coordinator needs no direct memory
-                        let heap_memory = total_memory - *RESERVED_OS_MEMORY;
-                        Ok((heap_memory, None))
-                    }
-                    DruidRole::Broker => {
-                        let direct_memory = MemoryQuantity::from_mebi(400.);
-                        let heap_memory = total_memory - *RESERVED_OS_MEMORY - direct_memory;
-                        Ok((heap_memory, Some(direct_memory)))
-                    }
-                    DruidRole::MiddleManager => {
-                        // The middle manager needs no direct memory
-                        let heap_memory = total_memory - *RESERVED_OS_MEMORY;
-                        Ok((heap_memory, None))
-                    }
-                    DruidRole::Router => {
-                        let direct_memory = MemoryQuantity::from_mebi(128.);
-                        let heap_memory = total_memory - *RESERVED_OS_MEMORY - direct_memory;
-                        Ok((heap_memory, Some(direct_memory)))
-                    }
-                }
-            }
-        }
+/// The `druid` container's mount of the segment cache volume.
+pub fn segment_cache_volume_mount() -> VolumeMount {
+    VolumeMount {
+        name: SEGMENT_CACHE_VOLUME_NAME.to_string(),
+        mount_path: PATH_SEGMENT_CACHE.to_string(),
+        ..VolumeMount::default()
     }
 }
 
@@ -259,10 +179,12 @@ mod test {
     };
 
     use super::*;
-    use crate::crd::{
-        DruidRole,
-        storage::{HistoricalStorage, default_free_percentage_empty_dir},
-        v1alpha1,
+    use crate::{
+        controller::validate::test_support::validated_cluster,
+        crd::{
+            storage::{HistoricalStorage, default_free_percentage_empty_dir},
+            v1alpha1,
+        },
     };
 
     #[test]
@@ -416,19 +338,23 @@ mod test {
     }
 
     #[test]
-    fn test_resources() -> Result<(), Error> {
+    fn test_resources() {
         let cluster: v1alpha1::DruidCluster = yaml_from_str_singleton_map(include_str!(
             "../../test/resources/crd/resource_merge/druid_cluster.yaml"
         ))
         .expect("failed to parse YAML");
+        let validated = validated_cluster(&cluster);
+        let middle_manager_resources = |role_group: &str| {
+            &validated.middle_manager_role_group_configs
+                [&RoleGroupName::from_str(role_group).expect("valid role group name")]
+                .config
+                .config
+                .resources
+        };
 
-        let middle_managers = cluster.merged_role(&DruidRole::MiddleManager).unwrap();
-
-        if let Some(RoleResource::Druid(middlemanager_resources_from_rg)) = middle_managers
-            .get(&RoleGroupName::from_str("resources-from-role-group").unwrap())
-            .map(|rg| &rg.config.resources)
-        {
-            let expected = Resources {
+        assert_eq!(
+            middle_manager_resources("resources-from-role-group"),
+            &Resources {
                 cpu: CpuLimits {
                     min: Some(Quantity("300m".to_owned())),
                     max: Some(Quantity("3".to_owned())),
@@ -438,21 +364,13 @@ mod test {
                     runtime_limits: NoRuntimeLimits {},
                 },
                 storage: storage::DruidStorage {},
-            };
+            },
+            "middlemanager resources from role group"
+        );
 
-            assert_eq!(
-                middlemanager_resources_from_rg, &expected,
-                "middlemanager resources from role group"
-            );
-        } else {
-            panic!("No role group named [resources-from-role-group] found");
-        }
-
-        if let Some(RoleResource::Druid(middlemanager_resources_from_rg)) = middle_managers
-            .get(&RoleGroupName::from_str("resources-from-role").unwrap())
-            .map(|rg| &rg.config.resources)
-        {
-            let expected = Resources {
+        assert_eq!(
+            middle_manager_resources("resources-from-role"),
+            &Resources {
                 cpu: CpuLimits {
                     min: Some(Quantity("100m".to_owned())),
                     max: Some(Quantity("1".to_owned())),
@@ -462,58 +380,37 @@ mod test {
                     runtime_limits: NoRuntimeLimits {},
                 },
                 storage: storage::DruidStorage {},
-            };
-
-            assert_eq!(
-                middlemanager_resources_from_rg, &expected,
-                "resources from role"
-            );
-        } else {
-            panic!("No role group named [resources-from-role] found");
-        }
-
-        Ok(())
+            },
+            "resources from role"
+        );
     }
 
     #[test]
-    fn test_segment_cache() -> Result<(), Error> {
+    fn test_segment_cache() {
         let cluster: v1alpha1::DruidCluster = yaml_from_str_singleton_map(include_str!(
             "../../test/resources/crd/resource_merge/segment_cache.yaml"
         ))
         .expect("failed to parse YAML");
+        let validated = validated_cluster(&cluster);
+        let historical_segment_cache = |role_group: &str| {
+            &validated.historical_role_group_configs
+                [&RoleGroupName::from_str(role_group).expect("valid role group name")]
+                .config
+                .config
+                .resources
+                .storage
+                .segment_cache
+        };
 
-        let historicals = cluster.merged_role(&DruidRole::Historical).unwrap();
-
-        // ---------- default role group
-        let res = &historicals
-            .get(&RoleGroupName::from_str("default").unwrap())
-            .unwrap()
-            .config
-            .resources;
-        let mut got = BTreeMap::new();
-
-        assert!(res.update_druid_config_file(&mut got).is_ok());
-        assert!(got.contains_key(PROP_SEGMENT_CACHE_LOCATIONS));
-
-        let value = got.get(PROP_SEGMENT_CACHE_LOCATIONS).unwrap();
-        let expected = r#"[{"path":"/stackable/var/druid/segment-cache","maxSize":"5g","freeSpacePercent":"3"}]"#.to_string();
-        assert_eq!(value, &expected, "primary");
-
-        // ---------- secondary role group
-        let res = &historicals
-            .get(&RoleGroupName::from_str("secondary").unwrap())
-            .unwrap()
-            .config
-            .resources;
-        let mut got = BTreeMap::new();
-
-        assert!(res.update_druid_config_file(&mut got).is_ok());
-        assert!(got.contains_key(PROP_SEGMENT_CACHE_LOCATIONS));
-
-        let value = got.get(PROP_SEGMENT_CACHE_LOCATIONS).unwrap();
-        let expected = r#"[{"path":"/stackable/var/druid/segment-cache","maxSize":"2g","freeSpacePercent":"7"}]"#.to_string();
-        assert_eq!(value, &expected, "secondary");
-
-        Ok(())
+        assert_eq!(
+            segment_cache_locations(historical_segment_cache("default")),
+            r#"[{"path":"/stackable/var/druid/segment-cache","maxSize":"5g","freeSpacePercent":"3"}]"#,
+            "primary"
+        );
+        assert_eq!(
+            segment_cache_locations(historical_segment_cache("secondary")),
+            r#"[{"path":"/stackable/var/druid/segment-cache","maxSize":"2g","freeSpacePercent":"7"}]"#,
+            "secondary"
+        );
     }
 }
