@@ -375,7 +375,7 @@ mod tests {
     use super::*;
     use crate::{
         controller::{
-            build::{build, test_support::role_group_config_map},
+            build::test_support::role_group_builder,
             validate::test_support::{MINIMAL_DRUID_YAML, druid_from_yaml, validated_cluster},
         },
         crd::DruidRole,
@@ -386,8 +386,8 @@ mod tests {
         let druid = druid_from_yaml(MINIMAL_DRUID_YAML);
         let cluster = validated_cluster(&druid);
         let role_group_name = RoleGroupName::from_str(role_group).expect("valid role group name");
-        let resources = build(&cluster).expect("build succeeds");
-        role_group_config_map(&resources, &cluster, &role, &role_group_name).clone()
+        build_config_map(&role_group_builder(&cluster, &role, &role_group_name))
+            .expect("the ConfigMap builds")
     }
 
     #[test]

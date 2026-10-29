@@ -81,3 +81,73 @@ pub(crate) fn build<'a>(
             .clone(),
     })
 }
+
+#[cfg(test)]
+mod tests {
+    use std::str::FromStr;
+
+    use rstest::rstest;
+
+    use super::*;
+    use crate::controller::{
+        build::properties::ConfigFileName,
+        validate::test_support::{druid_from_yaml, validated_cluster},
+    };
+
+    #[rstest]
+    #[case(
+        "segment_cache.yaml",
+        "default",
+        "[{\"path\":\"/stackable/var/druid/segment-cache\",\"maxSize\":\"1G\",\"freeSpacePercent\":\"5\"}]"
+    )]
+    #[case(
+        "segment_cache.yaml",
+        "secondary",
+        "[{\"path\":\"/stackable/var/druid/segment-cache\",\"maxSize\":\"5G\",\"freeSpacePercent\":\"2\"}]"
+    )]
+    fn segment_cache_location_property(
+        #[case] druid_manifest: &str,
+        #[case] tested_rolegroup_name: &str,
+        #[case] expected_druid_segment_cache_property: &str,
+    ) {
+        let yaml =
+            std::fs::read_to_string(format!("test/resources/druid_controller/{druid_manifest}"))
+                .unwrap();
+        let druid = druid_from_yaml(&yaml);
+
+        let cluster = validated_cluster(&druid);
+        let role_group_name =
+            RoleGroupName::from_str(tested_rolegroup_name).expect("valid role group name");
+
+        // The segment cache property is derived from the merged resources of the role group and
+        // rendered into runtime.properties.
+        let druid_segment_cache_property = build(
+            &cluster,
+            &role_group_name,
+            cluster
+                .historical_role_group_configs
+                .get(&role_group_name)
+                .expect("the role group exists"),
+        )
+        .expect("the role group resolves")
+        .config_map_data
+        .get(&ConfigFileName::RuntimeProperties.to_string())
+        .expect("runtime.properties is rendered")
+        .to_string();
+
+        let escaped_segment_cache_property =
+            stackable_operator::v2::config_file_writer::to_java_properties_string(
+                vec![(
+                    &PROP_SEGMENT_CACHE_LOCATIONS.to_string(),
+                    &expected_druid_segment_cache_property.to_string(),
+                )]
+                .into_iter(),
+            )
+            .unwrap();
+
+        assert!(
+            druid_segment_cache_property.contains(&escaped_segment_cache_property),
+            "role group {tested_rolegroup_name}"
+        );
+    }
+}

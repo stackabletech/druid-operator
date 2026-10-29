@@ -130,10 +130,8 @@ mod tests {
     use crate::{
         controller::{
             build::{
-                Error as BuildError, build,
                 container::{CONTAINERDEBUG_LOG_DIRECTORY, LOG_VOLUME_NAME},
-                role_group,
-                test_support::role_group_stateful_set,
+                test_support::role_group_builder,
             },
             validate::test_support::{MINIMAL_DRUID_YAML, druid_from_yaml, validated_cluster},
         },
@@ -192,28 +190,28 @@ spec:
 "#,
         );
         let cluster = validated_cluster(&druid);
-        let resources = build(&cluster).expect("build succeeds");
-
-        let env = role_group_stateful_set(
-            &resources,
+        let stateful_set = build_statefulset(&role_group_builder(
             &cluster,
             &DruidRole::Broker,
             &RoleGroupName::from_str("default").expect("valid role group name"),
-        )
-        .spec
-        .as_ref()
-        .expect("the StatefulSet has a spec")
-        .template
-        .spec
-        .as_ref()
-        .expect("the pod template has a spec")
-        .containers
-        .iter()
-        .find(|container| container.name == Container::Druid.name().as_ref())
-        .expect("the druid container exists")
-        .env
-        .as_ref()
-        .expect("the druid container has env vars");
+        ))
+        .expect("the StatefulSet builds");
+
+        let env = stateful_set
+            .spec
+            .as_ref()
+            .expect("the StatefulSet has a spec")
+            .template
+            .spec
+            .as_ref()
+            .expect("the pod template has a spec")
+            .containers
+            .iter()
+            .find(|container| container.name == Container::Druid.name().as_ref())
+            .expect("the druid container exists")
+            .env
+            .as_ref()
+            .expect("the druid container has env vars");
 
         let containerdebug: Vec<_> = env
             .iter()
@@ -237,19 +235,15 @@ spec:
         druid.spec.cluster_config.extra_volumes = vec![user_volume(LOG_VOLUME_NAME.as_ref())];
         let cluster = validated_cluster(&druid);
 
-        let Err(error) = build(&cluster) else {
+        let Err(error) = build_statefulset(&role_group_builder(
+            &cluster,
+            &DruidRole::Broker,
+            &RoleGroupName::from_str("default").expect("valid role group name"),
+        )) else {
             panic!("the colliding extra volume must be rejected");
         };
         assert!(
-            matches!(
-                error,
-                BuildError::RoleGroup {
-                    source: role_group::Error::StatefulSet {
-                        source: Error::AddVolume { .. },
-                    },
-                    ..
-                }
-            ),
+            matches!(error, Error::AddVolume { .. }),
             "unexpected error: {error:?}"
         );
     }

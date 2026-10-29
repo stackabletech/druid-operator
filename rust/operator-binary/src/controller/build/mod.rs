@@ -401,50 +401,65 @@ fn get_random_base64() -> String {
 
 #[cfg(test)]
 pub(crate) mod test_support {
-    use stackable_operator::{
-        k8s_openapi::api::{apps::v1::StatefulSet, core::v1::ConfigMap},
-        v2::types::operator::RoleGroupName,
-    };
+    use stackable_operator::v2::types::operator::RoleGroupName;
 
-    use super::{KubernetesResources, Prepared};
+    use super::role_group::{
+        RoleGroupBuilder, broker, coordinator, historical, middle_manager, router,
+    };
     use crate::{controller::validate::ValidatedCluster, crd::DruidRole};
 
-    /// The built ConfigMap of the role group, found by the name the builder derives from the
-    /// cluster.
-    pub(crate) fn role_group_config_map<'a>(
-        resources: &'a KubernetesResources<Prepared>,
-        cluster: &ValidatedCluster,
+    /// The [`RoleGroupBuilder`] of the role group, resolved by its role's module as
+    /// [`build`](super::build) does, so that a test can build one resource of the role group
+    /// without building the whole cluster.
+    pub(crate) fn role_group_builder<'a>(
+        cluster: &'a ValidatedCluster,
         role: &DruidRole,
         role_group_name: &RoleGroupName,
-    ) -> &'a ConfigMap {
-        let name = cluster
-            .role_group_resource_names(role, role_group_name)
-            .role_group_config_map()
-            .to_string();
-        resources
-            .config_maps
-            .iter()
-            .find(|config_map| config_map.metadata.name.as_deref() == Some(name.as_str()))
-            .expect("the role group's ConfigMap is built")
-    }
-
-    /// The built StatefulSet of the role group, found by the name the builder derives from the
-    /// cluster.
-    pub(crate) fn role_group_stateful_set<'a>(
-        resources: &'a KubernetesResources<Prepared>,
-        cluster: &ValidatedCluster,
-        role: &DruidRole,
-        role_group_name: &RoleGroupName,
-    ) -> &'a StatefulSet {
-        let name = cluster
-            .role_group_resource_names(role, role_group_name)
-            .stateful_set_name()
-            .to_string();
-        resources
-            .stateful_sets
-            .iter()
-            .find(|stateful_set| stateful_set.metadata.name.as_deref() == Some(name.as_str()))
-            .expect("the role group's StatefulSet is built")
+    ) -> RoleGroupBuilder<'a> {
+        let missing = "the role group exists";
+        match role {
+            DruidRole::Coordinator => coordinator::build(
+                cluster,
+                role_group_name,
+                cluster
+                    .coordinator_role_group_configs
+                    .get(role_group_name)
+                    .expect(missing),
+            ),
+            DruidRole::Broker => broker::build(
+                cluster,
+                role_group_name,
+                cluster
+                    .broker_role_group_configs
+                    .get(role_group_name)
+                    .expect(missing),
+            ),
+            DruidRole::Historical => historical::build(
+                cluster,
+                role_group_name,
+                cluster
+                    .historical_role_group_configs
+                    .get(role_group_name)
+                    .expect(missing),
+            ),
+            DruidRole::MiddleManager => middle_manager::build(
+                cluster,
+                role_group_name,
+                cluster
+                    .middle_manager_role_group_configs
+                    .get(role_group_name)
+                    .expect(missing),
+            ),
+            DruidRole::Router => router::build(
+                cluster,
+                role_group_name,
+                cluster
+                    .router_role_group_configs
+                    .get(role_group_name)
+                    .expect(missing),
+            ),
+        }
+        .expect("the role group resolves")
     }
 }
 
@@ -457,8 +472,8 @@ mod tests {
         k8s_openapi::{
             ByteString,
             api::{
-                apps::v1::StatefulSetSpec,
-                core::v1::{Container as PodContainer, PodSpec, Secret},
+                apps::v1::{StatefulSet, StatefulSetSpec},
+                core::v1::{ConfigMap, Container as PodContainer, PodSpec, Secret},
             },
         },
         kube::{Resource, api::ObjectMeta},
@@ -478,7 +493,6 @@ mod tests {
         resource::{config_map::INDEXER_JAVA_OPTS, listener::LISTENER_VOLUME_NAME},
         role_group::coordinator::derby_log_jvm_argument,
         security::{TLS_MOUNT_VOLUME_NAME, TLS_VOLUME_NAME},
-        test_support::{role_group_config_map, role_group_stateful_set},
     };
     use crate::{
         controller::validate::{
@@ -637,6 +651,44 @@ spec:
     /// The `default` role group, which every role of [`rich_druid_yaml`] has.
     fn default_role_group() -> RoleGroupName {
         "default".parse().expect("valid role group name")
+    }
+
+    /// The built ConfigMap of the role group, found by the name the builder derives from the
+    /// cluster.
+    fn role_group_config_map<'a>(
+        resources: &'a KubernetesResources<Prepared>,
+        cluster: &ValidatedCluster,
+        role: &DruidRole,
+        role_group_name: &RoleGroupName,
+    ) -> &'a ConfigMap {
+        let name = cluster
+            .role_group_resource_names(role, role_group_name)
+            .role_group_config_map()
+            .to_string();
+        resources
+            .config_maps
+            .iter()
+            .find(|config_map| config_map.metadata.name.as_deref() == Some(name.as_str()))
+            .expect("the role group's ConfigMap is built")
+    }
+
+    /// The built StatefulSet of the role group, found by the name the builder derives from the
+    /// cluster.
+    fn role_group_stateful_set<'a>(
+        resources: &'a KubernetesResources<Prepared>,
+        cluster: &ValidatedCluster,
+        role: &DruidRole,
+        role_group_name: &RoleGroupName,
+    ) -> &'a StatefulSet {
+        let name = cluster
+            .role_group_resource_names(role, role_group_name)
+            .stateful_set_name()
+            .to_string();
+        resources
+            .stateful_sets
+            .iter()
+            .find(|stateful_set| stateful_set.metadata.name.as_deref() == Some(name.as_str()))
+            .expect("the role group's StatefulSet is built")
     }
 
     fn stateful_set_spec<'a>(

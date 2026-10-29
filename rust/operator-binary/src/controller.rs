@@ -178,22 +178,14 @@ pub fn error_policy(
 mod test {
     use std::str::FromStr;
 
-    use rstest::*;
     use stackable_operator::{
         client::Client,
         commons::networking::DomainName,
         kube::{Client as KubeClient, Config, runtime::controller::Action},
         utils::cluster_info::KubernetesClusterInfo,
-        v2::types::operator::RoleGroupName,
     };
 
     use super::{CONTROLLER_NAME, OPERATOR_NAME, PRODUCT_NAME, *};
-    use crate::{
-        controller::build::{
-            build, properties::ConfigFileName, test_support::role_group_config_map,
-        },
-        crd::{DruidRole, PROP_SEGMENT_CACHE_LOCATIONS},
-    };
 
     #[test]
     fn test_constants() {
@@ -201,61 +193,6 @@ mod test {
         let _ = *PRODUCT_NAME;
         let _ = *OPERATOR_NAME;
         let _ = *CONTROLLER_NAME;
-    }
-
-    #[rstest]
-    #[case(
-        "segment_cache.yaml",
-        "default",
-        "[{\"path\":\"/stackable/var/druid/segment-cache\",\"maxSize\":\"1G\",\"freeSpacePercent\":\"5\"}]"
-    )]
-    #[case(
-        "segment_cache.yaml",
-        "secondary",
-        "[{\"path\":\"/stackable/var/druid/segment-cache\",\"maxSize\":\"5G\",\"freeSpacePercent\":\"2\"}]"
-    )]
-    fn segment_cache_location_property(
-        #[case] druid_manifest: &str,
-        #[case] tested_rolegroup_name: &str,
-        #[case] expected_druid_segment_cache_property: &str,
-    ) {
-        let yaml =
-            std::fs::read_to_string(format!("test/resources/druid_controller/{druid_manifest}"))
-                .unwrap();
-        let druid = crate::controller::validate::test_support::druid_from_yaml(&yaml);
-
-        let cluster = crate::controller::validate::test_support::validated_cluster(&druid);
-        let resources = build(&cluster).expect("build succeeds");
-
-        // The segment cache property is derived by the Historical role module from the merged
-        // resources of the role group and rendered into runtime.properties.
-        let druid_segment_cache_property = role_group_config_map(
-            &resources,
-            &cluster,
-            &DruidRole::Historical,
-            &RoleGroupName::from_str(tested_rolegroup_name).expect("valid role group name"),
-        )
-        .data
-        .as_ref()
-        .expect("the ConfigMap has data")
-        .get(&ConfigFileName::RuntimeProperties.to_string())
-        .expect("runtime.properties is rendered")
-        .to_string();
-
-        let escaped_segment_cache_property =
-            stackable_operator::v2::config_file_writer::to_java_properties_string(
-                vec![(
-                    &PROP_SEGMENT_CACHE_LOCATIONS.to_string(),
-                    &expected_druid_segment_cache_property.to_string(),
-                )]
-                .into_iter(),
-            )
-            .unwrap();
-
-        assert!(
-            druid_segment_cache_property.contains(&escaped_segment_cache_property),
-            "role group {tested_rolegroup_name}"
-        );
     }
 
     /// The client points at a closed port, so any API call would fail the reconciliation: an `Ok`

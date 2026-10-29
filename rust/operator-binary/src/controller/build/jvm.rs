@@ -101,7 +101,7 @@ mod tests {
     use super::*;
     use crate::{
         controller::{
-            build::{build, test_support::role_group_config_map},
+            build::test_support::role_group_builder,
             validate::test_support::{MINIMAL_DRUID_YAML, druid_from_yaml, validated_cluster},
         },
         crd::DruidRole,
@@ -270,22 +270,20 @@ mod tests {
         );
     }
 
-    /// The rendered `jvm.config` of the role's `default` role group: the heap and direct memory
-    /// sizes come from the role module, the arguments from [`construct_jvm_args`]. No S3
-    /// connection is configured, so the region (and the version gating it) is never rendered.
+    /// The rendered `jvm.config` of the role's `default` role group.
+    ///
+    /// Tested: the arguments from [`construct_jvm_args`], including the default heap and direct
+    /// memory sizes that the role module derives. Not tested: the S3 region (and the version
+    /// gating it), as no S3 connection is configured.
     fn construct_jvm_config_for_test(druid_cluster: &str, druid_role: &DruidRole) -> String {
         let druid = druid_from_yaml(druid_cluster);
         let cluster = validated_cluster(&druid);
-        let resources = build(&cluster).expect("build succeeds");
-        role_group_config_map(
-            &resources,
+        role_group_builder(
             &cluster,
             druid_role,
             &RoleGroupName::from_str("default").expect("valid role group name"),
         )
-        .data
-        .as_ref()
-        .expect("the ConfigMap has data")[&ConfigFileName::JvmConfig.to_string()]
+        .config_map_data[&ConfigFileName::JvmConfig.to_string()]
             .clone()
     }
 }
