@@ -145,10 +145,52 @@ mod tests {
     /// as the example here because it is set unconditionally by the operator.
     #[test]
     fn env_overrides_override_operator_set_env_vars() {
-        let druid = druid_from_yaml(&MINIMAL_DRUID_YAML.replace(
-            "  brokers:\n",
-            "  brokers:\n    envOverrides:\n      CONTAINERDEBUG_LOG_DIRECTORY: /custom/log/dir\n",
-        ));
+        let druid = druid_from_yaml(
+            r#"
+apiVersion: druid.stackable.tech/v1alpha1
+kind: DruidCluster
+metadata:
+  name: simple-druid
+  namespace: default
+  uid: c27b3971-ca72-42c1-80a4-abdfc1db0ddd
+spec:
+  image:
+    productVersion: 30.0.0
+  clusterConfig:
+    deepStorage:
+      hdfs:
+        configMapName: simple-hdfs
+        directory: /druid
+    metadataDatabase:
+      postgresql:
+        host: druid-postgresql
+        database: druid
+        credentialsSecretName: mySecret
+    zookeeperConfigMapName: simple-druid-znode
+  brokers:
+    envOverrides:
+      CONTAINERDEBUG_LOG_DIRECTORY: /custom/log/dir
+    roleGroups:
+      default:
+        replicas: 1
+  coordinators:
+    roleGroups:
+      default:
+        replicas: 1
+  historicals:
+    roleGroups:
+      default:
+        replicas: 1
+  middleManagers:
+    roleGroups:
+      default:
+        replicas: 1
+  routers:
+    roleGroups:
+      default:
+        replicas: 1
+"#,
+        );
         let cluster = validated_cluster(&druid);
         let resources = build(&cluster).expect("build succeeds");
 
