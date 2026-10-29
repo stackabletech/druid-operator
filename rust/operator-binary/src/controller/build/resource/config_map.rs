@@ -331,7 +331,7 @@ pub(crate) fn config_map_data(inputs: &RoleGroupInputs) -> Result<BTreeMap<Strin
 
     // The Vector agent config (`vector.yaml`) is a static, env-var-parameterized file (mirroring
     // the hive-/opensearch-operator). It is only added when the Vector agent is enabled.
-    if inputs.logging.enable_vector_agent {
+    if inputs.logging.vector_container.is_some() {
         cm_conf_data.insert(VECTOR_CONFIG_FILE.to_string(), vector_config_file_content());
     }
 

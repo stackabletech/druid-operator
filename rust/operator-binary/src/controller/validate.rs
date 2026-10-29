@@ -126,7 +126,6 @@ pub struct ValidatedLogging {
     pub druid_container: ValidatedContainerLogConfigChoice,
     pub prepare_container: ValidatedContainerLogConfigChoice,
     pub vector_container: Option<VectorContainerLogConfig>,
-    pub enable_vector_agent: bool,
 }
 
 /// A Coordinator role group's validated, merged config together with its validated logging.
@@ -876,7 +875,6 @@ fn validate_logging(
         druid_container,
         prepare_container,
         vector_container,
-        enable_vector_agent: logging.enable_vector_agent,
     })
 }
 
