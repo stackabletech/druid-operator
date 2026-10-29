@@ -99,12 +99,16 @@ mod tests {
     use stackable_operator::v2::types::operator::RoleGroupName;
 
     use super::*;
-    use crate::crd::DruidRole;
+    use crate::{
+        controller::{
+            build::{build, test_support::role_group_config_map},
+            validate::test_support::{MINIMAL_DRUID_YAML, druid_from_yaml, validated_cluster},
+        },
+        crd::DruidRole,
+    };
 
     #[test]
     fn test_construct_jvm_arguments_defaults() {
-        use crate::controller::validate::test_support::MINIMAL_DRUID_YAML;
-
         let coordinator_jvm_config =
             construct_jvm_config_for_test(MINIMAL_DRUID_YAML, &DruidRole::Coordinator);
         let historical_jvm_config =
@@ -270,11 +274,6 @@ mod tests {
     /// sizes come from the role module, the arguments from [`construct_jvm_args`]. No S3
     /// connection is configured, so the region (and the version gating it) is never rendered.
     fn construct_jvm_config_for_test(druid_cluster: &str, druid_role: &DruidRole) -> String {
-        use crate::controller::{
-            build::{build, test_support::role_group_config_map},
-            validate::test_support::{druid_from_yaml, validated_cluster},
-        };
-
         let druid = druid_from_yaml(druid_cluster);
         let cluster = validated_cluster(&druid);
         let resources = build(&cluster).expect("build succeeds");
