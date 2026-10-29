@@ -36,8 +36,6 @@ All notable changes to this project will be documented in this file.
   operator upgrade, delete each broker, coordinator and router StatefulSet so that the operator
   immediately recreates it with the new labels ([#865]).
 - Make operations infallible where dependent on static inputs ([#869], [#874]).
-- Bump stackable-operator to 0.119.0 ([#880]).
-- test: Bump vector-aggregator to 0.58.0 ([#885]).
 - Internal operator refactoring: build each role group through per-role modules (brokers,
   coordinators, historicals, middle managers, routers) and a shared role group builder, with
   each role's configuration held in typed fields of the validated cluster ([#887]).
