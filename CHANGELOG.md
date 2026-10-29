@@ -42,6 +42,7 @@ All notable changes to this project will be documented in this file.
 - Support Vector 0.58.0 ([#885], [#889]).
 - Replace the unmaintained `serde_yaml` with `yaml_serde` ([#888]).
 - All pods now set `securityContext.seccompProfile.type` to `RuntimeDefault` ([#888]).
+- The operator Deployment runs with a restricted security context and a read-only root filesystem, so it can be deployed into namespaces that enforce the `restricted` Pod Security Standard ([#891]).
 
 ### Fixed
 
@@ -71,6 +72,7 @@ All notable changes to this project will be documented in this file.
 [#887]: https://github.com/stackabletech/druid-operator/pull/887
 [#888]: https://github.com/stackabletech/druid-operator/pull/888
 [#889]: https://github.com/stackabletech/druid-operator/pull/889
+[#891]: https://github.com/stackabletech/druid-operator/pull/891
 
 ## [26.7.0] - 2026-07-21
 

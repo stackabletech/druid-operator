@@ -2,8 +2,8 @@
 :description: The Stackable Operator for Apache Druid is a Kubernetes operator that manages Druid clusters, handling setup, dependencies, and integration with tools like Trino.
 :keywords: Stackable Operator, Apache Druid, Kubernetes, operator, DevOps, CRD, ZooKeeper, HDFS, S3, Kafka, Trino, OPA
 :github: https://github.com/stackabletech/druid-operator/
-:crd: {crd-docs-base-url}/druid-operator/{crd-docs-version}/
-:crd-druidcluster: {crd-docs}/druid.stackable.tech/druidcluster/v1alpha1/
+:crd: {crd-ref}{crd-ref-release}&operator=druid-operator
+:crd-druidcluster: {crd-ref}/druid.stackable.tech/v1alpha1/druidcluster{crd-ref-release}
 :feature-tracker: https://features.stackable.tech/unified
 :druid: https://druid.apache.org/
 :druid-processes: https://druid.apache.org/docs/latest/design/processes.html
