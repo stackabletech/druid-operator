@@ -348,7 +348,6 @@ mod test {
             &validated.middle_manager_role_group_configs
                 [&RoleGroupName::from_str(role_group).expect("valid role group name")]
                 .config
-                .config
                 .resources
         };
 
@@ -395,7 +394,6 @@ mod test {
         let historical_segment_cache = |role_group: &str| {
             &validated.historical_role_group_configs
                 [&RoleGroupName::from_str(role_group).expect("valid role group name")]
-                .config
                 .config
                 .resources
                 .storage

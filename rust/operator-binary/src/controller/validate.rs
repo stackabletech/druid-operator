@@ -14,8 +14,10 @@ use snafu::{OptionExt, ResultExt, Snafu, ensure};
 use stackable_operator::{
     cli::OperatorEnvironmentOptions,
     commons::{
+        affinity::StackableAffinity,
         pdb::PdbConfig,
         product_image_selection::{self, ResolvedProductImage},
+        resources::{NoRuntimeLimits, Resources},
     },
     config::{
         fragment::{FromFragment, ValidationError},
@@ -28,6 +30,7 @@ use stackable_operator::{
     product_logging::spec::Logging,
     role_utils::GenericRoleConfig,
     schemars::JsonSchema,
+    shared::time::Duration,
     v2::{
         HasName, HasUid, NameIsValidLabelValue,
         controller_utils::{get_cluster_name, get_namespace, get_uid},
@@ -54,8 +57,11 @@ use crate::{
         CoordinatorConfigFragment, DeepStorageSpec, DruidConfigOverrides, DruidRole,
         HistoricalConfig, HistoricalConfigFragment, MiddleManagerConfig,
         MiddleManagerConfigFragment, RouterConfig, RouterConfigFragment,
-        authentication::AuthenticationClassesResolved, database::MetadataDatabaseConnection,
-        security::DruidTlsSecurity, v1alpha1,
+        authentication::AuthenticationClassesResolved,
+        database::MetadataDatabaseConnection,
+        security::DruidTlsSecurity,
+        storage::{DruidStorage, HistoricalStorage},
+        v1alpha1,
     },
 };
 
@@ -93,6 +99,14 @@ pub enum Error {
     ))]
     MissingVectorAggregatorConfigMapName,
 
+    #[snafu(display(
+        "the graceful shutdown timeout of {role} role group {role_group:?} is missing"
+    ))]
+    MissingGracefulShutdownTimeout { role: DruidRole, role_group: String },
+
+    #[snafu(display("the secret lifetime of {role} role group {role_group:?} is missing"))]
+    MissingSecretLifetime { role: DruidRole, role_group: String },
+
     #[snafu(display("failed to determine the cluster's name, namespace, or uid"))]
     ClusterIdentity {
         source: stackable_operator::v2::controller_utils::Error,
@@ -128,44 +142,59 @@ pub struct ValidatedLogging {
     pub vector_container: Option<VectorContainerLogConfig>,
 }
 
-/// A Coordinator role group's validated, merged config together with its validated logging.
+/// A Coordinator role group's validated config: the fields of the merged [`CoordinatorConfig`] that the build
+/// step reads, with the logging validated and the values the merge always sets unwrapped.
 #[derive(Clone, Debug, PartialEq)]
 pub struct ValidatedCoordinatorConfig {
-    pub config: CoordinatorConfig,
-    /// Validated logging configuration (derived from `config.logging` during validation).
+    pub resources: Resources<DruidStorage, NoRuntimeLimits>,
     pub logging: ValidatedLogging,
+    pub affinity: StackableAffinity,
+    pub graceful_shutdown_timeout: Duration,
+    pub requested_secret_lifetime: Duration,
 }
 
-/// A Broker role group's validated, merged config together with its validated logging.
+/// A Broker role group's validated config: the fields of the merged [`BrokerConfig`] that the build
+/// step reads, with the logging validated and the values the merge always sets unwrapped.
 #[derive(Clone, Debug, PartialEq)]
 pub struct ValidatedBrokerConfig {
-    pub config: BrokerConfig,
-    /// Validated logging configuration (derived from `config.logging` during validation).
+    pub resources: Resources<DruidStorage, NoRuntimeLimits>,
     pub logging: ValidatedLogging,
+    pub affinity: StackableAffinity,
+    pub graceful_shutdown_timeout: Duration,
+    pub requested_secret_lifetime: Duration,
 }
 
-/// A Historical role group's validated, merged config together with its validated logging.
+/// A Historical role group's validated config: the fields of the merged [`HistoricalConfig`] that the build
+/// step reads, with the logging validated and the values the merge always sets unwrapped.
 #[derive(Clone, Debug, PartialEq)]
 pub struct ValidatedHistoricalConfig {
-    pub config: HistoricalConfig,
-    /// Validated logging configuration (derived from `config.logging` during validation).
+    pub resources: Resources<HistoricalStorage, NoRuntimeLimits>,
     pub logging: ValidatedLogging,
+    pub affinity: StackableAffinity,
+    pub graceful_shutdown_timeout: Duration,
+    pub requested_secret_lifetime: Duration,
 }
 
-/// A MiddleManager role group's validated, merged config together with its validated logging.
+/// A MiddleManager role group's validated config: the fields of the merged [`MiddleManagerConfig`] that the build
+/// step reads, with the logging validated and the values the merge always sets unwrapped.
 #[derive(Clone, Debug, PartialEq)]
 pub struct ValidatedMiddleManagerConfig {
-    pub config: MiddleManagerConfig,
-    /// Validated logging configuration (derived from `config.logging` during validation).
+    pub resources: Resources<DruidStorage, NoRuntimeLimits>,
     pub logging: ValidatedLogging,
+    pub affinity: StackableAffinity,
+    pub graceful_shutdown_timeout: Duration,
+    pub requested_secret_lifetime: Duration,
 }
 
-/// A Router role group's validated, merged config together with its validated logging.
+/// A Router role group's validated config: the fields of the merged [`RouterConfig`] that the build
+/// step reads, with the logging validated and the values the merge always sets unwrapped.
 #[derive(Clone, Debug, PartialEq)]
 pub struct ValidatedRouterConfig {
-    pub config: RouterConfig,
-    /// Validated logging configuration (derived from `config.logging` during validation).
+    pub resources: Resources<DruidStorage, NoRuntimeLimits>,
     pub logging: ValidatedLogging,
+    pub affinity: StackableAffinity,
+    pub graceful_shutdown_timeout: Duration,
+    pub requested_secret_lifetime: Duration,
 }
 
 /// The [`RoleGroupConfig`] of one Coordinator role group.
@@ -593,13 +622,31 @@ fn validate_coordinator_role_group_configs(
                 role_group,
                 default_config,
             )?;
-            let logging =
-                validate_logging(&merged.config.logging, vector_aggregator_config_map_name)?;
+            let CoordinatorConfig {
+                resources,
+                logging,
+                affinity,
+                graceful_shutdown_timeout,
+                requested_secret_lifetime,
+            } = merged.config;
             let validated = CoordinatorRoleGroupConfig {
                 replicas: merged.replicas,
                 config: ValidatedCoordinatorConfig {
-                    config: merged.config,
-                    logging,
+                    resources,
+                    logging: validate_logging(&logging, vector_aggregator_config_map_name)?,
+                    affinity,
+                    graceful_shutdown_timeout: graceful_shutdown_timeout.with_context(|| {
+                        MissingGracefulShutdownTimeoutSnafu {
+                            role: druid_role.clone(),
+                            role_group: role_group_name.to_owned(),
+                        }
+                    })?,
+                    requested_secret_lifetime: requested_secret_lifetime.with_context(|| {
+                        MissingSecretLifetimeSnafu {
+                            role: druid_role.clone(),
+                            role_group: role_group_name.to_owned(),
+                        }
+                    })?,
                 },
                 config_overrides: merged.config_overrides,
                 env_overrides: merged.env_overrides,
@@ -638,13 +685,31 @@ fn validate_broker_role_group_configs(
                 role_group,
                 default_config,
             )?;
-            let logging =
-                validate_logging(&merged.config.logging, vector_aggregator_config_map_name)?;
+            let BrokerConfig {
+                resources,
+                logging,
+                affinity,
+                graceful_shutdown_timeout,
+                requested_secret_lifetime,
+            } = merged.config;
             let validated = BrokerRoleGroupConfig {
                 replicas: merged.replicas,
                 config: ValidatedBrokerConfig {
-                    config: merged.config,
-                    logging,
+                    resources,
+                    logging: validate_logging(&logging, vector_aggregator_config_map_name)?,
+                    affinity,
+                    graceful_shutdown_timeout: graceful_shutdown_timeout.with_context(|| {
+                        MissingGracefulShutdownTimeoutSnafu {
+                            role: druid_role.clone(),
+                            role_group: role_group_name.to_owned(),
+                        }
+                    })?,
+                    requested_secret_lifetime: requested_secret_lifetime.with_context(|| {
+                        MissingSecretLifetimeSnafu {
+                            role: druid_role.clone(),
+                            role_group: role_group_name.to_owned(),
+                        }
+                    })?,
                 },
                 config_overrides: merged.config_overrides,
                 env_overrides: merged.env_overrides,
@@ -683,13 +748,31 @@ fn validate_historical_role_group_configs(
                 role_group,
                 default_config,
             )?;
-            let logging =
-                validate_logging(&merged.config.logging, vector_aggregator_config_map_name)?;
+            let HistoricalConfig {
+                resources,
+                logging,
+                affinity,
+                graceful_shutdown_timeout,
+                requested_secret_lifetime,
+            } = merged.config;
             let validated = HistoricalRoleGroupConfig {
                 replicas: merged.replicas,
                 config: ValidatedHistoricalConfig {
-                    config: merged.config,
-                    logging,
+                    resources,
+                    logging: validate_logging(&logging, vector_aggregator_config_map_name)?,
+                    affinity,
+                    graceful_shutdown_timeout: graceful_shutdown_timeout.with_context(|| {
+                        MissingGracefulShutdownTimeoutSnafu {
+                            role: druid_role.clone(),
+                            role_group: role_group_name.to_owned(),
+                        }
+                    })?,
+                    requested_secret_lifetime: requested_secret_lifetime.with_context(|| {
+                        MissingSecretLifetimeSnafu {
+                            role: druid_role.clone(),
+                            role_group: role_group_name.to_owned(),
+                        }
+                    })?,
                 },
                 config_overrides: merged.config_overrides,
                 env_overrides: merged.env_overrides,
@@ -728,13 +811,31 @@ fn validate_middle_manager_role_group_configs(
                 role_group,
                 default_config,
             )?;
-            let logging =
-                validate_logging(&merged.config.logging, vector_aggregator_config_map_name)?;
+            let MiddleManagerConfig {
+                resources,
+                logging,
+                affinity,
+                graceful_shutdown_timeout,
+                requested_secret_lifetime,
+            } = merged.config;
             let validated = MiddleManagerRoleGroupConfig {
                 replicas: merged.replicas,
                 config: ValidatedMiddleManagerConfig {
-                    config: merged.config,
-                    logging,
+                    resources,
+                    logging: validate_logging(&logging, vector_aggregator_config_map_name)?,
+                    affinity,
+                    graceful_shutdown_timeout: graceful_shutdown_timeout.with_context(|| {
+                        MissingGracefulShutdownTimeoutSnafu {
+                            role: druid_role.clone(),
+                            role_group: role_group_name.to_owned(),
+                        }
+                    })?,
+                    requested_secret_lifetime: requested_secret_lifetime.with_context(|| {
+                        MissingSecretLifetimeSnafu {
+                            role: druid_role.clone(),
+                            role_group: role_group_name.to_owned(),
+                        }
+                    })?,
                 },
                 config_overrides: merged.config_overrides,
                 env_overrides: merged.env_overrides,
@@ -773,13 +874,31 @@ fn validate_router_role_group_configs(
                 role_group,
                 default_config,
             )?;
-            let logging =
-                validate_logging(&merged.config.logging, vector_aggregator_config_map_name)?;
+            let RouterConfig {
+                resources,
+                logging,
+                affinity,
+                graceful_shutdown_timeout,
+                requested_secret_lifetime,
+            } = merged.config;
             let validated = RouterRoleGroupConfig {
                 replicas: merged.replicas,
                 config: ValidatedRouterConfig {
-                    config: merged.config,
-                    logging,
+                    resources,
+                    logging: validate_logging(&logging, vector_aggregator_config_map_name)?,
+                    affinity,
+                    graceful_shutdown_timeout: graceful_shutdown_timeout.with_context(|| {
+                        MissingGracefulShutdownTimeoutSnafu {
+                            role: druid_role.clone(),
+                            role_group: role_group_name.to_owned(),
+                        }
+                    })?,
+                    requested_secret_lifetime: requested_secret_lifetime.with_context(|| {
+                        MissingSecretLifetimeSnafu {
+                            role: druid_role.clone(),
+                            role_group: role_group_name.to_owned(),
+                        }
+                    })?,
                 },
                 config_overrides: merged.config_overrides,
                 env_overrides: merged.env_overrides,

@@ -2,19 +2,17 @@
 
 use std::collections::BTreeMap;
 
-use snafu::{OptionExt, ResultExt};
+use snafu::ResultExt;
 use stackable_operator::v2::types::operator::RoleGroupName;
 
-use super::{
-    DeriveMemorySettingsSnafu, Error, MissingSecretLifetimeSnafu, RoleGroupBuilder, RoleGroupInputs,
-};
+use super::{DeriveMemorySettingsSnafu, Error, RoleGroupBuilder, RoleGroupInputs};
 use crate::{
     controller::{
         build::properties::runtime_properties,
-        validate::{HistoricalRoleGroupConfig, ValidatedCluster},
+        validate::{HistoricalRoleGroupConfig, ValidatedCluster, ValidatedHistoricalConfig},
     },
     crd::{
-        DruidRole, HistoricalConfig, PROP_SEGMENT_CACHE_LOCATIONS,
+        DruidRole, PROP_SEGMENT_CACHE_LOCATIONS,
         memory::HistoricalDerivedSettings,
         resource::{segment_cache_locations, segment_cache_volume, segment_cache_volume_mount},
     },
@@ -31,14 +29,13 @@ pub(crate) fn build<'a>(
     role_group_name: &RoleGroupName,
     rg_config: &HistoricalRoleGroupConfig,
 ) -> Result<RoleGroupBuilder<'a>, Error> {
-    let HistoricalConfig {
+    let ValidatedHistoricalConfig {
         resources,
-        // Validated up front into `rg_config.config.logging`.
-        logging: _,
+        logging,
         affinity,
         graceful_shutdown_timeout,
         requested_secret_lifetime,
-    } = &rg_config.config.config;
+    } = &rg_config.config;
 
     let derived_settings =
         HistoricalDerivedSettings::try_from(resources).context(DeriveMemorySettingsSnafu)?;
@@ -57,11 +54,11 @@ pub(crate) fn build<'a>(
         role_group_name: role_group_name.clone(),
         affinity: affinity.clone(),
         graceful_shutdown_timeout: *graceful_shutdown_timeout,
-        requested_secret_lifetime: requested_secret_lifetime.context(MissingSecretLifetimeSnafu)?,
+        requested_secret_lifetime: *requested_secret_lifetime,
         resources: resources.clone().into(),
         heap: derived_settings.heap_memory(),
         direct_memory: Some(derived_settings.direct_access_memory()),
-        logging: rg_config.config.logging.clone(),
+        logging: logging.clone(),
         listener: None,
         role_pod_volumes: vec![segment_cache_volume(segment_cache)],
         role_druid_mounts: vec![segment_cache_volume_mount()],

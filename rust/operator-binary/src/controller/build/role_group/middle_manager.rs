@@ -4,7 +4,7 @@ use std::collections::BTreeMap;
 
 use indoc::formatdoc;
 use semver::Version;
-use snafu::{OptionExt, ResultExt};
+use snafu::ResultExt;
 use stackable_operator::{
     crd::s3,
     k8s_openapi::api::core::v1::{ExecAction, LifecycleHandler},
@@ -12,16 +12,14 @@ use stackable_operator::{
     v2::types::operator::RoleGroupName,
 };
 
-use super::{
-    Error, HeapMemorySnafu, MissingSecretLifetimeSnafu, RoleGroupBuilder, RoleGroupInputs,
-};
+use super::{Error, HeapMemorySnafu, RoleGroupBuilder, RoleGroupInputs};
 use crate::{
     controller::{
         build::{jvm::AWS_REGION, properties::runtime_properties},
-        validate::{MiddleManagerRoleGroupConfig, ValidatedCluster},
+        validate::{MiddleManagerRoleGroupConfig, ValidatedCluster, ValidatedMiddleManagerConfig},
     },
     crd::{
-        DruidRole, MiddleManagerConfig, STACKABLE_TRUST_STORE, STACKABLE_TRUST_STORE_PASSWORD,
+        DruidRole, STACKABLE_TRUST_STORE, STACKABLE_TRUST_STORE_PASSWORD,
         STACKABLE_TRUST_STORE_TYPE, build_string_list, resource::heap_memory,
         security::DruidTlsSecurity,
     },
@@ -136,14 +134,13 @@ pub(crate) fn build<'a>(
     role_group_name: &RoleGroupName,
     rg_config: &MiddleManagerRoleGroupConfig,
 ) -> Result<RoleGroupBuilder<'a>, Error> {
-    let MiddleManagerConfig {
+    let ValidatedMiddleManagerConfig {
         resources,
-        // Validated up front into `rg_config.config.logging`.
-        logging: _,
+        logging,
         affinity,
         graceful_shutdown_timeout,
         requested_secret_lifetime,
-    } = &rg_config.config.config;
+    } = &rg_config.config;
 
     // The MiddleManager needs no direct memory, so the whole allocatable memory is heap.
     let heap = heap_memory(resources, None).context(HeapMemorySnafu)?;
@@ -154,11 +151,11 @@ pub(crate) fn build<'a>(
         role_group_name: role_group_name.clone(),
         affinity: affinity.clone(),
         graceful_shutdown_timeout: *graceful_shutdown_timeout,
-        requested_secret_lifetime: requested_secret_lifetime.context(MissingSecretLifetimeSnafu)?,
+        requested_secret_lifetime: *requested_secret_lifetime,
         resources: resources.clone().into(),
         heap,
         direct_memory: None,
-        logging: rg_config.config.logging.clone(),
+        logging: logging.clone(),
         listener: None,
         role_pod_volumes: Vec::new(),
         role_druid_mounts: Vec::new(),
@@ -170,15 +167,13 @@ pub(crate) fn build<'a>(
             &Version::parse(&cluster.image.product_version),
         )),
         role_jvm_args: Vec::new(),
-        // MiddleManagers drain their running tasks before they stop. The hook needs the
-        // termination grace period, which the config merge always sets.
-        druid_pre_stop: graceful_shutdown_timeout.map(|termination_grace_period| {
-            drain_pre_stop_hook(
-                &ROLE,
-                &cluster.cluster_config.druid_tls_security,
-                &termination_grace_period,
-            )
-        }),
+        // MiddleManagers drain their running tasks before they stop, for at most the termination
+        // grace period.
+        druid_pre_stop: Some(drain_pre_stop_hook(
+            &ROLE,
+            &cluster.cluster_config.druid_tls_security,
+            graceful_shutdown_timeout,
+        )),
         // End users never talk to MiddleManagers directly, and OIDC on them breaks their
         // communication with the Coordinators during ingestion.
         oidc_enabled: false,

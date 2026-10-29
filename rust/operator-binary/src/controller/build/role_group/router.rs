@@ -2,18 +2,16 @@
 
 use std::collections::BTreeMap;
 
-use snafu::{OptionExt, ResultExt};
+use snafu::ResultExt;
 use stackable_operator::{memory::MemoryQuantity, v2::types::operator::RoleGroupName};
 
-use super::{
-    Error, HeapMemorySnafu, MissingSecretLifetimeSnafu, RoleGroupBuilder, RoleGroupInputs,
-};
+use super::{Error, HeapMemorySnafu, RoleGroupBuilder, RoleGroupInputs};
 use crate::{
     controller::{
         build::{properties::runtime_properties, resource::listener::group_listener_name},
-        validate::{RouterRoleGroupConfig, ValidatedCluster},
+        validate::{RouterRoleGroupConfig, ValidatedCluster, ValidatedRouterConfig},
     },
-    crd::{DruidRole, RouterConfig, resource::heap_memory},
+    crd::{DruidRole, resource::heap_memory},
 };
 
 pub(crate) const ROLE: DruidRole = DruidRole::Router;
@@ -24,14 +22,13 @@ pub(crate) fn build<'a>(
     role_group_name: &RoleGroupName,
     rg_config: &RouterRoleGroupConfig,
 ) -> Result<RoleGroupBuilder<'a>, Error> {
-    let RouterConfig {
+    let ValidatedRouterConfig {
         resources,
-        // Validated up front into `rg_config.config.logging`.
-        logging: _,
+        logging,
         affinity,
         graceful_shutdown_timeout,
         requested_secret_lifetime,
-    } = &rg_config.config.config;
+    } = &rg_config.config;
 
     // Routers reserve 128 MiB of direct memory for their query processing buffers.
     let direct_memory = MemoryQuantity::from_mebi(128.);
@@ -43,11 +40,11 @@ pub(crate) fn build<'a>(
         role_group_name: role_group_name.clone(),
         affinity: affinity.clone(),
         graceful_shutdown_timeout: *graceful_shutdown_timeout,
-        requested_secret_lifetime: requested_secret_lifetime.context(MissingSecretLifetimeSnafu)?,
+        requested_secret_lifetime: *requested_secret_lifetime,
         resources: resources.clone().into(),
         heap,
         direct_memory: Some(direct_memory),
-        logging: rg_config.config.logging.clone(),
+        logging: logging.clone(),
         listener: Some(group_listener_name(&cluster.name, &ROLE)),
         role_pod_volumes: Vec::new(),
         role_druid_mounts: Vec::new(),

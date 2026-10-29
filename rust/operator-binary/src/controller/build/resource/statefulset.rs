@@ -46,12 +46,8 @@ pub(crate) fn build_statefulset(builder: &RoleGroupBuilder) -> Result<StatefulSe
 
     let mut pb = PodBuilder::new();
     pb.affinity(&builder.affinity);
-    // This must be always set by the merge mechanism, as we provide a default value,
-    // users can not disable graceful shutdown.
-    if let Some(termination_grace_period) = &builder.graceful_shutdown_timeout {
-        pb.termination_grace_period(termination_grace_period)
-            .context(TerminationGracePeriodSnafu)?;
-    }
+    pb.termination_grace_period(&builder.graceful_shutdown_timeout)
+        .context(TerminationGracePeriodSnafu)?;
 
     // The volumes in the order the builder gathered them, which is part of the pod template
     // (pinned by `pod_volumes_keep_their_order` in `build/mod.rs`). A volume whose name collides

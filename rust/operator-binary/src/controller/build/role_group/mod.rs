@@ -55,9 +55,6 @@ pub enum Error {
     #[snafu(display("failed to derive the heap size from the resources"))]
     HeapMemory { source: crate::crd::resource::Error },
 
-    #[snafu(display("missing secret lifetime"))]
-    MissingSecretLifetime,
-
     #[snafu(display("failed to render the config files"))]
     ConfigMapData { source: resource::config_map::Error },
 
@@ -82,7 +79,7 @@ pub(crate) struct RoleGroupInputs<'a> {
     pub(crate) role: DruidRole,
     pub(crate) role_group_name: RoleGroupName,
     pub(crate) affinity: StackableAffinity,
-    pub(crate) graceful_shutdown_timeout: Option<Duration>,
+    pub(crate) graceful_shutdown_timeout: Duration,
     pub(crate) requested_secret_lifetime: Duration,
     /// The `druid` container's resource requirements.
     pub(crate) resources: ResourceRequirements,
@@ -139,7 +136,7 @@ pub(crate) struct RoleGroupBuilder<'a> {
     /// Read for the pod's affinity.
     pub(crate) affinity: StackableAffinity,
     /// Read for the pod's termination grace period.
-    pub(crate) graceful_shutdown_timeout: Option<Duration>,
+    pub(crate) graceful_shutdown_timeout: Duration,
     /// The role group's replica count, passed to the StatefulSet as is; `None` makes Kubernetes
     /// run one pod.
     pub(crate) replicas: Option<u16>,

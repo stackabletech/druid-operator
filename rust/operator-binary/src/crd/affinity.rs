@@ -148,30 +148,25 @@ mod tests {
             DruidRole::Coordinator => {
                 &cluster.coordinator_role_group_configs[&role_group_name]
                     .config
-                    .config
                     .affinity
             }
             DruidRole::Broker => {
                 &cluster.broker_role_group_configs[&role_group_name]
-                    .config
                     .config
                     .affinity
             }
             DruidRole::Historical => {
                 &cluster.historical_role_group_configs[&role_group_name]
                     .config
-                    .config
                     .affinity
             }
             DruidRole::MiddleManager => {
                 &cluster.middle_manager_role_group_configs[&role_group_name]
                     .config
-                    .config
                     .affinity
             }
             DruidRole::Router => {
                 &cluster.router_role_group_configs[&role_group_name]
-                    .config
                     .config
                     .affinity
             }
