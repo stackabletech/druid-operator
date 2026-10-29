@@ -49,7 +49,6 @@ use crate::{
 
 pub mod authentication;
 pub mod container;
-pub mod graceful_shutdown;
 pub mod jvm;
 pub mod properties;
 pub mod resource;
