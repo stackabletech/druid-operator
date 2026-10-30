@@ -30,11 +30,8 @@ All notable changes to this project will be documented in this file.
   variables set by the operator. In particular, `CONTAINERDEBUG_LOG_DIRECTORY` and the
   authentication-related environment variables can now be overridden, whereas previously the
   operator's values always took precedence ([#865]).
-- BREAKING: Remove the `app.kubernetes.io/component` and `app.kubernetes.io/role-group` labels
-  from the resources they don't apply to (previously set to `none` or a placeholder value).
-  StatefulSets created by older operator versions cannot be updated in place: after the
-  operator upgrade, delete each broker, coordinator and router StatefulSet so that the operator
-  immediately recreates it with the new labels ([#865]).
+- Remove the `app.kubernetes.io/component` and `app.kubernetes.io/role-group` labels from the
+  resources they don't apply to ([#865], [#892]).
 - Make operations infallible where dependent on static inputs ([#869], [#874]).
 - Internal operator refactoring: build each role group through per-role modules (brokers,
   coordinators, historicals, middle managers, routers) and a shared role group builder, with
@@ -73,6 +70,7 @@ All notable changes to this project will be documented in this file.
 [#888]: https://github.com/stackabletech/druid-operator/pull/888
 [#889]: https://github.com/stackabletech/druid-operator/pull/889
 [#891]: https://github.com/stackabletech/druid-operator/pull/891
+[#892]: https://github.com/stackabletech/druid-operator/pull/892
 
 ## [26.7.0] - 2026-07-21
 

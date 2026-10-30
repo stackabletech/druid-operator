@@ -3,6 +3,7 @@
 use std::{
     collections::{BTreeMap, HashSet},
     marker::PhantomData,
+    str::FromStr,
 };
 
 use snafu::{ResultExt, Snafu};
@@ -19,7 +20,7 @@ use stackable_operator::{
         kvp::label,
         types::{
             kubernetes::SecretKey,
-            operator::{RoleGroupName, RoleName},
+            operator::{ProductVersion, RoleGroupName, RoleName},
         },
     },
 };
@@ -54,6 +55,10 @@ pub mod properties;
 pub mod resource;
 pub mod role_group;
 pub mod security;
+
+// Placeholder value for the `app.kubernetes.io/version` label on resources whose labels are
+// immutable once deployed. See `recommended_labels_for_unversioned_role_group_resources`.
+stackable_operator::constant!(UNVERSIONED_PRODUCT_VERSION: ProductVersion = "none");
 
 /// Returns an [`ObjectMetaBuilder`] pre-filled with the cluster's namespace, an owner
 /// reference back to the cluster, the resource `name` and the given `recommended_labels`.
@@ -114,14 +119,25 @@ pub(crate) fn recommended_labels_for_role_group_resources(
     )
 }
 
+/// The recommended labels for role-group resources that carry no product version.
+///
+/// The `app.kubernetes.io/version` label is set to the placeholder `none` rather than being
+/// omitted, because that is what operator versions up to 26.7 wrote. Omitting it would change the
+/// `volumeClaimTemplates` of already deployed StatefulSets, and since those templates are
+/// immutable, Kubernetes rejects the update and the operator can no longer reconcile the
+/// StatefulSet.
+///
+/// This is also why `label::recommended_labels_for_unversioned_role_group_resources`, which drops
+/// the label entirely, is not used here.
 pub(crate) fn recommended_labels_for_unversioned_role_group_resources(
     cluster: &ValidatedCluster,
     role_name: &RoleName,
     role_group_name: &RoleGroupName,
 ) -> Labels {
-    label::recommended_labels_for_unversioned_role_group_resources(
+    label::recommended_labels_for_role_group_resources(
         &cluster.name,
         &PRODUCT_NAME,
+        &UNVERSIONED_PRODUCT_VERSION,
         &OPERATOR_NAME,
         &CONTROLLER_NAME,
         role_name,
@@ -483,7 +499,7 @@ mod tests {
     use strum::IntoEnumIterator;
 
     use super::{
-        KubernetesResources, Prepared, SecretKey, build,
+        KubernetesResources, Prepared, SecretKey, UNVERSIONED_PRODUCT_VERSION, build,
         container::{
             DRUID_CONFIG_VOLUME_NAME, HDFS_CONFIG_VOLUME_NAME, LOG_CONFIG_VOLUME_NAME,
             LOG_VOLUME_NAME, RW_CONFIG_VOLUME_NAME,
@@ -750,6 +766,12 @@ spec:
             .data
             .as_ref()
             .expect("the ConfigMap has data")
+    }
+
+    #[test]
+    fn test_constants() {
+        // Test that dereferencing the constant does not panic.
+        let _ = *UNVERSIONED_PRODUCT_VERSION;
     }
 
     /// A pod's `volumes` are an ordered list: reordering them changes the pod template of every
