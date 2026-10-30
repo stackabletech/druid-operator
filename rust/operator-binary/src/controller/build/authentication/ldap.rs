@@ -2,12 +2,12 @@ use std::collections::BTreeMap;
 
 use snafu::ResultExt;
 use stackable_operator::{
-    builder::pod::{PodBuilder, container::ContainerBuilder},
     crd::authentication::ldap,
+    k8s_openapi::api::core::v1::{Volume, VolumeMount},
 };
 
 use super::{
-    AddLdapVolumesSnafu, ConstructLdapEndpointUrlSnafu, Error, MissingLdapBindCredentialsSnafu,
+    ConstructLdapEndpointUrlSnafu, Error, LdapVolumesSnafu, MissingLdapBindCredentialsSnafu,
 };
 use crate::crd::{
     STACKABLE_TRUST_STORE_PASSWORD, file_reference,
@@ -97,12 +97,11 @@ pub(super) fn prepare_container_commands(
     }
 }
 
-pub(super) fn add_volumes_and_mounts(
+/// The volumes of the LDAP bind credentials and the provider's TLS CA certificate, and their
+/// mounts.
+pub(super) fn volumes_and_mounts(
     provider: &ldap::v1alpha1::AuthenticationProvider,
-    pb: &mut PodBuilder,
-    cb_druid: &mut ContainerBuilder,
-    cb_prepare: &mut ContainerBuilder,
-) -> Result<(), Error> {
+) -> Result<(Vec<Volume>, Vec<VolumeMount>), Error> {
     // TODO: Connecting to an LDAP server without bind credentials does not seem to be configurable in Druid at the moment
     // see https://github.com/stackabletech/druid-operator/issues/383 for future work.
     // Expect bind credentials to be provided for now, and throw return a useful error if there are none.
@@ -110,7 +109,5 @@ pub(super) fn add_volumes_and_mounts(
         return MissingLdapBindCredentialsSnafu.fail();
     }
 
-    provider
-        .add_volumes_and_mounts(pb, vec![cb_druid, cb_prepare])
-        .context(AddLdapVolumesSnafu)
+    provider.volumes_and_mounts().context(LdapVolumesSnafu)
 }

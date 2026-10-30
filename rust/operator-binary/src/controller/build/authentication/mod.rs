@@ -9,7 +9,7 @@ use std::collections::BTreeMap;
 
 use snafu::Snafu;
 use stackable_operator::{
-    builder::pod::{PodBuilder, container::ContainerBuilder},
+    k8s_openapi::api::core::v1::{Volume, VolumeMount},
     v2::builder::pod::container::EnvVarSet,
 };
 
@@ -17,7 +17,7 @@ use crate::{
     authentication::DruidAuthenticationConfig,
     controller::validate::ValidatedCluster,
     crd::{
-        DruidRole, env_var_reference,
+        env_var_reference,
         security::{
             INTERNAL_INITIAL_CLIENT_PASSWORD_ENV, INTERNAL_INITIAL_CLIENT_PASSWORD_SECRET_KEY,
         },
@@ -51,13 +51,13 @@ pub enum Error {
         source: stackable_operator::crd::authentication::oidc::v1alpha1::Error,
     },
 
-    #[snafu(display("failed to add LDAP Volumes and VolumeMounts to the Pod and containers"))]
-    AddLdapVolumes {
+    #[snafu(display("failed to build the LDAP volumes and volume mounts"))]
+    LdapVolumes {
         source: stackable_operator::crd::authentication::ldap::v1alpha1::Error,
     },
 
-    #[snafu(display("failed to add OIDC Volumes and VolumeMounts to the Pod and containers"))]
-    AddOidcVolumes {
+    #[snafu(display("failed to build the OIDC volumes and volume mounts"))]
+    OidcVolumes {
         source: stackable_operator::commons::tls_verification::TlsClientDetailsError,
     },
 
@@ -98,9 +98,12 @@ fn set_authenticator_chain(
 
 /// Creates the authentication and authorization parts of the runtime.properties config file.
 /// Configuration related to TLS authentication is added in `controller::build::security`.
+///
+/// `oidc_enabled` says whether the role authenticates its users with OIDC when the cluster uses
+/// OIDC; a role that does not gets the system authenticator only.
 pub fn generate_runtime_properties_config(
     auth: &DruidAuthenticationConfig,
-    role: &DruidRole,
+    oidc_enabled: bool,
 ) -> Result<BTreeMap<String, String>> {
     let mut config: BTreeMap<String, String> = BTreeMap::new();
 
@@ -111,7 +114,7 @@ pub fn generate_runtime_properties_config(
         }
         DruidAuthenticationConfig::Oidc { provider, oidc } => {
             generate_common_runtime_properties_config(&mut config);
-            oidc::generate_runtime_properties_config(provider, oidc, role, &mut config)?
+            oidc::generate_runtime_properties_config(provider, oidc, oidc_enabled, &mut config)?
         }
         DruidAuthenticationConfig::Tls {} => (),
     }
@@ -145,10 +148,12 @@ pub fn prepare_container_commands(auth: &DruidAuthenticationConfig) -> Vec<Strin
     command
 }
 
+/// The environment variables of the `druid` container that carry the authentication secrets.
+/// `oidc_enabled` is as for [`generate_runtime_properties_config`].
 pub fn get_env_var_mounts(
     auth: &DruidAuthenticationConfig,
     cluster: &ValidatedCluster,
-    role: &DruidRole,
+    oidc_enabled: bool,
 ) -> EnvVarSet {
     let internal_secret_name = build_shared_internal_secret_name(&cluster.name);
     let mut env_vars = EnvVarSet::new().with_secret_key_ref(
@@ -158,25 +163,24 @@ pub fn get_env_var_mounts(
     );
 
     if let DruidAuthenticationConfig::Oidc { oidc, .. } = auth {
-        env_vars = env_vars.merge(oidc::get_env_var_mounts(role, oidc, &internal_secret_name));
+        env_vars = env_vars.merge(oidc::get_env_var_mounts(
+            oidc_enabled,
+            oidc,
+            &internal_secret_name,
+        ));
     }
     env_vars
 }
 
-pub fn add_volumes_and_mounts(
+/// The pod volumes the authentication provider needs and their mounts on the `druid` and
+/// `prepare` containers.
+pub fn volumes_and_mounts(
     auth: &DruidAuthenticationConfig,
-    pb: &mut PodBuilder,
-    cb_druid: &mut ContainerBuilder,
-    cb_prepare: &mut ContainerBuilder,
-) -> Result<()> {
+) -> Result<(Vec<Volume>, Vec<VolumeMount>)> {
     match auth {
-        DruidAuthenticationConfig::Ldap { provider } => {
-            ldap::add_volumes_and_mounts(provider, pb, cb_druid, cb_prepare)
-        }
-        DruidAuthenticationConfig::Oidc { provider, .. } => {
-            oidc::add_volumes_and_mounts(provider, pb, cb_druid, cb_prepare)
-        }
-        DruidAuthenticationConfig::Tls {} => Ok(()),
+        DruidAuthenticationConfig::Ldap { provider } => ldap::volumes_and_mounts(provider),
+        DruidAuthenticationConfig::Oidc { provider, .. } => oidc::volumes_and_mounts(provider),
+        DruidAuthenticationConfig::Tls {} => Ok((Vec::new(), Vec::new())),
     }
 }
 
@@ -258,8 +262,7 @@ mod test {
 
     #[test]
     fn test_ldap_config_is_added() {
-        let got = generate_runtime_properties_config(&ldap_auth_config(), &DruidRole::Coordinator)
-            .unwrap();
+        let got = generate_runtime_properties_config(&ldap_auth_config(), true).unwrap();
 
         assert!(got.contains_key("druid.auth.authenticator.Ldap.type"));
     }
@@ -268,8 +271,7 @@ mod test {
     /// alongside the provider-specific (LDAP/OIDC) config.
     #[test]
     fn common_system_auth_config_is_added() {
-        let got = generate_runtime_properties_config(&ldap_auth_config(), &DruidRole::Coordinator)
-            .unwrap();
+        let got = generate_runtime_properties_config(&ldap_auth_config(), true).unwrap();
 
         assert_eq!(
             got.get("druid.auth.authenticator.DruidSystemAuthenticator.type"),
@@ -290,11 +292,8 @@ mod test {
     /// contributes nothing to runtime.properties.
     #[test]
     fn tls_only_produces_no_runtime_properties() {
-        let got = generate_runtime_properties_config(
-            &DruidAuthenticationConfig::Tls {},
-            &DruidRole::Broker,
-        )
-        .unwrap();
+        let got =
+            generate_runtime_properties_config(&DruidAuthenticationConfig::Tls {}, true).unwrap();
 
         assert!(got.is_empty());
     }

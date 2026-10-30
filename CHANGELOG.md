@@ -36,6 +36,9 @@ All notable changes to this project will be documented in this file.
   operator upgrade, delete each broker, coordinator and router StatefulSet so that the operator
   immediately recreates it with the new labels ([#865]).
 - Make operations infallible where dependent on static inputs ([#869], [#874]).
+- Internal operator refactoring: build each role group through per-role modules (brokers,
+  coordinators, historicals, middle managers, routers) and a shared role group builder, with
+  each role's configuration held in typed fields of the validated cluster ([#887]).
 - Support Vector 0.58.0 ([#885], [#889]).
 - Replace the unmaintained `serde_yaml` with `yaml_serde` ([#888]).
 - All pods now set `securityContext.seccompProfile.type` to `RuntimeDefault` ([#888]).
@@ -66,6 +69,7 @@ All notable changes to this project will be documented in this file.
 [#879]: https://github.com/stackabletech/druid-operator/pull/879
 [#880]: https://github.com/stackabletech/druid-operator/pull/880
 [#885]: https://github.com/stackabletech/druid-operator/pull/885
+[#887]: https://github.com/stackabletech/druid-operator/pull/887
 [#888]: https://github.com/stackabletech/druid-operator/pull/888
 [#889]: https://github.com/stackabletech/druid-operator/pull/889
 [#891]: https://github.com/stackabletech/druid-operator/pull/891

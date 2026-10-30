@@ -2,16 +2,16 @@ use std::collections::BTreeMap;
 
 use snafu::ResultExt;
 use stackable_operator::{
-    builder::pod::{PodBuilder, container::ContainerBuilder},
     crd::authentication::oidc,
+    k8s_openapi::api::core::v1::{Volume, VolumeMount},
     v2::{builder::pod::container::EnvVarSet, types::kubernetes::SecretName},
 };
 
-use super::{AddOidcVolumesSnafu, ConstructOidcWellKnownUrlSnafu, Error};
+use super::{ConstructOidcWellKnownUrlSnafu, Error, OidcVolumesSnafu};
 use crate::{
     authentication::DruidClientAuthenticationOptions,
     crd::{
-        COOKIE_PASSPHRASE_ENV, COOKIE_PASSPHRASE_SECRET_KEY, DruidRole, env_var_reference,
+        COOKIE_PASSPHRASE_ENV, COOKIE_PASSPHRASE_SECRET_KEY, env_var_reference,
         security::add_cert_to_jvm_trust_store_cmd,
     },
 };
@@ -80,23 +80,19 @@ fn add_authenticator_config(
     Ok(())
 }
 
-/// Creates the OIDC parts of the runtime.properties config file.
-/// OIDC authentication is not configured on middlemanagers, because end users don't interact with them directly using the web console and
-/// turning on OIDC will lead to problems with the communication with coordinators during data ingest.
+/// Creates the OIDC parts of the runtime.properties config file. A role that does not
+/// authenticate its users with OIDC (`oidc_enabled` false) gets the system authenticator only.
 pub(super) fn generate_runtime_properties_config(
     provider: &oidc::v1alpha1::AuthenticationProvider,
     oidc: &DruidClientAuthenticationOptions,
-    role: &DruidRole,
+    oidc_enabled: bool,
     config: &mut BTreeMap<String, String>,
 ) -> Result<(), Error> {
-    match role {
-        DruidRole::MiddleManager => {
-            super::set_authenticator_chain(config, &[]);
-        }
-        _ => {
-            add_authenticator_config(provider, oidc, config)?;
-            super::add_authorizer_config(config, OIDC_AUTHORIZER);
-        }
+    if oidc_enabled {
+        add_authenticator_config(provider, oidc, config)?;
+        super::add_authorizer_config(config, OIDC_AUTHORIZER);
+    } else {
+        super::set_authenticator_chain(config, &[]);
     }
     Ok(())
 }
@@ -110,45 +106,38 @@ pub(super) fn main_container_commands(
     }
 }
 
-/// Mounts the OIDC credentials secret and the auto-generated internal secret containing the cookie passphrase.
-/// Not necessary on middlemanagers, because OIDC is not configured on them.
+/// Mounts the OIDC credentials secret and the auto-generated internal secret containing the
+/// cookie passphrase. Nothing for a role that does not authenticate its users with OIDC
+/// (`oidc_enabled` false).
 pub(super) fn get_env_var_mounts(
-    role: &DruidRole,
+    oidc_enabled: bool,
     oidc: &DruidClientAuthenticationOptions,
     internal_secret_name: &SecretName,
 ) -> EnvVarSet {
     let mut env_vars = EnvVarSet::new();
-    match role {
-        DruidRole::MiddleManager => (),
-        _ => {
-            for env_var in oidc::v1alpha1::AuthenticationProvider::client_credentials_env_var_mounts(
-                oidc.client_credentials_secret_ref.to_owned(),
-            ) {
-                env_vars = env_vars.with_env_var(env_var).expect(
-                    "env_var name is valid because it is either OIDC_<16-hex-characters>_CLIENT_ID \
-                     or OIDC_<16-hex-characters>_CLIENT_SECRET",
-                );
-            }
-            env_vars = env_vars.with_secret_key_ref(
-                &COOKIE_PASSPHRASE_ENV,
-                internal_secret_name,
-                &COOKIE_PASSPHRASE_SECRET_KEY,
+    if oidc_enabled {
+        for env_var in oidc::v1alpha1::AuthenticationProvider::client_credentials_env_var_mounts(
+            oidc.client_credentials_secret_ref.to_owned(),
+        ) {
+            env_vars = env_vars.with_env_var(env_var).expect(
+                "env_var name is valid because it is either OIDC_<16-hex-characters>_CLIENT_ID \
+                 or OIDC_<16-hex-characters>_CLIENT_SECRET",
             );
         }
+        env_vars = env_vars.with_secret_key_ref(
+            &COOKIE_PASSPHRASE_ENV,
+            internal_secret_name,
+            &COOKIE_PASSPHRASE_SECRET_KEY,
+        );
     }
     env_vars
 }
 
-pub(super) fn add_volumes_and_mounts(
+/// The volumes of the OIDC provider's TLS CA certificate, if it has one, and their mounts.
+pub(super) fn volumes_and_mounts(
     provider: &oidc::v1alpha1::AuthenticationProvider,
-    pb: &mut PodBuilder,
-    cb_druid: &mut ContainerBuilder,
-    cb_prepare: &mut ContainerBuilder,
-) -> Result<(), Error> {
-    provider
-        .tls
-        .add_volumes_and_mounts(pb, vec![cb_druid, cb_prepare])
-        .context(AddOidcVolumesSnafu)
+) -> Result<(Vec<Volume>, Vec<VolumeMount>), Error> {
+    provider.tls.volumes_and_mounts().context(OidcVolumesSnafu)
 }
 
 #[cfg(test)]
@@ -246,13 +235,8 @@ mod tests {
         let oidc = test_options();
         let mut config = BTreeMap::new();
 
-        generate_runtime_properties_config(
-            &provider,
-            &oidc,
-            &DruidRole::MiddleManager,
-            &mut config,
-        )
-        .expect("generate runtime properties");
+        generate_runtime_properties_config(&provider, &oidc, false, &mut config)
+            .expect("generate runtime properties");
 
         assert_eq!(
             config.get("druid.auth.authenticatorChain"),
@@ -269,7 +253,7 @@ mod tests {
         let oidc = test_options();
         let mut config = BTreeMap::new();
 
-        generate_runtime_properties_config(&provider, &oidc, &DruidRole::Broker, &mut config)
+        generate_runtime_properties_config(&provider, &oidc, true, &mut config)
             .expect("generate runtime properties");
 
         assert_eq!(
@@ -292,7 +276,7 @@ mod tests {
     fn middlemanager_gets_no_oidc_env_vars() {
         let oidc = test_options();
 
-        let envs = get_env_var_mounts(&DruidRole::MiddleManager, &oidc, &internal_secret_name());
+        let envs = get_env_var_mounts(false, &oidc, &internal_secret_name());
 
         assert!(envs.iter().next().is_none());
     }
@@ -302,7 +286,7 @@ mod tests {
     fn non_middlemanager_gets_oidc_env_vars() {
         let oidc = test_options();
 
-        let envs = get_env_var_mounts(&DruidRole::Broker, &oidc, &internal_secret_name());
+        let envs = get_env_var_mounts(true, &oidc, &internal_secret_name());
 
         assert!(
             envs.get(&COOKIE_PASSPHRASE_ENV).is_some(),

@@ -9,36 +9,59 @@ use std::{
     str::FromStr,
 };
 
-use snafu::{ResultExt, Snafu, ensure};
+use serde::Serialize;
+use snafu::{OptionExt, ResultExt, Snafu, ensure};
 use stackable_operator::{
     cli::OperatorEnvironmentOptions,
     commons::{
+        affinity::StackableAffinity,
         pdb::PdbConfig,
         product_image_selection::{self, ResolvedProductImage},
+        resources::{NoRuntimeLimits, Resources},
+    },
+    config::{
+        fragment::{FromFragment, ValidationError},
+        merge::Merge,
     },
     crd::{listener::v1alpha1::Listener, s3},
     database_connections::drivers::jdbc::{JdbcDatabaseConnection, JdbcDatabaseConnectionDetails},
     k8s_openapi::api::core::v1::{ConfigMap, Secret, Volume},
-    kube::{Resource, api::ObjectMeta},
+    kube::{Resource, ResourceExt, api::ObjectMeta},
+    product_logging::spec::Logging,
+    role_utils::GenericRoleConfig,
+    schemars::JsonSchema,
+    shared::time::Duration,
     v2::{
         HasName, HasUid, NameIsValidLabelValue,
         controller_utils::{get_cluster_name, get_namespace, get_uid},
+        product_logging::framework::{
+            ValidatedContainerLogConfigChoice, VectorContainerLogConfig,
+            validate_logging_configuration_for_container,
+        },
         role_group_utils::ResourceNames,
-        role_utils,
+        role_utils::{
+            self, JavaCommonConfig, Role, RoleGroup, RoleGroupConfig, with_validated_config,
+        },
         types::{
-            kubernetes::{ListenerClassName, NamespaceName, Uid},
+            kubernetes::{ConfigMapName, ListenerClassName, NamespaceName, Uid},
             operator::{ClusterName, ProductVersion, RoleGroupName},
         },
     },
 };
-use strum::IntoEnumIterator;
 
 use crate::{
     authentication::DruidAuthenticationConfig,
     controller::{PRODUCT_NAME, dereference::DereferencedObjects},
     crd::{
-        DeepStorageSpec, DruidRole, authentication::AuthenticationClassesResolved,
-        database::MetadataDatabaseConnection, security::DruidTlsSecurity, v1alpha1,
+        BrokerConfig, BrokerConfigFragment, Container, CoordinatorConfig,
+        CoordinatorConfigFragment, DeepStorageSpec, DruidConfigOverrides, DruidRole,
+        HistoricalConfig, HistoricalConfigFragment, MiddleManagerConfig,
+        MiddleManagerConfigFragment, RouterConfig, RouterConfigFragment,
+        authentication::AuthenticationClassesResolved,
+        database::MetadataDatabaseConnection,
+        security::DruidTlsSecurity,
+        storage::{DruidStorage, HistoricalStorage},
+        v1alpha1,
     },
 };
 
@@ -50,8 +73,39 @@ pub enum Error {
         source: product_image_selection::Error,
     },
 
-    #[snafu(display("failed to resolve and merge config for role and role group"))]
-    FailedToResolveConfig { source: crate::crd::Error },
+    #[snafu(display(
+        "failed to merge and validate the config of {role} role group {role_group:?}"
+    ))]
+    ValidateRoleGroupConfig {
+        source: ValidationError,
+        role: DruidRole,
+        role_group: String,
+    },
+
+    #[snafu(display("invalid {role} role group name {role_group:?}"))]
+    ParseRoleGroupName {
+        source: stackable_operator::v2::macros::attributed_string_type::Error,
+        role: DruidRole,
+        role_group: String,
+    },
+
+    #[snafu(display("failed to validate container log configuration"))]
+    ValidateLoggingConfig {
+        source: stackable_operator::v2::product_logging::framework::Error,
+    },
+
+    #[snafu(display(
+        "the Vector agent is enabled but the Vector aggregator ConfigMap name is missing"
+    ))]
+    MissingVectorAggregatorConfigMapName,
+
+    #[snafu(display(
+        "the graceful shutdown timeout of {role} role group {role_group:?} is missing"
+    ))]
+    MissingGracefulShutdownTimeout { role: DruidRole, role_group: String },
+
+    #[snafu(display("the secret lifetime of {role} role group {role_group:?} is missing"))]
+    MissingSecretLifetime { role: DruidRole, role_group: String },
 
     #[snafu(display("failed to determine the cluster's name, namespace, or uid"))]
     ClusterIdentity {
@@ -76,17 +130,92 @@ pub enum Error {
 
 type Result<T, E = Error> = std::result::Result<T, E>;
 
-/// A validated, merged role-group config.
+/// Validated logging configuration for the Druid, Prepare (init) and (optional) Vector containers.
 ///
-/// This is the upstream [`stackable_operator::v2::role_utils::RoleGroupConfig`] (config plus the
-/// four merged override categories), with the typed per-role config erased to
-/// [`crate::crd::ValidatedDruidConfig`] so that all roles share a single type. The rendered
-/// per-file configs (runtime.properties / security.properties / jvm.config) are produced later, in
-/// the config-map build step.
-///
-/// Defined in [`crate::crd`] (where it has access to the private typed config fields) and
-/// re-exported here for the build step.
-pub use crate::crd::DruidRoleGroupConfig;
+/// Produced up-front by [`validate_logging`] so that an invalid custom log ConfigMap name or a
+/// missing Vector aggregator discovery ConfigMap name fails reconciliation during validation
+/// rather than at resource-build time.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ValidatedLogging {
+    pub druid_container: ValidatedContainerLogConfigChoice,
+    pub prepare_container: ValidatedContainerLogConfigChoice,
+    pub vector_container: Option<VectorContainerLogConfig>,
+}
+
+/// A Coordinator role group's validated config: the fields of the merged [`CoordinatorConfig`] that the build
+/// step reads, with the logging validated and the values the merge always sets unwrapped.
+#[derive(Clone, Debug, PartialEq)]
+pub struct ValidatedCoordinatorConfig {
+    pub resources: Resources<DruidStorage, NoRuntimeLimits>,
+    pub logging: ValidatedLogging,
+    pub affinity: StackableAffinity,
+    pub graceful_shutdown_timeout: Duration,
+    pub requested_secret_lifetime: Duration,
+}
+
+/// A Broker role group's validated config: the fields of the merged [`BrokerConfig`] that the build
+/// step reads, with the logging validated and the values the merge always sets unwrapped.
+#[derive(Clone, Debug, PartialEq)]
+pub struct ValidatedBrokerConfig {
+    pub resources: Resources<DruidStorage, NoRuntimeLimits>,
+    pub logging: ValidatedLogging,
+    pub affinity: StackableAffinity,
+    pub graceful_shutdown_timeout: Duration,
+    pub requested_secret_lifetime: Duration,
+}
+
+/// A Historical role group's validated config: the fields of the merged [`HistoricalConfig`] that the build
+/// step reads, with the logging validated and the values the merge always sets unwrapped.
+#[derive(Clone, Debug, PartialEq)]
+pub struct ValidatedHistoricalConfig {
+    pub resources: Resources<HistoricalStorage, NoRuntimeLimits>,
+    pub logging: ValidatedLogging,
+    pub affinity: StackableAffinity,
+    pub graceful_shutdown_timeout: Duration,
+    pub requested_secret_lifetime: Duration,
+}
+
+/// A MiddleManager role group's validated config: the fields of the merged [`MiddleManagerConfig`] that the build
+/// step reads, with the logging validated and the values the merge always sets unwrapped.
+#[derive(Clone, Debug, PartialEq)]
+pub struct ValidatedMiddleManagerConfig {
+    pub resources: Resources<DruidStorage, NoRuntimeLimits>,
+    pub logging: ValidatedLogging,
+    pub affinity: StackableAffinity,
+    pub graceful_shutdown_timeout: Duration,
+    pub requested_secret_lifetime: Duration,
+}
+
+/// A Router role group's validated config: the fields of the merged [`RouterConfig`] that the build
+/// step reads, with the logging validated and the values the merge always sets unwrapped.
+#[derive(Clone, Debug, PartialEq)]
+pub struct ValidatedRouterConfig {
+    pub resources: Resources<DruidStorage, NoRuntimeLimits>,
+    pub logging: ValidatedLogging,
+    pub affinity: StackableAffinity,
+    pub graceful_shutdown_timeout: Duration,
+    pub requested_secret_lifetime: Duration,
+}
+
+/// The [`RoleGroupConfig`] of one Coordinator role group.
+pub type CoordinatorRoleGroupConfig =
+    RoleGroupConfig<ValidatedCoordinatorConfig, JavaCommonConfig, DruidConfigOverrides>;
+
+/// The [`RoleGroupConfig`] of one Broker role group.
+pub type BrokerRoleGroupConfig =
+    RoleGroupConfig<ValidatedBrokerConfig, JavaCommonConfig, DruidConfigOverrides>;
+
+/// The [`RoleGroupConfig`] of one Historical role group.
+pub type HistoricalRoleGroupConfig =
+    RoleGroupConfig<ValidatedHistoricalConfig, JavaCommonConfig, DruidConfigOverrides>;
+
+/// The [`RoleGroupConfig`] of one MiddleManager role group.
+pub type MiddleManagerRoleGroupConfig =
+    RoleGroupConfig<ValidatedMiddleManagerConfig, JavaCommonConfig, DruidConfigOverrides>;
+
+/// The [`RoleGroupConfig`] of one Router role group.
+pub type RouterRoleGroupConfig =
+    RoleGroupConfig<ValidatedRouterConfig, JavaCommonConfig, DruidConfigOverrides>;
 
 /// Cluster-wide resolved fields that are not role/rolegroup specific.
 pub struct ValidatedClusterConfig {
@@ -120,17 +249,25 @@ impl ValidatedClusterConfig {
     }
 }
 
-/// Per-role configuration extracted during validation, so the reconcile/build steps consume this
-/// instead of re-reading the raw [`v1alpha1::DruidCluster`].
+/// The role-level config of a role that exposes a group Listener: Broker, Coordinator and Router
+/// ([`v1alpha1::DruidRoleConfig`] in the CRD).
+#[derive(Clone, Debug)]
+pub struct ValidatedListenerRoleConfig {
+    pub pdb: PdbConfig,
+    pub listener_class: ListenerClassName,
+}
+
+/// The role-level config of a role without a Listener: Historical and MiddleManager
+/// ([`GenericRoleConfig`] in the CRD).
 #[derive(Clone, Debug)]
 pub struct ValidatedRoleConfig {
     pub pdb: PdbConfig,
-    /// The role's listener class, or `None` for roles without a listener
-    /// ([`DruidRole::Historical`]/[`DruidRole::MiddleManager`]).
-    pub listener_class: Option<ListenerClassName>,
 }
 
 /// Synchronous inputs the rest of `reconcile_druid` needs after dereferencing.
+///
+/// Every Druid role is required by the CRD, so every role has its role-level config and its map
+/// of role groups; the fields are in [`DruidRole`] variant order.
 pub struct ValidatedCluster {
     /// Mirrors `name`/`namespace`/`uid` below so that `ValidatedCluster` can implement
     /// [`Resource`] and be passed directly to the metadata/owner-reference builders.
@@ -144,59 +281,53 @@ pub struct ValidatedCluster {
     /// value, so the build steps don't re-parse it per resource.
     pub product_version: ProductVersion,
     pub cluster_config: ValidatedClusterConfig,
-    /// The per-role config (PDB and listener class) for every [`DruidRole`].
-    pub role_configs: BTreeMap<DruidRole, ValidatedRoleConfig>,
-    pub role_group_configs: BTreeMap<DruidRole, BTreeMap<RoleGroupName, DruidRoleGroupConfig>>,
+    /// The Coordinator role-level config.
+    pub coordinator_config: ValidatedListenerRoleConfig,
+    /// The validated config of every Coordinator role group, keyed by role group name.
+    pub coordinator_role_group_configs: BTreeMap<RoleGroupName, CoordinatorRoleGroupConfig>,
+    /// The Broker role-level config.
+    pub broker_config: ValidatedListenerRoleConfig,
+    /// The validated config of every Broker role group, keyed by role group name.
+    pub broker_role_group_configs: BTreeMap<RoleGroupName, BrokerRoleGroupConfig>,
+    /// The Historical role-level config.
+    pub historical_config: ValidatedRoleConfig,
+    /// The validated config of every Historical role group, keyed by role group name.
+    pub historical_role_group_configs: BTreeMap<RoleGroupName, HistoricalRoleGroupConfig>,
+    /// The MiddleManager role-level config.
+    pub middle_manager_config: ValidatedRoleConfig,
+    /// The validated config of every MiddleManager role group, keyed by role group name.
+    pub middle_manager_role_group_configs: BTreeMap<RoleGroupName, MiddleManagerRoleGroupConfig>,
+    /// The Router role-level config.
+    pub router_config: ValidatedListenerRoleConfig,
+    /// The validated config of every Router role group, keyed by role group name.
+    pub router_role_group_configs: BTreeMap<RoleGroupName, RouterRoleGroupConfig>,
     pub router_listener: Option<Listener>,
     pub internal_secret: Option<Secret>,
     pub discovery_config_map: Option<ConfigMap>,
 }
 
 impl ValidatedCluster {
-    #[allow(clippy::too_many_arguments)]
-    pub(crate) fn new(
-        name: ClusterName,
-        namespace: NamespaceName,
-        uid: Uid,
-        image: ResolvedProductImage,
-        cluster_config: ValidatedClusterConfig,
-        role_configs: BTreeMap<DruidRole, ValidatedRoleConfig>,
-        role_group_configs: BTreeMap<DruidRole, BTreeMap<RoleGroupName, DruidRoleGroupConfig>>,
-        router_listener: Option<Listener>,
-        internal_secret: Option<Secret>,
-        discovery_config_map: Option<ConfigMap>,
-    ) -> Self {
-        let metadata = ObjectMeta {
+    /// The metadata that mirrors the cluster's name, namespace and uid, so that
+    /// `ValidatedCluster` can implement [`Resource`] and stand in for the raw `DruidCluster`
+    /// when building child-object metadata and owner references.
+    pub(crate) fn object_meta(
+        name: &ClusterName,
+        namespace: &NamespaceName,
+        uid: &Uid,
+    ) -> ObjectMeta {
+        ObjectMeta {
             name: Some(name.to_string()),
             namespace: Some(namespace.to_string()),
             uid: Some(uid.to_string()),
             ..ObjectMeta::default()
-        };
-        // `app_version_label_value` is constructed to be a valid label value, so it is also a valid
-        // `ProductVersion`.
-        let product_version = ProductVersion::from_str(&image.app_version_label_value)
-            .expect("the app version label value is a valid product version");
-        Self {
-            metadata,
-            name,
-            namespace,
-            uid,
-            image,
-            product_version,
-            cluster_config,
-            role_configs,
-            role_group_configs,
-            router_listener,
-            internal_secret,
-            discovery_config_map,
         }
     }
 
-    /// The validated per-role config (PDB and listener class) for the given role.
-    pub(crate) fn role_config(&self, role: &DruidRole) -> &ValidatedRoleConfig {
-        self.role_configs
-            .get(role)
-            .expect("every DruidRole has a validated role config")
+    /// The product version as a valid label value. `app_version_label_value` is constructed to
+    /// be a valid label value, so it is also a valid `ProductVersion`.
+    pub(crate) fn product_version(image: &ResolvedProductImage) -> ProductVersion {
+        ProductVersion::from_str(&image.app_version_label_value)
+            .expect("the app version label value is a valid product version")
     }
 
     /// Type-safe names for the per-cluster RBAC resources: the ServiceAccount shared by all
@@ -224,8 +355,9 @@ impl ValidatedCluster {
 
 // Implementing `Resource` (plus `HasName`/`HasUid`) lets `ValidatedCluster` stand in for the raw
 // `DruidCluster` when building child-object metadata and owner references. The identity-bearing
-// methods are backed by the `metadata` built in `new`, while kind/group/version/plural delegate to
-// the CRD so produced owner references are byte-identical to the previous raw-cluster ones.
+// methods are backed by the `metadata` built by [`ValidatedCluster::object_meta`], while
+// kind/group/version/plural delegate to the CRD so produced owner references are byte-identical
+// to the raw-cluster ones.
 impl Resource for ValidatedCluster {
     type DynamicType = <v1alpha1::DruidCluster as Resource>::DynamicType;
     type Scope = <v1alpha1::DruidCluster as Resource>::Scope;
@@ -301,27 +433,62 @@ pub fn validate(
     let druid_auth_config =
         DruidAuthenticationConfig::from_auth_classes(resolved_authentication_classes);
 
-    let mut role_group_configs: BTreeMap<DruidRole, BTreeMap<RoleGroupName, DruidRoleGroupConfig>> =
-        BTreeMap::new();
-    let mut role_configs: BTreeMap<DruidRole, ValidatedRoleConfig> = BTreeMap::new();
+    let cluster_name = druid.name_any();
+    let deep_storage = &druid.spec.cluster_config.deep_storage;
+    // The Vector aggregator discovery ConfigMap name (a typed `ConfigMapName`, so an invalid name
+    // is already rejected at deserialization). It is only required when the Vector agent is
+    // enabled for a role group; see [`validate_logging`].
+    let vector_aggregator_config_map_name = druid
+        .spec
+        .cluster_config
+        .vector_aggregator_config_map_name
+        .clone();
 
-    for druid_role in DruidRole::iter() {
-        let group_map = druid
-            .merged_role(&druid_role)
-            .context(FailedToResolveConfigSnafu)?;
-        role_group_configs.insert(druid_role.clone(), group_map);
+    // The first failure propagates, so this order decides which misconfiguration the user is told
+    // about when more than one role is wrong. It is `DruidRole`'s variant order.
+    let coordinator_role = &druid.spec.coordinators;
+    let coordinator_role_group_configs = validate_coordinator_role_group_configs(
+        coordinator_role,
+        &CoordinatorConfig::default_config(&cluster_name, &DruidRole::Coordinator, deep_storage),
+        &vector_aggregator_config_map_name,
+    )?;
+    let coordinator_config = validated_listener_role_config(&coordinator_role.role_config);
 
-        role_configs.insert(
-            druid_role.clone(),
-            ValidatedRoleConfig {
-                pdb: druid
-                    .generic_role_config(&druid_role)
-                    .pod_disruption_budget
-                    .clone(),
-                listener_class: druid_role.listener_class_name(druid),
-            },
-        );
-    }
+    let broker_role = &druid.spec.brokers;
+    let broker_role_group_configs = validate_broker_role_group_configs(
+        broker_role,
+        &BrokerConfig::default_config(&cluster_name, &DruidRole::Broker, deep_storage),
+        &vector_aggregator_config_map_name,
+    )?;
+    let broker_config = validated_listener_role_config(&broker_role.role_config);
+
+    let historical_role = &druid.spec.historicals;
+    let historical_role_group_configs = validate_historical_role_group_configs(
+        historical_role,
+        &HistoricalConfig::default_config(&cluster_name, &DruidRole::Historical, deep_storage),
+        &vector_aggregator_config_map_name,
+    )?;
+    let historical_config = validated_role_config(&historical_role.role_config);
+
+    let middle_manager_role = &druid.spec.middle_managers;
+    let middle_manager_role_group_configs = validate_middle_manager_role_group_configs(
+        middle_manager_role,
+        &MiddleManagerConfig::default_config(
+            &cluster_name,
+            &DruidRole::MiddleManager,
+            deep_storage,
+        ),
+        &vector_aggregator_config_map_name,
+    )?;
+    let middle_manager_config = validated_role_config(&middle_manager_role.role_config);
+
+    let router_role = &druid.spec.routers;
+    let router_role_group_configs = validate_router_role_group_configs(
+        router_role,
+        &RouterConfig::default_config(&cluster_name, &DruidRole::Router, deep_storage),
+        &vector_aggregator_config_map_name,
+    )?;
+    let router_config = validated_listener_role_config(&router_role.role_config);
 
     let name = get_cluster_name(druid).context(ClusterIdentitySnafu)?;
     let namespace = get_namespace(druid).context(ClusterIdentitySnafu)?;
@@ -364,12 +531,14 @@ pub fn validate(
         .as_ref()
         .map(|base_url| format!("{base_url}/allow"));
 
-    Ok(ValidatedCluster::new(
+    Ok(ValidatedCluster {
+        metadata: ValidatedCluster::object_meta(&name, &namespace, &uid),
         name,
         namespace,
         uid,
+        product_version: ValidatedCluster::product_version(&image),
         image,
-        ValidatedClusterConfig {
+        cluster_config: ValidatedClusterConfig {
             zookeeper_connection_string: dereferenced_objects.zookeeper_connection_string.clone(),
             opa_connection_string,
             s3_connection,
@@ -382,34 +551,491 @@ pub fn validate(
             deep_storage: druid.spec.cluster_config.deep_storage.clone(),
             extra_volumes: druid.spec.cluster_config.extra_volumes.clone(),
         },
-        role_configs,
-        role_group_configs,
-        dereferenced_objects.router_listener.clone(),
-        dereferenced_objects.internal_secret.clone(),
-        dereferenced_objects.discovery_config_map.clone(),
-    ))
+        coordinator_config,
+        coordinator_role_group_configs,
+        broker_config,
+        broker_role_group_configs,
+        historical_config,
+        historical_role_group_configs,
+        middle_manager_config,
+        middle_manager_role_group_configs,
+        router_config,
+        router_role_group_configs,
+        router_listener: dereferenced_objects.router_listener.clone(),
+        internal_secret: dereferenced_objects.internal_secret.clone(),
+        discovery_config_map: dereferenced_objects.discovery_config_map.clone(),
+    })
+}
+
+/// The validated role-level config of a role with a group Listener.
+///
+/// [`v1alpha1::DruidRoleConfig`] and [`GenericRoleConfig`] are destructured without `..`, so a
+/// field added upstream fails to compile here instead of being silently dropped.
+fn validated_listener_role_config(
+    role_config: &v1alpha1::DruidRoleConfig,
+) -> ValidatedListenerRoleConfig {
+    let v1alpha1::DruidRoleConfig {
+        generic: GenericRoleConfig {
+            pod_disruption_budget,
+        },
+        listener_class,
+    } = role_config;
+    ValidatedListenerRoleConfig {
+        pdb: pod_disruption_budget.clone(),
+        listener_class: listener_class.clone(),
+    }
+}
+
+/// The validated role-level config of a role without a Listener.
+///
+/// [`GenericRoleConfig`] is destructured without `..`, so a field added upstream fails to compile
+/// here instead of being silently dropped.
+fn validated_role_config(role_config: &GenericRoleConfig) -> ValidatedRoleConfig {
+    let GenericRoleConfig {
+        pod_disruption_budget,
+    } = role_config;
+    ValidatedRoleConfig {
+        pdb: pod_disruption_budget.clone(),
+    }
+}
+
+/// Merges and validates every Coordinator role group (via [`validate_role_group_config`]), then
+/// its logging, then its name.
+fn validate_coordinator_role_group_configs(
+    role: &Role<
+        CoordinatorConfigFragment,
+        DruidConfigOverrides,
+        v1alpha1::DruidRoleConfig,
+        JavaCommonConfig,
+    >,
+    default_config: &CoordinatorConfigFragment,
+    vector_aggregator_config_map_name: &Option<ConfigMapName>,
+) -> Result<BTreeMap<RoleGroupName, CoordinatorRoleGroupConfig>> {
+    let druid_role = DruidRole::Coordinator;
+    role.role_groups
+        .iter()
+        .map(|(role_group_name, role_group)| {
+            let merged = validate_role_group_config::<_, CoordinatorConfig, _>(
+                &druid_role,
+                role,
+                role_group_name,
+                role_group,
+                default_config,
+            )?;
+            let CoordinatorConfig {
+                resources,
+                logging,
+                affinity,
+                graceful_shutdown_timeout,
+                requested_secret_lifetime,
+            } = merged.config;
+            let validated = CoordinatorRoleGroupConfig {
+                replicas: merged.replicas,
+                config: ValidatedCoordinatorConfig {
+                    resources,
+                    logging: validate_logging(&logging, vector_aggregator_config_map_name)?,
+                    affinity,
+                    graceful_shutdown_timeout: graceful_shutdown_timeout.with_context(|| {
+                        MissingGracefulShutdownTimeoutSnafu {
+                            role: druid_role.clone(),
+                            role_group: role_group_name.to_owned(),
+                        }
+                    })?,
+                    requested_secret_lifetime: requested_secret_lifetime.with_context(|| {
+                        MissingSecretLifetimeSnafu {
+                            role: druid_role.clone(),
+                            role_group: role_group_name.to_owned(),
+                        }
+                    })?,
+                },
+                config_overrides: merged.config_overrides,
+                env_overrides: merged.env_overrides,
+                cli_overrides: merged.cli_overrides,
+                pod_overrides: merged.pod_overrides,
+                product_specific_common_config: merged.product_specific_common_config,
+            };
+            Ok((
+                parse_role_group_name(&druid_role, role_group_name)?,
+                validated,
+            ))
+        })
+        .collect()
+}
+
+/// Merges and validates every Broker role group (via [`validate_role_group_config`]), then its
+/// logging, then its name.
+fn validate_broker_role_group_configs(
+    role: &Role<
+        BrokerConfigFragment,
+        DruidConfigOverrides,
+        v1alpha1::DruidRoleConfig,
+        JavaCommonConfig,
+    >,
+    default_config: &BrokerConfigFragment,
+    vector_aggregator_config_map_name: &Option<ConfigMapName>,
+) -> Result<BTreeMap<RoleGroupName, BrokerRoleGroupConfig>> {
+    let druid_role = DruidRole::Broker;
+    role.role_groups
+        .iter()
+        .map(|(role_group_name, role_group)| {
+            let merged = validate_role_group_config::<_, BrokerConfig, _>(
+                &druid_role,
+                role,
+                role_group_name,
+                role_group,
+                default_config,
+            )?;
+            let BrokerConfig {
+                resources,
+                logging,
+                affinity,
+                graceful_shutdown_timeout,
+                requested_secret_lifetime,
+            } = merged.config;
+            let validated = BrokerRoleGroupConfig {
+                replicas: merged.replicas,
+                config: ValidatedBrokerConfig {
+                    resources,
+                    logging: validate_logging(&logging, vector_aggregator_config_map_name)?,
+                    affinity,
+                    graceful_shutdown_timeout: graceful_shutdown_timeout.with_context(|| {
+                        MissingGracefulShutdownTimeoutSnafu {
+                            role: druid_role.clone(),
+                            role_group: role_group_name.to_owned(),
+                        }
+                    })?,
+                    requested_secret_lifetime: requested_secret_lifetime.with_context(|| {
+                        MissingSecretLifetimeSnafu {
+                            role: druid_role.clone(),
+                            role_group: role_group_name.to_owned(),
+                        }
+                    })?,
+                },
+                config_overrides: merged.config_overrides,
+                env_overrides: merged.env_overrides,
+                cli_overrides: merged.cli_overrides,
+                pod_overrides: merged.pod_overrides,
+                product_specific_common_config: merged.product_specific_common_config,
+            };
+            Ok((
+                parse_role_group_name(&druid_role, role_group_name)?,
+                validated,
+            ))
+        })
+        .collect()
+}
+
+/// Merges and validates every Historical role group (via [`validate_role_group_config`]), then
+/// its logging, then its name.
+fn validate_historical_role_group_configs(
+    role: &Role<
+        HistoricalConfigFragment,
+        DruidConfigOverrides,
+        GenericRoleConfig,
+        JavaCommonConfig,
+    >,
+    default_config: &HistoricalConfigFragment,
+    vector_aggregator_config_map_name: &Option<ConfigMapName>,
+) -> Result<BTreeMap<RoleGroupName, HistoricalRoleGroupConfig>> {
+    let druid_role = DruidRole::Historical;
+    role.role_groups
+        .iter()
+        .map(|(role_group_name, role_group)| {
+            let merged = validate_role_group_config::<_, HistoricalConfig, _>(
+                &druid_role,
+                role,
+                role_group_name,
+                role_group,
+                default_config,
+            )?;
+            let HistoricalConfig {
+                resources,
+                logging,
+                affinity,
+                graceful_shutdown_timeout,
+                requested_secret_lifetime,
+            } = merged.config;
+            let validated = HistoricalRoleGroupConfig {
+                replicas: merged.replicas,
+                config: ValidatedHistoricalConfig {
+                    resources,
+                    logging: validate_logging(&logging, vector_aggregator_config_map_name)?,
+                    affinity,
+                    graceful_shutdown_timeout: graceful_shutdown_timeout.with_context(|| {
+                        MissingGracefulShutdownTimeoutSnafu {
+                            role: druid_role.clone(),
+                            role_group: role_group_name.to_owned(),
+                        }
+                    })?,
+                    requested_secret_lifetime: requested_secret_lifetime.with_context(|| {
+                        MissingSecretLifetimeSnafu {
+                            role: druid_role.clone(),
+                            role_group: role_group_name.to_owned(),
+                        }
+                    })?,
+                },
+                config_overrides: merged.config_overrides,
+                env_overrides: merged.env_overrides,
+                cli_overrides: merged.cli_overrides,
+                pod_overrides: merged.pod_overrides,
+                product_specific_common_config: merged.product_specific_common_config,
+            };
+            Ok((
+                parse_role_group_name(&druid_role, role_group_name)?,
+                validated,
+            ))
+        })
+        .collect()
+}
+
+/// Merges and validates every MiddleManager role group (via [`validate_role_group_config`]), then
+/// its logging, then its name.
+fn validate_middle_manager_role_group_configs(
+    role: &Role<
+        MiddleManagerConfigFragment,
+        DruidConfigOverrides,
+        GenericRoleConfig,
+        JavaCommonConfig,
+    >,
+    default_config: &MiddleManagerConfigFragment,
+    vector_aggregator_config_map_name: &Option<ConfigMapName>,
+) -> Result<BTreeMap<RoleGroupName, MiddleManagerRoleGroupConfig>> {
+    let druid_role = DruidRole::MiddleManager;
+    role.role_groups
+        .iter()
+        .map(|(role_group_name, role_group)| {
+            let merged = validate_role_group_config::<_, MiddleManagerConfig, _>(
+                &druid_role,
+                role,
+                role_group_name,
+                role_group,
+                default_config,
+            )?;
+            let MiddleManagerConfig {
+                resources,
+                logging,
+                affinity,
+                graceful_shutdown_timeout,
+                requested_secret_lifetime,
+            } = merged.config;
+            let validated = MiddleManagerRoleGroupConfig {
+                replicas: merged.replicas,
+                config: ValidatedMiddleManagerConfig {
+                    resources,
+                    logging: validate_logging(&logging, vector_aggregator_config_map_name)?,
+                    affinity,
+                    graceful_shutdown_timeout: graceful_shutdown_timeout.with_context(|| {
+                        MissingGracefulShutdownTimeoutSnafu {
+                            role: druid_role.clone(),
+                            role_group: role_group_name.to_owned(),
+                        }
+                    })?,
+                    requested_secret_lifetime: requested_secret_lifetime.with_context(|| {
+                        MissingSecretLifetimeSnafu {
+                            role: druid_role.clone(),
+                            role_group: role_group_name.to_owned(),
+                        }
+                    })?,
+                },
+                config_overrides: merged.config_overrides,
+                env_overrides: merged.env_overrides,
+                cli_overrides: merged.cli_overrides,
+                pod_overrides: merged.pod_overrides,
+                product_specific_common_config: merged.product_specific_common_config,
+            };
+            Ok((
+                parse_role_group_name(&druid_role, role_group_name)?,
+                validated,
+            ))
+        })
+        .collect()
+}
+
+/// Merges and validates every Router role group (via [`validate_role_group_config`]), then its
+/// logging, then its name.
+fn validate_router_role_group_configs(
+    role: &Role<
+        RouterConfigFragment,
+        DruidConfigOverrides,
+        v1alpha1::DruidRoleConfig,
+        JavaCommonConfig,
+    >,
+    default_config: &RouterConfigFragment,
+    vector_aggregator_config_map_name: &Option<ConfigMapName>,
+) -> Result<BTreeMap<RoleGroupName, RouterRoleGroupConfig>> {
+    let druid_role = DruidRole::Router;
+    role.role_groups
+        .iter()
+        .map(|(role_group_name, role_group)| {
+            let merged = validate_role_group_config::<_, RouterConfig, _>(
+                &druid_role,
+                role,
+                role_group_name,
+                role_group,
+                default_config,
+            )?;
+            let RouterConfig {
+                resources,
+                logging,
+                affinity,
+                graceful_shutdown_timeout,
+                requested_secret_lifetime,
+            } = merged.config;
+            let validated = RouterRoleGroupConfig {
+                replicas: merged.replicas,
+                config: ValidatedRouterConfig {
+                    resources,
+                    logging: validate_logging(&logging, vector_aggregator_config_map_name)?,
+                    affinity,
+                    graceful_shutdown_timeout: graceful_shutdown_timeout.with_context(|| {
+                        MissingGracefulShutdownTimeoutSnafu {
+                            role: druid_role.clone(),
+                            role_group: role_group_name.to_owned(),
+                        }
+                    })?,
+                    requested_secret_lifetime: requested_secret_lifetime.with_context(|| {
+                        MissingSecretLifetimeSnafu {
+                            role: druid_role.clone(),
+                            role_group: role_group_name.to_owned(),
+                        }
+                    })?,
+                },
+                config_overrides: merged.config_overrides,
+                env_overrides: merged.env_overrides,
+                cli_overrides: merged.cli_overrides,
+                pod_overrides: merged.pod_overrides,
+                product_specific_common_config: merged.product_specific_common_config,
+            };
+            Ok((
+                parse_role_group_name(&druid_role, role_group_name)?,
+                validated,
+            ))
+        })
+        .collect()
+}
+
+/// Merges and validates one role group via [`with_validated_config`], which folds the config
+/// fragment (default <- role <- role group) plus the `configOverrides`, `envOverrides`,
+/// `cliOverrides`, `podOverrides` and `jvmArgumentOverrides` (role group wins) into a single
+/// [`RoleGroupConfig`].
+fn validate_role_group_config<Config, ValidatedConfig, RoleConfig>(
+    druid_role: &DruidRole,
+    role: &Role<Config, DruidConfigOverrides, RoleConfig, JavaCommonConfig>,
+    role_group_name: &str,
+    role_group: &RoleGroup<Config, JavaCommonConfig, DruidConfigOverrides>,
+    default_config: &Config,
+) -> Result<RoleGroupConfig<ValidatedConfig, JavaCommonConfig, DruidConfigOverrides>>
+where
+    Config: Clone + Merge,
+    ValidatedConfig: FromFragment<Fragment = Config>,
+    RoleConfig: Default + JsonSchema + Serialize,
+{
+    let merged = with_validated_config::<
+        ValidatedConfig,
+        JavaCommonConfig,
+        Config,
+        RoleConfig,
+        DruidConfigOverrides,
+    >(role_group, role, default_config)
+    .with_context(|_| ValidateRoleGroupConfigSnafu {
+        role: druid_role.clone(),
+        role_group: role_group_name.to_owned(),
+    })?;
+
+    Ok(RoleGroupConfig {
+        // Passed through as is, including `None`: the StatefulSet then leaves `.spec.replicas`
+        // unset.
+        replicas: merged.replicas,
+        config: merged.config.config,
+        config_overrides: merged.config.config_overrides,
+        env_overrides: merged.config.env_overrides.into(),
+        cli_overrides: merged.config.cli_overrides,
+        pod_overrides: merged.config.pod_overrides,
+        product_specific_common_config: merged.config.product_specific_common_config,
+    })
+}
+
+/// Parses a role group name from the CRD into its type-safe form.
+fn parse_role_group_name(druid_role: &DruidRole, role_group_name: &str) -> Result<RoleGroupName> {
+    RoleGroupName::from_str(role_group_name).with_context(|_| ParseRoleGroupNameSnafu {
+        role: druid_role.clone(),
+        role_group: role_group_name.to_owned(),
+    })
+}
+
+/// Validates the logging configuration for the Druid, Prepare and (optional) Vector containers.
+///
+/// `vector_aggregator_config_map_name` is the discovery ConfigMap name of the Vector aggregator;
+/// it is required only when the Vector agent is enabled.
+fn validate_logging(
+    logging: &Logging<Container>,
+    vector_aggregator_config_map_name: &Option<ConfigMapName>,
+) -> Result<ValidatedLogging> {
+    let druid_container = validate_logging_configuration_for_container(logging, &Container::Druid)
+        .context(ValidateLoggingConfigSnafu)?;
+    let prepare_container =
+        validate_logging_configuration_for_container(logging, &Container::Prepare)
+            .context(ValidateLoggingConfigSnafu)?;
+
+    let vector_container = if logging.enable_vector_agent {
+        let vector_aggregator_config_map_name = vector_aggregator_config_map_name
+            .clone()
+            .context(MissingVectorAggregatorConfigMapNameSnafu)?;
+        Some(VectorContainerLogConfig {
+            log_config: validate_logging_configuration_for_container(logging, &Container::Vector)
+                .context(ValidateLoggingConfigSnafu)?,
+            vector_aggregator_config_map_name,
+        })
+    } else {
+        None
+    };
+
+    Ok(ValidatedLogging {
+        druid_container,
+        prepare_container,
+        vector_container,
+    })
 }
 
 #[cfg(test)]
 pub(crate) mod test_support {
-    use std::{collections::BTreeMap, str::FromStr};
+    use stackable_operator::{cli::OperatorEnvironmentOptions, utils::yaml_from_str_singleton_map};
 
-    use stackable_operator::{
-        database_connections::drivers::jdbc::JdbcDatabaseConnection,
-        kube::ResourceExt,
-        utils::yaml_from_str_singleton_map,
-        v2::types::{
-            kubernetes::{NamespaceName, SecretClassName, Uid},
-            operator::ClusterName,
-        },
-    };
-    use strum::IntoEnumIterator;
+    use super::{ValidatedCluster, validate};
+    use crate::{controller::dereference::DereferencedObjects, crd::v1alpha1};
 
-    use super::{RoleGroupName, ValidatedCluster, ValidatedClusterConfig, ValidatedRoleConfig};
-    use crate::{
-        controller::CONTAINER_IMAGE_BASE_NAME,
-        crd::{DruidRole, security::DruidTlsSecurity, v1alpha1},
-    };
+    /// Dereferenced inputs with test defaults: no S3, no OPA, no auth, a fixed ZooKeeper string.
+    pub fn dereferenced_objects() -> DereferencedObjects {
+        DereferencedObjects {
+            zookeeper_connection_string: "zookeeper-connection-string".to_string(),
+            opa_base_document_url: None,
+            s3_ingestion_connection: None,
+            s3_deep_storage_bucket: None,
+            authentication_classes: Vec::new(),
+            router_listener: None,
+            internal_secret: None,
+            discovery_config_map: None,
+        }
+    }
+
+    pub fn operator_environment() -> OperatorEnvironmentOptions {
+        OperatorEnvironmentOptions {
+            operator_namespace: "stackable-operators".to_string(),
+            operator_service_name: "druid-operator".to_string(),
+            image_repository: "oci.example.org".to_string(),
+        }
+    }
+
+    /// Builds a [`ValidatedCluster`] through the real [`validate`] step, so that everything the
+    /// dereferenced inputs switch on (authentication, OPA, S3, the Router Listener) takes the same
+    /// path as in the operator.
+    pub fn validated_cluster_from(
+        druid: &v1alpha1::DruidCluster,
+        dereferenced_objects: &DereferencedObjects,
+    ) -> ValidatedCluster {
+        validate(druid, dereferenced_objects, &operator_environment())
+            .expect("test: the cluster validates")
+    }
 
     /// A minimal but fully-valid `DruidCluster` with one role group per role.
     pub const MINIMAL_DRUID_YAML: &str = r#"
@@ -460,112 +1086,27 @@ spec:
         yaml_from_str_singleton_map(yaml).expect("invalid test DruidCluster YAML")
     }
 
-    /// Builds a [`ValidatedCluster`] from a `DruidCluster` using test defaults for the
-    /// dereferenced/cluster-wide fields (no S3, no auth, fixed zookeeper string). Runs the real
-    /// `merged_role` pipeline for every role.
+    /// Builds a [`ValidatedCluster`] from a `DruidCluster` with the test defaults of
+    /// [`dereferenced_objects`] (no S3, no OPA, no auth, a fixed ZooKeeper string).
     pub fn validated_cluster(druid: &v1alpha1::DruidCluster) -> ValidatedCluster {
-        let image = druid
-            .spec
-            .image
-            .resolve(
-                CONTAINER_IMAGE_BASE_NAME,
-                "oci.example.org",
-                &crate::built_info::PKG_VERSION_SEMVER,
-            )
-            .expect("test: resolvable product image");
-
-        let druid_tls_security = DruidTlsSecurity::new(
-            false,
-            Some(SecretClassName::from_str("tls").expect("test: valid secret class")),
-        );
-
-        let mut role_group_configs: BTreeMap<DruidRole, BTreeMap<RoleGroupName, _>> =
-            BTreeMap::new();
-        let mut role_configs: BTreeMap<DruidRole, ValidatedRoleConfig> = BTreeMap::new();
-        for role in DruidRole::iter() {
-            role_group_configs.insert(
-                role.clone(),
-                druid.merged_role(&role).expect("test: merged role"),
-            );
-            role_configs.insert(
-                role.clone(),
-                ValidatedRoleConfig {
-                    pdb: druid
-                        .generic_role_config(&role)
-                        .pod_disruption_budget
-                        .clone(),
-                    listener_class: role.listener_class_name(druid),
-                },
-            );
-        }
-
-        let metadata_db_connection = druid
-            .spec
-            .cluster_config
-            .metadata_database
-            .jdbc_connection_details("metadata")
-            .expect("test: valid metadata db connection");
-
-        ValidatedCluster::new(
-            ClusterName::from_str(&druid.name_any()).expect("test: valid cluster name"),
-            NamespaceName::from_str("default").expect("test: valid namespace"),
-            Uid::from_str("c27b3971-ca72-42c1-80a4-abdfc1db0ddd").expect("test: valid uid"),
-            image,
-            ValidatedClusterConfig {
-                zookeeper_connection_string: "zookeeper-connection-string".to_string(),
-                opa_connection_string: None,
-                s3_connection: None,
-                deep_storage_bucket_name: None,
-                druid_tls_security,
-                druid_auth_config: None,
-                metadata_database: druid.spec.cluster_config.metadata_database.clone(),
-                additional_extensions: druid.spec.cluster_config.additional_extensions.clone(),
-                metadata_db_connection,
-                deep_storage: druid.spec.cluster_config.deep_storage.clone(),
-                extra_volumes: druid.spec.cluster_config.extra_volumes.clone(),
-            },
-            role_configs,
-            role_group_configs,
-            None,
-            None,
-            None,
-        )
+        validated_cluster_from(druid, &dereferenced_objects())
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use stackable_operator::cli::OperatorEnvironmentOptions;
-    use strum::IntoEnumIterator;
+    use std::str::FromStr;
+
+    use stackable_operator::v2::types::operator::RoleGroupName;
 
     use super::{
         Error,
-        test_support::{MINIMAL_DRUID_YAML, druid_from_yaml},
+        test_support::{
+            MINIMAL_DRUID_YAML, dereferenced_objects, druid_from_yaml, operator_environment,
+        },
         validate,
     };
-    use crate::{controller::dereference::DereferencedObjects, crd::DruidRole};
-
-    /// Dereferenced inputs with test defaults: no S3, no OPA, no auth, a fixed ZooKeeper string.
-    fn dereferenced_objects() -> DereferencedObjects {
-        DereferencedObjects {
-            zookeeper_connection_string: "zookeeper-connection-string".to_string(),
-            opa_base_document_url: None,
-            s3_ingestion_connection: None,
-            s3_deep_storage_bucket: None,
-            authentication_classes: Vec::new(),
-            router_listener: None,
-            internal_secret: None,
-            discovery_config_map: None,
-        }
-    }
-
-    fn operator_environment() -> OperatorEnvironmentOptions {
-        OperatorEnvironmentOptions {
-            operator_namespace: "stackable-operators".to_string(),
-            operator_service_name: "druid-operator".to_string(),
-            image_repository: "oci.example.org".to_string(),
-        }
-    }
+    use crate::crd::DRUID_DEFAULT_LISTENER_CLASS;
 
     #[test]
     fn test_validate_ok() {
@@ -581,48 +1122,39 @@ mod tests {
             "c27b3971-ca72-42c1-80a4-abdfc1db0ddd"
         );
 
-        // Every role is merged and gets a role config.
-        for role in DruidRole::iter() {
-            assert!(
-                validated.role_group_configs.contains_key(&role),
-                "missing role-group configs for {role:?}"
-            );
-            assert!(
-                validated.role_configs.contains_key(&role),
-                "missing role config for {role:?}"
-            );
-        }
+        // Every role is merged: each has its one `default` role group.
+        let default = RoleGroupName::from_str("default").expect("valid role group name");
+        assert!(
+            validated
+                .coordinator_role_group_configs
+                .contains_key(&default)
+        );
+        assert!(validated.broker_role_group_configs.contains_key(&default));
+        assert!(
+            validated
+                .historical_role_group_configs
+                .contains_key(&default)
+        );
+        assert!(
+            validated
+                .middle_manager_role_group_configs
+                .contains_key(&default)
+        );
+        assert!(validated.router_role_group_configs.contains_key(&default));
 
-        // Only Broker/Coordinator/Router carry a listener class; Historical/MiddleManager don't.
-        assert!(
-            validated
-                .role_config(&DruidRole::Broker)
-                .listener_class
-                .is_some()
+        // The externally reachable roles (Broker, Coordinator, Router) carry the default listener
+        // class.
+        assert_eq!(
+            validated.coordinator_config.listener_class,
+            *DRUID_DEFAULT_LISTENER_CLASS
         );
-        assert!(
-            validated
-                .role_config(&DruidRole::Coordinator)
-                .listener_class
-                .is_some()
+        assert_eq!(
+            validated.broker_config.listener_class,
+            *DRUID_DEFAULT_LISTENER_CLASS
         );
-        assert!(
-            validated
-                .role_config(&DruidRole::Router)
-                .listener_class
-                .is_some()
-        );
-        assert!(
-            validated
-                .role_config(&DruidRole::Historical)
-                .listener_class
-                .is_none()
-        );
-        assert!(
-            validated
-                .role_config(&DruidRole::MiddleManager)
-                .listener_class
-                .is_none()
+        assert_eq!(
+            validated.router_config.listener_class,
+            *DRUID_DEFAULT_LISTENER_CLASS
         );
 
         // Defaults from the dereferenced inputs flow through.

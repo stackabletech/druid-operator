@@ -91,7 +91,7 @@ mod tests {
     };
 
     use super::*;
-    use crate::crd::v1alpha1;
+    use crate::controller::validate::test_support::{druid_from_yaml, validated_cluster};
 
     #[rstest]
     #[case(DruidRole::Coordinator)]
@@ -100,13 +100,13 @@ mod tests {
     #[case(DruidRole::MiddleManager)]
     #[case(DruidRole::Router)]
     fn test_affinity_defaults(#[case] role: DruidRole) {
-        use stackable_operator::utils::yaml_from_str_singleton_map;
-
         let input = r#"
         apiVersion: druid.stackable.tech/v1alpha1
         kind: DruidCluster
         metadata:
           name: simple-druid
+          namespace: default
+          uid: c27b3971-ca72-42c1-80a4-abdfc1db0ddd
         spec:
           image:
             productVersion: 30.0.0
@@ -142,11 +142,35 @@ mod tests {
               default:
                 replicas: 1
         "#;
-        let druid: v1alpha1::DruidCluster = yaml_from_str_singleton_map(input).unwrap();
-        let merged_role = druid.merged_role(&role).unwrap();
-        let merged_config = merged_role
-            .get(&RoleGroupName::from_str("default").unwrap())
-            .unwrap();
+        let cluster = validated_cluster(&druid_from_yaml(input));
+        let role_group_name = RoleGroupName::from_str("default").expect("valid role group name");
+        let affinity = match role {
+            DruidRole::Coordinator => {
+                &cluster.coordinator_role_group_configs[&role_group_name]
+                    .config
+                    .affinity
+            }
+            DruidRole::Broker => {
+                &cluster.broker_role_group_configs[&role_group_name]
+                    .config
+                    .affinity
+            }
+            DruidRole::Historical => {
+                &cluster.historical_role_group_configs[&role_group_name]
+                    .config
+                    .affinity
+            }
+            DruidRole::MiddleManager => {
+                &cluster.middle_manager_role_group_configs[&role_group_name]
+                    .config
+                    .affinity
+            }
+            DruidRole::Router => {
+                &cluster.router_role_group_configs[&role_group_name]
+                    .config
+                    .affinity
+            }
+        };
 
         let mut expected_affinities = vec![];
 
@@ -257,7 +281,7 @@ mod tests {
         };
 
         assert_eq!(
-            merged_config.config.affinity,
+            affinity.clone(),
             StackableAffinity {
                 pod_affinity: Some(PodAffinity {
                     preferred_during_scheduling_ignored_during_execution: Some(expected_affinities),
