@@ -1,6 +1,5 @@
 use std::{collections::HashSet, ops::Deref, str::FromStr};
 
-use const_format::concatcp;
 use indoc::formatdoc;
 use security::add_cert_to_jvm_trust_store_cmd;
 use serde::{Deserialize, Serialize};
@@ -70,11 +69,6 @@ pub const DRUID_CONFIG_DIRECTORY: &str = "/stackable/config";
 pub const HDFS_CONFIG_DIRECTORY: &str = "/stackable/hdfs";
 pub const LOG_CONFIG_DIRECTORY: &str = "/stackable/log_config";
 pub const RW_CONFIG_DIRECTORY: &str = "/stackable/rwconfig";
-
-/// Directory which the `containerdebug` process writes its log files to. It must be exactly one
-/// level below the log directory, because the Vector agent derives the container name from that
-/// path segment.
-pub const CONTAINERDEBUG_LOG_DIR: &str = concatcp!(STACKABLE_LOG_DIR, "/containerdebug");
 
 pub const TRUST_STORE_FILE: &str = "truststore.p12";
 pub const KEY_STORE_FILE: &str = "keystore.p12";
@@ -491,7 +485,7 @@ impl DruidRole {
             {COMMON_BASH_TRAP_FUNCTIONS}
             {remove_vector_shutdown_file_command}
             prepare_signal_handlers
-            mkdir --parents {CONTAINERDEBUG_LOG_DIR}
+            mkdir --parents \"$FILE_LOG_DIRECTORY\"
             containerdebug --output={STACKABLE_LOG_DIR}/containerdebug-state.json --loop &
             /stackable/druid/bin/run-druid {process_name} {RW_CONFIG_DIRECTORY} &
             echo \"$!\" >> /tmp/DRUID_PID

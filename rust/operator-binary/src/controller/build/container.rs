@@ -7,6 +7,7 @@
 
 use std::str::FromStr;
 
+use const_format::concatcp;
 use snafu::{ResultExt, Snafu};
 use stackable_operator::{
     builder::pod::{
@@ -39,9 +40,8 @@ use crate::{
         },
     },
     crd::{
-        CONTAINERDEBUG_LOG_DIR, Container, DRUID_CONFIG_DIRECTORY, DeepStorageSpec,
-        HDFS_CONFIG_DIRECTORY, LOG_CONFIG_DIRECTORY, METRICS_PORT, METRICS_PORT_NAME,
-        RW_CONFIG_DIRECTORY,
+        Container, DRUID_CONFIG_DIRECTORY, DeepStorageSpec, HDFS_CONFIG_DIRECTORY,
+        LOG_CONFIG_DIRECTORY, METRICS_PORT, METRICS_PORT_NAME, RW_CONFIG_DIRECTORY,
     },
 };
 
@@ -276,7 +276,12 @@ pub(crate) fn containers_and_volumes(inputs: &RoleGroupInputs) -> Result<Contain
     }
 
     env_vars = env_vars
-        .with_value(&FILE_LOG_DIRECTORY, CONTAINERDEBUG_LOG_DIR)
+        // The directory must be exactly one level below the log directory, because the Vector
+        // agent derives the container name from that path segment.
+        .with_value(
+            &FILE_LOG_DIRECTORY,
+            concatcp!(STACKABLE_LOG_DIR, "/containerdebug"),
+        )
         // Rotation is opt-in, so without these the file would grow unbounded.
         .with_value(&FILE_LOG_ROTATION_PERIOD, "hourly")
         .with_value(&FILE_LOG_MAX_FILES, "2");
