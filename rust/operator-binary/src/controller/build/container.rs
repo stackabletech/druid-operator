@@ -460,11 +460,9 @@ fn add_log_volume_and_volume_mounts(
         VolumeBuilder::new(&*LOG_VOLUME_NAME)
             .with_empty_dir(
                 Some(""),
-                // Only the Druid log files are budgeted here. The `containerdebug` files in
-                // this volume are rotated by time, which bounds their number but not their
-                // size, so they are an unbudgeted writer. They stay negligible at the default
-                // INFO level and a 30 minute loop, but raising `FILE_LOG_LEVEL` via
-                // `envOverrides` can exceed the limit, which makes the kubelet evict the Pod.
+                // Only the Druid log files are budgeted. The `containerdebug` files in this
+                // volume are rotated by time, not by size, so they have no budget; raising
+                // `FILE_LOG_LEVEL` via `envOverrides` can therefore evict the Pod.
                 Some(product_logging::framework::calculate_log_volume_size_limit(
                     &[MAX_DRUID_LOG_FILES_SIZE],
                 )),
