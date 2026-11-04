@@ -10,7 +10,7 @@ All notable changes to this project will be documented in this file.
   ([#876]).
 - Add `/ready` endpoint to the operator Deployment, which reports the CRD installation status ([#880]).
 - The logs of the `containerdebug` process are now collected by the Vector agent and forwarded to
-  the Vector aggregator ([#893]).
+  the Vector aggregator ([#894]).
 
 ### Changed
 
@@ -53,7 +53,7 @@ All notable changes to this project will be documented in this file.
 - The `containerdebug` process writes its log file again. The operator set
   `CONTAINERDEBUG_LOG_DIRECTORY`, which containerdebug stopped reading in its version 0.2.0 when it
   moved to `stackable-telemetry`; the directory is now set via `FILE_LOG_DIRECTORY`. The file is
-  rotated hourly and at most two files are kept, because rotation is opt-in ([#893]).
+  rotated hourly and at most two files are kept, because rotation is opt-in ([#894]).
 
 ### Remove
 
@@ -77,7 +77,7 @@ All notable changes to this project will be documented in this file.
 [#889]: https://github.com/stackabletech/druid-operator/pull/889
 [#891]: https://github.com/stackabletech/druid-operator/pull/891
 [#892]: https://github.com/stackabletech/druid-operator/pull/892
-[#893]: https://github.com/stackabletech/druid-operator/pull/893
+[#894]: https://github.com/stackabletech/druid-operator/pull/894
 
 ## [26.7.0] - 2026-07-21
 
