@@ -1,4 +1,5 @@
 = Pod placement
+:description: Pod placement for Apache Druid, covering default affinities that keep communicating roles close together and near HDFS when used as deep storage.
 
 You can configure the Pod placement of the Druid pods as described in xref:concepts:operations/pod_placement.adoc[].
 

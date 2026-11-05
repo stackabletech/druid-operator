@@ -1,4 +1,5 @@
 = Allowed Pod disruptions
+:description: PodDisruptionBudgets the Stackable operator writes for each Apache Druid role, from brokers to routers, and how to disable them.
 
 You can configure the permitted Pod disruptions for Druid nodes as described in xref:concepts:operations/pod_disruptions.adoc[].
 
