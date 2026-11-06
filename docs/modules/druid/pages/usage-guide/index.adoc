@@ -1,4 +1,5 @@
 = Usage guide
+:description: Guides for Apache Druid on Kubernetes, covering deep storage, ingestion, resources, security with TLS, LDAP and OPA, logging and monitoring.
 :page-aliases: usage.doc
 
 The usage guide covers various aspects of configuring Druid and interconnection with other tools.
