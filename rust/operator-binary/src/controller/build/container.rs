@@ -7,6 +7,7 @@
 
 use std::str::FromStr;
 
+use const_format::concatcp;
 use snafu::{ResultExt, Snafu};
 use stackable_operator::{
     builder::pod::{
@@ -51,8 +52,13 @@ stackable_operator::constant!(pub(crate) LOG_CONFIG_VOLUME_NAME: VolumeName = "l
 stackable_operator::constant!(pub(crate) LOG_VOLUME_NAME: VolumeName = "log");
 stackable_operator::constant!(pub(crate) RW_CONFIG_VOLUME_NAME: VolumeName = "rwconfig");
 
-// Needed for the `containerdebug` process to log its tracing information to.
-stackable_operator::constant!(pub(crate) CONTAINERDEBUG_LOG_DIRECTORY: EnvVarName = "CONTAINERDEBUG_LOG_DIRECTORY");
+// Let the `containerdebug` process write its tracing information to a file. These are the generic
+// `stackable-telemetry` variables and apply to the whole Druid container, so any other
+// telemetry-based process in it would log into the same directory and the Vector agent would label
+// its events with `container: containerdebug`.
+stackable_operator::constant!(pub(crate) FILE_LOG_DIRECTORY: EnvVarName = "FILE_LOG_DIRECTORY");
+stackable_operator::constant!(pub(crate) FILE_LOG_MAX_FILES: EnvVarName = "FILE_LOG_MAX_FILES");
+stackable_operator::constant!(pub(crate) FILE_LOG_ROTATION_PERIOD: EnvVarName = "FILE_LOG_ROTATION_PERIOD");
 
 // volume mount directory (not a volume name)
 const USERDATA_MOUNTPOINT: &str = "/stackable/userdata";
@@ -269,10 +275,16 @@ pub(crate) fn containers_and_volumes(inputs: &RoleGroupInputs) -> Result<Contain
         ));
     }
 
-    env_vars = env_vars.with_value(
-        &CONTAINERDEBUG_LOG_DIRECTORY,
-        format!("{STACKABLE_LOG_DIR}/containerdebug"),
-    );
+    env_vars = env_vars
+        // The directory must be exactly one level below the log directory, because the Vector
+        // agent derives the container name from that path segment.
+        .with_value(
+            &FILE_LOG_DIRECTORY,
+            concatcp!(STACKABLE_LOG_DIR, "/containerdebug"),
+        )
+        // Rotation is opt-in, so without these the file would grow unbounded.
+        .with_value(&FILE_LOG_ROTATION_PERIOD, "hourly")
+        .with_value(&FILE_LOG_MAX_FILES, "2");
 
     // Environment variable overrides (highest precedence), merged from role and role group.
     // They are merged in last so that they override any operator-set environment variable.
@@ -453,6 +465,9 @@ fn add_log_volume_and_volume_mounts(
         VolumeBuilder::new(&*LOG_VOLUME_NAME)
             .with_empty_dir(
                 Some(""),
+                // Only the Druid log files are budgeted. The `containerdebug` files in this
+                // volume are rotated by time, not by size, so they have no budget; raising
+                // `FILE_LOG_LEVEL` via `envOverrides` can therefore evict the Pod.
                 Some(product_logging::framework::calculate_log_volume_size_limit(
                     &[MAX_DRUID_LOG_FILES_SIZE],
                 )),
@@ -473,6 +488,8 @@ mod tests {
         let _ = *LOG_CONFIG_VOLUME_NAME;
         let _ = *LOG_VOLUME_NAME;
         let _ = *RW_CONFIG_VOLUME_NAME;
-        let _ = *CONTAINERDEBUG_LOG_DIRECTORY;
+        let _ = *FILE_LOG_DIRECTORY;
+        let _ = *FILE_LOG_MAX_FILES;
+        let _ = *FILE_LOG_ROTATION_PERIOD;
     }
 }

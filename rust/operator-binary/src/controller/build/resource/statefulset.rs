@@ -127,7 +127,7 @@ mod tests {
     use crate::{
         controller::{
             build::{
-                container::{CONTAINERDEBUG_LOG_DIRECTORY, LOG_VOLUME_NAME},
+                container::{FILE_LOG_DIRECTORY, LOG_VOLUME_NAME},
                 test_support::role_group_builder,
             },
             validate::test_support::{MINIMAL_DRUID_YAML, druid_from_yaml, validated_cluster},
@@ -136,7 +136,7 @@ mod tests {
     };
 
     /// The user-supplied `envOverrides` must be merged in after all operator-set environment
-    /// variables, so that they can override any of them. `CONTAINERDEBUG_LOG_DIRECTORY` is used
+    /// variables, so that they can override any of them. `FILE_LOG_DIRECTORY` is used
     /// as the example here because it is set unconditionally by the operator.
     #[test]
     fn env_overrides_override_operator_set_env_vars() {
@@ -164,7 +164,7 @@ spec:
     zookeeperConfigMapName: simple-druid-znode
   brokers:
     envOverrides:
-      CONTAINERDEBUG_LOG_DIRECTORY: /custom/log/dir
+      FILE_LOG_DIRECTORY: /custom/log/dir
     roleGroups:
       default:
         replicas: 1
@@ -212,7 +212,7 @@ spec:
 
         let containerdebug: Vec<_> = env
             .iter()
-            .filter(|env_var| env_var.name == CONTAINERDEBUG_LOG_DIRECTORY.as_ref())
+            .filter(|env_var| env_var.name == FILE_LOG_DIRECTORY.as_ref())
             .collect();
         assert_eq!(
             containerdebug.len(),

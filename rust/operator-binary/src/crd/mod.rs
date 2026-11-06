@@ -485,6 +485,7 @@ impl DruidRole {
             {COMMON_BASH_TRAP_FUNCTIONS}
             {remove_vector_shutdown_file_command}
             prepare_signal_handlers
+            mkdir --parents \"$FILE_LOG_DIRECTORY\"
             containerdebug --output={STACKABLE_LOG_DIR}/containerdebug-state.json --loop &
             /stackable/druid/bin/run-druid {process_name} {RW_CONFIG_DIRECTORY} &
             echo \"$!\" >> /tmp/DRUID_PID
