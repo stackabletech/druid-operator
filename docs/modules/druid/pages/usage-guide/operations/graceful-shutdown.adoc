@@ -1,4 +1,5 @@
 = Graceful shutdown
+:description: Graceful shutdown of Apache Druid brokers, coordinators, historicals, middle managers and routers, covering the configurable timeout per role.
 
 You can configure the graceful shutdown as described in xref:concepts:operations/graceful_shutdown.adoc[].
 
