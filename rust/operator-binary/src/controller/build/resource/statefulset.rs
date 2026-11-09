@@ -126,13 +126,10 @@ mod tests {
     use super::*;
     use crate::{
         controller::{
-            build::{
-                container::{FILE_LOG_DIRECTORY, LOG_VOLUME_NAME},
-                test_support::role_group_builder,
-            },
+            build::{container::LOG_VOLUME_NAME, test_support::role_group_builder},
             validate::test_support::{MINIMAL_DRUID_YAML, druid_from_yaml, validated_cluster},
         },
-        crd::{Container, DruidRole},
+        crd::{Container, DruidRole, FILE_LOG_DIRECTORY},
     };
 
     /// The user-supplied `envOverrides` must be merged in after all operator-set environment

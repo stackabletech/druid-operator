@@ -18,7 +18,7 @@ use stackable_operator::{
     },
     product_logging,
     v2::{
-        builder::pod::container::{EnvVarName, EnvVarSet, new_container_builder},
+        builder::pod::container::{EnvVarSet, new_container_builder},
         product_logging::framework::{
             STACKABLE_LOG_DIR, ValidatedContainerLogConfigChoice, vector_container,
         },
@@ -40,8 +40,9 @@ use crate::{
         },
     },
     crd::{
-        Container, DRUID_CONFIG_DIRECTORY, DeepStorageSpec, HDFS_CONFIG_DIRECTORY,
-        LOG_CONFIG_DIRECTORY, METRICS_PORT, METRICS_PORT_NAME, RW_CONFIG_DIRECTORY,
+        Container, DRUID_CONFIG_DIRECTORY, DeepStorageSpec, FILE_LOG_DIRECTORY, FILE_LOG_MAX_FILES,
+        FILE_LOG_ROTATION_PERIOD, HDFS_CONFIG_DIRECTORY, LOG_CONFIG_DIRECTORY, METRICS_PORT,
+        METRICS_PORT_NAME, RW_CONFIG_DIRECTORY,
     },
 };
 
@@ -51,14 +52,6 @@ stackable_operator::constant!(pub(crate) HDFS_CONFIG_VOLUME_NAME: VolumeName = "
 stackable_operator::constant!(pub(crate) LOG_CONFIG_VOLUME_NAME: VolumeName = "log-config");
 stackable_operator::constant!(pub(crate) LOG_VOLUME_NAME: VolumeName = "log");
 stackable_operator::constant!(pub(crate) RW_CONFIG_VOLUME_NAME: VolumeName = "rwconfig");
-
-// Let the `containerdebug` process write its tracing information to a file. These are the generic
-// `stackable-telemetry` variables and apply to the whole Druid container, so any other
-// telemetry-based process in it would log into the same directory and the Vector agent would label
-// its events with `container: containerdebug`.
-stackable_operator::constant!(pub(crate) FILE_LOG_DIRECTORY: EnvVarName = "FILE_LOG_DIRECTORY");
-stackable_operator::constant!(pub(crate) FILE_LOG_MAX_FILES: EnvVarName = "FILE_LOG_MAX_FILES");
-stackable_operator::constant!(pub(crate) FILE_LOG_ROTATION_PERIOD: EnvVarName = "FILE_LOG_ROTATION_PERIOD");
 
 // volume mount directory (not a volume name)
 const USERDATA_MOUNTPOINT: &str = "/stackable/userdata";
@@ -488,8 +481,5 @@ mod tests {
         let _ = *LOG_CONFIG_VOLUME_NAME;
         let _ = *LOG_VOLUME_NAME;
         let _ = *RW_CONFIG_VOLUME_NAME;
-        let _ = *FILE_LOG_DIRECTORY;
-        let _ = *FILE_LOG_MAX_FILES;
-        let _ = *FILE_LOG_ROTATION_PERIOD;
     }
 }
