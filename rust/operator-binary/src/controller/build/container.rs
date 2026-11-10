@@ -268,6 +268,10 @@ pub(crate) fn containers_and_volumes(inputs: &RoleGroupInputs) -> Result<Contain
         ));
     }
 
+    // Let the `containerdebug` process write its tracing information to a file. These are the
+    // generic `stackable-telemetry` variables and apply to the whole Druid container, so any
+    // other telemetry-based process in it would log into the same directory and the Vector
+    // agent would label its events with `container: containerdebug`.
     env_vars = env_vars
         // The directory must be exactly one level below the log directory, because the Vector
         // agent derives the container name from that path segment.

@@ -92,8 +92,9 @@ constant!(pub COOKIE_PASSPHRASE_ENV: EnvVarName = "OIDC_COOKIE_PASSPHRASE");
 constant!(pub COOKIE_PASSPHRASE_SECRET_KEY: SecretKey = "OIDC_COOKIE_PASSPHRASE");
 
 // The `stackable-telemetry` variables which configure the file logs of the `containerdebug`
-// process. They are set on the Druid container, and the start command below references the
-// directory as a shell variable, so that an `envOverrides` entry takes effect in both places.
+// process. They are set on the Druid container in `container`, and the start command below
+// references the directory as a shell variable, so that an `envOverrides` entry for it takes
+// effect in both places.
 constant!(pub FILE_LOG_DIRECTORY: EnvVarName = "FILE_LOG_DIRECTORY");
 constant!(pub FILE_LOG_MAX_FILES: EnvVarName = "FILE_LOG_MAX_FILES");
 constant!(pub FILE_LOG_ROTATION_PERIOD: EnvVarName = "FILE_LOG_ROTATION_PERIOD");
