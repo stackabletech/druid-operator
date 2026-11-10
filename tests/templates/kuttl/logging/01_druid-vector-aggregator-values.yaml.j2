@@ -22,191 +22,293 @@ customConfig:
   transforms:
     validEvents:
       type: filter
-      inputs: [vector]
+      inputs:
+        - vector
       condition: is_null(.errors)
     filteredAutomaticLogConfigBrokerDruid:
       type: filter
-      inputs: [validEvents]
+      inputs:
+        - validEvents
       condition: >-
         .pod == "test-druid-broker-automatic-log-config-0" &&
         .container == "druid"
     filteredAutomaticLogConfigBrokerPrepare:
       type: filter
-      inputs: [validEvents]
+      inputs:
+        - validEvents
       condition: >-
         .pod == "test-druid-broker-automatic-log-config-0" &&
         .container == "prepare"
+    filteredAutomaticLogConfigBrokerContainerdebug:
+      type: filter
+      inputs:
+        - validEvents
+      condition: >-
+        .pod == "test-druid-broker-automatic-log-config-0" &&
+        .container == "containerdebug"
     filteredAutomaticLogConfigBrokerVector:
       type: filter
-      inputs: [validEvents]
+      inputs:
+        - validEvents
       condition: >-
         .pod == "test-druid-broker-automatic-log-config-0" &&
         .container == "vector"
     filteredCustomLogConfigBrokerDruid:
       type: filter
-      inputs: [validEvents]
+      inputs:
+        - validEvents
       condition: >-
         .pod == "test-druid-broker-custom-log-config-0" &&
         .container == "druid"
     filteredCustomLogConfigBrokerPrepare:
       type: filter
-      inputs: [validEvents]
+      inputs:
+        - validEvents
       condition: >-
         .pod == "test-druid-broker-custom-log-config-0" &&
         .container == "prepare"
+    filteredCustomLogConfigBrokerContainerdebug:
+      type: filter
+      inputs:
+        - validEvents
+      condition: >-
+        .pod == "test-druid-broker-custom-log-config-0" &&
+        .container == "containerdebug"
     filteredCustomLogConfigBrokerVector:
       type: filter
-      inputs: [validEvents]
+      inputs:
+        - validEvents
       condition: >-
         .pod == "test-druid-broker-custom-log-config-0" &&
         .container == "vector"
     filteredAutomaticLogConfigCoordinatorDruid:
       type: filter
-      inputs: [validEvents]
+      inputs:
+        - validEvents
       condition: >-
         .pod == "test-druid-coordinator-automatic-log-config-0" &&
         .container == "druid"
     filteredAutomaticLogConfigCoordinatorPrepare:
       type: filter
-      inputs: [validEvents]
+      inputs:
+        - validEvents
       condition: >-
         .pod == "test-druid-coordinator-automatic-log-config-0" &&
         .container == "prepare"
+    filteredAutomaticLogConfigCoordinatorContainerdebug:
+      type: filter
+      inputs:
+        - validEvents
+      condition: >-
+        .pod == "test-druid-coordinator-automatic-log-config-0" &&
+        .container == "containerdebug"
     filteredAutomaticLogConfigCoordinatorVector:
       type: filter
-      inputs: [validEvents]
+      inputs:
+        - validEvents
       condition: >-
         .pod == "test-druid-coordinator-automatic-log-config-0" &&
         .container == "vector"
     filteredCustomLogConfigCoordinatorDruid:
       type: filter
-      inputs: [validEvents]
+      inputs:
+        - validEvents
       condition: >-
         .pod == "test-druid-coordinator-custom-log-config-0" &&
         .container == "druid"
     filteredCustomLogConfigCoordinatorPrepare:
       type: filter
-      inputs: [validEvents]
+      inputs:
+        - validEvents
       condition: >-
         .pod == "test-druid-coordinator-custom-log-config-0" &&
         .container == "prepare"
+    filteredCustomLogConfigCoordinatorContainerdebug:
+      type: filter
+      inputs:
+        - validEvents
+      condition: >-
+        .pod == "test-druid-coordinator-custom-log-config-0" &&
+        .container == "containerdebug"
     filteredCustomLogConfigCoordinatorVector:
       type: filter
-      inputs: [validEvents]
+      inputs:
+        - validEvents
       condition: >-
         .pod == "test-druid-coordinator-custom-log-config-0" &&
         .container == "vector"
     filteredAutomaticLogConfigHistoricalDruid:
       type: filter
-      inputs: [validEvents]
+      inputs:
+        - validEvents
       condition: >-
         .pod == "test-druid-historical-automatic-log-config-0" &&
         .container == "druid"
     filteredAutomaticLogConfigHistoricalPrepare:
       type: filter
-      inputs: [validEvents]
+      inputs:
+        - validEvents
       condition: >-
         .pod == "test-druid-historical-automatic-log-config-0" &&
         .container == "prepare"
+    filteredAutomaticLogConfigHistoricalContainerdebug:
+      type: filter
+      inputs:
+        - validEvents
+      condition: >-
+        .pod == "test-druid-historical-automatic-log-config-0" &&
+        .container == "containerdebug"
     filteredAutomaticLogConfigHistoricalVector:
       type: filter
-      inputs: [validEvents]
+      inputs:
+        - validEvents
       condition: >-
         .pod == "test-druid-historical-automatic-log-config-0" &&
         .container == "vector"
     filteredCustomLogConfigHistoricalDruid:
       type: filter
-      inputs: [validEvents]
+      inputs:
+        - validEvents
       condition: >-
         .pod == "test-druid-historical-custom-log-config-0" &&
         .container == "druid"
     filteredCustomLogConfigHistoricalPrepare:
       type: filter
-      inputs: [validEvents]
+      inputs:
+        - validEvents
       condition: >-
         .pod == "test-druid-historical-custom-log-config-0" &&
         .container == "prepare"
+    filteredCustomLogConfigHistoricalContainerdebug:
+      type: filter
+      inputs:
+        - validEvents
+      condition: >-
+        .pod == "test-druid-historical-custom-log-config-0" &&
+        .container == "containerdebug"
     filteredCustomLogConfigHistoricalVector:
       type: filter
-      inputs: [validEvents]
+      inputs:
+        - validEvents
       condition: >-
         .pod == "test-druid-historical-custom-log-config-0" &&
         .container == "vector"
     filteredAutomaticLogConfigMiddlemanagerDruid:
       type: filter
-      inputs: [validEvents]
+      inputs:
+        - validEvents
       condition: >-
         .pod == "test-druid-middlemanager-automatic-log-config-0" &&
         .container == "druid"
     filteredAutomaticLogConfigMiddlemanagerPrepare:
       type: filter
-      inputs: [validEvents]
+      inputs:
+        - validEvents
       condition: >-
         .pod == "test-druid-middlemanager-automatic-log-config-0" &&
         .container == "prepare"
+    filteredAutomaticLogConfigMiddlemanagerContainerdebug:
+      type: filter
+      inputs:
+        - validEvents
+      condition: >-
+        .pod == "test-druid-middlemanager-automatic-log-config-0" &&
+        .container == "containerdebug"
     filteredAutomaticLogConfigMiddlemanagerVector:
       type: filter
-      inputs: [validEvents]
+      inputs:
+        - validEvents
       condition: >-
         .pod == "test-druid-middlemanager-automatic-log-config-0" &&
         .container == "vector"
     filteredCustomLogConfigMiddlemanagerDruid:
       type: filter
-      inputs: [validEvents]
+      inputs:
+        - validEvents
       condition: >-
         .pod == "test-druid-middlemanager-custom-log-config-0" &&
         .container == "druid"
     filteredCustomLogConfigMiddlemanagerPrepare:
       type: filter
-      inputs: [validEvents]
+      inputs:
+        - validEvents
       condition: >-
         .pod == "test-druid-middlemanager-custom-log-config-0" &&
         .container == "prepare"
+    filteredCustomLogConfigMiddlemanagerContainerdebug:
+      type: filter
+      inputs:
+        - validEvents
+      condition: >-
+        .pod == "test-druid-middlemanager-custom-log-config-0" &&
+        .container == "containerdebug"
     filteredCustomLogConfigMiddlemanagerVector:
       type: filter
-      inputs: [validEvents]
+      inputs:
+        - validEvents
       condition: >-
         .pod == "test-druid-middlemanager-custom-log-config-0" &&
         .container == "vector"
     filteredAutomaticLogConfigRouterDruid:
       type: filter
-      inputs: [validEvents]
+      inputs:
+        - validEvents
       condition: >-
         .pod == "test-druid-router-automatic-log-config-0" &&
         .container == "druid"
     filteredAutomaticLogConfigRouterPrepare:
       type: filter
-      inputs: [validEvents]
+      inputs:
+        - validEvents
       condition: >-
         .pod == "test-druid-router-automatic-log-config-0" &&
         .container == "prepare"
+    filteredAutomaticLogConfigRouterContainerdebug:
+      type: filter
+      inputs:
+        - validEvents
+      condition: >-
+        .pod == "test-druid-router-automatic-log-config-0" &&
+        .container == "containerdebug"
     filteredAutomaticLogConfigRouterVector:
       type: filter
-      inputs: [validEvents]
+      inputs:
+        - validEvents
       condition: >-
         .pod == "test-druid-router-automatic-log-config-0" &&
         .container == "vector"
     filteredCustomLogConfigRouterDruid:
       type: filter
-      inputs: [validEvents]
+      inputs:
+        - validEvents
       condition: >-
         .pod == "test-druid-router-custom-log-config-0" &&
         .container == "druid"
     filteredCustomLogConfigRouterPrepare:
       type: filter
-      inputs: [validEvents]
+      inputs:
+        - validEvents
       condition: >-
         .pod == "test-druid-router-custom-log-config-0" &&
         .container == "prepare"
+    filteredCustomLogConfigRouterContainerdebug:
+      type: filter
+      inputs:
+        - validEvents
+      condition: >-
+        .pod == "test-druid-router-custom-log-config-0" &&
+        .container == "containerdebug"
     filteredCustomLogConfigRouterVector:
       type: filter
-      inputs: [validEvents]
+      inputs:
+        - validEvents
       condition: >-
         .pod == "test-druid-router-custom-log-config-0" &&
         .container == "vector"
     filteredInvalidEvents:
       type: filter
-      inputs: [vector]
+      inputs:
+        - vector
       condition: |-
         .timestamp == from_unix_timestamp!(0) ||
         is_null(.level) ||
@@ -214,11 +316,29 @@ customConfig:
         is_null(.message)
   sinks:
     test:
-      inputs: [filtered*]
+      inputs:
+        - filtered*
       type: blackhole
+    # Shows all events received from the agents. This sink is intentional and
+    # not a debugging leftover: if a "filtered*" transform gathers no event,
+    # then the assertion only reports a count, whereas this log shows which
+    # pod and container names actually arrived. A failure in CI cannot be
+    # reproduced by enabling this afterwards, so it is kept enabled at the
+    # price of the log volume.
+    stdout:
+      inputs:
+        - vector
+      type: console
+      encoding:
+        codec: json
+      buffer:
+        # Avoid back pressure from a stalling stdout. The test should not
+        # fail because of a sink which only aids debugging.
+        when_full: drop_newest
 {% if lookup('env', 'VECTOR_AGGREGATOR') %}
     aggregator:
-      inputs: [vector]
+      inputs:
+        - vector
       type: vector
       routing:
         endpoints:

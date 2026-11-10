@@ -91,6 +91,14 @@ pub const METRICS_PORT: Port = Port(9090);
 constant!(pub COOKIE_PASSPHRASE_ENV: EnvVarName = "OIDC_COOKIE_PASSPHRASE");
 constant!(pub COOKIE_PASSPHRASE_SECRET_KEY: SecretKey = "OIDC_COOKIE_PASSPHRASE");
 
+// The `stackable-telemetry` variables which configure the file logs of the `containerdebug`
+// process. They are set on the Druid container in `container`, and the start command below
+// references the directory as a shell variable, so that an `envOverrides` entry for it takes
+// effect in both places.
+constant!(pub FILE_LOG_DIRECTORY: EnvVarName = "FILE_LOG_DIRECTORY");
+constant!(pub FILE_LOG_MAX_FILES: EnvVarName = "FILE_LOG_MAX_FILES");
+constant!(pub FILE_LOG_ROTATION_PERIOD: EnvVarName = "FILE_LOG_ROTATION_PERIOD");
+
 /// Formats a Druid [dynamic config](https://druid.apache.org/docs/latest/operations/dynamic-config-provider)
 /// reference to an environment variable, i.e. `${env:NAME}`.
 pub(crate) fn env_var_reference(name: impl std::fmt::Display) -> String {
@@ -485,6 +493,7 @@ impl DruidRole {
             {COMMON_BASH_TRAP_FUNCTIONS}
             {remove_vector_shutdown_file_command}
             prepare_signal_handlers
+            mkdir --parents \"${file_log_directory}\" || true
             containerdebug --output={STACKABLE_LOG_DIR}/containerdebug-state.json --loop &
             /stackable/druid/bin/run-druid {process_name} {RW_CONFIG_DIRECTORY} &
             echo \"$!\" >> /tmp/DRUID_PID
@@ -492,6 +501,7 @@ impl DruidRole {
             {create_vector_shutdown_file_command}
             ",
                 process_name = self.get_process_name(),
+        file_log_directory = FILE_LOG_DIRECTORY.as_ref(),
         remove_vector_shutdown_file_command =
             remove_vector_shutdown_file_command(STACKABLE_LOG_DIR),
         create_vector_shutdown_file_command =
@@ -684,6 +694,9 @@ mod tests {
         let _ = *HISTORICAL_ROLE_NAME;
         let _ = *MIDDLE_MANAGER_ROLE_NAME;
         let _ = *ROUTER_ROLE_NAME;
+        let _ = *FILE_LOG_DIRECTORY;
+        let _ = *FILE_LOG_MAX_FILES;
+        let _ = *FILE_LOG_ROTATION_PERIOD;
         let _ = *COOKIE_PASSPHRASE_ENV;
         let _ = *COOKIE_PASSPHRASE_SECRET_KEY;
         let _ = *DRUID_DEFAULT_LISTENER_CLASS;

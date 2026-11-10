@@ -66,5 +66,7 @@ mod tests {
         let content = vector_config_file_content();
         assert!(!content.is_empty());
         assert!(content.contains("files_log4j2"));
+        assert!(content.contains("files_tracing_rs"));
+        assert!(content.contains("*.tracing-rs.json"));
     }
 }
