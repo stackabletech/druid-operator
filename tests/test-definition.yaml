@@ -123,7 +123,6 @@ tests:
     dimensions:
       - druid
       - zookeeper-latest
-      - opa-latest
       - hadoop-latest
       - ldap-use-tls
       - ldap-no-bind-credentials
@@ -157,7 +156,6 @@ tests:
     dimensions:
       - druid
       - zookeeper-latest
-      - opa
       - hadoop
       - openshift
 suites:
