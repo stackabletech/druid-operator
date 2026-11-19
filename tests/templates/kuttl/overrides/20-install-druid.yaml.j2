@@ -22,6 +22,8 @@ spec:
     tls: null
     zookeeperConfigMapName: druid-znode
   brokers:
+    config:
+      gracefulShutdownTimeout: 1s # Let the test run faster
     envOverrides:
       ROLE_VAR: role-value
       COMMON_VAR: role-value
@@ -44,6 +46,8 @@ spec:
             prop.common: group-value
             prop.group: group-value
   coordinators:
+    config:
+      gracefulShutdownTimeout: 1s # Let the test run faster
     envOverrides:
       ROLE_VAR: role-value
       COMMON_VAR: role-value
@@ -71,6 +75,8 @@ spec:
             prop.group: group-value
 
   historicals:
+    config:
+      gracefulShutdownTimeout: 1s # Let the test run faster
     envOverrides:
       ROLE_VAR: role-value
       COMMON_VAR: role-value
@@ -89,6 +95,8 @@ spec:
             prop.common: group-value
             prop.group: group-value
   middleManagers:
+    config:
+      gracefulShutdownTimeout: 1s # Let the test run faster
     envOverrides:
       ROLE_VAR: role-value
       COMMON_VAR: role-value
@@ -107,6 +115,8 @@ spec:
             prop.common: group-value
             prop.group: group-value
   routers:
+    config:
+      gracefulShutdownTimeout: 1s # Let the test run faster
     envOverrides:
       ROLE_VAR: role-value
       COMMON_VAR: role-value
