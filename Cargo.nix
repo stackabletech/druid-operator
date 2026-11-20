@@ -10873,7 +10873,7 @@ rec {
       };
       "stackable-druid-operator" = rec {
         crateName = "stackable-druid-operator";
-        version = "26.11.0-rc1";
+        version = "26.11.0";
         edition = "2024";
         crateBin = [
           {
