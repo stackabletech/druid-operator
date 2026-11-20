@@ -109,12 +109,7 @@ simple-zk-server-default             3/3     7m
 === Ingest example data
 
 Next, ingest some example data using the web interface.
-You can either use `stackablectl stacklet list` to find out the address the Druid router is reachable at and use that address, or you can create a port-forward for the Druid Router:
-
-[source,bash]
-----
-kubectl port-forward svc/simple-druid-router 9088 > /dev/null 2>&1 &
-----
+Use the `stackablectl stacklet list` command to find the address for the Druid router and open that address in a browser.
 
 If you prefer to use the command line instead, follow the instructions in the collapsed section below.
 
