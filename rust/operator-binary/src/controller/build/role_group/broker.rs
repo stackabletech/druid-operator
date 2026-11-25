@@ -26,6 +26,7 @@ pub(crate) fn build<'a>(
         resources,
         logging,
         affinity,
+        containerdebug,
         graceful_shutdown_timeout,
         requested_secret_lifetime,
     } = &rg_config.config;
@@ -45,6 +46,7 @@ pub(crate) fn build<'a>(
         heap,
         direct_memory: Some(direct_memory),
         logging: logging.clone(),
+        containerdebug: containerdebug.clone(),
         listener: Some(group_listener_name(&cluster.name, &ROLE)),
         role_pod_volumes: Vec::new(),
         role_druid_mounts: Vec::new(),

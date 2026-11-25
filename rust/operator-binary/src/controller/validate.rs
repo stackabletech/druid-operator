@@ -23,7 +23,11 @@ use stackable_operator::{
         fragment::{FromFragment, ValidationError},
         merge::Merge,
     },
-    crd::{listener::v1alpha1::Listener, s3},
+    crd::{
+        containerdebug::{self, ValidatedContainerdebugConfig},
+        listener::v1alpha1::Listener,
+        s3,
+    },
     database_connections::drivers::jdbc::{JdbcDatabaseConnection, JdbcDatabaseConnectionDetails},
     k8s_openapi::api::core::v1::{ConfigMap, Secret, Volume},
     kube::{Resource, ResourceExt, api::ObjectMeta},
@@ -107,6 +111,13 @@ pub enum Error {
     #[snafu(display("the secret lifetime of {role} role group {role_group:?} is missing"))]
     MissingSecretLifetime { role: DruidRole, role_group: String },
 
+    #[snafu(display("invalid containerdebug configuration for {role} role group {role_group:?}"))]
+    InvalidContainerdebugConfig {
+        source: containerdebug::Error,
+        role: DruidRole,
+        role_group: String,
+    },
+
     #[snafu(display("failed to determine the cluster's name, namespace, or uid"))]
     ClusterIdentity {
         source: stackable_operator::v2::controller_utils::Error,
@@ -149,6 +160,7 @@ pub struct ValidatedCoordinatorConfig {
     pub resources: Resources<DruidStorage, NoRuntimeLimits>,
     pub logging: ValidatedLogging,
     pub affinity: StackableAffinity,
+    pub containerdebug: ValidatedContainerdebugConfig,
     pub graceful_shutdown_timeout: Duration,
     pub requested_secret_lifetime: Duration,
 }
@@ -160,6 +172,7 @@ pub struct ValidatedBrokerConfig {
     pub resources: Resources<DruidStorage, NoRuntimeLimits>,
     pub logging: ValidatedLogging,
     pub affinity: StackableAffinity,
+    pub containerdebug: ValidatedContainerdebugConfig,
     pub graceful_shutdown_timeout: Duration,
     pub requested_secret_lifetime: Duration,
 }
@@ -171,6 +184,7 @@ pub struct ValidatedHistoricalConfig {
     pub resources: Resources<HistoricalStorage, NoRuntimeLimits>,
     pub logging: ValidatedLogging,
     pub affinity: StackableAffinity,
+    pub containerdebug: ValidatedContainerdebugConfig,
     pub graceful_shutdown_timeout: Duration,
     pub requested_secret_lifetime: Duration,
 }
@@ -182,6 +196,7 @@ pub struct ValidatedMiddleManagerConfig {
     pub resources: Resources<DruidStorage, NoRuntimeLimits>,
     pub logging: ValidatedLogging,
     pub affinity: StackableAffinity,
+    pub containerdebug: ValidatedContainerdebugConfig,
     pub graceful_shutdown_timeout: Duration,
     pub requested_secret_lifetime: Duration,
 }
@@ -193,6 +208,7 @@ pub struct ValidatedRouterConfig {
     pub resources: Resources<DruidStorage, NoRuntimeLimits>,
     pub logging: ValidatedLogging,
     pub affinity: StackableAffinity,
+    pub containerdebug: ValidatedContainerdebugConfig,
     pub graceful_shutdown_timeout: Duration,
     pub requested_secret_lifetime: Duration,
 }
@@ -626,6 +642,7 @@ fn validate_coordinator_role_group_configs(
                 resources,
                 logging,
                 affinity,
+                containerdebug,
                 graceful_shutdown_timeout,
                 requested_secret_lifetime,
             } = merged.config;
@@ -635,6 +652,12 @@ fn validate_coordinator_role_group_configs(
                     resources,
                     logging: validate_logging(&logging, vector_aggregator_config_map_name)?,
                     affinity,
+                    containerdebug: containerdebug.validate().with_context(|_| {
+                        InvalidContainerdebugConfigSnafu {
+                            role: druid_role.clone(),
+                            role_group: role_group_name.to_owned(),
+                        }
+                    })?,
                     graceful_shutdown_timeout: graceful_shutdown_timeout.with_context(|| {
                         MissingGracefulShutdownTimeoutSnafu {
                             role: druid_role.clone(),
@@ -689,6 +712,7 @@ fn validate_broker_role_group_configs(
                 resources,
                 logging,
                 affinity,
+                containerdebug,
                 graceful_shutdown_timeout,
                 requested_secret_lifetime,
             } = merged.config;
@@ -698,6 +722,12 @@ fn validate_broker_role_group_configs(
                     resources,
                     logging: validate_logging(&logging, vector_aggregator_config_map_name)?,
                     affinity,
+                    containerdebug: containerdebug.validate().with_context(|_| {
+                        InvalidContainerdebugConfigSnafu {
+                            role: druid_role.clone(),
+                            role_group: role_group_name.to_owned(),
+                        }
+                    })?,
                     graceful_shutdown_timeout: graceful_shutdown_timeout.with_context(|| {
                         MissingGracefulShutdownTimeoutSnafu {
                             role: druid_role.clone(),
@@ -752,6 +782,7 @@ fn validate_historical_role_group_configs(
                 resources,
                 logging,
                 affinity,
+                containerdebug,
                 graceful_shutdown_timeout,
                 requested_secret_lifetime,
             } = merged.config;
@@ -761,6 +792,12 @@ fn validate_historical_role_group_configs(
                     resources,
                     logging: validate_logging(&logging, vector_aggregator_config_map_name)?,
                     affinity,
+                    containerdebug: containerdebug.validate().with_context(|_| {
+                        InvalidContainerdebugConfigSnafu {
+                            role: druid_role.clone(),
+                            role_group: role_group_name.to_owned(),
+                        }
+                    })?,
                     graceful_shutdown_timeout: graceful_shutdown_timeout.with_context(|| {
                         MissingGracefulShutdownTimeoutSnafu {
                             role: druid_role.clone(),
@@ -815,6 +852,7 @@ fn validate_middle_manager_role_group_configs(
                 resources,
                 logging,
                 affinity,
+                containerdebug,
                 graceful_shutdown_timeout,
                 requested_secret_lifetime,
             } = merged.config;
@@ -824,6 +862,12 @@ fn validate_middle_manager_role_group_configs(
                     resources,
                     logging: validate_logging(&logging, vector_aggregator_config_map_name)?,
                     affinity,
+                    containerdebug: containerdebug.validate().with_context(|_| {
+                        InvalidContainerdebugConfigSnafu {
+                            role: druid_role.clone(),
+                            role_group: role_group_name.to_owned(),
+                        }
+                    })?,
                     graceful_shutdown_timeout: graceful_shutdown_timeout.with_context(|| {
                         MissingGracefulShutdownTimeoutSnafu {
                             role: druid_role.clone(),
@@ -878,6 +922,7 @@ fn validate_router_role_group_configs(
                 resources,
                 logging,
                 affinity,
+                containerdebug,
                 graceful_shutdown_timeout,
                 requested_secret_lifetime,
             } = merged.config;
@@ -887,6 +932,12 @@ fn validate_router_role_group_configs(
                     resources,
                     logging: validate_logging(&logging, vector_aggregator_config_map_name)?,
                     affinity,
+                    containerdebug: containerdebug.validate().with_context(|_| {
+                        InvalidContainerdebugConfigSnafu {
+                            role: druid_role.clone(),
+                            role_group: role_group_name.to_owned(),
+                        }
+                    })?,
                     graceful_shutdown_timeout: graceful_shutdown_timeout.with_context(|| {
                         MissingGracefulShutdownTimeoutSnafu {
                             role: druid_role.clone(),
@@ -1176,6 +1227,118 @@ mod tests {
         assert!(
             matches!(result, Err(Error::ClusterIdentity { .. })),
             "expected a ClusterIdentity error when the cluster has no uid"
+        );
+    }
+
+    /// `MINIMAL_DRUID_YAML` with the given lines added to the `config` of every role.
+    fn minimal_druid_yaml_with_role_config(role_config: &str) -> String {
+        let mut yaml = MINIMAL_DRUID_YAML.to_owned();
+        for role in [
+            "brokers",
+            "coordinators",
+            "historicals",
+            "middleManagers",
+            "routers",
+        ] {
+            let role_line = format!("  {role}:\n    roleGroups:");
+            assert_eq!(
+                yaml.matches(&role_line).count(),
+                1,
+                "{role} is in the fixture"
+            );
+            yaml = yaml.replace(
+                &role_line,
+                &format!("  {role}:\n    config:\n{role_config}    roleGroups:"),
+            );
+        }
+        yaml
+    }
+
+    /// A role `config` that does not mention `containerdebug` still gets the default, so the
+    /// `containerdebug` field of the CRD must be optional in every role.
+    #[test]
+    fn containerdebug_defaults_when_not_configured() {
+        use stackable_operator::crd::containerdebug::{
+            DEFAULT_INTERVAL, ValidatedContainerdebugConfig,
+        };
+
+        let druid = druid_from_yaml(&minimal_druid_yaml_with_role_config(
+            "      gracefulShutdownTimeout: 1m\n",
+        ));
+        let cluster = match validate(&druid, &dereferenced_objects(), &operator_environment()) {
+            Ok(cluster) => cluster,
+            Err(error) => panic!("the cluster is valid, but: {error:?}"),
+        };
+        let default_group = RoleGroupName::from_str("default").expect("valid role group name");
+        let default = ValidatedContainerdebugConfig::Enabled {
+            interval: DEFAULT_INTERVAL,
+        };
+
+        assert_eq!(
+            cluster.coordinator_role_group_configs[&default_group]
+                .config
+                .containerdebug,
+            default
+        );
+        assert_eq!(
+            cluster.broker_role_group_configs[&default_group]
+                .config
+                .containerdebug,
+            default
+        );
+        assert_eq!(
+            cluster.historical_role_group_configs[&default_group]
+                .config
+                .containerdebug,
+            default
+        );
+        assert_eq!(
+            cluster.middle_manager_role_group_configs[&default_group]
+                .config
+                .containerdebug,
+            default
+        );
+        assert_eq!(
+            cluster.router_role_group_configs[&default_group]
+                .config
+                .containerdebug,
+            default
+        );
+    }
+
+    /// An invalid `containerdebug` config fails the validation, naming the role and the role
+    /// group.
+    #[test]
+    fn zero_containerdebug_interval_fails_validation() {
+        let yaml = MINIMAL_DRUID_YAML.replace(
+            "  historicals:\n    roleGroups:",
+            "  historicals:\n    config:\n      containerdebug:\n        interval: 0s\n    roleGroups:",
+        );
+        assert_ne!(
+            yaml, MINIMAL_DRUID_YAML,
+            "the historicals are in the fixture"
+        );
+
+        let Err(error) = validate(
+            &druid_from_yaml(&yaml),
+            &dereferenced_objects(),
+            &operator_environment(),
+        ) else {
+            panic!("a zero containerdebug interval must fail the validation");
+        };
+        let chain: Vec<String> =
+            std::iter::successors(Some(&error as &dyn std::error::Error), |error| {
+                error.source()
+            })
+            .map(ToString::to_string)
+            .collect();
+
+        assert_eq!(
+            chain,
+            [
+                "invalid containerdebug configuration for historical role group \"default\"",
+                "the containerdebug interval must not be zero",
+            ]
         );
     }
 }

@@ -252,4 +252,85 @@ spec:
             ..Volume::default()
         }
     }
+
+    /// The `druid` container of every role starts `containerdebug` from the validated config of
+    /// its own role group. The command itself is owned (and tested) by operator-rs, so only the
+    /// wiring is checked here.
+    #[test]
+    fn every_role_starts_containerdebug_from_its_own_config() {
+        use stackable_operator::{
+            crd::containerdebug::{DEFAULT_INTERVAL, ValidatedContainerdebugConfig},
+            shared::time::Duration,
+            v2::product_logging::framework::STACKABLE_LOG_DIR,
+        };
+
+        let yaml = MINIMAL_DRUID_YAML
+            .replace(
+                "  coordinators:\n    roleGroups:",
+                "  coordinators:\n    config:\n      containerdebug:\n        enabled: false\n    roleGroups:",
+            )
+            .replace(
+                "  brokers:\n    roleGroups:",
+                "  brokers:\n    config:\n      containerdebug:\n        interval: 10m\n    roleGroups:",
+            );
+        let cluster = validated_cluster(&druid_from_yaml(&yaml));
+        let default_group = RoleGroupName::from_str("default").expect("valid role group name");
+
+        for (role, containerdebug) in [
+            (
+                DruidRole::Coordinator,
+                ValidatedContainerdebugConfig::Disabled,
+            ),
+            (
+                DruidRole::Broker,
+                ValidatedContainerdebugConfig::Enabled {
+                    interval: Duration::from_minutes_unchecked(10),
+                },
+            ),
+            (
+                DruidRole::Historical,
+                ValidatedContainerdebugConfig::Enabled {
+                    interval: DEFAULT_INTERVAL,
+                },
+            ),
+            (
+                DruidRole::MiddleManager,
+                ValidatedContainerdebugConfig::Enabled {
+                    interval: DEFAULT_INTERVAL,
+                },
+            ),
+            (
+                DruidRole::Router,
+                ValidatedContainerdebugConfig::Enabled {
+                    interval: DEFAULT_INTERVAL,
+                },
+            ),
+        ] {
+            let stateful_set =
+                build_statefulset(&role_group_builder(&cluster, &role, &default_group))
+                    .expect("the StatefulSet builds");
+            let args = stateful_set
+                .spec
+                .expect("the StatefulSet has a spec")
+                .template
+                .spec
+                .expect("the pod template has a spec")
+                .containers
+                .into_iter()
+                .find(|container| container.name == Container::Druid.name().as_ref())
+                .expect("the druid container exists")
+                .args
+                .expect("the druid container has args")
+                .join("\n");
+
+            assert_eq!(
+                args.lines()
+                    .map(str::trim)
+                    .find(|line| line.starts_with("containerdebug "))
+                    .map(ToOwned::to_owned),
+                containerdebug.background_command(STACKABLE_LOG_DIR),
+                "{role}: {args}"
+            );
+        }
+    }
 }

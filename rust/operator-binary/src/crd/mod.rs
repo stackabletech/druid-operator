@@ -14,6 +14,10 @@ use stackable_operator::{
     constant,
     crd::{
         authentication::{core, oidc},
+        containerdebug::{
+            ValidatedContainerdebugConfig, default_containerdebug_config,
+            v1alpha1::ContainerdebugConfig,
+        },
         s3,
     },
     deep_merger::ObjectOverrides,
@@ -487,20 +491,26 @@ impl DruidRole {
         commands
     }
 
-    pub fn main_container_start_command(&self) -> String {
+    pub fn main_container_start_command(
+        &self,
+        containerdebug: &ValidatedContainerdebugConfig,
+    ) -> String {
         // We need to store the druid process PID for the graceful shutdown lifecycle pre stop hook.
         formatdoc! {"
             {COMMON_BASH_TRAP_FUNCTIONS}
             {remove_vector_shutdown_file_command}
             prepare_signal_handlers
             mkdir --parents \"${file_log_directory}\" || true
-            containerdebug --output={STACKABLE_LOG_DIR}/containerdebug-state.json --loop &
+            {containerdebug_command}
             /stackable/druid/bin/run-druid {process_name} {RW_CONFIG_DIRECTORY} &
             echo \"$!\" >> /tmp/DRUID_PID
             wait_for_termination $(cat /tmp/DRUID_PID)
             {create_vector_shutdown_file_command}
             ",
                 process_name = self.get_process_name(),
+        containerdebug_command = containerdebug
+            .background_command(STACKABLE_LOG_DIR)
+            .unwrap_or_default(),
         file_log_directory = FILE_LOG_DIRECTORY.as_ref(),
         remove_vector_shutdown_file_command =
             remove_vector_shutdown_file_command(STACKABLE_LOG_DIR),
@@ -563,7 +573,7 @@ pub struct IngestionSpec {
 /// passed explicitly because `macro_rules!` cannot synthesize identifiers.
 macro_rules! role_group_config {
     ($name:ident, $fragment:ident, $storage:ty, $resources:expr, $secret_lifetime:expr $(,)?) => {
-        #[derive(Clone, Debug, Default, Fragment, JsonSchema, PartialEq)]
+        #[derive(Clone, Debug, Fragment, JsonSchema, PartialEq)]
         #[fragment_attrs(
             derive(
                 Clone,
@@ -584,6 +594,8 @@ macro_rules! role_group_config {
             pub logging: Logging<Container>,
             #[fragment_attrs(serde(default))]
             pub affinity: StackableAffinity,
+            #[fragment_attrs(serde(default))]
+            pub containerdebug: ContainerdebugConfig,
             /// The time period Pods have to gracefully shut down, e.g. `30m`, `1h` or `2d`.
             /// Read more about graceful shutdown in the
             /// [graceful shutdown documentation](DOCS_BASE_URL_PLACEHOLDER/druid/usage-guide/operations/graceful-shutdown).
@@ -606,6 +618,7 @@ macro_rules! role_group_config {
                     resources: $resources.to_owned(),
                     logging: product_logging::spec::default_logging(),
                     affinity: get_affinity(cluster_name, role, deep_storage),
+                    containerdebug: default_containerdebug_config(),
                     graceful_shutdown_timeout: Some(role.default_graceful_shutdown_timeout()),
                     requested_secret_lifetime: Some($secret_lifetime),
                 }
