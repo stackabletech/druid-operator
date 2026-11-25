@@ -18,6 +18,7 @@ use std::collections::BTreeMap;
 use snafu::{ResultExt, Snafu};
 use stackable_operator::{
     commons::affinity::StackableAffinity,
+    crd::containerdebug::ValidatedContainerdebugConfig,
     k8s_openapi::api::{
         apps::v1::StatefulSet,
         core::v1::{
@@ -89,6 +90,8 @@ pub(crate) struct RoleGroupInputs<'a> {
     /// Router.
     pub(crate) direct_memory: Option<MemoryQuantity>,
     pub(crate) logging: ValidatedLogging,
+    /// Starts (or not) the `containerdebug` process in the background of the `druid` container.
+    pub(crate) containerdebug: ValidatedContainerdebugConfig,
     /// The role's group Listener name; `Some` for Brokers, Coordinators and Routers. Drives the
     /// listener claim template, its mount on the `druid` container and the listener scope of the
     /// TLS volume.

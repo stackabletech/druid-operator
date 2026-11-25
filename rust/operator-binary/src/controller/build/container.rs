@@ -287,7 +287,7 @@ pub(crate) fn containers_and_volumes(inputs: &RoleGroupInputs) -> Result<Contain
     // They are merged in last so that they override any operator-set environment variable.
     let env_vars = env_vars.merge(inputs.env_overrides.clone());
 
-    main_container_commands.push(role.main_container_start_command());
+    main_container_commands.push(role.main_container_start_command(&inputs.containerdebug));
     cb_druid
         .image_from_product_image(resolved_product_image)
         .command(vec![
